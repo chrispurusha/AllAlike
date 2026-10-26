@@ -17,7 +17,8 @@ single-patch sound engine.
 
 **Out of scope:**
 - **Multi mode and performance mode** - no parts, no multi-timbral setup, no Multi dumps.
-- The hardware's own front panel, its USB/host integration, and anything that only exists to drive the hardware.
+- The hardware's own front panel, its own host software and USB audio streaming. A link to a hardware Virus TI over
+  USB MIDI comes later (§6).
 
 **Sources.** This repo states only what has been measured: renders of the reference instrument, made in the box
 and compared sample by sample with this engine (§3), and what the patch format itself shows. A law in the code is
@@ -45,11 +46,31 @@ Every comparison starts from a known Single sent as SysEx into the edit buffer, 
 ## 4. Order of work
 
 1. The renderer and a patch extractor (built; kept outside this repo for now).
-2. An INIT Single, then one-control sweeps: oscillators, filters, envelopes, LFOs - the first laws.
-3. The plug-in skeleton, on Pulse2Alike's layout: one engine per instance, the patch loader, the voice limit.
-4. Section by section, each confirmed against the reference renders before the next.
+2. The skeleton (built 2026-10-26): the infrastructure, the panel, a placeholder oscillator and filter, the voice
+   limit - §5.
+3. An INIT Single, then one-control sweeps against the reference renders: the filter and the oscillator first, then
+   envelopes and LFOs - the first laws.
+4. The patch loader and the panel's patch bar.
+5. Section by section, each confirmed against the reference renders before the next.
+6. The hardware link (§6), further down the line.
 
-## 5. Open questions
+## 5. The project's infrastructure (2026-10-26)
+
+As Pulse2Alike's: SynthLib as a submodule, `do-plugin` (VST3 and Audio Unit, universal, installed as built),
+`do-release` (a `.dmg` with the licences), `do-uncrustify`, the licence and `THIRD_PARTY.md`. The panel is
+Pulse2Alike's, driven by tables of pages and sections (`plugin/tiParams.c`), so it grows a section at a time as the
+engine does. See `findings.md` for the first build's checks.
+
+## 6. A Virus TI over USB (later; CT 2026-10-26)
+
+Connect a hardware Virus TI over USB, as Pulse2Alike links a Pulse 2: the instrument follows the instance's sound
+(controller changes as they are made, a Single dump into its edit buffer when a patch loads), and a Single can be read
+back from it. It also makes the instrument a second reference to measure against, through an audio interface as the
+Pulse 2 is. To settle when it starts: which of the TI's USB MIDI ports carries SysEx and controllers, its device ID,
+and whether the panel's edits reach a host (to follow the instrument as well as drive it). Like Pulse2Alike, nothing is
+ever written to the instrument's memory without asking.
+
+## 7. Open questions
 
 - **The effects.** A Single carries its own effects (delay, reverb, chorus and the rest). Which of them come in,
   and when.

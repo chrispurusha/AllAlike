@@ -1,0 +1,40 @@
+# Findings
+
+Measurements, results and the traps that cost time, newest last.
+
+## 2026-10-26 - the skeleton
+
+- The project's infrastructure follows Pulse2Alike's: SynthLib as a submodule (its glfw and freetype submodules
+  initialised, FreeType built at macOS 12.0), the build and release scripts, the licence and third-party notices,
+  uncrustify, and the panel.
+- First build: VST3 and Audio Unit, universal, `auval -v aumu TIal CPur` passes. Rendered offline: a five-note chord
+  plays all five at Voice Limit 16 and the last two at 2; the filter's spectral centroid follows Cutoff (125 Hz at 38,
+  380 Hz at 76, 3 kHz at 127 with LP 24) and Resonance lifts the band near it; the output stays finite.
+
+## 2026-10-26 - Filter 1's digital modes
+
+- Low pass, high pass and band pass are biquads with the cutoff on third-octave points (1 kHz at point 17), nine
+  resonance rows of fixed Q (-3 to 48 dB) and a per-row output gain (code-notes/tiFilter.md).
+- Against reference renders (the Init Single, oscillator 2 out, Filter Balance at Filter 1, a saw at C1, harmonics
+  against the open filter): Cutoff 60 at Resonance 0, 64 and 100 within 0.2 dB from 200 Hz to 5 kHz. In the Init's
+  Serial 4 routing, Filter Balance at either end gives one 12 dB/oct filter and the middle the two in series.
+- The cutoff in hertz holds at a 48 kHz host: the points are fixed in hertz, not in fractions of the sample rate.
+
+## 2026-10-26 - Filter 1's analog modes
+
+- Analog 1-4 Pole are one four-stage ladder at twice the rate, tapped after stage 1-4, the feedback always from stage
+  4, a 2x - x|x| saturator after stage 1 (code-notes/tiFilter.md §5).
+- Against reference renders (Init, Filter Balance at Filter 1, a saw at C1, Cutoff 60): Resonance 0 and 64, 1-4 Pole,
+  within about 0.5 dB from 100 Hz to 3 kHz; the 1-pole notch at 1 kHz reproduced. Resonance 100 and 127 self-oscillate
+  at 637.8 / 634.4 Hz against 636.7 / 640.0. The resonant peak sits where the digital filter's cutoff is.
+- The oscillator's level into the ladder (0.115) is fitted, not measured (§6).
+- Band stop: the cookbook notch with no gain row; Cutoff 60, Resonance 0/64/120, within 0.6 dB of the reference renders
+  including the notch (2026-10-26).
+
+## 2026-10-26 - Smoothing
+- With the Init Single (Parameter Smooth Mode On), a Cutoff change glides linearly in dial units over a fixed ~44 ms
+  whatever its size (20->80, 40->100, 20->127 all arrive 40-47 ms after the change); with the mode Off it is immediate.
+  Taken as 2048 samples at 46875 Hz. TiAlike's glide matches it in length and shape; the reference starts 5-8 ms later
+  (its reaction to a CC, not part of the glide).
+- So the reference does not step audibly when a knob is turned slowly: each 0.94-semitone step is glided over.
+
