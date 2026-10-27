@@ -50,9 +50,13 @@ Every comparison starts from a known Single sent as SysEx into the edit buffer, 
    limit - §5.
 3. An INIT Single, then one-control sweeps against the reference renders: the filter and the oscillator first, then
    envelopes and LFOs - the first laws.
-4. The patch loader and the panel's patch bar.
-5. Section by section, each confirmed against the reference renders before the next.
-6. The hardware link (§6), further down the line.
+4. The patch loader and the panel's patch bar, early and on placeholders (CT 2026-10-26): a loaded Single keeps
+   all its bytes (so it saves back unchanged), every parameter the engine has is driven from it, and the rest are
+   kept but do nothing until their section is built - so real patches play, partly, from the start.
+5. Section by section, each confirmed against the reference renders before the next: the oscillator, the
+   envelopes, the LFOs and the modulation matrix, then the rest of the voice.
+6. **Effects next to last, the arpeggiator last - if at all** (CT 2026-10-26).
+7. The hardware link (§6), further down the line.
 
 ## 5. The project's infrastructure (2026-10-26)
 
@@ -60,6 +64,13 @@ As Pulse2Alike's: SynthLib as a submodule, `do-plugin` (VST3 and Audio Unit, uni
 `do-release` (a `.dmg` with the licences), `do-uncrustify`, the licence and `THIRD_PARTY.md`. The panel is
 Pulse2Alike's, driven by tables of pages and sections (`plugin/tiParams.c`), so it grows a section at a time as the
 engine does. See `findings.md` for the first build's checks.
+
+**Kept common with Pulse2Alike (CT 2026-10-27).** The same pages by name and colour - OSCILLATORS, FILTER, AMP,
+ENVELOPES, LFOS, MOD, EFFECTS (TiAlike only), ARP, GLOBAL - each shown once something on it is built; the same patch
+bar (Prev / Next / Load... / name), File menu and Presets menu. Presets are A001-D128, four banks of 128 as the
+instrument's RAM banks, in one file; Load... reads a Single from a `.syx` or a sound set `.mid`. Where TiAlike needs
+something Pulse2Alike lacks, it is added to both if it makes sense there. See code-notes/tiDraw.md §9-12 and
+tiPatch.md.
 
 ## 6. A Virus TI over USB (later; CT 2026-10-26)
 
@@ -72,10 +83,11 @@ ever written to the instrument's memory without asking.
 
 ## 7. Open questions
 
-- **The effects.** A Single carries its own effects (delay, reverb, chorus and the rest). Which of them come in,
-  and when.
+- **The effects.** A Single carries its own effects (delay, reverb, chorus and the rest). Next to last in the order
+  (§4); which of them come in is still open.
 - **Oscillator models.** The TI has several (classic, HyperSaw, wavetable, wavetable PWM, grain, formant). All of
   them, or a first set.
-- **Arpeggiator, vocoder, the inputs.** Part of a Single, but not needed for most patches.
+- **Arpeggiator, vocoder, the inputs.** Part of a Single, but not needed for most patches. The arpeggiator is the
+  lowest priority of all, perhaps never (CT 2026-10-26).
 - **The voice limit's range and default.**
 - **A/B/C Singles.** Load them too (mapped onto the TI engine), or TI Singles only.

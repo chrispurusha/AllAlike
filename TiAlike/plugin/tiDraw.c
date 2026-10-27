@@ -15,8 +15,9 @@
  * not, see <https://www.gnu.org/licenses/>.
  */
 // Notes: Docs/code-notes/tiDraw.md - "// notes §k" refers there. Pulse2Alike's panel, without its presets,
-// hardware link and patch bar (notes §1).
+// hardware link and arpeggiator steps (notes §1).
 
+#include <ctype.h>
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
@@ -33,10 +34,13 @@
 #include "renderBackend.h"
 #include "contextMenu.h"
 #include "fileBrowser.h"
+#include "bankBrowser.h"
+#include "alertDialog.h"
 #include "menuBar.h"
 #include "synthlibPopups.h"
 
 #include "tiMenu.h"
+#include "tiPatch.h"
 #include "tiPrefs.h"
 
 #define GL_SILENCE_DEPRECATION    1
@@ -61,6 +65,10 @@
 #define LABEL_H                   (11.0)
 #define HEADING_TO_DIAL           (34.0)
 #define BUTTON_H                  (12.0)
+#define PATCH_BAR_X               (300.0)
+#define PATCH_BUTTON_H            (14.0)
+#define NAME_FIELD_W              (128.0)
+#define FILE_LABEL_CHARS          (26)
 #define MENU_BG                   {0.22, 0.22, 0.25}
 #define MENU_MAX                  (32)
 #define MENU_CELL_W               (96.0)
@@ -79,31 +87,52 @@ typedef struct {
     double             x, y, w;
 } tPlacedSection;
 
-static const tTiPage *    gPages;
-static uint32_t           gPageCount;
-static uint32_t           gPage;
-static double             gValue[MAX_PARAMS];   // normalized, as the host holds them
-static bool               gFontReady;
-static tCoord             gMouse;
+static const tTiPage *      gPages;
+static uint32_t             gPageCount;
+static uint32_t             gPage;
+static double               gValue[MAX_PARAMS]; // normalized, as the host holds them
+static bool                 gFontReady;
+static tCoord               gMouse;
 
-static tPlaced            gPlaced[MAX_PLACED];
-static uint32_t           gPlacedCount;
-static tPlacedSection     gPlacedSections[MAX_PLACED];
-static uint32_t           gPlacedSectionCount;
-static tRectangle         gTabs[MAX_PAGES];
+static tPlaced              gPlaced[MAX_PLACED];
+static uint32_t             gPlacedCount;
+static tPlacedSection       gPlacedSections[MAX_PLACED];
+static uint32_t             gPlacedSectionCount;
+static tRectangle           gTabs[MAX_PAGES];
 
 // the dial being dragged; its value runs unrounded while it moves
-static const tTiControl * gGrabbed;
-static double             gGrabValue;
-static tRectangle         gGrabDial;            // the grabbed dial's square, for a rotary drag
+static const tTiControl *   gGrabbed;
+static double               gGrabValue;
+static tRectangle           gGrabDial;          // the grabbed dial's square, for a rotary drag
 
 // notes §7: the open value menu - which control it sets, and what was chosen
-static const tTiControl * gMenuFor;
-static int                gMenuChoice = -1;
-static tMenuItem          gMenuItems[MENU_MAX + 1];
+static const tTiControl *   gMenuFor;
+static int                  gMenuChoice = -1;
+static tMenuItem            gMenuItems[MENU_MAX + 1];
 
-static bool               gOpeningClick;     // notes §3: the press that opened a menu, until its release
-static tCoord             gOpeningAt;
+static bool                 gOpeningClick;   // notes §3: the press that opened a menu, until its release
+static tCoord               gOpeningAt;
+
+// notes §9: the patch bar
+static const tTiPatchHost * gHost;
+static void *               gUser;
+static char                 gPatchPath[1024];
+static int                  gPatchIndex;
+static int                  gPreset;
+static bool                 gPresetEdited;
+static tRectangle           gPrevRect, gNextRect, gLoadRect, gNameRect;
+
+// notes §9: the Singles of the file the sound came from, read again only when the file changes
+static uint8_t              gSingles[TI_MAX_SINGLES][TI_SINGLE_LENGTH];
+static int                  gSingleCount;
+static char                 gSinglesPath[1024];
+
+// notes §10: the sound's name, edited in place as Pulse2Alike's is
+static struct {
+    bool     active;
+    char     buffer[TI_SINGLE_NAME_LENGTH + 1];
+    uint32_t cursor;
+}                           gNameEdit;
 
 static void menu_action(int index) {
     gMenuChoice = index;
@@ -134,6 +163,12 @@ void ti_draw_set_pages(const tTiPage * pages, uint32_t count) {
     }
 }
 
+static tTiDialDisplay gDisplay;
+
+void ti_draw_set_display(tTiDialDisplay display) {
+    gDisplay = display;
+}
+
 void ti_draw_set_value(uint32_t paramId, double normalized) {
     if (paramId < MAX_PARAMS) {
         gValue[paramId] = normalized;
@@ -148,6 +183,509 @@ void ti_draw_set_mouse(double x, double y) {
 
 bool ti_draw_menu_active(void) {
     return gContextMenu.active || synthlib_popups_modal_active();
+}
+
+// ---- Singles - notes §9 -----------------------------------------------------------------------------------
+
+void ti_draw_set_host(const tTiPatchHost * host) {
+    gHost = host;
+}
+
+void ti_draw_set_user(void * user) {
+    gUser = user;
+}
+
+static void read_singles(const char * path) {
+    if (strcmp(path, gSinglesPath) != 0) {
+        snprintf(gSinglesPath, sizeof(gSinglesPath), "%s", path);
+        gSingleCount = (path[0] != '\0') ? ti_patch_read_file(path, gSingles, TI_MAX_SINGLES) : 0;
+    }
+}
+
+// notes §9: no reading here - it runs every frame, while the bank browser may be choosing from another file
+void ti_draw_set_patch(const char * path, int index) {
+    snprintf(gPatchPath, sizeof(gPatchPath), "%s", (path != NULL) ? path : "");
+    gPatchIndex = index;
+}
+
+static const char * host_name(void) {
+    return ((gHost != NULL) && (gUser != NULL)) ? gHost->name(gUser) : "";
+}
+
+static void load_single(int index) {
+    if ((gHost != NULL) && (gUser != NULL) && (index >= 0) && (index < gSingleCount)) {
+        gHost->load(gUser, gSingles[index], gSinglesPath, index, 0);
+        snprintf(gPatchPath, sizeof(gPatchPath), "%s", gSinglesPath);
+        gPatchIndex = index;
+        gPreset     = 0;   // a file is not a preset until it is stored to one
+    }
+}
+
+static tBankBrowserItem gSingleItems[TI_MAX_SINGLES];
+static char             gSingleNames[TI_MAX_SINGLES][TI_SINGLE_NAME_LENGTH + 8];
+
+static void on_single_chosen(bool confirmed, uint32_t bank1Indexed, uint32_t location1Indexed) {
+    if (confirmed) {
+        load_single((int)(((bank1Indexed - 1) * TI_BANK_SIZE) + (location1Indexed - 1)));
+    }
+}
+
+// notes §9: a file of several Singles opens SynthLib's bank browser, in banks of 128
+static void choose_single(void) {
+    char name[TI_SINGLE_NAME_LENGTH + 1];
+
+    for (int i = 0; i < gSingleCount; i++) {
+        ti_patch_name(gSingles[i], name);
+        snprintf(gSingleNames[i], sizeof(gSingleNames[0]), "%03d %s", (i % TI_BANK_SIZE) + 1, name);
+        gSingleItems[i] = (tBankBrowserItem){
+            gSingleNames[i], 0, (uint32_t)((i / TI_BANK_SIZE) + 1), (uint32_t)((i % TI_BANK_SIZE) + 1)
+        };
+    }
+
+    open_bank_browser("Load Single", strrchr(gSinglesPath, '/') + 1, "Load", gSingleItems, (uint32_t)gSingleCount, NULL, 0, on_single_chosen);
+}
+
+static void open_file(const char * path) {
+    static char message[1200];
+
+    read_singles(path);
+
+    if (gSingleCount == 0) {
+        snprintf(message, sizeof(message), "No Singles found in %s", path);
+        show_alert("Open Patch", message);
+        gSinglesPath[0] = '\0';
+    } else if (gSingleCount == 1) {
+        load_single(0);
+    } else {
+        choose_single();
+    }
+}
+
+static void on_file_chosen(const char * path) {
+    if ((path != NULL) && (path[0] != '\0')) {
+        open_file(path);
+    }
+}
+
+static const char * browser_start(void) {
+    static char folder[1024];
+
+    snprintf(folder, sizeof(folder), "%s", gPatchPath);
+    char *      slash = strrchr(folder, '/');
+
+    if (slash != NULL) {
+        *slash = '\0';
+        return folder;
+    }
+    return ti_patch_sounds_folder();
+}
+
+void ti_draw_open_patch(void) {
+    set_file_browser_start_directory_provider(browser_start);
+    open_file_browser_read(on_file_chosen);
+}
+
+bool ti_draw_has_patch_file(void) {
+    read_singles(gPatchPath);
+    return (strchr(gPatchPath, '/') != NULL) && (gSingleCount == 1);
+}
+
+static void save_to(const char * path) {
+    char failed[1400];
+
+    if ((gHost != NULL) && gHost->save(gUser, path)) {
+        gSinglesPath[0] = '\0';   // its bytes changed
+        ti_draw_set_patch(path, 0);
+        gPreset         = 0;
+        return;
+    }
+    snprintf(failed, sizeof(failed), "Could not write %s", path);
+    show_alert("Save Patch", failed);
+}
+
+static void on_save_chosen(const char * path) {
+    char   full[1100];
+    size_t n;
+
+    if ((path == NULL) || (path[0] == '\0')) {
+        return;
+    }
+    snprintf(full, sizeof(full), "%s", path);
+    n = strlen(full);
+
+    if (((n < 4) || (strcasecmp(full + n - 4, ".syx") != 0)) && (n + 4 < sizeof(full))) {
+        strcat(full, ".syx");
+    }
+    save_to(full);
+}
+
+static void on_overwrite_confirmed(bool confirmed) {
+    if (confirmed) {
+        save_to(gPatchPath);
+    }
+}
+
+void ti_draw_save_patch(bool chooseFile) {
+    static char message[1200];
+    static char suggested[64];
+
+    if (!chooseFile && ti_draw_has_patch_file()) {
+        snprintf(message, sizeof(message), "Overwrite \"%s\" with the sound as it is now?", strrchr(gPatchPath, '/') + 1);
+        show_confirm("Save Patch", message, "Save", on_overwrite_confirmed);
+        return;
+    }
+    snprintf(suggested, sizeof(suggested), "%s.syx", (host_name()[0] != '\0') ? host_name() : "Untitled");
+    set_file_browser_start_directory_provider(browser_start);
+    open_file_browser_write(on_save_chosen, suggested);
+}
+
+static void on_init_confirmed(bool confirmed) {
+    if (confirmed && (gHost != NULL)) {
+        gHost->init(gUser);
+        ti_draw_set_patch("", 0);
+    }
+}
+
+void ti_draw_init_patch(void) {
+    show_confirm("Init Patch", "Set every sound parameter to its default? No file is changed.", "Init", on_init_confirmed);
+}
+
+// ---- the presets - notes §11 ------------------------------------------------------------------------------
+
+void ti_draw_set_preset(int number, bool edited) {
+    gPreset       = number;
+    gPresetEdited = edited;
+}
+
+int ti_draw_preset(void) {
+    return gPreset;
+}
+
+static void load_preset(int number) {
+    if ((gHost != NULL) && (gUser != NULL) && (number >= 1) && (number <= TI_PRESETS)) {
+        (void)ti_presets_refresh();
+        gHost->load(gUser, ti_presets_single(number), "", 0, number);
+        gPreset       = number;
+        gPresetEdited = false;
+        ti_draw_set_patch("", 0);
+    }
+}
+
+// notes §11: Prev/Next step through A001-D128 and wrap; from no preset, Next is A001
+static void step_patch(int direction) {
+    int from = (gPreset != 0) ? gPreset : ((direction > 0) ? 0 : 1);
+
+    load_preset((((from - 1 + direction) % TI_PRESETS) + TI_PRESETS) % TI_PRESETS + 1);
+}
+
+static int gStoreTo;
+
+static void on_store_confirmed(bool confirmed) {
+    char failed[1200];
+
+    if (!confirmed || (gHost == NULL) || (gUser == NULL)) {
+        return;
+    }
+
+    if (gHost->storePreset(gUser, gStoreTo)) {
+        gPreset       = gStoreTo;
+        gPresetEdited = false;
+        ti_draw_set_patch("", 0);
+        return;
+    }
+    snprintf(failed, sizeof(failed), "Could not write %s", ti_presets_path());
+    show_alert("Store Preset", failed);
+}
+
+// notes §11: always confirmed, naming what the slot holds now
+void ti_draw_store_preset(int number) {
+    static char message[160];
+    char        label[8];
+
+    gStoreTo = (number > 0) ? number : gPreset;
+
+    if ((gStoreTo < 1) || (gStoreTo > TI_PRESETS)) {
+        return;
+    }
+    (void)ti_presets_refresh();
+    ti_preset_label(gStoreTo, label, sizeof(label));
+    snprintf(message, sizeof(message), "Store \"%s\" to %s, replacing \"%s\"?", host_name(), label, ti_presets_name(gStoreTo));
+    show_confirm("Store Preset", message, "Store", on_store_confirmed);
+}
+
+static tBankBrowserItem gSlotItems[TI_PRESETS];
+static char             gSlotNames[TI_PRESETS][TI_SINGLE_NAME_LENGTH + 8];
+
+static void fill_slot_items(void) {
+    char label[8];
+
+    (void)ti_presets_refresh();
+
+    for (int n = 1; n <= TI_PRESETS; n++) {
+        ti_preset_label(n, label, sizeof(label));
+        snprintf(gSlotNames[n - 1], sizeof(gSlotNames[0]), "%s %s", label, ti_presets_name(n));
+        gSlotItems[n - 1] = (tBankBrowserItem){
+            gSlotNames[n - 1], 0, (uint32_t)(((n - 1) / TI_BANK_SIZE) + 1), (uint32_t)(((n - 1) % TI_BANK_SIZE) + 1)
+        };
+    }
+}
+
+static int slot_number(uint32_t bank1Indexed, uint32_t location1Indexed) {
+    return (int)(((bank1Indexed - 1) * TI_BANK_SIZE) + location1Indexed);
+}
+
+static void on_load_slot(bool confirmed, uint32_t bank1Indexed, uint32_t location1Indexed) {
+    if (confirmed) {
+        load_preset(slot_number(bank1Indexed, location1Indexed));
+    }
+}
+
+static void on_store_slot(bool confirmed, uint32_t bank1Indexed, uint32_t location1Indexed) {
+    if (confirmed) {
+        ti_draw_store_preset(slot_number(bank1Indexed, location1Indexed));
+    }
+}
+
+void ti_draw_load_preset_browser(void) {
+    fill_slot_items();
+    open_bank_browser("Load Preset", "A001-D128, as banks A-D of 128.", "Load", gSlotItems, TI_PRESETS, NULL, 0, on_load_slot);
+}
+
+void ti_draw_store_preset_browser(void) {
+    fill_slot_items();
+    open_bank_browser("Store Preset", "The slot to store the sound as it is now into.", "Store...", gSlotItems, TI_PRESETS, NULL, 0,
+                      on_store_slot);
+}
+
+static void on_revert_confirmed(bool confirmed) {
+    if (confirmed) {
+        load_preset(gPreset);
+    }
+}
+
+void ti_draw_revert_preset(void) {
+    static char message[160];
+    char        label[8];
+
+    if (gPreset == 0) {
+        return;
+    }
+    (void)ti_presets_refresh();
+    ti_preset_label(gPreset, label, sizeof(label));
+    snprintf(message, sizeof(message), "Discard the edits and go back to %s \"%s\"?", label, ti_presets_name(gPreset));
+    show_confirm("Revert to Stored Preset", message, "Revert", on_revert_confirmed);
+}
+
+// ---- import and export - notes §12 ------------------------------------------------------------------------
+
+static uint8_t gImport[TI_PRESETS][TI_SINGLE_LENGTH];
+
+static void on_import_confirmed(bool confirmed) {
+    char failed[1200];
+
+    if (confirmed && !ti_presets_store_all((const uint8_t(*)[TI_SINGLE_LENGTH]) gImport)) {
+        snprintf(failed, sizeof(failed), "Could not write %s", ti_presets_path());
+        show_alert("Import Presets", failed);
+    }
+}
+
+static void confirm_import(int count, const char * from) {
+    static char message[1400];
+
+    if (count == 0) {
+        snprintf(message, sizeof(message), "No Singles found in %s", from);
+        show_alert("Import Presets", message);
+        return;
+    }
+    snprintf(message, sizeof(message), "Replace all 512 presets with the %d Single%s in %s, from A001? Slots it has no Single for "
+             "become Init.", count, (count == 1) ? "" : "s", from);
+    show_confirm("Import Presets", message, "Replace", on_import_confirmed);
+}
+
+static void on_import_file_chosen(const char * path) {
+    if ((path != NULL) && (path[0] != '\0')) {
+        confirm_import(ti_presets_read_file(path, gImport), path);
+    }
+}
+
+static void on_import_folder_chosen(const char * path) {
+    if ((path != NULL) && (path[0] != '\0')) {
+        confirm_import(ti_presets_read_folder(path, gImport), path);
+    }
+}
+
+static void on_export_chosen(const char * path) {
+    char message[1200];
+
+    if ((path != NULL) && (path[0] != '\0') && !ti_presets_write_file(path)) {
+        snprintf(message, sizeof(message), "Could not write %s", path);
+        show_alert("Export Presets", message);
+    }
+}
+
+void ti_draw_import_presets(bool folder) {
+    set_file_browser_start_directory_provider(browser_start);
+
+    if (folder) {
+        open_file_browser_folder(on_import_folder_chosen, "Import Presets from Folder");
+    } else {
+        open_file_browser_read(on_import_file_chosen);
+    }
+}
+
+void ti_draw_export_presets(void) {
+    set_file_browser_start_directory_provider(browser_start);
+    open_file_browser_write(on_export_chosen, "TiAlike Presets.syx");
+}
+
+// ---- the name field - notes §10 ---------------------------------------------------------------------------
+
+static void draw_name_field(void) {
+    const char * shown = gNameEdit.active ? gNameEdit.buffer : host_name();
+
+    gNameRect = (tRectangle){{
+                                 PATCH_BAR_X + 182.0, TITLE_Y + 1.0
+                             }, {
+                                 NAME_FIELD_W, PATCH_BUTTON_H + 2.0
+                             }
+    };
+    set_rgb_colour(gNameEdit.active ? (tRgb)RGB_GREY_3 : (tRgb)RGB_BACKGROUND_GREY);
+    render_rectangle_with_border(mainArea, gNameRect);
+    set_rgb_colour((tRgb)RGB_WHITE);
+    render_text(mainArea, (tRectangle){{gNameRect.coord.x + 4.0, TITLE_Y + 3.0}, {0.0, 13.0}}, shown);
+
+    if (gNameEdit.active) {
+        char   before[TI_SINGLE_NAME_LENGTH + 1];
+        double x;
+
+        snprintf(before, sizeof(before), "%.*s", (int)gNameEdit.cursor, gNameEdit.buffer);
+        x = gNameRect.coord.x + 4.0 + get_text_width(before, 13.0, eNoCache);
+        set_rgb_colour((tRgb)RGB_GREEN_ON);
+        render_line(mainArea, (tCoord){x, TITLE_Y + 3.0}, (tCoord){x, TITLE_Y + 16.0}, 1.0);
+    }
+}
+
+static void name_edit_begin(void) {
+    snprintf(gNameEdit.buffer, sizeof(gNameEdit.buffer), "%s", host_name());
+    gNameEdit.cursor = (uint32_t)strlen(gNameEdit.buffer);
+    gNameEdit.active = true;
+}
+
+static void name_edit_commit(void) {
+    gNameEdit.active = false;
+
+    if ((gHost != NULL) && (gUser != NULL)) {
+        gHost->rename(gUser, gNameEdit.buffer);
+    }
+}
+
+// Return keeps it, Escape drops it; a Single's name takes either case
+static bool name_edit_key(int glfwKey, unsigned int codepoint) {
+    size_t len = strlen(gNameEdit.buffer);
+
+    switch (glfwKey) {
+        case GLFW_KEY_ENTER:
+        case GLFW_KEY_KP_ENTER: name_edit_commit();
+            return true;
+
+        case GLFW_KEY_ESCAPE: gNameEdit.active = false;
+            return true;
+
+        case GLFW_KEY_LEFT: gNameEdit.cursor  -= (gNameEdit.cursor > 0) ? 1 : 0;
+            return true;
+
+        case GLFW_KEY_RIGHT: gNameEdit.cursor += (gNameEdit.cursor < len) ? 1 : 0;
+            return true;
+
+        case GLFW_KEY_HOME: gNameEdit.cursor   = 0;
+            return true;
+
+        case GLFW_KEY_END: gNameEdit.cursor    = (uint32_t)len;
+            return true;
+
+        case GLFW_KEY_BACKSPACE:
+
+            if (gNameEdit.cursor > 0) {
+                memmove(&gNameEdit.buffer[gNameEdit.cursor - 1], &gNameEdit.buffer[gNameEdit.cursor], len - gNameEdit.cursor + 1);
+                gNameEdit.cursor--;
+            }
+            return true;
+
+        case GLFW_KEY_DELETE:
+
+            if (gNameEdit.cursor < len) {
+                memmove(&gNameEdit.buffer[gNameEdit.cursor], &gNameEdit.buffer[gNameEdit.cursor + 1], len - gNameEdit.cursor);
+            }
+            return true;
+
+        default:
+            break;
+    }
+
+    if ((glfwKey != GLFW_KEY_UNKNOWN) || (codepoint < 0x20u) || (codepoint > 0x7Eu) || (len >= TI_SINGLE_NAME_LENGTH)) {
+        return glfwKey != GLFW_KEY_UNKNOWN;   // an editing key with no meaning here is still the field's
+    }
+    memmove(&gNameEdit.buffer[gNameEdit.cursor + 1], &gNameEdit.buffer[gNameEdit.cursor], len - gNameEdit.cursor + 1);
+    gNameEdit.buffer[gNameEdit.cursor++] = (char)codepoint;
+    return true;
+}
+
+static void draw_patch_bar(void) {
+    char         label[160];
+    const char * base = strrchr(gPatchPath, '/');
+
+    gPrevRect = (tRectangle){{
+                                 PATCH_BAR_X, TITLE_Y + 2.0
+                             }, {
+                                 52.0, PATCH_BUTTON_H
+                             }
+    };
+    gNextRect = (tRectangle){{
+                                 PATCH_BAR_X + 58.0, TITLE_Y + 2.0
+                             }, {
+                                 52.0, PATCH_BUTTON_H
+                             }
+    };
+    gLoadRect = (tRectangle){{
+                                 PATCH_BAR_X + 116.0, TITLE_Y + 2.0
+                             }, {
+                                 56.0, PATCH_BUTTON_H
+                             }
+    };
+    draw_button(mainArea, gPrevRect, "< Prev", (tRgb)RGB_GREY_7);
+    draw_button(mainArea, gNextRect, "Next >", (tRgb)RGB_GREY_7);
+    draw_button(mainArea, gLoadRect, "Load...", (tRgb)RGB_GREY_7);
+    draw_name_field();
+
+    if (gPreset > 0) {
+        ti_preset_label(gPreset, label, sizeof(label));
+        strcat(label, gPresetEdited ? "*" : "");
+        set_rgb_colour(gPresetEdited ? (tRgb)RGB_WHITE : (tRgb)RGB_GREY_5);
+        render_text(mainArea, (tRectangle){{gNameRect.coord.x + gNameRect.size.w + 8.0, TITLE_Y + 4.0}, {0.0, 11.0}}, label);
+        return;
+    }
+
+    if (base == NULL) {
+        return;
+    }
+    // the file without its extension, and the Single's place in it when it holds more than one
+    snprintf(label, sizeof(label), "%s", base + 1);
+
+    if ((strlen(label) > 4) && (label[strlen(label) - 4] == '.')) {
+        label[strlen(label) - 4] = '\0';
+    }
+
+    if (strlen(label) > FILE_LABEL_CHARS) {
+        label[FILE_LABEL_CHARS] = '\0';
+    }
+
+    if ((gSingleCount > 1) && (strcmp(gSinglesPath, gPatchPath) == 0)) {
+        size_t n = strlen(label);
+
+        snprintf(label + n, sizeof(label) - n, " %d/%d", gPatchIndex + 1, gSingleCount);
+    }
+    set_rgb_colour((tRgb)RGB_GREY_5);
+    render_text(mainArea, (tRectangle){{gNameRect.coord.x + gNameRect.size.w + 8.0, TITLE_Y + 4.0}, {0.0, 11.0}}, label);
 }
 
 // A button whose label is shrunk to fit it (a mod target's name is wider than its box)
@@ -261,6 +799,7 @@ void ti_draw_frame(int pixelWidth, int pixelHeight) {
     render_text(mainArea, (tRectangle){{MARGIN_X, TITLE_Y}, {0.0, 18.0}}, "TiAlike");
     draw_tabs();
     layout();
+    draw_patch_bar();
 
     for (uint32_t s = 0; s < gPlacedSectionCount; s++) {
         tPlacedSection * ps = &gPlacedSections[s];
@@ -278,12 +817,19 @@ void ti_draw_frame(int pixelWidth, int pixelHeight) {
 
         set_rgb_colour((tRgb)RGB_GREY_7);
         render_text(mainArea, (tRectangle){{pc->x, pc->dial.coord.y - 14.0}, {0.0, LABEL_H}}, c->label);
+        int32_t            shown  = step_of(c);
+
         value_text(c, text, sizeof(text));
+
+        // notes §8
+        if ((gDisplay != NULL) && gDisplay(c->paramId, gValue, &shown, text, sizeof(text))) {
+            shown = (shown < 0) ? 0 : ((shown > c->steps) ? c->steps : shown);
+        }
 
         if (c->kind == eTiControlChoice) {
             fitted_button((tRectangle){{pc->x, pc->dial.coord.y + ((DIAL_SIZE - BUTTON_H) / 2.0)}, {CONTROL_W - 6.0, BUTTON_H}}, text, colour);
         } else {
-            render_dial(mainArea, pc->dial, (uint32_t)step_of(c), (uint32_t)c->steps, 0, colour);
+            render_dial(mainArea, pc->dial, (uint32_t)shown, (uint32_t)c->steps, 0, colour);
             set_rgb_colour((tRgb)RGB_WHITE);
             render_text(mainArea, (tRectangle){{pc->x, pc->dial.coord.y + DIAL_SIZE + 6.0}, {0.0, LABEL_H}}, text);
         }
@@ -340,6 +886,33 @@ bool ti_draw_press(double x, double y, tTiEdit * edit, bool * grabbed) {
     if (gContextMenu.active) {
         close_context_menu();
         gMenuFor = NULL;
+        return true;
+    }
+
+    // notes §10: a press on the name edits it; anywhere else while editing keeps the edit, then acts as usual
+    if (within_rectangle((tCoord){x, y}, gNameRect)) {
+        if (!gNameEdit.active) {
+            name_edit_begin();
+        }
+        return true;
+    }
+
+    if (gNameEdit.active) {
+        name_edit_commit();
+    }
+
+    if (within_rectangle((tCoord){x, y}, draw_button_bounds(gPrevRect))) {
+        step_patch(-1);
+        return true;
+    }
+
+    if (within_rectangle((tCoord){x, y}, draw_button_bounds(gNextRect))) {
+        step_patch(1);
+        return true;
+    }
+
+    if (within_rectangle((tCoord){x, y}, draw_button_bounds(gLoadRect))) {
+        ti_draw_open_patch();
         return true;
     }
 
@@ -436,6 +1009,10 @@ void ti_draw_scroll(double dy) {
 
 bool ti_draw_key(int glfwKey, unsigned int codepoint, bool isRepeat) {
     int action = isRepeat ? GLFW_REPEAT : GLFW_PRESS;
+
+    if (gNameEdit.active && !synthlib_popups_modal_active()) {
+        return name_edit_key(glfwKey, codepoint);
+    }
 
     if ((glfwKey == GLFW_KEY_ESCAPE) && gContextMenu.active && !synthlib_popups_modal_active()) {
         close_context_menu();

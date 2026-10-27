@@ -38,3 +38,9 @@ Measurements, results and the traps that cost time, newest last.
   (its reaction to a CC, not part of the glide).
 - So the reference does not step audibly when a knob is turned slowly: each 0.94-semitone step is glided over.
 
+## 2026-10-26 - Filter 2, routing and Balance
+- Serial 4 and Parallel 4 with Balance and Link: within 0.3 dB rms of the reference renders below 3 kHz in 14 cases
+  (most within 0.05), including Balance 1 (no jump from 0) and close cutoffs at high resonance (code-notes/tiVoices.md
+  §6). Serial 6 and Split are stand-ins.
+- The reference's filter at a 44.1 kHz host matches its 48 kHz response within 0.5 dB (Cutoff 60, Resonance 64): its
+  cutoffs are fixed in hertz, as TiAlike's are (2026-10-26).

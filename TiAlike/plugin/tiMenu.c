@@ -28,10 +28,121 @@
 
 #include "tiDraw.h"
 #include "tiMenu.h"
+#include "tiPatch.h"
 #include "tiPrefs.h"
 
-#define ITEM           (tRgb)RGB_GREY_3
-#define END_OF_MENU    (tMenuItem){NULL, (tRgb)RGB_BLACK, NULL, 0, NULL, 0, 0.0, NULL}
+#define ITEM             (tRgb)RGB_GREY_3
+#define ITEM_DISABLED    (tRgb)RGB_GREY_5
+#define END_OF_MENU      (tMenuItem){NULL, (tRgb)RGB_BLACK, NULL, 0, NULL, 0, 0.0, NULL}
+
+// ---- File -------------------------------------------------------------------------------------------------
+
+static void action_open(int index) {
+    (void)index;
+    ti_draw_open_patch();
+}
+
+static void action_save(int index) {
+    (void)index;
+    ti_draw_save_patch(false);
+}
+
+static void action_save_as(int index) {
+    (void)index;
+    ti_draw_save_patch(true);
+}
+
+static void action_init(int index) {
+    (void)index;
+    ti_draw_init_patch();
+}
+
+static void open_file_menu(tCoord anchor) {
+    static tMenuItem items[5];
+    bool             haveFile = ti_draw_has_patch_file();
+
+    items[0] = (tMenuItem){
+        "Open Patch...", ITEM, action_open, 0, NULL, 0, 0.0, NULL
+    };
+    items[1] = (tMenuItem){
+        "Save Patch", haveFile ? ITEM : ITEM_DISABLED, haveFile ? action_save : NULL, 0, NULL, 0, 0.0, NULL
+    };
+    items[2] = (tMenuItem){
+        "Save Patch As...", ITEM, action_save_as, 0, NULL, 0, 0.0, NULL
+    };
+    items[3] = (tMenuItem){
+        "Init Patch...", ITEM, action_init, 0, NULL, 0, 0.0, NULL
+    };
+    items[4] = END_OF_MENU;
+    open_context_menu(anchor, items, 0, 0.0);
+}
+
+// ---- Presets - notes §1 -----------------------------------------------------------------------------------
+
+static void action_load_preset(int index) {
+    (void)index;
+    ti_draw_load_preset_browser();
+}
+
+static void action_store(int index) {
+    (void)index;
+    ti_draw_store_preset(0);
+}
+
+static void action_store_to(int index) {
+    (void)index;
+    ti_draw_store_preset_browser();
+}
+
+static void action_revert(int index) {
+    (void)index;
+    ti_draw_revert_preset();
+}
+
+static void action_import(int index) {
+    ti_draw_import_presets(gContextMenu.items[index].param != 0);
+}
+
+static void action_export(int index) {
+    (void)index;
+    ti_draw_export_presets();
+}
+
+static void open_presets_menu(tCoord anchor) {
+    static tMenuItem items[8];
+    static char      storeLabel[32], revertLabel[40];
+    int              preset   = ti_draw_preset();
+    char             label[8] = "";
+
+    if (preset > 0) {
+        ti_preset_label(preset, label, sizeof(label));
+    }
+    snprintf(storeLabel, sizeof(storeLabel), (preset > 0) ? "Store Preset to %s" : "Store Preset", label);
+    snprintf(revertLabel, sizeof(revertLabel), (preset > 0) ? "Revert to Stored %s" : "Revert to Stored Preset", label);
+    items[0] = (tMenuItem){
+        "Load Preset...", ITEM, action_load_preset, 0, NULL, 0, 0.0, NULL
+    };
+    items[1] = (tMenuItem){
+        storeLabel, (preset > 0) ? ITEM : ITEM_DISABLED, (preset > 0) ? action_store : NULL, 0, NULL, 0, 0.0, NULL
+    };
+    items[2] = (tMenuItem){
+        "Store Preset to...", ITEM, action_store_to, 0, NULL, 0, 0.0, NULL
+    };
+    items[3] = (tMenuItem){
+        revertLabel, (preset > 0) ? ITEM : ITEM_DISABLED, (preset > 0) ? action_revert : NULL, 0, NULL, 0, 0.0, NULL
+    };
+    items[4] = (tMenuItem){
+        "Import Presets from File...", ITEM, action_import, 0, NULL, 0, 0.0, NULL
+    };
+    items[5] = (tMenuItem){
+        "Import Presets from Folder...", ITEM, action_import, 1, NULL, 0, 0.0, NULL
+    };
+    items[6] = (tMenuItem){
+        "Export Presets to File...", ITEM, action_export, 0, NULL, 0, 0.0, NULL
+    };
+    items[7] = END_OF_MENU;
+    open_context_menu(anchor, items, 0, 0.0);
+}
 
 // ---- Controls ---------------------------------------------------------------------------------------------
 
@@ -79,6 +190,9 @@ static void action_panel_help(int index) {
     (void)index;
     show_alert("The Panel",
                "An early build: one oscillator, the filter and the amplifier, and the voice limit on the GLOBAL page.\n\n"
+               "Patches: < Prev and Next > step through the presets, A001-D128; Load... opens a .syx or .mid file of "
+               "Singles, choosing one when it holds several. The name beside them edits on a click. A Single keeps "
+               "every byte it came with, though only what is built so far plays.\n\n"
                "Dials: drag to turn, Shift to turn finely. Controls chooses how a drag turns them: Rotary follows the "
                "pointer round the dial, Vertical and Horizontal count its movement.\n\n"
                "Lists (the oscillator's shape, the filter's mode) open a menu of their values on a click.\n\n"
@@ -100,6 +214,8 @@ static void open_help_menu(tCoord anchor) {
 }
 
 static const tMenuBarItem gMenuBar[] = {
+    {"File",     open_file_menu    },
+    {"Presets",  open_presets_menu },
     {"Controls", open_controls_menu},
     {"Help",     open_help_menu    },
     {NULL,       NULL              },

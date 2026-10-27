@@ -101,6 +101,7 @@ SOURCES=(
     "$HERE/src/tiFilter.c"
     "$HERE/src/tiVoices.c"
     "$HERE/plugin/tiParams.c"
+    "$HERE/plugin/tiPatch.c"
     "$HERE/plugin/tiDraw.c"
     "$HERE/plugin/tiMenu.c"
     "$HERE/plugin/tiPrefs.c"
@@ -128,7 +129,7 @@ SOURCES=(
 # C++ from SynthLib: the in-window file browser, and the prefs it reads its places from
 CXX_SOURCES=(
     "$SL/src/fileBrowser.cpp"
-    "$SL/src/bankBrowser.cpp"       # synthlibPopups routes it, though nothing here opens one
+    "$SL/src/bankBrowser.cpp"       # the presets, and a file of several Singles
     "$SL/src/prefs.cpp"
 )
 

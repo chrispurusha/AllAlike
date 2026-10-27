@@ -31,6 +31,12 @@ enum {
     kTiParamCutoff,
     kTiParamResonance,
     kTiParamFilterMode,
+    kTiParamCutoff2,
+    kTiParamResonance2,
+    kTiParamFilter2Mode,
+    kTiParamRouting,
+    kTiParamBalance,
+    kTiParamFilterLink,
     kTiParamCount
 };
 

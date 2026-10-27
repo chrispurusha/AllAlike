@@ -65,6 +65,8 @@ void ti_filter_tables(tTiFilterTables * t, double rate);  // also keeps the rate
 // cutoff and resonance in the panel's 0..127 (fractions allowed)
 void ti_filter_coeffs(const tTiFilterTables * t, tTiFilterMode mode, double cutoff, double resonance, double drive, tTiFilterCoeffs * c);
 double ti_filter_cutoff_hz(double cutoff);
+// the output gain a digital mode takes at a resonance (notes §2)
+double ti_filter_row_gain(tTiFilterMode mode, double resonance);
 void ti_filter_reset(tTiFilter * f);
 double ti_filter_process(tTiFilter * f, const tTiFilterCoeffs * c, double x);
 

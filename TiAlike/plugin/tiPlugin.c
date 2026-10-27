@@ -21,6 +21,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #include "synthlibPlugin.h"
 #include "synthlibLog.h"
@@ -29,6 +30,7 @@
 #include "inputState.h"
 #include "tiDraw.h"
 #include "tiParams.h"
+#include "tiPatch.h"
 #include "tiPrefs.h"
 #include "tiVoices.h"
 
@@ -57,6 +59,14 @@ static const uint8_t gControllerUid[16] = {0x30, 0x99, 0xDF, 0x1B, 0xE1, 0x40, 0
 typedef struct {
     tTiVoices voices;
     double    values[kTiParamCount];   // normalized
+    // notes §5: the sound, beyond its parameters - main thread, and the host's state calls
+    char      soundName[TI_SINGLE_NAME_LENGTH + 1];
+    bool      haveBase;
+    uint8_t   base[TI_SINGLE_LENGTH];   // the Single it came from, whose bytes a save keeps
+    char      patchPath[1024];
+    int       patchIndex;               // its place in that file
+    int       preset;                   // 1..TI_PRESETS, 0 none
+    double    presetsChecked;
 } tTiPlugin;
 
 static uint32_t voice_limit(const tTiPlugin * t) {
@@ -76,6 +86,7 @@ static void * ti_create(const tSynthLibPluginDesc * desc) {
         t->values[i] = gTiParams[i].defaultNormalized;
     }
 
+    snprintf(t->soundName, sizeof(t->soundName), "Init");
     ti_voices_init(&t->voices, 48000.0);
     ti_voices_set_limit(&t->voices, voice_limit(t));
     ti_prefs_init();
@@ -85,6 +96,55 @@ static void * ti_create(const tSynthLibPluginDesc * desc) {
 
 static void ti_destroy(void * inst) {
     free(inst);
+}
+
+// notes §5: the plug-in's own state, after the parameters
+#define STATE_MAGIC     "TIS1"
+#define STATE_LENGTH    (4 + (TI_SINGLE_NAME_LENGTH + 1) + 1 + TI_SINGLE_LENGTH + 1024 + 2 + 2)
+
+static size_t ti_get_state(void * inst, void * out, size_t len) {
+    tTiPlugin * t = (tTiPlugin *)inst;
+    uint8_t *   o = (uint8_t *)out;
+
+    if ((out == NULL) || (len < STATE_LENGTH)) {
+        return STATE_LENGTH;
+    }
+    memcpy(o, STATE_MAGIC, 4);
+    o   += 4;
+    memcpy(o, t->soundName, TI_SINGLE_NAME_LENGTH + 1);
+    o   += TI_SINGLE_NAME_LENGTH + 1;
+    *o++ = t->haveBase ? 1 : 0;
+    memcpy(o, t->base, TI_SINGLE_LENGTH);
+    o   += TI_SINGLE_LENGTH;
+    memcpy(o, t->patchPath, 1024);
+    o   += 1024;
+    *o++ = (uint8_t)(t->patchIndex >> 8);
+    *o++ = (uint8_t)(t->patchIndex & 0xFF);
+    *o++ = (uint8_t)(t->preset >> 8);
+    *o   = (uint8_t)(t->preset & 0xFF);
+    return STATE_LENGTH;
+}
+
+static void ti_set_state(void * inst, const void * data, size_t len) {
+    tTiPlugin *     t = (tTiPlugin *)inst;
+    const uint8_t * d = (const uint8_t *)data;
+
+    if ((data == NULL) || (len < STATE_LENGTH) || (memcmp(d, STATE_MAGIC, 4) != 0)) {
+        return;
+    }
+    d                                  += 4;
+    memcpy(t->soundName, d, TI_SINGLE_NAME_LENGTH + 1);
+    t->soundName[TI_SINGLE_NAME_LENGTH] = '\0';
+    d                                  += TI_SINGLE_NAME_LENGTH + 1;
+    t->haveBase                         = (*d++ != 0);
+    memcpy(t->base, d, TI_SINGLE_LENGTH);
+    d                                  += TI_SINGLE_LENGTH;
+    memcpy(t->patchPath, d, 1024);
+    t->patchPath[1023]                  = '\0';
+    d                                  += 1024;
+    t->patchIndex                       = (d[0] << 8) | d[1];
+    t->preset                           = (d[2] << 8) | d[3];
+    t->preset                           = ((t->preset >= 1) && (t->preset <= TI_PRESETS)) ? t->preset : 0;
 }
 
 static void ti_prepare(void * inst, const tSynthLibSetup * setup) {
@@ -125,11 +185,17 @@ static void ti_process(void * inst, const float *const * in, uint32_t numIn, flo
         return;
     }
     tTiSound    sound = {
-        .shape      = (tTiOscShape)lround(t->values[kTiParamOscShape] * (eTiOscShapes - 1)),
-        .pulseWidth =                                0.05 + (0.9 * t->values[kTiParamPulseWidth]),
-        .cutoff     = t->values[kTiParamCutoff] * 127.0,
-        .resonance  = t->values[kTiParamResonance] * 127.0,
-        .filterMode = (tTiFilterMode)lround(t->values[kTiParamFilterMode] * (eTiFilterModes - 1)),
+        .shape       = (tTiOscShape)lround(t->values[kTiParamOscShape] * (eTiOscShapes - 1)),
+        .pulseWidth  =                                0.05 + (0.9 * t->values[kTiParamPulseWidth]),
+        .cutoff      = t->values[kTiParamCutoff] * 127.0,
+        .resonance   = t->values[kTiParamResonance] * 127.0,
+        .filterMode  = (tTiFilterMode)lround(t->values[kTiParamFilterMode] * (eTiFilterModes - 1)),
+        .cutoff2     = t->values[kTiParamCutoff2] * 127.0,
+        .resonance2  = t->values[kTiParamResonance2] * 127.0,
+        .filter2Mode = (tTiFilterMode)lround(t->values[kTiParamFilter2Mode] * 3.0),
+        .routing     = (tTiRouting)lround(t->values[kTiParamRouting] * (eTiRoutings - 1)),
+        .balance     = t->values[kTiParamBalance] * 127.0,
+        .filterLink  = (t->values[kTiParamFilterLink] >= 0.5),
     };
 
     memset(out[0], 0, (size_t)frames * sizeof(float));
@@ -162,6 +228,7 @@ static double ti_get_param(void * inst, uint32_t id) {
 static bool ti_param_text(const tSynthLibPluginDesc * desc, void * inst, uint32_t id, double value, char * out, size_t len) {
     static const char *const shapes[]  = {"Saw", "Pulse", "Triangle"};
     static const char *const filters[] = {"Low Pass", "High Pass", "Band Pass", "Band Stop", "Analog 1 Pole", "Analog 2 Pole", "Analog 3 Pole", "Analog 4 Pole"};
+    static const char *const routes[]  = {"Serial 4", "Serial 6", "Parallel 4", "Split"};
 
     (void)desc;
     (void)inst;
@@ -175,6 +242,12 @@ static bool ti_param_text(const tSynthLibPluginDesc * desc, void * inst, uint32_
         snprintf(out, len, "%s", shapes[(step < 0) ? 0 : ((step > 2) ? 2 : step)]);
     } else if (id == kTiParamFilterMode) {
         snprintf(out, len, "%s", filters[(step < 0) ? 0 : ((step > 7) ? 7 : step)]);
+    } else if (id == kTiParamFilter2Mode) {
+        snprintf(out, len, "%s", filters[(step < 0) ? 0 : ((step > 3) ? 3 : step)]);
+    } else if (id == kTiParamRouting) {
+        snprintf(out, len, "%s", routes[(step < 0) ? 0 : ((step > 3) ? 3 : step)]);
+    } else if (id == kTiParamFilterLink) {
+        snprintf(out, len, "%s", (step != 0) ? "On" : "Off");
     } else {
         snprintf(out, len, "%ld", lround(gTiParams[id].plainMin) + step);
     }
@@ -183,12 +256,180 @@ static bool ti_param_text(const tSynthLibPluginDesc * desc, void * inst, uint32_
 
 // ---- the editor - notes §3: Pulse2Alike's panel view, with this plug-in's pages --------------------------------
 
+// notes §4: with Link on, Filter 2's Cutoff dial shows where Filter 2's cutoff is, and its offset beside it
+static bool ti_dial_display(uint32_t paramId, const double * values, int32_t * step, char * text, size_t len) {
+    if ((paramId != kTiParamCutoff2) || (values[kTiParamFilterLink] < 0.5)) {
+        return false;
+    }
+    double cutoff = values[kTiParamCutoff] * 127.0;
+    double offset = values[kTiParamCutoff2] * 127.0;
+    long   shown  = lround(fmin(ti_voices_cutoff2(cutoff, offset, true), 127.0));
+
+    *step = (int32_t)shown;
+    snprintf(text, len, "%ld (%+ld)", shown, lround(offset) - 64);
+    return true;
+}
+
+// ---- Singles and presets - notes §5 ------------------------------------------------------------------------
+
+// What a sound carries: everything but the plug-in's own settings
+static bool sound_param(uint32_t id) {
+    return (id != kTiParamVoiceLimit) && (id != kTiParamVolume);
+}
+
+static void current_values(void * user, double values[kTiParamCount]) {
+    for (uint32_t id = 0; id < kTiParamCount; id++) {
+        values[id] = synthlib_plugin_param_value(user, id);
+    }
+}
+
+// The sound as it is now, as a Single: the host's values over the Single it came from
+static void current_single(void * user, uint8_t single[TI_SINGLE_LENGTH]) {
+    tTiPlugin * t = (tTiPlugin *)user;
+    double      values[kTiParamCount];
+
+    current_values(user, values);
+    ti_patch_to_single(values, t->haveBase ? t->base : NULL, t->soundName, single);
+}
+
+// notes §6: every parameter the sound carries, through the host, so the change is one the host sees
+static void ti_load_single(void * user, const uint8_t * single, const char * path, int index, int preset) {
+    tTiPlugin * t = (tTiPlugin *)user;
+    double      values[kTiParamCount];
+
+    current_values(user, values);
+    ti_patch_from_single(single, values);
+
+    for (uint32_t id = 0; id < kTiParamCount; id++) {
+        if (sound_param(id)) {
+            synthlib_plugin_param_edited(user, id, values[id]);
+        }
+    }
+
+    memcpy(t->base, single, TI_SINGLE_LENGTH);
+    t->haveBase   = true;
+    ti_patch_name(single, t->soundName);
+    snprintf(t->patchPath, sizeof(t->patchPath), "%s", path);
+    t->patchIndex = index;
+    t->preset     = preset;
+    synthlib_log_line("loaded \"%s\" (%s #%d, preset %d)", t->soundName, path, index, preset);
+}
+
+static bool ti_save_patch(void * user, const char * path) {
+    tTiPlugin * t = (tTiPlugin *)user;
+    uint8_t     single[TI_SINGLE_LENGTH];
+
+    current_single(user, single);
+
+    if (!ti_patch_save_file(path, single)) {
+        synthlib_log_line("could not write %s", path);
+        return false;
+    }
+    memcpy(t->base, single, TI_SINGLE_LENGTH);
+    t->haveBase   = true;
+    snprintf(t->patchPath, sizeof(t->patchPath), "%s", path);
+    t->patchIndex = 0;
+    t->preset     = 0;
+    return true;
+}
+
+static bool ti_store_preset(void * user, int number) {
+    tTiPlugin * t = (tTiPlugin *)user;
+    uint8_t     single[TI_SINGLE_LENGTH];
+
+    current_single(user, single);
+
+    if (!ti_presets_store(number, single)) {
+        return false;
+    }
+    memcpy(t->base, ti_presets_single(number), TI_SINGLE_LENGTH);
+    t->haveBase     = true;
+    t->patchPath[0] = '\0';
+    t->patchIndex   = 0;
+    t->preset       = number;
+    return true;
+}
+
+// every sound parameter to its default; the next save has no Single to keep bytes from
+static void ti_init_patch(void * user) {
+    tTiPlugin * t = (tTiPlugin *)user;
+
+    for (uint32_t id = 0; id < kTiParamCount; id++) {
+        if (sound_param(id)) {
+            synthlib_plugin_param_edited(user, id, gTiParams[id].defaultNormalized);
+        }
+    }
+
+    t->haveBase     = false;
+    t->patchPath[0] = '\0';
+    t->patchIndex   = 0;
+    t->preset       = 0;
+    snprintf(t->soundName, sizeof(t->soundName), "Init");
+}
+
+static const char * ti_sound_name(void * user) {
+    return ((tTiPlugin *)user)->soundName;
+}
+
+// notes §5: the name only - written to a Single at the next save or store
+static void ti_rename(void * user, const char * name) {
+    snprintf(((tTiPlugin *)user)->soundName, TI_SINGLE_NAME_LENGTH + 1, "%s", name);
+}
+
+// notes §7: edited, if a parameter it carries or its name differs from the stored preset
+static bool preset_edited(tTiPlugin * t, void * user) {
+    double values[kTiParamCount], stored[kTiParamCount];
+    char   name[TI_SINGLE_NAME_LENGTH + 1];
+
+    if (t->preset == 0) {
+        return false;
+    }
+    current_values(user, values);
+    memcpy(stored, values, sizeof(stored));
+    ti_patch_from_single(ti_presets_single(t->preset), stored);
+    ti_patch_name(ti_presets_single(t->preset), name);
+
+    for (uint32_t id = 0; id < kTiParamCount; id++) {
+        if (sound_param(id) && (fabs(stored[id] - values[id]) > 1e-6)) {
+            return true;
+        }
+    }
+
+    return strcmp(name, t->soundName) != 0;
+}
+
+static double now_seconds(void) {
+    struct timespec ts;
+
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return (double)ts.tv_sec + (ts.tv_nsec * 1e-9);
+}
+
+static const tTiPatchHost gPatchHost = {
+    .load = ti_load_single, .save   = ti_save_patch, .storePreset = ti_store_preset, .init = ti_init_patch,
+    .name = ti_sound_name,  .rename = ti_rename,
+};
+
 static void ti_panel_init(void) {
     ti_draw_init();
     ti_draw_set_pages(gTiPages, gTiPageCount);
+    ti_draw_set_display(ti_dial_display);
+    ti_draw_set_host(&gPatchHost);
 }
 
 static void ti_panel_sync(void * user) {
+    tTiPlugin * t = (tTiPlugin *)user;
+
+    ti_draw_set_user(user);
+
+    // another instance's store shows within a second
+    if ((now_seconds() - t->presetsChecked) >= 1.0) {
+        t->presetsChecked = now_seconds();
+        (void)ti_presets_refresh();
+    }
+    ti_draw_set_patch(t->patchPath, t->patchIndex);   // this instance's, every sync
+    ti_draw_set_preset(t->preset, preset_edited(t, user));
+
     for (uint32_t id = 0; id < kTiParamCount; id++) {
         ti_draw_set_value(id, synthlib_plugin_param_value(user, id));
     }
@@ -317,6 +558,8 @@ static const tSynthLibPluginDesc gDescriptor = {
         .setParam   = ti_set_param,
         .getParam   = ti_get_param,
         .paramText  = ti_param_text,
+        .getState   = ti_get_state,
+        .setState   = ti_set_state,
         .createView = ti_create_view,
     }
 };

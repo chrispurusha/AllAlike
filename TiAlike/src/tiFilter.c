@@ -61,6 +61,20 @@ static double lerp(double a, double b, double f) {
     return a + (f * (b - a));
 }
 
+double ti_filter_row_gain(tTiFilterMode mode, double resonance) {
+    double row = 8.0 * fmin(fmax(resonance, 0.0), 127.999) / 128.0;
+    int    r   = (int)row;
+
+    if (r > TI_FILTER_ROWS - 2) {
+        r = TI_FILTER_ROWS - 2;
+    }
+
+    if (mode == eTiFilterBandPass) {
+        return lerp(kRowGainBp[r], kRowGainBp[r + 1], row - r);
+    }
+    return (mode == eTiFilterBandStop) ? 1.0 : lerp(kRowGainLpHp[r], kRowGainLpHp[r + 1], row - r);
+}
+
 // notes §5: each resonance step's loop gain, the panel's 0..127 spread over 16 steps
 static const double kLadderLoopGain[17] = {
     0.5, 0.90625, 1.3125, 1.71875, 2.125, 2.53125, 2.9375, 3.34375, 3.75, 4.0, 4.25, 4.5, 5.0, 6.0, 8.0, 16.0, 32.0

@@ -86,6 +86,7 @@ void ti_voices_note_on(tTiVoices * v, uint8_t note, float velocity) {
 
     if (pick->level <= 0.0) {
         ti_filter_reset(&pick->filter);    // a voice starting from silence starts with a quiet filter
+        ti_filter_reset(&pick->filter2);
     }
 }
 
@@ -103,6 +104,7 @@ void ti_voices_all_off(tTiVoices * v) {
         v->voice[i].gate   = false;
         v->voice[i].level  = 0.0;
         ti_filter_reset(&v->voice[i].filter);
+        ti_filter_reset(&v->voice[i].filter2);
     }
 }
 
@@ -129,7 +131,100 @@ static double smooth_advance(tTiSmooth * s, uint32_t frames) {
     return s->current;
 }
 
-static void render_sub_block(tTiVoices * v, const tTiSound * sound, const tTiFilterCoeffs * coeffs, float * out,
+// notes §6: the two filters' coefficients and how their outputs mix, for one sub-block
+typedef struct {
+    tTiFilterCoeffs f1, f2;
+    tTiRouting      routing;
+    double          mix;       // serial: Filter 1's share in or around Filter 2; parallel: Filter 1's level
+} tTiFilterSet;
+
+#define MIX_F1_ONLY     (0.99951171875)     // notes §6: at Balance 0 in series Filter 2 is left out
+#define MIX_DRY_GAIN    (0.70703125)
+
+// notes §6: the centre-detented 9-point curves Balance and the linked Cutoff 2 run through
+static const double kBalanceCurve[9] = {-1.0, -0.6875, -0.375, -0.125, 0.0, 0.125, 0.375, 0.6875, 1.0};
+static const double kOffsetCurve[9]  = {-1.0, -0.5, -0.25, -0.0625, 0.0, 0.0625, 0.25, 0.5, 1.0};
+
+static double curve9(const double * curve, double value) {
+    double v = fmin(fmax(value, 0.0), 127.0) / 128.0;
+
+    if (v >= (126.0 / 128.0)) {
+        v = (2.0 * v) - (126.0 / 128.0);    // the top two steps stretched to reach the curve's end
+    }
+    double p = fmin(8.0 * v, 7.9999);
+    int    i = (int)p;
+
+    return curve[i] + ((p - i) * (curve[i + 1] - curve[i]));
+}
+
+double ti_voices_cutoff2(double cutoff, double cutoff2, bool link) {
+    return fmax(link ? (cutoff + (128.0 * curve9(kOffsetCurve, cutoff2))) : cutoff2, 0.0);
+}
+
+static void scale_numerator(tTiFilterCoeffs * c, double g) {
+    c->b0 *= g;
+    c->b1 *= g;
+    c->b2 *= g;
+}
+
+static void filter_set(const tTiVoices * v, const tTiSound * sound, double cutoff, double res, double cutoff2,
+                       double res2, double balance, tTiFilterSet * set) {
+    double bal     = curve9(kBalanceCurve, balance);
+    double c2      = ti_voices_cutoff2(cutoff, cutoff2, sound->filterLink);
+    bool   serial  = (sound->routing == eTiRoutingSerial4) || (sound->routing == eTiRoutingSerial6);
+    double reduced = res2;
+
+
+    if (serial) {
+        // notes §6: two cutoffs close together take Filter 2's resonance down
+        double window = (sound->routing == eTiRoutingSerial6) ? 256.0 : 128.0;
+        double apart  = 60.0 * fabs(c2 - cutoff);
+
+        if (apart < window) {
+            reduced *= 1.0 + ((3.0 * (apart - window) / 1024.0) * (res / 128.0));
+        }
+    }
+    ti_filter_coeffs(&v->filterTables, sound->filterMode, cutoff, res, sound->drive, &set->f1);
+    ti_filter_coeffs(&v->filterTables, sound->filter2Mode, c2, reduced, 0.0, &set->f2);
+
+    // notes §6: the reduced resonance shapes the peak, but the output gain stays the unreduced one's (not in band pass)
+    if ((reduced != res2) && (sound->filter2Mode != eTiFilterBandPass)) {
+        scale_numerator(&set->f2, ti_filter_row_gain(sound->filter2Mode, res2) / ti_filter_row_gain(sound->filter2Mode, reduced));
+    }
+    set->routing = sound->routing;
+
+    // notes §6: Filter 1's share (mix) and Filter 2's gain, each a straight line in bal on either side of the centre
+    if (serial) {
+        set->mix = -bal;
+        scale_numerator(&set->f2, (bal < 0.0) ? (0.70703 * (1.0 + bal)) : 0.70703);
+    } else if (sound->routing == eTiRoutingParallel4) {
+        set->mix = 2.0 * ((bal < 0.0) ? (0.17675 - (0.07324 * bal)) : (0.17675 * (1.0 - bal)));
+        scale_numerator(&set->f2, (bal < 0.0) ? (0.35352 * (1.0 + bal)) : (0.35352 + (0.14648 * bal)));
+    } else {
+        set->mix = (bal < 0.0) ? (0.70703 - (0.29297 * bal)) : (0.70703 * (1.0 - bal));
+        scale_numerator(&set->f2, (bal < 0.0) ? (0.70703 * (1.0 + bal)) : (0.70703 + (0.29297 * bal)));
+    }
+}
+
+// notes §6
+static double filters_process(tTiVoice * vc, const tTiFilterSet * set, double raw) {
+    double y1 = ti_filter_process(&vc->filter, &set->f1, raw);
+    double m  = set->mix;
+
+    if ((set->routing == eTiRoutingSerial4) || (set->routing == eTiRoutingSerial6)) {
+        if (m >= MIX_F1_ONLY) {
+            return MIX_DRY_GAIN * m * y1;
+        }
+
+        if (m > 0.0) {
+            return ti_filter_process(&vc->filter2, &set->f2, y1) + (MIX_DRY_GAIN * m * y1);
+        }
+        return ti_filter_process(&vc->filter2, &set->f2, ((1.0 + m) * y1) - (m * raw));
+    }
+    return ti_filter_process(&vc->filter2, &set->f2, raw) + (m * y1);
+}
+
+static void render_sub_block(tTiVoices * v, const tTiSound * sound, const tTiFilterSet * set, float * out,
                              uint32_t frames, double gain) {
     double up   = 1.0 / (ATTACK_S * v->rate);
     double down = 1.0 / (RELEASE_S * v->rate);
@@ -143,7 +238,7 @@ static void render_sub_block(tTiVoices * v, const tTiSound * sound, const tTiFil
 
         for (uint32_t f = 0; f < frames; f++) {
             double osc = ti_osc_sample(sound->shape, vc->phase, vc->increment, sound->pulseWidth);
-            double y   = ti_filter_process(&vc->filter, coeffs, osc);
+            double y   = filters_process(vc, set, osc);
 
             vc->level  = vc->gate ? fmin(1.0, vc->level + up) : fmax(0.0, vc->level - down);
             out[f]    += (float)(y * vc->level * vc->velocity * gain);
@@ -163,14 +258,21 @@ static void render_sub_block(tTiVoices * v, const tTiSound * sound, const tTiFil
 void ti_voices_render(tTiVoices * v, const tTiSound * sound, float * out, uint32_t frames, double gain) {
     smooth_toward(&v->cutoff, sound->cutoff, v->rate);
     smooth_toward(&v->resonance, sound->resonance, v->rate);
+    smooth_toward(&v->cutoff2, sound->cutoff2, v->rate);
+    smooth_toward(&v->resonance2, sound->resonance2, v->rate);
+    smooth_toward(&v->balance, sound->balance, v->rate);
 
     // notes §4: the coefficients every sub-block, the same for every voice until keyfollow and envelopes come
     for (uint32_t done = 0; done < frames; done += SUB_BLOCK) {
-        uint32_t        n = ((frames - done) < SUB_BLOCK) ? (frames - done) : SUB_BLOCK;
-        tTiFilterCoeffs coeffs;
+        uint32_t     n       = ((frames - done) < SUB_BLOCK) ? (frames - done) : SUB_BLOCK;
+        double       cutoff  = smooth_advance(&v->cutoff, n);
+        double       res     = smooth_advance(&v->resonance, n);
+        double       cutoff2 = smooth_advance(&v->cutoff2, n);
+        double       res2    = smooth_advance(&v->resonance2, n);
+        double       balance = smooth_advance(&v->balance, n);
+        tTiFilterSet set;
 
-        ti_filter_coeffs(&v->filterTables, sound->filterMode, smooth_advance(&v->cutoff, n),
-                         smooth_advance(&v->resonance, n), sound->drive, &coeffs);
-        render_sub_block(v, sound, &coeffs, out + done, n, gain);
+        filter_set(v, sound, cutoff, res, cutoff2, res2, balance, &set);
+        render_sub_block(v, sound, &set, out + done, n, gain);
     }
 }

@@ -27,6 +27,15 @@
 
 #define TI_MAX_VOICES    (32)
 
+// notes §6: how the two filters are put together
+typedef enum {
+    eTiRoutingSerial4 = 0,
+    eTiRoutingSerial6,
+    eTiRoutingParallel4,
+    eTiRoutingSplit,
+    eTiRoutings
+} tTiRouting;
+
 typedef struct {
     bool      active;
     bool      gate;
@@ -35,7 +44,7 @@ typedef struct {
     double    phase;
     double    increment;
     double    level;     // the gate envelope, 0..1
-    tTiFilter filter;
+    tTiFilter filter, filter2;
     uint64_t  started;   // for stealing the oldest
 } tTiVoice;
 
@@ -47,6 +56,12 @@ typedef struct {
     double        resonance;    // 0..127
     tTiFilterMode filterMode;
     double        drive;        // 0..1, the Osc Volume above its centre (filter notes §5)
+    double        cutoff2;      // 0..127: an offset from cutoff when linked, else Filter 2's own cutoff
+    double        resonance2;   // 0..127
+    tTiFilterMode filter2Mode;  // low/high/band pass and band stop only
+    tTiRouting    routing;
+    double        balance;      // 0..127, 64 the centre
+    bool          filterLink;
 } tTiSound;
 
 // notes §5: a control gliding to its new value as the instrument's Smooth On does
@@ -58,7 +73,7 @@ typedef struct {
 
 typedef struct {
     tTiVoice        voice[TI_MAX_VOICES];
-    tTiSmooth       cutoff, resonance;
+    tTiSmooth       cutoff, resonance, cutoff2, resonance2, balance;
     uint32_t        limit;    // 1..TI_MAX_VOICES (design §1: the instance's voice limit)
     double          rate;
     tTiFilterTables filterTables;
@@ -71,6 +86,8 @@ void ti_voices_set_limit(tTiVoices * v, uint32_t limit);
 void ti_voices_note_on(tTiVoices * v, uint8_t note, float velocity);
 void ti_voices_note_off(tTiVoices * v, uint8_t note);
 void ti_voices_all_off(tTiVoices * v);
+// notes §6: Filter 2's cutoff, 0..127 and beyond, from Cutoff, Cutoff 2 and Link
+double ti_voices_cutoff2(double cutoff, double cutoff2, bool link);
 // Adds frames of every voice into out (mono); gain applied
 void ti_voices_render(tTiVoices * v, const tTiSound * sound, float * out, uint32_t frames, double gain);
 
