@@ -56,8 +56,20 @@ static const uint8_t gControllerUid[16] = {0x30, 0x99, 0xDF, 0x1B, 0xE1, 0x40, 0
 #define TIA_AU_MANUFACTURER    FOUR_CC('C', 'P', 'u', 'r')
 #define TIA_AU_BUNDLE_ID       "com.chrispurusha.tialike.au"
 
+// notes §2: a block's notes, played at their own sample when the block renders
+#define MAX_EVENTS             (256)
+
+typedef struct {
+    uint32_t offset;
+    uint8_t  note;
+    bool     on;
+    float    velocity;
+} tTiEvent;
+
 typedef struct {
     tTiVoices voices;
+    tTiEvent  events[MAX_EVENTS];
+    uint32_t  eventCount;
     double    values[kTiParamCount];   // normalized
     // notes §5: the sound, beyond its parameters - main thread, and the host's state calls
     char      soundName[TI_SINGLE_NAME_LENGTH + 1];
@@ -155,21 +167,36 @@ static void ti_prepare(void * inst, const tSynthLibSetup * setup) {
 
 static void ti_set_active(void * inst, bool active) {
     (void)active;
+    ((tTiPlugin *)inst)->eventCount = 0;
     ti_voices_all_off(&((tTiPlugin *)inst)->voices);
 }
 
-// notes §2: notes land at the block's start for now
+static void play(tTiPlugin * t, const tTiEvent * e) {
+    if (e->on) {
+        ti_voices_note_on(&t->voices, e->note, e->velocity);
+    } else {
+        ti_voices_note_off(&t->voices, e->note);
+    }
+}
+
+// notes §2: a full queue plays the note at once rather than lose it
+static void queue(tTiPlugin * t, tTiEvent e) {
+    if (t->eventCount < MAX_EVENTS) {
+        t->events[t->eventCount++] = e;
+    } else {
+        play(t, &e);
+    }
+}
+
 static void ti_note_on(void * inst, uint8_t channel, uint8_t note, float velocity, uint32_t sampleOffset) {
     (void)channel;
-    (void)sampleOffset;
-    ti_voices_note_on(&((tTiPlugin *)inst)->voices, note, velocity);
+    queue((tTiPlugin *)inst, (tTiEvent){sampleOffset, note, true, velocity});
 }
 
 static void ti_note_off(void * inst, uint8_t channel, uint8_t note, float velocity, uint32_t sampleOffset) {
     (void)channel;
     (void)velocity;
-    (void)sampleOffset;
-    ti_voices_note_off(&((tTiPlugin *)inst)->voices, note);
+    queue((tTiPlugin *)inst, (tTiEvent){sampleOffset, note, false, 0.0f});
 }
 
 static void ti_process(void * inst, const float *const * in, uint32_t numIn, float ** out, uint32_t numOut,
@@ -182,24 +209,52 @@ static void ti_process(void * inst, const float *const * in, uint32_t numIn, flo
     (void)transport;
 
     if ((out == NULL) || (numOut == 0) || (out[0] == NULL)) {
+        for (uint32_t i = 0; i < t->eventCount; i++) {
+            play(t, &t->events[i]);
+        }
+
+        t->eventCount = 0;
         return;
     }
     tTiSound    sound = {
-        .shape       = (tTiOscShape)lround(t->values[kTiParamOscShape] * (eTiOscShapes - 1)),
-        .pulseWidth  =                                0.05 + (0.9 * t->values[kTiParamPulseWidth]),
-        .cutoff      = t->values[kTiParamCutoff] * 127.0,
-        .resonance   = t->values[kTiParamResonance] * 127.0,
-        .filterMode  = (tTiFilterMode)lround(t->values[kTiParamFilterMode] * (eTiFilterModes - 1)),
-        .cutoff2     = t->values[kTiParamCutoff2] * 127.0,
-        .resonance2  = t->values[kTiParamResonance2] * 127.0,
-        .filter2Mode = (tTiFilterMode)lround(t->values[kTiParamFilter2Mode] * 3.0),
-        .routing     = (tTiRouting)lround(t->values[kTiParamRouting] * (eTiRoutings - 1)),
-        .balance     = t->values[kTiParamBalance] * 127.0,
-        .filterLink  = (t->values[kTiParamFilterLink] >= 0.5),
+        .shape          = (tTiOscShape)lround(t->values[kTiParamOscShape] * (eTiOscShapes - 1)),
+        .pulseWidth     =                                0.05 + (0.9 * t->values[kTiParamPulseWidth]),
+        .cutoff         = t->values[kTiParamCutoff] * 127.0,
+        .resonance      = t->values[kTiParamResonance] * 127.0,
+        .filterMode     = (tTiFilterMode)lround(t->values[kTiParamFilterMode] * (eTiFilterModes - 1)),
+        .cutoff2        = t->values[kTiParamCutoff2] * 127.0,
+        .resonance2     = t->values[kTiParamResonance2] * 127.0,
+        .filter2Mode    = (tTiFilterMode)lround(t->values[kTiParamFilter2Mode] * 3.0),
+        .routing        = (tTiRouting)lround(t->values[kTiParamRouting] * (eTiRoutings - 1)),
+        .balance        = t->values[kTiParamBalance] * 127.0,
+        .filterLink     = (t->values[kTiParamFilterLink] >= 0.5),
+        .ampAttack      = t->values[kTiParamAmpAttack] * 127.0,
+        .ampDecay       = t->values[kTiParamAmpDecay] * 127.0,
+        .ampSustain     = t->values[kTiParamAmpSustain] * 127.0,
+        .ampSustainTime = t->values[kTiParamAmpSustainTime] * 127.0,
+        .ampRelease     = t->values[kTiParamAmpRelease] * 127.0,
     };
 
     memset(out[0], 0, (size_t)frames * sizeof(float));
-    ti_voices_render(&t->voices, &sound, out[0], frames, gain);
+
+    // notes §2: up to each note, then the note; the host sends them in time order
+    uint32_t    done = 0;
+
+    for (uint32_t i = 0; i < t->eventCount; i++) {
+        uint32_t at = (t->events[i].offset < frames) ? t->events[i].offset : frames;
+
+        if (at > done) {
+            ti_voices_render(&t->voices, &sound, out[0] + done, at - done, gain);
+            done = at;
+        }
+        play(t, &t->events[i]);
+    }
+
+    t->eventCount = 0;
+
+    if (done < frames) {
+        ti_voices_render(&t->voices, &sound, out[0] + done, frames - done, gain);
+    }
 
     for (uint32_t ch = 1; ch < numOut; ch++) {
         if (out[ch] != NULL) {

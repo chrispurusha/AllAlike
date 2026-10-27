@@ -5,8 +5,9 @@ SynthLib's format-free plug-in description, filled in for TiAlike: an instrument
 its class ids and Audio Unit codes (which may never change), the parameters of tiParams.c and the editor's geometry.
 
 ## 2. Notes in a block
-For now a note starts at the beginning of the block it arrives in, not at its sample offset. To change before any
-timing is compared with the reference renders (todo.md).
+The host hands over a block's notes before the block, each with its sample offset. They are queued and the block is
+rendered in pieces, up to each note and then the note, so a note starts at its own sample whatever the host's block
+size. Up to 256 a block; past that a note plays at once rather than be lost.
 
 ## 3. The editor
 SynthLib's panel view around tiDraw.c, wired as Pulse2Alike's: the view syncs the parameter values into the panel

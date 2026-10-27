@@ -22,6 +22,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "tiEnvelope.h"
 #include "tiFilter.h"
 #include "tiOsc.h"
 
@@ -43,7 +44,7 @@ typedef struct {
     float     velocity;
     double    phase;
     double    increment;
-    double    level;     // the gate envelope, 0..1
+    tTiEnv    amp;       // the amplifier envelope
     tTiFilter filter, filter2;
     uint64_t  started;   // for stealing the oldest
 } tTiVoice;
@@ -51,17 +52,18 @@ typedef struct {
 // The sound as the voices play it, in the panel's units (notes §3)
 typedef struct {
     tTiOscShape   shape;
-    double        pulseWidth;   // 0..1
-    double        cutoff;       // 0..127
-    double        resonance;    // 0..127
+    double        pulseWidth;                                                  // 0..1
+    double        cutoff;                                                      // 0..127
+    double        resonance;                                                   // 0..127
     tTiFilterMode filterMode;
-    double        drive;        // 0..1, the Osc Volume above its centre (filter notes §5)
-    double        cutoff2;      // 0..127: an offset from cutoff when linked, else Filter 2's own cutoff
-    double        resonance2;   // 0..127
-    tTiFilterMode filter2Mode;  // low/high/band pass and band stop only
+    double        drive;                                                       // 0..1, the Osc Volume above its centre (filter notes §5)
+    double        cutoff2;                                                     // 0..127: an offset from cutoff when linked, else Filter 2's own cutoff
+    double        resonance2;                                                  // 0..127
+    tTiFilterMode filter2Mode;                                                 // low/high/band pass and band stop only
     tTiRouting    routing;
-    double        balance;      // 0..127, 64 the centre
+    double        balance;                                                     // 0..127, 64 the centre
     bool          filterLink;
+    double        ampAttack, ampDecay, ampSustain, ampSustainTime, ampRelease; // 0..127 (envelope notes)
 } tTiSound;
 
 // notes §5: a control gliding to its new value as the instrument's Smooth On does

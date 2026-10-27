@@ -9,3 +9,5 @@ Built but not yet checked by ear or in a host. Confirmed: delete the line. Faile
 - Presets: Import from Folder on the four `VirChrisBank?.syx` (A-D), Prev/Next wrap D128 <-> A001, Load Preset browser, edit a dial -> `A001*`, Revert, Store to... another slot, Export then Import it back
 - The name field: click, type mixed case, Return keeps / Escape drops; Store shows the new name in the browser
 - Reopen a project: the sound, its name, file / preset and `*` come back as left (tiPlugin notes §5)
+- The amplifier envelope by ear in a host (ENVELOPES page): Attack, Decay to Sustain, Sustain Time both ways, Release; a loaded Single sets all five (tiEnvelope notes)
+- Notes at their own sample: a fast attack and release sound the same at host block sizes 64 and 1024

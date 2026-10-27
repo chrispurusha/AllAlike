@@ -21,9 +21,6 @@
 
 #include "tiVoices.h"
 
-// notes §1: a placeholder voice until the engine's own sections replace it
-#define ATTACK_S     (0.002)
-#define RELEASE_S    (0.120)
 #define SMOOTH_S     (2048.0 / 46875.0)    // notes §5
 #define SUB_BLOCK    (32u)                 // notes §4
 
@@ -45,6 +42,7 @@ void ti_voices_set_limit(tTiVoices * v, uint32_t limit) {
     // notes §2: voices above a lowered limit are released, not cut
     for (uint32_t i = limit; i < TI_MAX_VOICES; i++) {
         v->voice[i].gate = false;
+        ti_env_gate(&v->voice[i].amp, false);
     }
 }
 
@@ -83,8 +81,9 @@ void ti_voices_note_on(tTiVoices * v, uint8_t note, float velocity) {
     pick->velocity  = velocity;
     pick->increment = note_hz(note) / v->rate;
     pick->started   = ++v->clock;
+    ti_env_gate(&pick->amp, true);
 
-    if (pick->level <= 0.0) {
+    if (pick->amp.level <= 0.0) {
         ti_filter_reset(&pick->filter);    // a voice starting from silence starts with a quiet filter
         ti_filter_reset(&pick->filter2);
     }
@@ -94,6 +93,7 @@ void ti_voices_note_off(tTiVoices * v, uint8_t note) {
     for (uint32_t i = 0; i < TI_MAX_VOICES; i++) {
         if (v->voice[i].active && (v->voice[i].note == note)) {
             v->voice[i].gate = false;
+            ti_env_gate(&v->voice[i].amp, false);
         }
     }
 }
@@ -102,7 +102,9 @@ void ti_voices_all_off(tTiVoices * v) {
     for (uint32_t i = 0; i < TI_MAX_VOICES; i++) {
         v->voice[i].active = false;
         v->voice[i].gate   = false;
-        v->voice[i].level  = 0.0;
+        v->voice[i].amp    = (tTiEnv){
+            0
+        };
         ti_filter_reset(&v->voice[i].filter);
         ti_filter_reset(&v->voice[i].filter2);
     }
@@ -224,11 +226,8 @@ static double filters_process(tTiVoice * vc, const tTiFilterSet * set, double ra
     return ti_filter_process(&vc->filter2, &set->f2, raw) + (m * y1);
 }
 
-static void render_sub_block(tTiVoices * v, const tTiSound * sound, const tTiFilterSet * set, float * out,
-                             uint32_t frames, double gain) {
-    double up   = 1.0 / (ATTACK_S * v->rate);
-    double down = 1.0 / (RELEASE_S * v->rate);
-
+static void render_sub_block(tTiVoices * v, const tTiSound * sound, const tTiFilterSet * set, const tTiEnvShape * amp,
+                             float * out, uint32_t frames, double gain) {
     for (uint32_t i = 0; i < TI_MAX_VOICES; i++) {
         tTiVoice * vc = &v->voice[i];
 
@@ -240,8 +239,7 @@ static void render_sub_block(tTiVoices * v, const tTiSound * sound, const tTiFil
             double osc = ti_osc_sample(sound->shape, vc->phase, vc->increment, sound->pulseWidth);
             double y   = filters_process(vc, set, osc);
 
-            vc->level  = vc->gate ? fmin(1.0, vc->level + up) : fmax(0.0, vc->level - down);
-            out[f]    += (float)(y * vc->level * vc->velocity * gain);
+            out[f]    += (float)(y * ti_env_next(&vc->amp, amp) * gain);   // notes §7: no velocity yet
             vc->phase += vc->increment;
 
             if (vc->phase >= 1.0) {
@@ -249,8 +247,9 @@ static void render_sub_block(tTiVoices * v, const tTiSound * sound, const tTiFil
             }
         }
 
-        if (!vc->gate && (vc->level <= 0.0)) {
+        if (ti_env_idle(&vc->amp)) {
             vc->active = false;
+            vc->gate   = false;
         }
     }
 }
@@ -261,6 +260,9 @@ void ti_voices_render(tTiVoices * v, const tTiSound * sound, float * out, uint32
     smooth_toward(&v->cutoff2, sound->cutoff2, v->rate);
     smooth_toward(&v->resonance2, sound->resonance2, v->rate);
     smooth_toward(&v->balance, sound->balance, v->rate);
+    tTiEnvShape amp;
+
+    ti_env_shape(sound->ampAttack, sound->ampDecay, sound->ampSustain, sound->ampSustainTime, sound->ampRelease, v->rate, &amp);
 
     // notes §4: the coefficients every sub-block, the same for every voice until keyfollow and envelopes come
     for (uint32_t done = 0; done < frames; done += SUB_BLOCK) {
@@ -273,6 +275,6 @@ void ti_voices_render(tTiVoices * v, const tTiSound * sound, float * out, uint32
         tTiFilterSet set;
 
         filter_set(v, sound, cutoff, res, cutoff2, res2, balance, &set);
-        render_sub_block(v, sound, &set, out + done, n, gain);
+        render_sub_block(v, sound, &set, &amp, out + done, n, gain);
     }
 }

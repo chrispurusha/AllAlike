@@ -18,7 +18,8 @@ dumps yields the Singles in it, in file order.
 
 ## 3. What a Single drives
 Only what is built plays from a Single (todo.md): Filter 1 and 2 Cutoff and Resonance (page A 40-43), Filter
-Balance (48), the two filter modes (51, 52), the routing (53, low two bits) and Filter Link (page B 32). Every other
+Balance (48), the two filter modes (51, 52), the routing (53, low two bits), Filter Link (page B 32) and the
+amplifier envelope's Attack, Decay, Sustain, Sustain Time and Release (59-63). Every other
 parameter keeps its value when a Single loads. A value past a list's end (some older patches hold 64 in a mode byte)
 shows as the list's last entry.
 

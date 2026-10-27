@@ -1,8 +1,9 @@
 # tiVoices.c - the voices
 
-## 1. A placeholder voice
-Oscillator, filter and a gate envelope (2 ms attack, 120 ms release), per voice, until the engine's own sections -
-envelopes, the amplifier, modulation - replace them one by one.
+## 1. A voice
+Oscillator, the two filters and the amplifier envelope (tiEnvelope.md), per voice. The oscillator is still a
+placeholder; the filter envelope, modulation and the rest come section by section. A voice is free once its amplifier
+envelope has finished its release.
 
 ## 2. The voice limit
 The instance's voice limit (design §1), 1 to 32. A note takes the voice already playing its key, else a free
@@ -48,3 +49,7 @@ open filter at Balance 0): Serial 4 at Balance 0, 1, 32, 64, 96, 127, with Filte
 at close cutoffs with resonance; Parallel 4 at Balance 0, 32, 64, 127; Link off - all within 0.3 dB rms below 3 kHz,
 most within 0.05.
 
+
+## 7. Velocity
+The level does not follow velocity: the Init Single's velocity to volume is 0, and with it the reference is the same at
+velocity 1 and 127. The patch's own velocity amounts come with the modulation.

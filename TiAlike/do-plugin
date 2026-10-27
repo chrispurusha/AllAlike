@@ -98,6 +98,7 @@ fi
 SOURCES=(
     "$SL/plugin/synthlibLog.c"
     "$HERE/src/tiOsc.c"
+    "$HERE/src/tiEnvelope.c"
     "$HERE/src/tiFilter.c"
     "$HERE/src/tiVoices.c"
     "$HERE/plugin/tiParams.c"

@@ -44,3 +44,20 @@ Measurements, results and the traps that cost time, newest last.
   §6). Serial 6 and Split are stand-ins.
 - The reference's filter at a 44.1 kHz host matches its 48 kHz response within 0.5 dB (Cutoff 60, Resonance 64): its
   cutoffs are fixed in hertz, as TiAlike's are (2026-10-26).
+
+## 2026-10-27 - Singles and presets
+- Every Single in 51 `.syx` / `.mid` files (4679 of them) reads and writes back byte for byte, bar its address
+  (code-notes/tiPatch.md §4). Two traps found on the way: some older patches carry 64 in a filter mode byte, and one
+  name a 0x7F - both were altered by a save until bytes were rewritten only when their parameter changed.
+
+## 2026-10-27 - the amplifier envelope
+- Attack is a straight line in amplitude, Decay and Release exponential falls towards zero, all moving in ticks of
+  4 samples at 46875 Hz (code-notes/tiEnvelope.md). Decay's curve does not depend on the sustain level: it stops there.
+- Times against reference renders within 1%: Attack 64 87.4 ms (87.8 measured), Release 64 349.5 ms (349.4), Release
+  127 8.98 s (8.96). Sustain 64 at 0.33 of full. Sustain Time below the centre an exponential fall, above it a
+  straight rise to 0.99.
+- Trap: the Init Single's two oscillators are detuned, so their beat swamps an envelope measurement - oscillator 2 out
+  (Osc Balance 0) first.
+- Notes now start at their own sample within a block (they started at the block's start, up to a block early, which
+  made fast attacks and releases look wrong by several dB). The reference itself still answers a note about 1-1.5 ms
+  after its sample.

@@ -37,6 +37,11 @@ enum {
     kTiParamRouting,
     kTiParamBalance,
     kTiParamFilterLink,
+    kTiParamAmpAttack,
+    kTiParamAmpDecay,
+    kTiParamAmpSustain,
+    kTiParamAmpSustainTime,
+    kTiParamAmpRelease,
     kTiParamCount
 };
 

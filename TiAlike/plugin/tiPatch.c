@@ -60,15 +60,20 @@ static const struct {
     uint16_t at;
     uint8_t  mask;
 }                    kCarried[] = {
-    {kTiParamCutoff,      PAGE_A + 40, 0x7F},
-    {kTiParamCutoff2,     PAGE_A + 41, 0x7F},
-    {kTiParamResonance,   PAGE_A + 42, 0x7F},
-    {kTiParamResonance2,  PAGE_A + 43, 0x7F},
-    {kTiParamBalance,     PAGE_A + 48, 0x7F},
-    {kTiParamFilterMode,  PAGE_A + 51, 0x7F},
-    {kTiParamFilter2Mode, PAGE_A + 52, 0x7F},
-    {kTiParamRouting,     PAGE_A + 53, 0x03},
-    {kTiParamFilterLink,  PAGE_B + 32, 0x7F},
+    {kTiParamCutoff,         PAGE_A + 40, 0x7F},
+    {kTiParamCutoff2,        PAGE_A + 41, 0x7F},
+    {kTiParamResonance,      PAGE_A + 42, 0x7F},
+    {kTiParamResonance2,     PAGE_A + 43, 0x7F},
+    {kTiParamBalance,        PAGE_A + 48, 0x7F},
+    {kTiParamFilterMode,     PAGE_A + 51, 0x7F},
+    {kTiParamFilter2Mode,    PAGE_A + 52, 0x7F},
+    {kTiParamRouting,        PAGE_A + 53, 0x03},
+    {kTiParamFilterLink,     PAGE_B + 32, 0x7F},
+    {kTiParamAmpAttack,      PAGE_A + 59, 0x7F},
+    {kTiParamAmpDecay,       PAGE_A + 60, 0x7F},
+    {kTiParamAmpSustain,     PAGE_A + 61, 0x7F},
+    {kTiParamAmpSustainTime, PAGE_A + 62, 0x7F},
+    {kTiParamAmpRelease,     PAGE_A + 63, 0x7F},
 };
 
 static bool is_single(const uint8_t * m, size_t len) {
