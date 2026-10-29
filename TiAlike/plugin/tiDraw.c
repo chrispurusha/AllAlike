@@ -67,8 +67,8 @@
 #define BUTTON_H                  (12.0)
 #define PATCH_BAR_X               (300.0)
 #define PATCH_BUTTON_H            (14.0)
-#define NAME_FIELD_W              (128.0)
-#define FILE_LABEL_CHARS          (26)
+#define PATCH_BUTTON_GAP          (6.0)
+#define NAME_FIELD_SIZING         "WWWWWWWWWW"   // TI_SINGLE_NAME_LENGTH of the widest capital
 #define MENU_BG                   {0.22, 0.22, 0.25}
 #define MENU_MAX                  (32)
 #define MENU_CELL_W               (96.0)
@@ -540,28 +540,26 @@ void ti_draw_export_presets(void) {
 
 // ---- the name field - notes §10 ---------------------------------------------------------------------------
 
-static void draw_name_field(void) {
+static void draw_name_field(double x) {
     const char * shown = gNameEdit.active ? gNameEdit.buffer : host_name();
 
     gNameRect = (tRectangle){{
-                                 PATCH_BAR_X + 182.0, TITLE_Y + 1.0
+                                 x, TITLE_Y + 2.0
                              }, {
-                                 NAME_FIELD_W, PATCH_BUTTON_H + 2.0
+                                 get_text_width(NAME_FIELD_SIZING, PATCH_BUTTON_H, eNoCache), PATCH_BUTTON_H
                              }
     };
-    set_rgb_colour(gNameEdit.active ? (tRgb)RGB_GREY_3 : (tRgb)RGB_BACKGROUND_GREY);
-    render_rectangle_with_border(mainArea, gNameRect);
-    set_rgb_colour((tRgb)RGB_WHITE);
-    render_text(mainArea, (tRectangle){{gNameRect.coord.x + 4.0, TITLE_Y + 3.0}, {0.0, 13.0}}, shown);
+    draw_button(mainArea, gNameRect, shown, gNameEdit.active ? (tRgb){0.88, 0.88, 0.88}
+                                                                                        : (tRgb)RGB_GREY_7);
 
     if (gNameEdit.active) {
         char   before[TI_SINGLE_NAME_LENGTH + 1];
-        double x;
+        double cursorX, top = gNameRect.coord.y + DRAW_BUTTON_MARGIN;
 
         snprintf(before, sizeof(before), "%.*s", (int)gNameEdit.cursor, gNameEdit.buffer);
-        x = gNameRect.coord.x + 4.0 + get_text_width(before, 13.0, eNoCache);
-        set_rgb_colour((tRgb)RGB_GREEN_ON);
-        render_line(mainArea, (tCoord){x, TITLE_Y + 3.0}, (tCoord){x, TITLE_Y + 16.0}, 1.0);
+        cursorX = gNameRect.coord.x + DRAW_BUTTON_MARGIN + get_text_width(before, PATCH_BUTTON_H, eNoCache);
+        set_rgb_colour((tRgb)RGB_BLACK);
+        render_line(mainArea, (tCoord){cursorX, top}, (tCoord){cursorX, top + PATCH_BUTTON_H}, 1.0);
     }
 }
 
@@ -633,6 +631,7 @@ static bool name_edit_key(int glfwKey, unsigned int codepoint) {
 static void draw_patch_bar(void) {
     char         label[160];
     const char * base = strrchr(gPatchPath, '/');
+    double       x;
 
     gPrevRect = (tRectangle){{
                                  PATCH_BAR_X, TITLE_Y + 2.0
@@ -655,7 +654,7 @@ static void draw_patch_bar(void) {
     draw_button(mainArea, gPrevRect, "< Prev", (tRgb)RGB_GREY_7);
     draw_button(mainArea, gNextRect, "Next >", (tRgb)RGB_GREY_7);
     draw_button(mainArea, gLoadRect, "Load...", (tRgb)RGB_GREY_7);
-    draw_name_field();
+    draw_name_field(gLoadRect.coord.x + draw_button_bounds(gLoadRect).size.w + 2.0 * PATCH_BUTTON_GAP);
 
     if (gPreset > 0) {
         ti_preset_label(gPreset, label, sizeof(label));
@@ -674,18 +673,20 @@ static void draw_patch_bar(void) {
     if ((strlen(label) > 4) && (label[strlen(label) - 4] == '.')) {
         label[strlen(label) - 4] = '\0';
     }
-
-    if (strlen(label) > FILE_LABEL_CHARS) {
-        label[FILE_LABEL_CHARS] = '\0';
-    }
+    // notes §9: the file's name is cut to fit before the panel's margin, keeping the Single's place after it
+    char place[24] = "";
 
     if ((gSingleCount > 1) && (strcmp(gSinglesPath, gPatchPath) == 0)) {
-        size_t n = strlen(label);
-
-        snprintf(label + n, sizeof(label) - n, " %d/%d", gPatchIndex + 1, gSingleCount);
+        snprintf(place, sizeof(place), " %d/%d", gPatchIndex + 1, gSingleCount);
     }
+    x = gNameRect.coord.x + gNameRect.size.w + 8.0;
+
+    while ((label[0] != '\0') && (x + get_text_width(label, 11.0, eNoCache) + get_text_width(place, 11.0, eNoCache) > TI_CANVAS_W - MARGIN_X)) {
+        label[strlen(label) - 1] = '\0';
+    }
+    strcat(label, place);
     set_rgb_colour((tRgb)RGB_GREY_5);
-    render_text(mainArea, (tRectangle){{gNameRect.coord.x + gNameRect.size.w + 8.0, TITLE_Y + 4.0}, {0.0, 11.0}}, label);
+    render_text(mainArea, (tRectangle){{x, TITLE_Y + 4.0}, {0.0, 11.0}}, label);
 }
 
 // A button whose label is shrunk to fit it (a mod target's name is wider than its box)
@@ -890,7 +891,7 @@ bool ti_draw_press(double x, double y, tTiEdit * edit, bool * grabbed) {
     }
 
     // notes §10: a press on the name edits it; anywhere else while editing keeps the edit, then acts as usual
-    if (within_rectangle((tCoord){x, y}, gNameRect)) {
+    if (within_rectangle((tCoord){x, y}, draw_button_bounds(gNameRect))) {
         if (!gNameEdit.active) {
             name_edit_begin();
         }
@@ -912,7 +913,7 @@ bool ti_draw_press(double x, double y, tTiEdit * edit, bool * grabbed) {
     }
 
     if (within_rectangle((tCoord){x, y}, draw_button_bounds(gLoadRect))) {
-        ti_draw_open_patch();
+        ti_draw_load_preset_browser();
         return true;
     }
 

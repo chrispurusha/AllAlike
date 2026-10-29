@@ -45,9 +45,10 @@ changes: a drag still moves the parameter itself, from where it is. Nothing here
 
 ## 9. The patch bar
 `< Prev`, `Next >`, `Load...` and the name, as Pulse2Alike's. Prev and Next step through the presets (§11). Load...
-opens SynthLib's file browser on a `.syx` or `.mid`: one Single loads at once; several open the bank browser on that
-file, in banks of 128, to choose one. Beside the name: the preset (`A012`, `A012*` once edited), or the file and the
-Single's place in it (`My Bank 12/128`).
+opens the Load Preset browser (§11), as Presets > Load Preset... does. Opening a file is the File menu's: SynthLib's
+file browser on a `.syx` or `.mid`; one Single loads at once; several open the bank browser on that file, in banks of
+128, to choose one. Beside the name: the preset (`A012`, `A012*` once edited), or the file and the Single's place in it
+(`My Bank 12/128`), the file's name cut to what fits before the panel's right margin.
 
 The file's Singles are read when it is opened and kept until another file is. The instance's file and place are set
 on every frame, so that setter reads nothing: it would replace the Singles the bank browser is choosing from with
@@ -59,6 +60,9 @@ Single in place of it. Save Patch As always writes a one-Single `.syx`.
 ## 10. The name
 Ten characters, edited in place: a click starts it, Return or a click elsewhere keeps it, Escape drops it. Either
 case, as a Single's name is.
+
+Drawn as a button, grey with black text like the tabs, wide enough for ten W's (the widest capital) - the longest
+name a Single holds; it lightens while being edited.
 
 ## 11. Presets
 A001-D128 through SynthLib's bank browser, banks A-D of 128 (tiPatch notes §5). Prev/Next wrap through all 512; from
