@@ -3,6 +3,7 @@
 One line per item. Measurements and reasoning go in `findings.md`, design in `design.md`.
 
 ## First
+- See if Virus has a backend limiter which might be of use.
 - Filter 1 (all eight modes) and Filter 2 with Serial 4 / Parallel 4, Balance and Link are in (code-notes/tiFilter.md, tiVoices.md §6); next: Serial 6 (Filter 1 four-pole) and Split (stereo), then the plug-in's stereo output
 - Osc Volume on the panel: its upper half drives the analog filter (filter notes §5, `drive`) and the Saturation curves; then re-fit the ladder's input level (filter notes §6)
 - Analog modes: the self-oscillation pitch at Resonance 127 is 0.9% below the reference's (634 vs 640 Hz) - check at other cutoffs
@@ -16,6 +17,8 @@ One line per item. Measurements and reasoning go in `findings.md`, design in `de
 - Velocity to volume and the other velocity amounts (the Init has 0; tiVoices notes §7)
 - The reference answers a note 1-1.5 ms after its sample: measure the delay and whether it steps with a block of its own
 - Parameter Smooth Mode: only On is built (cutoff, resonance - tiVoices notes §5); Off, Auto, Note and the quantised modes, and the other smoothed controls (oscillator shape, PW, ...)
+- Loading of custom wavetables, in various common file formats.
+
 
 ## Later
 - Effects (next to last), then the arpeggiator (last, if at all) - design §4
