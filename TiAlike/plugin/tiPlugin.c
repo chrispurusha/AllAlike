@@ -35,7 +35,6 @@
 #include "tiVoices.h"
 
 // touch /tmp/tialike-log, read /tmp/tialike.log - see SynthLib's plugin/synthlibLog.h.
-const char           gSynthLibLogName[] = "tialike";
 
 #ifndef TIA_VERSION_STRING
 #define TIA_VERSION_STRING    "0.1.0"
@@ -624,6 +623,8 @@ static const tSynthLibPluginSet  gSet = {
     .count    = 1
 };
 
-const tSynthLibPluginSet * synthlib_plugin_variants(void) {
+static const tSynthLibPluginSet * plugin_variants(void) {
     return &gSet;
 }
+
+SYNTHLIB_PLUGIN_REGISTER(plugin_variants, "tialike")
