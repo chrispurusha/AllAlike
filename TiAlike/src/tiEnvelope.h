@@ -49,6 +49,7 @@ typedef struct {
 
 // The panel's 0..127 for Attack, Decay, Sustain, Sustain Time (64 holds) and Release
 void ti_env_shape(double attack, double decay, double sustain, double sustainTime, double release, double sampleRate, tTiEnvShape * shape);
+double ti_env_sustain_level(double dial);                    // notes §4, the curve Osc Volume and the mix levels also use
 void ti_env_gate(tTiEnv * env, bool on);                     // on: attack from where it is; off: release
 double ti_env_next(tTiEnv * env, const tTiEnvShape * shape); // one sample on
 

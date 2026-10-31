@@ -65,9 +65,12 @@ Drawn as a button, grey with black text like the tabs, wide enough for ten W's (
 name a Single holds; it lightens while being edited.
 
 ## 11. Presets
-A001-D128 through SynthLib's bank browser, banks A-D of 128 (tiPatch notes §5). Prev/Next wrap through all 512; from
+A001-W128 through SynthLib's bank browser, banks A-W of 128 (tiPatch notes §5). Prev/Next wrap through all 512; from
 no preset, Next is A001. Store always confirms, naming what the slot holds; Revert loads the stored preset again.
 
 ## 12. Import and export
 Import replaces all 512 after a confirm naming how many were found (tiPatch notes §6). Export writes the 512 as one
 `.syx`, which Import reads back.
+
+## 13. Names that follow the model
+An oscillator's Wave byte is a wave in the Classic and HyperSaw models and a wavetable in the others, so its control carries both lists and shows the one its model selects. The lists end at their last name, which is what sets the length of the menu.

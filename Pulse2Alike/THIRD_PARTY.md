@@ -62,9 +62,9 @@ Cocoa/AppKit, Metal, QuartzCore, libc++, libobjc, libSystem.
 
 ## SynthLib
 
-`SynthLib/` is a submodule of first-party code under GPLv3 (`SynthLib/LICENSE`), with the licence
-header on every source file. It is compiled in as source, so it raises no distribution obligation
-beyond this project's own.
+SynthLib, a checkout beside this repo, is first-party code under GPLv3 (`SynthLib/LICENSE`), with the
+licence header on every source file. It is linked in as a library, so it raises no distribution
+obligation beyond this project's own.
 
 Its own `THIRD_PARTY.md` describes what SynthLib *can* bundle across all the projects that use it,
 which is a broader list than any one binary contains.

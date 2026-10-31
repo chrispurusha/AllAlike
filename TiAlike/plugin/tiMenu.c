@@ -192,7 +192,7 @@ static void action_panel_help(int index) {
     show_alert("The Panel",
                "An early build: one oscillator, the two filters, the amplifier envelope (ENVELOPES) and the voice limit on the "
                "GLOBAL page.\n\n"
-               "Patches: < Prev and Next > step through the presets, A001-D128; Load... opens a .syx or .mid file of "
+               "Patches: < Prev and Next > step through the presets, A001-W128; Load... opens a .syx or .mid file of "
                "Singles, choosing one when it holds several. The name beside them edits on a click. A Single keeps "
                "every byte it came with, though only what is built so far plays.\n\n"
                "Dials: drag to turn, Shift to turn finely. Controls chooses how a drag turns them: Rotary follows the "

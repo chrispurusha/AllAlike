@@ -33,7 +33,7 @@ A saved Single is addressed to the edit buffer (device 10 omni, bank 0, program 
 instrument plays it without storing it anywhere. With nothing to keep bytes from (after Init) the rest is zeros.
 
 ## 5. The presets
-A001-D128: four banks of 128, one `.syx` of 512 Singles in `~/Library/Application Support/TiAlike/Presets.syx`, each
+A001-W128: four banks of 128, one `.syx` of 512 Singles in `~/Library/Application Support/TiAlike/Presets.syx`, each
 addressed to its own bank (1-4) and program, as the instrument's RAM banks are. Missing or short, the rest are Init.
 Read again whenever the file's modification time changes, so a store from another instance shows; a store re-reads
 first so it never drops another instance's.
@@ -42,3 +42,8 @@ first so it never drops another instance's.
 From a file, its Singles from A001 in file order; from a folder, every `.syx` and `.mid` in name order, one after the
 other - so a folder of four bank files (A, B, C, D) lands as banks A-D. Past 512 the rest are ignored; short of it the
 rest are Init.
+
+## 7. The pages, and a new sound
+`ti_patch_sound` hands the voices the four pages. A new sound starts from the instrument's own starting bytes rather than zeros.
+
+Older Singles (byte 0 below 12) keep Unison, Arp Mode and the Ring Modulator elsewhere: page A 97-100, page B 1 and page A 38.

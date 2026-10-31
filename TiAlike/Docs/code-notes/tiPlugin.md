@@ -33,3 +33,15 @@ the processor gets it - as Pulse2Alike loads.
 ## 7. Edited
 A preset shows as `A012*` once a parameter it carries or its name differs from what is stored in that slot. Checked
 on each editor frame; the presets file itself at most once a second.
+
+## 8. The Single the voices read
+The host's values written over the Single they came from, redone only when something changed. A mono output hears both sides. A project from before a parameter existed takes that parameter from its Single.
+
+## 9. Link
+With Link on, the editor's frame compares the sound with what the instrument was last given and sends the difference, so only while the editor is open and never on the audio thread. Notes go straight on. Link takes the machine's one hardware lock; if another instance has it, this one stays idle. The local engine keeps sounding: use the Volume to choose what is heard.
+
+## 10. Program changes
+A program change selects a stored sound: Bank Select picks the bank, as on the instrument. If that sound is already loaded nothing happens, so edits survive a sequencer resending the same program. Otherwise the output fades down (`synthlibSwapFade`) and the sound changes at the top of the next block once it is silent, because a host may deliver the change on the audio thread. Loads from the panel use the same fade, and effect tails carry on behind it.
+
+## 11. A new instance
+A new instance plays A001, whichever comes first of its first audio block and its editor's first frame, so a panel opened before audio runs shows the sound it will play. A project's state cancels this, and with no presets stored it stays on Init.

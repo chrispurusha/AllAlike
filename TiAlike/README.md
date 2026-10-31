@@ -6,8 +6,7 @@ One instance plays one Single: patches are loaded per instance, with an adjustab
 is no Multi or performance mode. Each section of the engine is reproduced by measurement and checked against
 reference renders sample by sample (see [`Docs/design.md`](Docs/design.md)).
 
-**Early days:** one placeholder oscillator (saw, pulse, triangle), a filter (LP 24 / LP 12 / BP 12 / HP 12 with cutoff
-and resonance) and the voice limit. Their laws are placeholders until measured.
+**Work in progress.** A loaded Single plays through two oscillators and a third, sub, noise, ring, sync and FM, both filters, the envelopes, three LFOs, the matrix, unison and the mono modes, in stereo. Grain and Formant and the effects are not in yet, nor the arpeggiator, so a Single using them plays only in part.
 
 ## Relationship to the sibling projects
 
@@ -22,9 +21,7 @@ wrappers; the panel follows Pulse2Alike's.
 ## Building
 
 ```
-git submodule update --init SynthLib
-git -C SynthLib submodule update --init ThirdParty/glfw ThirdParty/freetype
-# then FreeType's static library, as G2Alike's Docs/Third Party build notes.md describe (macOS 12.0)
+git clone --recurse-submodules https://github.com/chrispurusha/SynthLib.git ../../SynthLib
 ./do-plugin            # VST3 and Audio Unit, and installs them
 ./do-plugin au         # one format
 ./do-plugin --no-install

@@ -9,9 +9,8 @@ envelope has finished its release.
 The instance's voice limit (design §1), 1 to 32. A note takes the voice already playing its key, else a free
 voice, else the oldest. Lowering the limit releases the voices above it rather than cutting them.
 
-## 3. The sound
-`tTiSound` is the patch as the voices play it, in the panel's units; the plug-in builds it from its parameters each
-block. A loaded Single will fill the same struct.
+## 3. A Single is the sound
+The voices read a Single's pages directly (`tTiSound`), so every byte of a loaded patch reaches the engine whether or not the panel has a control for it. The panel's parameters are written over those bytes when they change.
 
 ## 4. Filter coefficients every 32 samples
 The filter's coefficients are worked out every 32 samples and shared by every voice: nothing per voice moves the
@@ -50,6 +49,96 @@ at close cutoffs with resonance; Parallel 4 at Balance 0, 32, 64, 127; Link off 
 most within 0.05.
 
 
-## 7. Velocity
-The level does not follow velocity: the Init Single's velocity to volume is 0, and with it the reference is the same at
-velocity 1 and 127. The patch's own velocity amounts come with the modulation.
+
+After an analog Filter 1, Filter 2 has no output gain falling with resonance, except in band pass.
+
+A linked Filter 2 follows Filter 1's cutoff with its modulation, not only the dial.
+## 7. The oscillator section's levels and tuning
+Against a sine of 1, a triangle is 1, a saw 2/3 and a pulse 1/2. Measured with Analog Boost off, because Init has it on.
+
+- Osc Balance: two straight lines meeting at the centre, each oscillator at 0.8 there.
+- Osc Volume, up to 64: the amplifier's sustain curve read at twice the dial. Above 64 it no longer changes the level, only the drive. It also scales the sub and Osc 3, which sit in the same group; noise and ring do not.
+- Osc 3's Volume is a straight line, 1.69 of a sine at full, inside Osc Volume and outside Osc Balance. Its Slave mode adds nothing of its own. It takes Osc 2's keyfollow and Detune's curve, but not Osc 2's Semitone.
+- Sub, noise and ring share one mix curve, the sustain curve to the power 1.25.
+- Patch Volume: 0.2513 dB a step down to 48, then steeper (the table).
+- Panorama: two straight lines; a hard pan is 1.585 of the centre.
+- Osc 2 Detune is piecewise and shrinks with pitch, by 1.393 per two octaves.
+- Oscillator keyfollow: 96 tracks, 64 is fixed, centred on note 60.
+- Tuning: with Osc Init Phase at 0 the oscillators sit about a cent flat, by a little less as pitch rises; above 0 they sit 0.29 cents sharp.
+- A gentle high pass at about 15 Hz on the oscillators, before noise and ring, so two identical pulses multiplied keep their DC.
+- The output is inverted against the oscillators.
+- Noise is white at Color 64, a low pass below it and a shelf away from the lows above it.
+
+
+Init Phase sets Osc 2's phase against Osc 1, value/128 of a cycle, and above 0 every note starts its oscillators from there, so a run of notes is identical from one to the next. The oscillators' high pass starts clean on such a note: a voice left to keep its own would bring back whatever DC its last note ended on, and a run of notes would drift. At 0 the oscillators run free, so two at the same pitch sit at a different phase on every note, and their sum and ring product change from note to note.
+
+What cannot be heard is not computed: an oscillator with no level unless ring or FM needs it, the FM modulator with no FM, Osc 3 with no level, the second high pass outside Split, Filter 1 in Parallel with no share. Phases run on regardless, so the sound is byte for byte the same.
+## 8. The live controls
+Bend, pressure, the wheel and the other controllers the matrix can read. Hidden host parameters bound to their MIDI controls, so they arrive through the host's mapping.
+
+## 9. The matrix
+Six slots with up to three destinations each, and each LFO's assign. Sources are 0..1, with an LFO's bipolar source -0.5..0.5, Key Follow (note - 60) / 63, Arp Input -0.5 with the arpeggiator off, and Velocity Off full until a key is released; amounts (byte - 64) / 64. Full amount is 128 dial units, or 128 semitones of pitch: the 10% constant source moves Cutoff by 12.8. Destinations the engine lacks (the effects, for now) are summed and ignored.
+
+## 10. Keys
+Mono modes keep the keys held and fall back to the last still down. Hold keeps notes after release, as the pedal does. Portamento is an exponential approach: its time constant is 5.65 ms times 3 to the power dial / 32.
+
+
+Filter key follow takes a downward Transpose into account, and not an upward one.
+## 11. What moves the cutoff
+- Env Amount: three slopes, 0.5, 1 and 1.25 dial units per step (`env_amount`).
+- A filter envelope's attack is a straight line in time, but on its own curve: exactly 8 times the amplifier's time at 64, drawing level with it near 120 (`attack_rate`). Decay and release are the amplifier's.
+- Only the amplifier's sustain is curved. A filter envelope's sustain is a straight line in its dial.
+- Keyfollow: a straight line, about one dial unit per semitone at full, centred on Filter Keytrack Base.
+- Velocity scales the envelope's offset, linearly in velocity, its amount through the same 9-point curve as Filter Balance: a positive amount from full at the loudest note down, a negative amount from full at the softest down.
+- Velocity to Shape, Pulse Width and FM add straight lines: (byte - 64) x 2 x velocity for the first two.
+- Velocity to Volume runs through the mix curve. Velocity to Resonance adds to it, through the 9-point curve of the linked Cutoff 2 offset, up to 128 dial units.
+
+## 12. LFOs and pitch
+An LFO's pitch amount follows a steep curve, the same either side of zero, 2 semitones at half amount and 31 at full (`lfo_pitch_amount`). The filter envelope's route to Osc 2 is the same curve doubled. LFO 3 goes as the fourth power of its amount, 8 semitones at full. Trigger Phase 1..127 runs one cycle from the wave's minimum. Pulse Width, Shape and FM's fixed LFO routes are straight lines, 128, 64 and full travel at full amount. Cutoff, Resonance and Panorama's run through the 9-point curve of the linked Cutoff 2 offset, 64 dial units at full. An LFO in Env Mode always restarts with a note. A clocked LFO follows the host's tempo, or the patch's own (byte + 63 bpm) with none.
+
+## 13. Unison
+A stack is at most six voices. Each stands at a place from -1 to 1, not quite evenly (four are at -1, -0.5, 0.5, 1), which sets its detune and pan, and its level: 1 at the centre, 0.75 at the edges, with no gain on the stack as a whole. Detune is 24 cents at full, 10 at 96, 4.6 at 64. Unison LFO Phase moves every second voice by (byte - 64) x 2.8125 degrees, so 64 is no offset. With an LFO both clocked and in Env Mode, every second voice of a stack holds that LFO at its top instead of running it. A Single older than the TI format (byte 0 below 12) keeps Unison in page A 97-100.
+
+## 14. FM
+Osc 2's frequency swings by up to 15.75 times itself at full amount, through zero. The swing is 1, 4, 8 and 16 times the frequency at amounts 32, 64, 96 and 128, a straight line between each. The modulator is Osc 1 as a positive triangle, a triangle, its wave, or noise.
+
+## 15. Punch
+A decaying offset added to the oscillators, ahead of their high pass and the filters: full size from the start, its level Punch to the power 1.6 and Osc Volume, not Balance, its sign that of the wave's first sample, taken without the correction at a wave's edge. Its time constant is 0.4 ms at note 36, 2.4 times shorter an octave up.
+
+## 16. Analog Boost
+A low shelf at the output. Intensity sets the lift, up to about 6 dB; Tune moves its corner and takes the lift down as it rises. The small dip at the very top is not reproduced. The other character types are not built.
+
+## 17. Saturation
+On Filter 1's output, before the mix, so Filter 2 on its own hears none of it. The analog modes have no saturation stage at all.
+
+Above Osc Volume 64 the drive sets two things across nine points: the gain into the curve, 0.125 up to 1 in equal ratios, and a make-up gain out of it, its own for each curve. Curves 1-4 are arctangents, a different one each side of zero. Digital is a hard limit well below full scale. Rectifier blends from the signal to a folded form of it. Shaper is a sine of the driven signal, its level falling by a quarter across the drive. Curves 8-14, Bit Reducer, Rate Reducer, Low Pass and High Pass, follow the laws of the Distortion curves of the same names (tiEffects §2), with drive as Intensity. Their key follow is not built.
+
+## 18. The end of the chain
+It clips hard at full scale. There is no limiter: a quiet note under a loud chord is not turned down, and recovers the moment the chord stops.
+
+## 19. Arithmetic
+See tiFixed.md.
+
+## 20. Free LFOs
+An LFO with Keytrigger off runs from the moment the instance starts, whether clocked or not, so a note finds it wherever it has got to and two notes struck apart agree. Its phase at a note is worked out from the time since start, rate times seconds.
+
+## 21. HyperSaw sync
+With Osc 2 in the HyperSaw model the FM Amount, and whatever modulates it, sets a cross-oscillator sync frequency. The saws run at 2^(amount / 32) times their pitch, reaching 16 times at full, and all restart when Osc 1 does. At 0 nothing restarts. Restarting together the saws would add in step, so the stack is scaled back to the level of one. FM itself does not apply.
+
+## 22. Where the matrix reaches
+Every destination that is a setting in the sound has a route. LFO amounts add to their own amount before its curve. A slot's amount can be moved by another slot, so those routes are summed in a first pass and added to the amount in the second. Effects are shared by the voices, so they take the newest voice's modulation, held when nothing sounds, added to their bytes for each block.
+
+## 23. Pulse width under modulation
+The dial covers the upper half of the width, but modulation carries it on through the square to the narrow side, so the value is limited to -127 to 127 and not 0 to 127.
+
+## 24. Pitch limit
+An oscillator's Semi and its matrix pitch modulation are added, and the sum stops at 48 semitones either way.
+
+## 25. Rate Reducer
+In the saturation stage the hold is longer than in the Distortion stage by 3%, as measured. With key follow it halves for every octave above note 60, so the reduced rate rises with the pitch. Key follow stops at a hold of 131 samples at 48 kHz. The rate is fixed in hertz, so the hold follows the sample rate.
+
+## 26. The filters and the envelope
+The filters are set once a block, and take the envelope as it will stand at the end of that block. Taking it at the start would leave a new note's first block with the filter shut, and hold the filter too far open through a fast decay. Attack 0 needs no time at all: the envelope is at the top on the first sample.
+
+## 27. A key struck again
+Every note takes a new voice, even on a key already sounding, held or not: the note before rings out behind it, and six strikes of a held key are six voices.

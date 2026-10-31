@@ -24,7 +24,7 @@
 #include <stdint.h>
 
 #define TI_CANVAS_W    (780.0)
-#define TI_CANVAS_H    (320.0)
+#define TI_CANVAS_H    (440.0)
 
 typedef enum {
     eTiControlDial = 0,
@@ -35,10 +35,16 @@ typedef struct {
     uint32_t            paramId;
     const char *        label;
     tTiControlKind      kind;
-    int32_t             steps;   // plain range is 0..steps for a dial, entries - 1 for a choice
+    int32_t             steps;    // plain range is 0..steps for a dial, entries - 1 for a choice
     double              plainMin;
-    const char *const * names;   // a choice's entries
+    const char *const * names;    // a choice's entries
 } tTiControl;
+
+typedef struct {
+    uint32_t            paramId;
+    uint32_t            modelParam;
+    const char *const * tables;   // its list in place of the control's own, once the model reads a table
+} tTiTableNames;
 
 typedef struct {
     const char *       title;

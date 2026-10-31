@@ -24,6 +24,7 @@
 #include <stdlib.h>
 
 #include "tiDraw.h"
+#include "tiParams.h"
 
 #include "synthlibDefs.h"
 #include "synthlibGlobals.h"
@@ -49,7 +50,7 @@
 #define FONT_PATH                 "/System/Library/Fonts/Supplemental/Arial.ttf"
 #define FONT_PRELOAD_SIZE         (16.0)
 
-#define MAX_PARAMS                (128)
+#define MAX_PARAMS                (320)
 #define MAX_PLACED                (64)
 #define MAX_PAGES                 (16)
 #define MARGIN_X                  (16.0)
@@ -70,8 +71,13 @@
 #define PATCH_BUTTON_GAP          (6.0)
 #define NAME_FIELD_SIZING         "WWWWWWWWWW"   // TI_SINGLE_NAME_LENGTH of the widest capital
 #define MENU_BG                   {0.22, 0.22, 0.25}
-#define MENU_MAX                  (32)
+#define MENU_MAX                  (128)
+#define LONG_MENU                 (32)
+#define MENU_ROWS_LONG            (22)
+#define MODEL_STEPS               (7)
+#define FIRST_TABLE_MODEL         (2)
 #define MENU_CELL_W               (96.0)
+#define MENU_CELL_W_LONG          (118.0)
 #define MENU_ROWS_PER_COLUMN      (8)
 #define OPENING_RELEASE_SLOP      (4.0)   // notes §3: how far the pointer may move and still be the opening click
 
@@ -371,7 +377,7 @@ static void load_preset(int number) {
     }
 }
 
-// notes §11: Prev/Next step through A001-D128 and wrap; from no preset, Next is A001
+// notes §11: Prev/Next step through A001-W128 and wrap; from no preset, Next is A001
 static void step_patch(int direction) {
     int from = (gPreset != 0) ? gPreset : ((direction > 0) ? 0 : 1);
 
@@ -448,7 +454,7 @@ static void on_store_slot(bool confirmed, uint32_t bank1Indexed, uint32_t locati
 
 void ti_draw_load_preset_browser(void) {
     fill_slot_items();
-    open_bank_browser("Load Preset", "A001-D128, as banks A-D of 128.", "Load", gSlotItems, TI_PRESETS, NULL, 0, on_load_slot);
+    open_bank_browser("Load Preset", "A001-W128, as banks A-W of 128.", "Load", gSlotItems, TI_PRESETS, NULL, 0, on_load_slot);
 }
 
 void ti_draw_store_preset_browser(void) {
@@ -497,7 +503,7 @@ static void confirm_import(int count, const char * from) {
         show_alert("Import Presets", message);
         return;
     }
-    snprintf(message, sizeof(message), "Replace all 512 presets with the %d Single%s in %s, from A001? Slots it has no Single for "
+    snprintf(message, sizeof(message), "Replace all 2944 presets with the %d Single%s in %s, from A001? Slots it has no Single for "
              "become Init.", count, (count == 1) ? "" : "s", from);
     show_confirm("Import Presets", message, "Replace", on_import_confirmed);
 }
@@ -753,11 +759,25 @@ static void layout(void) {
     }
 }
 
-static void value_text(const tTiControl * c, char * out, size_t len) {
-    int32_t step = step_of(c);
+// notes §13
+static const char * const * names_of(const tTiControl * c) {
+    for (size_t i = 0; i < sizeof(gTiTableNames) / sizeof(gTiTableNames[0]); i++) {
+        const tTiTableNames * t = &gTiTableNames[i];
 
-    if (c->names != NULL) {
-        snprintf(out, len, "%s", c->names[step]);
+        if ((t->paramId == c->paramId) && (lround(gValue[t->modelParam] * MODEL_STEPS) >= FIRST_TABLE_MODEL)) {
+            return t->tables;
+        }
+    }
+
+    return c->names;
+}
+
+static void value_text(const tTiControl * c, char * out, size_t len) {
+    int32_t             step  = step_of(c);
+    const char *const * names = names_of(c);
+
+    if ((names != NULL) && (names[step] != NULL)) {
+        snprintf(out, len, "%s", names[step]);
     } else {
         snprintf(out, len, "%d", (int)lround(c->plainMin + step));
     }
@@ -855,13 +875,19 @@ static const tPlaced * hit(double x, double y) {
 }
 
 static void open_value_menu(const tPlaced * pc) {
-    const tTiControl * c       = pc->control;
-    int                count   = (c->steps + 1 < MENU_MAX) ? (c->steps + 1) : MENU_MAX;
-    uint32_t           columns = (uint32_t)((count + MENU_ROWS_PER_COLUMN - 1) / MENU_ROWS_PER_COLUMN);
+    const tTiControl *  c         = pc->control;
+    const char *const * names     = names_of(c);
+    int                 count     = 0;
+
+    while ((count <= c->steps) && (count < MENU_MAX) && (names[count] != NULL)) {
+        count++;
+    }
+    int                 perColumn = (count > LONG_MENU) ? MENU_ROWS_LONG : MENU_ROWS_PER_COLUMN;
+    uint32_t            columns   = (uint32_t)((count + perColumn - 1) / perColumn);
 
     for (int i = 0; i < count; i++) {
         gMenuItems[i] = (tMenuItem){
-            .label = c->names[i], .colour = (tRgb)MENU_BG, .action = menu_action, .param = (uint32_t)i
+            .label = names[i], .colour = (tRgb)MENU_BG, .action = menu_action, .param = (uint32_t)i
         };
     }
 
@@ -870,7 +896,7 @@ static void open_value_menu(const tPlaced * pc) {
     };
     gMenuFor          = c;
     gMenuChoice       = -1;
-    open_context_menu(below_rect(pc->dial), gMenuItems, columns, MENU_CELL_W);
+    open_context_menu(below_rect(pc->dial), gMenuItems, columns, (count > LONG_MENU) ? MENU_CELL_W_LONG : MENU_CELL_W);
 }
 
 // notes §2

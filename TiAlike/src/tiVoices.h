@@ -22,11 +22,14 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "tiEffects.h"
 #include "tiEnvelope.h"
 #include "tiFilter.h"
+#include "tiLfo.h"
 #include "tiOsc.h"
 
 #define TI_MAX_VOICES    (32)
+#define TI_PAGE          (128)
 
 // notes §6: how the two filters are put together
 typedef enum {
@@ -37,33 +40,56 @@ typedef enum {
     eTiRoutings
 } tTiRouting;
 
+// notes §8: the live controls a Single's matrix can read, 0..1 (bend -1..1)
+typedef enum {
+    eTiCtlBend = 0,
+    eTiCtlPressure,
+    eTiCtlWheel,
+    eTiCtlBreath,
+    eTiCtl3,
+    eTiCtlFoot,
+    eTiCtlData,
+    eTiCtlBalance,
+    eTiCtl9,
+    eTiCtlExpression,
+    eTiCtl12,
+    eTiCtl13,
+    eTiCtl14,
+    eTiCtl15,
+    eTiCtl16,
+    eTiCtlHold,
+    eTiCtlPortamento,
+    eTiCtlSostenuto,
+    eTiCtlCount
+} tTiControlId;
+
 typedef struct {
     bool      active;
     bool      gate;
     uint8_t   note;
-    float     velocity;
-    double    phase;
-    double    increment;
-    tTiEnv    amp;       // the amplifier envelope
-    tTiFilter filter, filter2;
-    uint64_t  started;   // for stealing the oldest
+    float     velocity, releaseVelocity;
+    double    pitch;                        // semitones, gliding to note
+    double    phase[3], subPhase;
+    double    hyper[2][TI_HYPER_SAWS];
+    double    detune, pan;                  // unison's offsets
+    double    place;                        // 0 at the centre of a stack, 1 at its edge
+    double    noiseState;
+    uint32_t  noise;
+    double    highPass[2];
+    double    random;
+    double    ringDc;
+    double    satState[2];
+    double    punchLeft;                    // samples
+    double    punchSign;
+    tTiEnv    amp, filterEnv, env3, env4;
+    tTiLfo    lfo[3];
+    tTiFilter filter, filter2, filterB;     // filterB: Filter 1's second section in Serial 6
+    uint64_t  started;                      // for stealing the oldest
 } tTiVoice;
 
-// The sound as the voices play it, in the panel's units (notes §3)
+// A Single as the voices read it: pages A, B and C (notes §3)
 typedef struct {
-    tTiOscShape   shape;
-    double        pulseWidth;                                                  // 0..1
-    double        cutoff;                                                      // 0..127
-    double        resonance;                                                   // 0..127
-    tTiFilterMode filterMode;
-    double        drive;                                                       // 0..1, the Osc Volume above its centre (filter notes §5)
-    double        cutoff2;                                                     // 0..127: an offset from cutoff when linked, else Filter 2's own cutoff
-    double        resonance2;                                                  // 0..127
-    tTiFilterMode filter2Mode;                                                 // low/high/band pass and band stop only
-    tTiRouting    routing;
-    double        balance;                                                     // 0..127, 64 the centre
-    bool          filterLink;
-    double        ampAttack, ampDecay, ampSustain, ampSustainTime, ampRelease; // 0..127 (envelope notes)
+    uint8_t a[TI_PAGE], b[TI_PAGE], c[TI_PAGE], d[TI_PAGE];
 } tTiSound;
 
 // notes §5: a control gliding to its new value as the instrument's Smooth On does
@@ -76,21 +102,38 @@ typedef struct {
 typedef struct {
     tTiVoice        voice[TI_MAX_VOICES];
     tTiSmooth       cutoff, resonance, cutoff2, resonance2, balance;
-    uint32_t        limit;    // 1..TI_MAX_VOICES (design §1: the instance's voice limit)
-    double          rate;
+    tTiLfo          monoLfo[3];
+    uint32_t        limit;      // 1..TI_MAX_VOICES (design §1: the instance's voice limit)
+    double          rate, tempo;
+    double          seconds;    // since the instance started, for the free LFOs
+    double          fxMod[128]; // the newest voice's modulation, for the effects
+    double          control[eTiCtlCount];
     tTiFilterTables filterTables;
     uint64_t        clock;
+    uint8_t         held[128];   // notes §10: keys down, oldest first, for the mono modes
+    uint32_t        heldCount;
+    int             lastNote;
+    bool            fixedPoint;  // notes §19: the arithmetic the instrument uses
+    double          boostState[2];
+    tTiEffects      effects;
+    tTiSound        sound;       // as of the last render
 } tTiVoices;
 
 void ti_voices_init(tTiVoices * v, double rate);
 void ti_voices_set_rate(tTiVoices * v, double rate);
 void ti_voices_set_limit(tTiVoices * v, uint32_t limit);
+void ti_voices_set_effects(tTiVoices * v, bool delay, bool reverb);   // notes tiEffects §8
+void ti_voices_set_tempo(tTiVoices * v, double bpm);
+void ti_voices_set_fixed(tTiVoices * v, bool fixed);
 void ti_voices_note_on(tTiVoices * v, uint8_t note, float velocity);
-void ti_voices_note_off(tTiVoices * v, uint8_t note);
+void ti_voices_note_off(tTiVoices * v, uint8_t note, float velocity);
+void ti_voices_control(tTiVoices * v, tTiControlId id, double value);
 void ti_voices_all_off(tTiVoices * v);
 // notes §6: Filter 2's cutoff, 0..127 and beyond, from Cutoff, Cutoff 2 and Link
 double ti_voices_cutoff2(double cutoff, double cutoff2, bool link);
-// Adds frames of every voice into out (mono); gain applied
-void ti_voices_render(tTiVoices * v, const tTiSound * sound, float * out, uint32_t frames, double gain);
+// Adds frames of every voice into left and right
+// notes §17: curves 1-5, also what Distortion Light to Digital are
+double ti_saturate_curve(double x, uint8_t curve, double drive, double unit);
+void ti_voices_render(tTiVoices * v, const tTiSound * sound, float * left, float * right, uint32_t frames);
 
 #endif // __TI_VOICES_H__

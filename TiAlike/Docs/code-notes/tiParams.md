@@ -9,3 +9,6 @@ Pulse2Alike's page names and section colours, so the two plug-ins read alike: OS
 LFOS, MOD, EFFECTS, ARP, GLOBAL. A page appears only once something on it is built, so the panel shows what plays;
 for now OSCILLATORS, FILTER, AMP, ENVELOPES (AMP ENV) and GLOBAL. Volume sits under AMP's MASTER and the voice limit under GLOBAL's PLUG-IN,
 where Pulse2Alike puts its own.
+
+## 3. The live controls
+Hidden, not saved, and bound to MIDI: see tiVoices.md §8. New parameters are appended, as the ids are what host projects save.

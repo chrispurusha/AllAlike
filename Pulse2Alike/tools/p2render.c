@@ -15,12 +15,16 @@
 
 #define RENDER_GAIN    (0.1)
 
-// What the wrappers would provide; the engine does not need them offline.
-void synthlib_plugin_param_edited(void * inst, uint32_t id, double normalized) {
+// The wrapper's half of the contract; the engine does not need it offline.
+static void offline_param_edited(void * inst, uint32_t id, double normalized) {
     (void)inst;
     (void)id;
     (void)normalized;
 }
+
+static const tSynthLibPluginFormat kOfflineFormat = {
+    .paramEdited = offline_param_edited,
+};
 
 // "Osc 1 Level" and "osc1level" are the same parameter
 static bool title_matches(const char * title, const char * key, size_t keyLen) {
@@ -92,6 +96,7 @@ int main(int argc, char ** argv) {
         fprintf(stderr, "usage: p2render <sound.syx|-> <note> <hold_s> <tail_s> <out.wav> [rate]\n");
         return 2;
     }
+    synthlib_plugin_set_format(&kOfflineFormat);
     const tSynthLibPluginDesc * d                              = &synthlib_plugin_variants()->variants[0];
     int                         notes[32], noteCount = 0;
     double                      starts[32], lengths[32];

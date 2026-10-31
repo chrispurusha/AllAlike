@@ -15,7 +15,7 @@ set -e
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 SDK="${VST3_SDK:-$HOME/Documents/vst3sdk}"
-SL="${SYNTHLIB_DIR:-$HERE/../SynthLib}"
+SL="${SYNTHLIB_DIR:-$HERE/../../SynthLib}"
 
 FORMATS=()
 INSTALL=1
@@ -83,89 +83,34 @@ if (( ${FORMATS[(I)vst3]} )) && [[ ! -d "$SDK/pluginterfaces" ]]; then
     exit 1
 fi
 
+"$SL/do-build"
+SYNTHLIB_LIB="$SL/build/libSynthLib.a"
+FREETYPE_LIB="$SL/build/libfreetype.a"
 
-FREETYPE_LIB="$SL/ThirdParty/freetype/build/libfreetype.a"
 
-if [[ ! -f "$FREETYPE_LIB" ]]; then
-    print -u2 "error: freetype not built at $FREETYPE_LIB - see G2Alike/Docs/Third Party build notes.md"
-    exit 1
-fi
 
 # ------------------------------------------------------------------------------------------------
 # TiAlike itself - compiled once, linked into every format
 # ------------------------------------------------------------------------------------------------
 
 SOURCES=(
-    "$SL/plugin/synthlibLog.c"
     "$HERE/src/tiOsc.c"
+    "$HERE/src/tiWaves.c"
+    "$HERE/src/tiWavetables.c"
+    "$HERE/src/tiLfo.c"
+    "$HERE/src/tiEffects.c"
     "$HERE/src/tiEnvelope.c"
     "$HERE/src/tiFilter.c"
     "$HERE/src/tiVoices.c"
     "$HERE/plugin/tiParams.c"
     "$HERE/plugin/tiPatch.c"
+    "$HERE/plugin/tiHardware.c"
     "$HERE/plugin/tiDraw.c"
     "$HERE/plugin/tiMenu.c"
     "$HERE/plugin/tiPrefs.c"
     "$HERE/plugin/tiPlugin.c"
-    "$SL/plugin/synthlibPluginRegistry.c"
-    "$SL/src/synthlibGlobals.c"
-    "$SL/plugin/synthlibPluginState.c"
-
-    # SynthLib, and only the parts a plug-in panel needs (Pulse2Alike's list).
-    # MANUAL: none of this is a synchronised folder, so a SynthLib file that becomes necessary goes in by hand.
-    "$SL/src/utilsGraphics.c"
-    "$SL/src/renderBackend.c"
-    "$SL/src/renderBackendGL.c"     # compiles to nothing on macOS; the Windows/Linux renderer
-    "$SL/src/geometry.c"
-    "$SL/src/utils.c"
-    "$SL/src/synthlibHost.c"
-    "$SL/src/synthlibVersion.c"
-    "$SL/src/clickRegion.c"
-    "$SL/src/inputState.c"
-    "$SL/src/contextMenu.c"
-    "$SL/src/menuBar.c"
-    "$SL/src/alertDialog.c"
-    "$SL/src/synthlibPopups.c"
 )
 
-# C++ from SynthLib: the in-window file browser, and the prefs it reads its places from
-CXX_SOURCES=(
-    "$SL/src/fileBrowser.cpp"
-    "$SL/src/bankBrowser.cpp"       # the presets, and a file of several Singles
-    "$SL/src/prefs.cpp"
-)
-
-OBJC_SOURCES=(
-    "$SL/plugin/synthlibPanelView.m"
-    "$SL/src/renderBackendMetal.m"
-)
-
-
-# ------------------------------------------------------------------------------------------------
-# FORMAT-SPECIFIC - all of it SynthLib's
-# ------------------------------------------------------------------------------------------------
-
-VST3_CXX_SOURCES=(
-    "$SL/plugin/synthlibPluginVst3.cpp"
-    "$SDK/pluginterfaces/base/funknown.cpp"
-    "$SDK/pluginterfaces/base/coreiids.cpp"
-    "$SDK/public.sdk/source/vst/vstinitiids.cpp"
-    "$SDK/public.sdk/source/common/commoniids.cpp"
-    "$SDK/pluginterfaces/base/ustring.cpp"
-    "$SDK/pluginterfaces/base/conststringtable.cpp"
-)
-
-VST3_OBJCXX_SOURCES=(
-    "$SL/plugin/synthlibPluginVst3View.mm"
-)
-
-AU_C_SOURCES=(
-    "$SL/plugin/synthlibPluginAu.c"
-)
-
-AU_OBJC_SOURCES=(
-    "$SL/plugin/synthlibPluginAuView.m"
-)
 
 # ------------------------------------------------------------------------------------------------
 # Flags
@@ -179,16 +124,12 @@ own_werror() {
     [[ -z "$TIA_NO_WERROR" && "$1" == "$HERE/"* && "$1" != "$SL/"* ]] && print -- -Werror
 }
 
-# SYNTHLIB_PLUGIN_BUILD is SynthLib's "this is a plug-in, there is no GLFW" - G2_VST3_BUILD until the
-# plug-ins gained a second format. An ARRAY, so the version define keeps its own quotes.
-DEFS=(-DSYNTHLIB_PLUGIN_BUILD=1 -DTIA_VERSION_STRING="\"$TIA_VERSION\"" -DSYNTHLIB_VERSION_STRING="\"$TIA_VERSION\"" -DTIA_AU_VERSION=$AU_VERSION)
+DEFS=(-DTIA_VERSION_STRING="\"$TIA_VERSION\"" -DSYNTHLIB_VERSION_STRING="\"$TIA_VERSION\"" -DTIA_AU_VERSION=$AU_VERSION)
 
 # glfw for its HEADERS ONLY - SynthLib's key and mouse constants come from them. freetype is real: the panel
 # draws its text with it, linked statically below.
 INCLUDES=(-I"$HERE/src" -I"$HERE/plugin" -I"$SL/src" -I"$SL/audio" -I"$SL/plugin"
           -I"$SL/ThirdParty/glfw/include" -I"$SL/ThirdParty/freetype/include")
-
-VST3_INCLUDES=(-I"$SDK")
 
 ARCHS=(-arch arm64 -arch x86_64)
 MIN=-mmacosx-version-min=12.0
@@ -211,19 +152,6 @@ COMMON_OBJECTS=()
 for src in "${SOURCES[@]}"; do
     obj="$OBJDIR/$(basename "${src%.*}").o"
     clang $ARCHS $MIN -O2 -std=gnu11 "${WARNFLAGS[@]}" $(own_werror "$src") "${DEFS[@]}" "${INCLUDES[@]}" -c "$src" -o "$obj"
-    COMMON_OBJECTS+=("$obj")
-done
-
-for src in "${CXX_SOURCES[@]}"; do
-    obj="$OBJDIR/$(basename "${src%.*}").oxx"
-    clang++ $ARCHS $MIN -O2 -std=gnu++17 "${WARNFLAGS[@]}" $(own_werror "$src") "${DEFS[@]}" "${INCLUDES[@]}" -c "$src" -o "$obj"
-    COMMON_OBJECTS+=("$obj")
-done
-
-for src in "${OBJC_SOURCES[@]}"; do
-    obj="$OBJDIR/$(basename "${src%.*}").om"
-    clang $ARCHS $MIN -O2 -std=gnu11 -fobjc-arc "${WARNFLAGS[@]}" $(own_werror "$src") "${DEFS[@]}" "${INCLUDES[@]}" \
-          -x objective-c -c "$src" -o "$obj"
     COMMON_OBJECTS+=("$obj")
 done
 
@@ -292,23 +220,9 @@ build_vst3() {
 
     print "==> VST3"
 
-    for src in "${VST3_CXX_SOURCES[@]}"; do
-        local obj="$OBJDIR/vst3_$(basename "${src%.*}").oxx"
-        clang++ $ARCHS $MIN -O2 -std=gnu++17 "${WARNFLAGS[@]}" "${DEFS[@]}" \
-                "${INCLUDES[@]}" "${VST3_INCLUDES[@]}" -c "$src" -o "$obj"
-        objects+=("$obj")
-    done
-
-    for src in "${VST3_OBJCXX_SOURCES[@]}"; do
-        local obj="$OBJDIR/vst3_$(basename "${src%.*}").omm"
-        clang++ $ARCHS $MIN -O2 -std=gnu++17 -fobjc-arc "${WARNFLAGS[@]}" "${DEFS[@]}" \
-                "${INCLUDES[@]}" "${VST3_INCLUDES[@]}" -x objective-c++ -c "$src" -o "$obj"
-        objects+=("$obj")
-    done
-
     rm -rf "$out"
     mkdir -p "$out/Contents/MacOS"
-    clang++ $ARCHS $MIN -bundle "${objects[@]}" "$FREETYPE_LIB" "${COMMON_LIBS[@]}" -o "$bin"
+    clang++ $ARCHS $MIN -bundle -Wl,-dead_strip -Wl,-S -Wl,-u,_GetPluginFactory "${objects[@]}" "$SYNTHLIB_LIB" "$FREETYPE_LIB" "${COMMON_LIBS[@]}" -o "$bin"
 
     cat > "$out/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -341,20 +255,6 @@ build_au() {
 
     print "==> Audio Unit"
 
-    for src in "${AU_C_SOURCES[@]}"; do
-        local obj="$OBJDIR/au_$(basename "${src%.*}").o"
-        clang $ARCHS $MIN -O2 -std=gnu11 "${WARNFLAGS[@]}" $(own_werror "$src") "${DEFS[@]}" "${INCLUDES[@]}" \
-              -c "$src" -o "$obj"
-        objects+=("$obj")
-    done
-
-    for src in "${AU_OBJC_SOURCES[@]}"; do
-        local obj="$OBJDIR/au_$(basename "${src%.*}").om"
-        clang $ARCHS $MIN -O2 -std=gnu11 -fobjc-arc "${WARNFLAGS[@]}" $(own_werror "$src") "${DEFS[@]}" "${INCLUDES[@]}" \
-              -x objective-c -c "$src" -o "$obj"
-        objects+=("$obj")
-    done
-
     # The one class that must be compiled into the product - see synthlibAuViewFactory.h
     local factory="$OBJDIR/auViewFactory.m"
     print "#import \"synthlibAuViewFactory.h\"\nSYNTHLIB_AU_VIEW_FACTORY($AU_VIEW_CLASS)" > "$factory"
@@ -364,7 +264,7 @@ build_au() {
 
     rm -rf "$out"
     mkdir -p "$out/Contents/MacOS"
-    clang++ $ARCHS $MIN -bundle "${objects[@]}" "$FREETYPE_LIB" \
+    clang++ $ARCHS $MIN -bundle -Wl,-dead_strip -Wl,-S -Wl,-u,_SynthLibAUFactory "${objects[@]}" "$SYNTHLIB_LIB" "$FREETYPE_LIB" \
             "${COMMON_LIBS[@]}" "${AU_LIBS[@]}" -o "$bin"
 
     # THE AudioComponents ARRAY IS HOW macOS FINDS AN AUDIO UNIT AT ALL - the component manager reads

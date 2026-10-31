@@ -24,10 +24,11 @@
 #include <stdint.h>
 
 #include "tiParams.h"
+#include "tiVoices.h"
 
 #define TI_SINGLE_LENGTH         (524)    // notes §1: the whole SysEx message, F0 to F7
 #define TI_SINGLE_NAME_LENGTH    (10)
-#define TI_MAX_SINGLES           (1024)   // in one file; a sound set holds a few hundred
+#define TI_MAX_SINGLES           (4096)   // in one file; a sound set holds a few hundred
 #define TI_BANK_SIZE             (128)
 
 // notes §2: every Single in a .syx or a .mid, in file order; the count, 0 if there are none
@@ -39,12 +40,14 @@ void ti_patch_name(const uint8_t single[TI_SINGLE_LENGTH], char name[TI_SINGLE_N
 
 // notes §4: the parameters back over base (NULL: zeros), the name, the edit buffer's address and fresh checksums
 void ti_patch_to_single(const double normalized[kTiParamCount], const uint8_t * base, const char * name, uint8_t out[TI_SINGLE_LENGTH]);
+// notes §7: the pages of a Single, as the voices read them
+void ti_patch_sound(const uint8_t single[TI_SINGLE_LENGTH], tTiSound * sound);
 bool ti_patch_save_file(const char * path, const uint8_t single[TI_SINGLE_LENGTH]);
 
 const char * ti_patch_sounds_folder(void);   // where Load... starts with no file loaded
 
-// notes §5: the presets - A001..D128 in one file, read when it changes, main thread only
-#define TI_PRESETS    (4 * TI_BANK_SIZE)
+// notes §5: the presets - A001..W128 in one file, read when it changes, main thread only
+#define TI_PRESETS    (23 * TI_BANK_SIZE)
 
 void ti_patch_init_single(uint8_t out[TI_SINGLE_LENGTH]);                                   // every carried parameter at its default, "Init"
 void ti_patch_address(uint8_t single[TI_SINGLE_LENGTH], int number);                        // to preset number; 0 the edit buffer

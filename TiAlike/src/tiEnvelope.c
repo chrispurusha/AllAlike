@@ -94,6 +94,10 @@ static double between(double ( *curve )(int), double index) {
     return (curve(i) * (1.0 - f)) + (curve(i + 1) * f);
 }
 
+double ti_env_sustain_level(double dial) {
+    return (between(sustain_curve, dial / 4.0) / 2.0) + (dial / 256.0) + FLOOR;
+}
+
 void ti_env_shape(double attack, double decay, double sustain, double sustainTime, double release, double sampleRate,
                   tTiEnvShape * shape) {
     double ticks = TICKS_PER_SECOND / sampleRate;   // per sample
@@ -101,7 +105,7 @@ void ti_env_shape(double attack, double decay, double sustain, double sustainTim
     shape->attackStep = between(attack_rate, attack / 4.0) * ticks;
     shape->decayMul   = pow(1.0 - between(fall_rate, decay / 4.0), ticks);
     shape->releaseMul = pow(1.0 - between(fall_rate, release / 4.0), ticks);
-    shape->sustain    = (between(sustain_curve, sustain / 4.0) / 2.0) + (sustain / 256.0) + FLOOR;
+    shape->sustain    = ti_env_sustain_level(sustain);
     shape->glideStep  = GLIDE_RATE * ticks;
     shape->slopeStep  = 0.0;
     shape->slopeMul   = 1.0;

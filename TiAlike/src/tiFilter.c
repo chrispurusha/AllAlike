@@ -20,16 +20,17 @@
 #include <string.h>
 
 #include "tiFilter.h"
+#include "tiFixed.h"
 
 #define POINT_1KHZ          (17)        // notes §1: third-octave centres, 1 kHz at point 17
 #define TOP_POINT_HZ        (22968.75)
 #define NYQUIST_SHARE       (0.49)
-#define LADDER_SCALE        (0.115)                        // notes §6: the oscillator's level inside the ladder, fitted to renders
+#define LADDER_SCALE        TI_FIXED_UNIT                  // notes §6: the oscillator's level inside the ladder
 #define LADDER_TAP1_GAIN    (0.70703125)                   // notes §5: the 1-pole tap's own scale
 #define LADDER_NOISE        (1.0 / 16384.0 / 2147483648.0) // the LCG word >> 14, as a fraction
 
 // notes §2: each resonance row's Q in dB, and its output gain
-static const double kRowQdB[TI_FILTER_ROWS]      = {-3.0103, -1.0, 4.0, 9.0, 14.0, 19.0, 24.0, 40.0, 48.0};
+static const double kRowQdB[TI_FILTER_ROWS] = {-3.0103, -1.0, 4.0, 9.0, 14.0, 19.0, 24.0, 40.0, 48.0};
 static const double kRowGainLpHp[TI_FILTER_ROWS] = {1.0, 0.875, 0.875, 0.75, 0.625, 0.515625, 0.40625, 0.34375, 0.25};
 static const double kRowGainBp[TI_FILTER_ROWS]   = {1.0, 1.125, 2.0, 3.0, 4.0, 8.0, 12.0, 28.0, 64.0};
 
@@ -202,9 +203,39 @@ static double ladder_process(tTiFilter * f, const tTiFilterCoeffs * c, double x)
     return c->tapGain * ladder_pass(f, c, u, 0.0) / LADDER_SCALE;
 }
 
+// notes §7: after any change to a digital mode's coefficients
+void ti_filter_set_fixed(tTiFilterCoeffs * c, bool fixed) {
+    c->fixed = fixed && (c->poles == 0u);
+
+    if (c->fixed) {
+        c->w0  = ti_word(0.5 * c->b0);
+        c->w1  = ti_word(0.5 * c->b1);
+        c->w2  = ti_word(0.5 * c->b2);
+        c->wa1 = ti_word(-0.5 * c->a1);
+        c->wa2 = ti_word(-0.5 * c->a2);
+    }
+}
+
+// notes §7
+static double fixed_biquad(tTiFilter * f, const tTiFilterCoeffs * c, double x) {
+    int32_t in  = ti_word(x * TI_FIXED_UNIT);
+    int64_t acc = ti_mac(c->w0, in) + ti_mac(c->w1, f->wx1) + ti_mac(c->w2, f->wx2) + ti_mac(c->wa1, f->wy1) + ti_mac(c->wa2, f->wy2);
+    int32_t y   = ti_round(acc * 2);    // scaled up: the coefficients are held at half
+
+    f->wx2 = f->wx1;
+    f->wx1 = in;
+    f->wy2 = f->wy1;
+    f->wy1 = y;
+    return ((double)y / TI_Q23) / TI_FIXED_UNIT;
+}
+
 double ti_filter_process(tTiFilter * f, const tTiFilterCoeffs * c, double x) {
     if (c->poles != 0u) {
         return ladder_process(f, c, x);
+    }
+
+    if (c->fixed) {
+        return fixed_biquad(f, c, x);
     }
     double y = (c->b0 * x) + (c->b1 * f->x1) + (c->b2 * f->x2) - (c->a1 * f->y1) - (c->a2 * f->y2);
 

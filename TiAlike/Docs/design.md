@@ -20,6 +20,8 @@ single-patch sound engine.
 - The hardware's own front panel, its own host software and USB audio streaming. A link to a hardware Virus TI over
   USB MIDI comes later (§6).
 
+**The voice reads the Single (2026-10-30).** See code-notes/tiVoices.md §3.
+
 **Sources.** This repo states only what has been measured: renders of the reference instrument, made in the box
 and compared sample by sample with this engine (§3), and what the patch format itself shows. A law in the code is
 there because it reproduces those renders.
@@ -60,7 +62,7 @@ Every comparison starts from a known Single sent as SysEx into the edit buffer, 
 
 ## 5. The project's infrastructure (2026-10-26)
 
-As Pulse2Alike's: SynthLib as a submodule, `do-plugin` (VST3 and Audio Unit, universal, installed as built),
+As Pulse2Alike's: SynthLib beside it, `do-plugin` (VST3 and Audio Unit, universal, installed as built),
 `do-release` (a `.dmg` with the licences), `do-uncrustify`, the licence and `THIRD_PARTY.md`. The panel is
 Pulse2Alike's, driven by tables of pages and sections (`plugin/tiParams.c`), so it grows a section at a time as the
 engine does. See `findings.md` for the first build's checks.

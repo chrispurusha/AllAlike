@@ -57,7 +57,7 @@ software is based in part on the work of the FreeType Team.
 ## Releasing
 
     ./do-release 0.1.0-beta.1     # the first release (there is no tag yet)
-    ./do-release beta             # after that: beta / patch / minor / major / final bump the newest V* tag
+    ./do-release beta             # after that: beta / patch / minor / major / final bump the newest Pulse2Alike-V* tag
 
 Builds both plug-ins (universal, ad-hoc signed) into a `.dmg` on the Desktop with a `Read Me First.txt` (installing,
 clearing the quarantine, the FreeType credit), the licence, and FreeType's and the VST3 SDK's licences in `Licences/`.

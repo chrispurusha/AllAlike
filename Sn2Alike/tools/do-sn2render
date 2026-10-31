@@ -1,0 +1,8 @@
+#!/bin/zsh
+# Builds tools/sn2render and tools/sn2filtertest.
+set -e
+HERE="$(cd "$(dirname "$0")/.." && pwd)"
+SL="${SYNTHLIB_DIR:-$HERE/../../SynthLib}"
+INC=(-I"$HERE/src" -I"$HERE/plugin" -I"$SL/src" -I"$SL/plugin" -I"$SL/audio" -I"$SL/ThirdParty/glfw/include" -I"$SL/ThirdParty/freetype/include")
+clang -O2 -Wall -Wextra $INC "$HERE/tools/sn2render.c" "$HERE"/src/*.c "$HERE/plugin/sn2Patch.c" "$HERE/plugin/sn2Params.c" -lm -o "$HERE/tools/sn2render"
+clang -O2 -Wall -Wextra -I"$HERE/src" "$HERE/tools/sn2filtertest.c" "$HERE/src/sn2Filter.c" -lm -o "$HERE/tools/sn2filtertest"

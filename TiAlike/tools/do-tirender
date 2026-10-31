@@ -1,0 +1,5 @@
+#!/bin/zsh
+# Builds tools/tirender: the engine without the editor, for offline renders of a Single.
+set -e
+HERE="$(cd "$(dirname "$0")/.." && pwd)"
+clang -O2 -Wall -Wextra -Werror -I"$HERE/src" "$HERE/tools/tirender.c" "$HERE"/src/*.c -lm -o "$HERE/tools/tirender"

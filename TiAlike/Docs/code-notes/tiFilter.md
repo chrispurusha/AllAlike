@@ -60,7 +60,7 @@ the same 28-30 dB above the note.
 
 ## 6. The ladder's input level
 The saturator works on the instrument's own signal level, which the panel does not show, so the oscillator is scaled
-into the ladder by LADDER_SCALE and back out after it. 0.115 was fitted to the renders of §5: the error at
+into the ladder by LADDER_SCALE and back out after it. the voice's level on full scale (tiFixed.md §1); it was first fitted to the renders of §5: the error at
 Resonance 0 and 64, all four pole counts, is 0.1-0.7 dB rms there and grows either side (0.9 dB at 0.10 and 0.13). It
 belongs to the oscillator's level rather than the filter, and is to be revisited when the oscillator and Osc Volume
 are measured (todo.md).

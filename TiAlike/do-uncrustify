@@ -13,6 +13,8 @@ for dir in src plugin tools; do
     fi
 
     files=($dir/*.h $dir/*.c $dir/*.cpp $dir/*.mm)
+    files=(${files:#src/tiWaves.c})        # generated data, not code
+    files=(${files:#src/tiWavetables.c})
 
     if (( ${#files} == 0 )); then
         echo "skipping $dir - no sources"

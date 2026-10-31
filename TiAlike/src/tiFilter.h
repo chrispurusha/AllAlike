@@ -22,6 +22,7 @@
 #define TI_FILTER_POINTS    (32)
 #define TI_FILTER_ROWS      (9)
 
+#include <stdbool.h>
 #include <stdint.h>
 
 typedef enum {
@@ -52,6 +53,10 @@ typedef struct {
     double   g;           // each stage's coefficient, at twice the sample rate
     double   feedback;    // into stage 1, from stage 4
     double   inGain, preGain, postGain, tapGain;
+
+    // notes §7: the biquad as words, at half scale
+    bool     fixed;
+    int32_t  w0, w1, w2, wa1, wa2;
 } tTiFilterCoeffs;
 
 typedef struct {
@@ -59,6 +64,7 @@ typedef struct {
     double   s[4];
     double   lastIn;
     uint32_t noise;
+    int32_t  wx1, wx2, wy1, wy2;
 } tTiFilter;
 
 void ti_filter_tables(tTiFilterTables * t, double rate);  // also keeps the rate for the ladder
@@ -68,6 +74,7 @@ double ti_filter_cutoff_hz(double cutoff);
 // the output gain a digital mode takes at a resonance (notes §2)
 double ti_filter_row_gain(tTiFilterMode mode, double resonance);
 void ti_filter_reset(tTiFilter * f);
+void ti_filter_set_fixed(tTiFilterCoeffs * c, bool fixed);
 double ti_filter_process(tTiFilter * f, const tTiFilterCoeffs * c, double x);
 
 #endif // __TI_FILTER_H__

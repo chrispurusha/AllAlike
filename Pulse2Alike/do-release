@@ -31,16 +31,19 @@ trap 'rm -rf "$WORK"' EXIT
 
 # --- version -------------------------------------------------------------
 
-LATEST=$(git tag --list --sort=-v:refname 'V*' 2>/dev/null | head -1)
+# AllAlike holds several products, so each one's tags carry its name.
+TAG_PREFIX="Pulse2Alike-"
+LATEST=$(git tag --list --sort=-v:refname "${TAG_PREFIX}V*" 2>/dev/null | head -1)
+LATEST_VERSION="${LATEST#$TAG_PREFIX}"
 
 case "$ARG_BUMP" in
     major|minor|patch|beta|final)
         if [[ -z $LATEST ]]; then
-            echo "error: no V* tag to bump from yet - give the first version: ./do-release 0.1.0-beta.1" >&2
+            echo "error: no ${TAG_PREFIX}V* tag to bump from yet - give the first version: ./do-release 0.1.0-beta.1" >&2
             exit 1
         fi
 
-        if [[ ! $LATEST =~ '^[Vv]([0-9]+)\.([0-9]+)\.([0-9]+)(-beta\.([0-9]+))?$' ]]; then
+        if [[ ! $LATEST_VERSION =~ '^[Vv]([0-9]+)\.([0-9]+)\.([0-9]+)(-beta\.([0-9]+))?$' ]]; then
             echo "error: newest tag '$LATEST' is not V<n>.<n>.<n>[-beta.<n>]; give a version instead." >&2
             exit 1
         fi
@@ -64,11 +67,11 @@ case "$ARG_BUMP" in
         esac
         VERSION="V$MAJOR.$MINOR.$PATCH${BETA:+-beta.$BETA}"
 
-        if git rev-parse -q --verify "refs/tags/$VERSION" >/dev/null; then
-            echo "error: tag $VERSION already exists." >&2
+        if git rev-parse -q --verify "refs/tags/$TAG_PREFIX$VERSION" >/dev/null; then
+            echo "error: tag $TAG_PREFIX$VERSION already exists." >&2
             exit 1
         fi
-        NEW_TAG="$VERSION"
+        NEW_TAG="$TAG_PREFIX$VERSION"
         echo "==> version $VERSION ($ARG_BUMP bump from $LATEST)"
         ;;
 
@@ -77,7 +80,7 @@ case "$ARG_BUMP" in
             echo "error: no tag yet and no version given - try: ./do-release 0.1.0-beta.1" >&2
             exit 1
         fi
-        VERSION="$LATEST"
+        VERSION="$LATEST_VERSION"
         NEW_TAG=""
         echo "==> version $VERSION (reusing newest tag)"
 
@@ -92,7 +95,7 @@ case "$ARG_BUMP" in
             exit 1
         fi
         VERSION="V${ARG_BUMP#[Vv]}"
-        NEW_TAG="$VERSION"
+        NEW_TAG="$TAG_PREFIX$VERSION"
         echo "==> version $VERSION (specified)"
         ;;
 esac
@@ -135,7 +138,7 @@ cp LICENSE "$STAGE/LICENSE.txt"
 
 # THIRD_PARTY.md: FreeType (statically linked, FTL - the credit below is mandatory) and the VST3 SDK (MIT - its
 # notice travels with the binary). A release without them stops.
-FTL="../SynthLib/ThirdParty/freetype/docs/FTL.TXT"
+FTL="../../SynthLib/ThirdParty/freetype/docs/FTL.TXT"
 VST3_LICENSE="${VST3_SDK:-$HOME/Documents/vst3sdk}/LICENSE.txt"
 
 for f in "$FTL" "$VST3_LICENSE"; do
@@ -190,6 +193,11 @@ EOF
 
 DMG="$DIST/Pulse2Alike-$VERSION_CLEAN.dmg"
 rm -f "$DMG"
+# No pin in this project's history any more, so the release says which SynthLib it was built from.
+SYNTHLIB_COMMIT="$(git -C ../../SynthLib describe --always --dirty --abbrev=12)"
+print "\nBuilt with SynthLib $SYNTHLIB_COMMIT" >> "$STAGE/Read Me First.txt"
+print "==> SynthLib $SYNTHLIB_COMMIT"
+
 # macOS 27 deprecates `hdiutil create` for `diskutil image create from` (APFS, readable from macOS 10.13); older
 # systems keep hdiutil, as G2-Edit's do-release does
 if diskutil image create from -h >/dev/null 2>&1; then
