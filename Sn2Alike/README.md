@@ -3,7 +3,7 @@
 A reproduction inspired by the Novation Supernova II, as a VST3 and Audio Unit instrument for macOS 12 or later.
 Not affiliated with or endorsed by Novation.
 
-**Work in progress.** So far it is a skeleton: the plug-in loads, plays and saves, using a placeholder oscillator,
+**Work in progress.** So far the filter is built and measured and real programs load; the plug-in plays and saves, using a placeholder oscillator,
 filter and envelopes. None of it is meant to sound like a Supernova II yet. See [`Docs/design.md`](Docs/design.md).
 
 One of the plug-ins in [AllAlike](../README.md), built on [SynthLib](https://github.com/chrispurusha/SynthLib).
