@@ -94,3 +94,5 @@ Soften 127, 100 and 64 match to 0.1 dB, so the 4-5 dB above 1 kHz against the in
 A001 voices, with Sync off on both: above 3 kHz ours is 22-26 dB dark against the model, chord peak 0.89 against 0.71. Not Sync alone: find what else opens its top.
 
 A001's 2.4 dB between panel and backup is one byte: the stored program's Delay Send is 0, the backup's 104. With it at 0 a load matches the panel, -23.85 against -23.8 dB.
+
+Effects on against bypass on the instrument, plain saw, Volume 30: 3.07 dB, Dry linear (127, 90, 64: -44.22, -47.21, -50.17 dB). The program's Effects Bypass byte works from the edit buffer. The rig reads 13.9 dB.

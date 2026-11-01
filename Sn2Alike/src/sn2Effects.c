@@ -36,8 +36,8 @@
 #define DIST_POINTS       (17)
 #define DIST_UNITY        (1.93)    // notes §7: effects on against bypass at Level 0, Output 64
 #define OUTPUT_CEILING    (0.97675)
-#define EQ_LOW_HZ         (500.0)   // notes §8
-#define EQ_HIGH_HZ        (2200.0)
+#define EQ_LOW_HZ         (501.0)   // notes §8
+#define EQ_HIGH_HZ        (2650.0)
 #define MS_PER_TIME       (6.592)   // notes §4
 #define LONGEST_MS        (838.8)
 #define DAMP_SLOPE        (0.00685) // notes §4
@@ -255,17 +255,21 @@ static double dist_curve(double x, double drive, double soft, double ceiling) {
     return (ceiling * driven / pow(1.0 + pow(fabs(driven), soft), 1.0 / soft)) / DIST_UNITY;
 }
 
-// notes §8: a shelf's gain from its dial, between measured points
-static double shelf_gain(const double * gains, double dial) {
-    static const double kDial[5] = {0.0, 32.0, 64.0, 94.0, 127.0};
+// notes §8: the treble shelf and its level trim, in dB, by dial
+static double treble_at(const double * values, double dial) {
+    static const double kDial[12] = {0.0, 20.0, 32.0, 44.0, 54.0, 64.0, 74.0, 84.0, 94.0, 104.0, 116.0, 127.0};
 
-    for (int k = 1; k < 5; k++) {
+    for (int k = 1; k < 12; k++) {
         if (dial <= kDial[k]) {
-            return gains[k - 1] + ((gains[k] - gains[k - 1]) * (dial - kDial[k - 1]) / (kDial[k] - kDial[k - 1]));
+            return values[k - 1] + ((values[k] - values[k - 1]) * (dial - kDial[k - 1]) / (kDial[k] - kDial[k - 1]));
         }
     }
 
-    return gains[4];
+    return values[11];
+}
+
+static double bass_gain(double dial) {
+    return (dial < 64.0) ? (dial / 64.0) : (1.0 + ((dial - 64.0) / 128.0));
 }
 
 void sn2_effects_process(tSn2Effects * e, const tSn2EffectsSound * s, const float * in, float * left, float * right, uint32_t frames) {
@@ -274,7 +278,7 @@ void sn2_effects_process(tSn2Effects * e, const tSn2EffectsSound * s, const floa
         memcpy(right, in, (size_t)frames * sizeof(float));
         return;
     }
-    double              dry                  = DIST_UNITY * s->dry / 127.0;
+    double              dry                  = DRY_AT_FULL * s->dry / 127.0;
     double              tap                  = TAP_AT_FULL * s->chorusSend / 127.0;
     double              period               = chorus_period(s->chorusSpeed) * SN2_ENGINE_HZ;
     double              step4[4]             = {1.0 / (period * SLOW_TAP_RATIO), 1.0 / period, 1.0 / period, 1.0 / (period * SLOW_TAP_RATIO)};
@@ -310,8 +314,8 @@ void sn2_effects_process(tSn2Effects * e, const tSn2EffectsSound * s, const floa
     static const double kCurveK[DIST_POINTS] = {1.868, 1.75, 1.646, 1.278, 1.476, 1.667, 2.22, 2.724, 3.67, 4.85, 6.746, 9.37, 15.0, 24.396, 48.35, 109.324, 156.745};
     static const double kCurveS[DIST_POINTS] = {5.824, 4.0, 2.502, 1.601, 1.289, 1.055, 1.273, 1.027, 1.121, 1.153, 1.196, 1.231, 1.24, 1.256, 1.319, 1.642, 2.534};
     static const double kCurveC[DIST_POINTS] = {1.0708, 1.15, 1.2346, 1.6465, 1.5348, 1.5055, 1.1027, 1.0575, 0.8265, 0.6905, 0.5733, 0.4959, 0.44, 0.3915, 0.3619, 0.3465, 0.3435};
-    static const double kBass[5]             = {0.0, 0.5, 1.0, 1.3, 1.6};
-    static const double kTreb[5]             = {0.19, 0.42, 1.0, 2.1, 3.3};
+    static const double kTrebGain[12]        = {-0.1, -0.066, 0.227, 0.515, 0.754, 1.0, 1.505, 2.03, 2.575, 3.139, 3.841, 4.507};
+    static const double kTrebTrim[12]        = {0.55, 0.36, 0.263, 0.162, 0.086, 0.0, -0.174, -0.351, -0.527, -0.7, -0.902, -1.083};
     double              drive                = dist_between(kDrive, s->distLevel);
     double              curveK               = dist_table(kCurveK, s->distLevel);
     double              curveS               = dist_table(kCurveS, s->distLevel);
@@ -329,8 +333,9 @@ void sn2_effects_process(tSn2Effects * e, const tSn2EffectsSound * s, const floa
     }
 
     double              distOut              = comp * pow(10.0, lift / 20.0) * s->distOutput / 64.0;
-    double              bassGain             = shelf_gain(kBass, s->eqBass);
-    double              trebGain             = shelf_gain(kTreb, s->eqTreble);
+    double              bassGain             = bass_gain(s->eqBass);
+    double              trebGain             = treble_at(kTrebGain, s->eqTreble);
+    double              trebTrim             = pow(10.0, treble_at(kTrebTrim, s->eqTreble) / 20.0);
     double              lowPass              = 1.0 - exp(-2.0 * M_PI * EQ_LOW_HZ / SN2_ENGINE_HZ);
     double              highPass             = 1.0 - exp(-2.0 * M_PI * EQ_HIGH_HZ / SN2_ENGINE_HZ);
 
@@ -398,6 +403,7 @@ void sn2_effects_process(tSn2Effects * e, const tSn2EffectsSound * s, const floa
             e->eqLow[c]  += lowPass * (side[c] - e->eqLow[c]);
             e->eqHigh[c] += highPass * (side[c] - e->eqHigh[c]);
             side[c]      += ((bassGain - 1.0) * e->eqLow[c]) + ((trebGain - 1.0) * (side[c] - e->eqHigh[c]));
+            side[c]      *= trebTrim;
         }
 
         // voices notes §14

@@ -36,4 +36,3 @@
 - Filter Overdrive and Q Normalise: check both again against the reference (owner, 2026-11-01)
 - Panel dials for LFO routes to pitch and width
 - Outliers after the LFOs: Vanilla group -3 dB, TB1, BubbleArp, China Cymbal, Ride 2, A Syncy Feeling, RainPicks, Timpani
-- A001 summed, Delay Send 0: 1.6 dB hot and flatter than the instrument (kurtosis 1.66 against 2.0)
