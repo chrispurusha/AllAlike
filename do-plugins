@@ -1,0 +1,28 @@
+#!/bin/zsh
+# Build and install all three plug-ins. Arguments go to each do-plugin:
+#
+#   ./do-plugins                 VST3 and Audio Unit, and installs them
+#   ./do-plugins au              one format
+#   ./do-plugins --no-install
+#
+# A failed build does not stop the others; the summary names it and the script exits non-zero.
+
+cd ${0:a:h}
+
+PRODUCTS=(Pulse2Alike TiAlike Sn2Alike)
+FAILED=()
+
+for product in $PRODUCTS; do
+    print "\n=== $product ==="
+
+    if ! ( cd $product && ./do-plugin "$@" ); then
+        FAILED+=($product)
+    fi
+done
+
+print
+if (( ${#FAILED} > 0 )); then
+    print "FAILED: ${FAILED[*]}"
+    exit 1
+fi
+print "All built: ${PRODUCTS[*]}"

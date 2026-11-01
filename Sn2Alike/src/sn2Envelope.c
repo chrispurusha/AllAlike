@@ -20,98 +20,37 @@
 
 #include "sn2Envelope.h"
 
-#define TICKS_PER_SECOND    (46875.0 / 4.0)   // notes §1
-#define TOP                 (1.0)
-#define RISE_TOP            (127.0 / 128.0)   // notes §4
-#define FLOOR               (1.0 / 32768.0)
-#define SILENT              (1.0 / 65536.0)   // notes §5
-#define GLIDE_RATE          (1.0 / 4096.0)    // notes §6, per tick
+#define TOP              (1.0)
+#define SETTLED          (1.0 / 65536.0)
+#define DECAY_QUICKER    (0.24)          // notes §1
+#define SILENT           (1.0 / 65536.0) // notes §5
+#define GLIDE_S          (0.35)          // notes §6: seconds across the whole range
 
-// notes §2: log2 of the attack rate at each fourth step of the dial
-static double attack_log2(int i) {
-    if (i <= 0) {
-        return 0.0;
-    }
-
-    if (i == 1) {
-        return log2(0.75);
-    }
-
-    if (i <= 6) {
-        return -(double)(i - 1);
-    }
-
-    if (i <= 30) {
-        return -5.0 - ((i - 6) / 2.0);
-    }
-    return -17.0 - (i - 30);
-}
-
-// notes §3: the same for decay and release, as breakpoints in log2; past the last, no movement
-static double fall_rate(int i) {
-    static const double kAt[]   = {0, 4, 7, 12, 24, 28, 33, 34, 35};
-    static const double kLog2[] = {-4.0, -8.0, -9.5, -11.0, -14.0, -15.2, -17.2, -17.7, -19.0};
-    const int           n       = (int)(sizeof(kAt) / sizeof(kAt[0]));
-
-    if (i > kAt[n - 1]) {
-        return 0.0;
-    }
+// notes §2: seconds, between the points a straight line in the logarithm
+static double law(const double * seconds, double dial) {
+    static const double kDial[] = {0, 16, 32, 48, 64, 80, 96, 112, 127};
+    const int           n       = (int)(sizeof(kDial) / sizeof(kDial[0]));
 
     for (int k = 1; k < n; k++) {
-        if (i <= kAt[k]) {
-            return exp2(kLog2[k - 1] + ((kLog2[k] - kLog2[k - 1]) * (i - kAt[k - 1]) / (kAt[k] - kAt[k - 1])));
+        if (dial <= kDial[k]) {
+            double t = (dial - kDial[k - 1]) / (kDial[k] - kDial[k - 1]);
+
+            return exp(log(seconds[k - 1]) + (t * (log(seconds[k]) - log(seconds[k - 1]))));
         }
     }
 
-    return exp2(kLog2[0]);
+    return seconds[n - 1];
 }
 
-static double attack_rate(int i) {
-    return exp2(attack_log2(i));
-}
+void sn2_env_shape(double attack, double decay, double sustain, double release, bool squared, double sampleRate, tSn2EnvShape * shape) {
+    static const double kAttack[] = {0.0006, 0.007, 0.021, 0.062, 0.198, 0.596, 1.913, 6.405, 13.07};    // to the top
+    static const double kHalf[]   = {0.0003, 0.0016, 0.0044, 0.0144, 0.045, 0.150, 0.460, 1.42, 4.45};   // to half
 
-// notes §4: the sustain level's curve, at each fourth step of the dial
-static double sustain_curve(int i) {
-    if (i <= 0) {
-        return 0.0;
-    }
-
-    if (i < 5) {
-        return 0.1 * exp2(-2.8 - (0.8 * (5 - i)));
-    }
-
-    if (i < 12) {
-        return 0.1 * exp2(-0.4 * (12 - i));
-    }
-    return pow(10.0, (i - 32) / 20.0);
-}
-
-// Between the points, a straight line - as the instrument reads its curves
-static double between(double ( *curve )(int), double index) {
-    int    i = (int)floor(index);
-    double f = index - i;
-
-    return (curve(i) * (1.0 - f)) + (curve(i + 1) * f);
-}
-
-void sn2_env_shape(double attack, double decay, double sustain, double sustainTime, double release, double sampleRate,
-                   tSn2EnvShape * shape) {
-    double ticks = TICKS_PER_SECOND / sampleRate;   // per sample
-
-    shape->attackStep = between(attack_rate, attack / 4.0) * ticks;
-    shape->decayMul   = pow(1.0 - between(fall_rate, decay / 4.0), ticks);
-    shape->releaseMul = pow(1.0 - between(fall_rate, release / 4.0), ticks);
-    shape->sustain    = (between(sustain_curve, sustain / 4.0) / 2.0) + (sustain / 256.0) + FLOOR;
-    shape->glideStep  = GLIDE_RATE * ticks;
-    shape->slopeStep  = 0.0;
-    shape->slopeMul   = 1.0;
-
-    // notes §4: below 64 a fall, above it a rise, both off the decay curve
-    if (sustainTime < 64.0) {
-        shape->slopeMul = pow(1.0 - (between(fall_rate, (9.0 / 16.0) * sustainTime) / 2.0), ticks);
-    } else if (sustainTime > 64.0) {
-        shape->slopeStep = (between(fall_rate, (9.0 / 16.0) * (128.0 - sustainTime)) / 4.0) * ticks;
-    }
+    shape->attackStep = TOP / (law(kAttack, attack) * sampleRate);
+    shape->decayMul   = pow(0.5, 1.0 / (law(kHalf, decay) * (1.0 - (DECAY_QUICKER * sustain / 127.0)) * sampleRate));
+    shape->releaseMul = pow(0.5, 1.0 / (law(kHalf, release) * sampleRate));
+    shape->sustain    = (sustain / 127.0) * (squared ? (sustain / 127.0) : 1.0);
+    shape->glideStep  = TOP / (GLIDE_S * sampleRate);
 }
 
 void sn2_env_gate(tSn2Env * env, bool on) {
@@ -140,9 +79,9 @@ double sn2_env_next(tSn2Env * env, const tSn2EnvShape * shape) {
             break;
 
         case eTiEnvDecay:
-            env->level *= shape->decayMul;
+            env->level  = shape->sustain + ((env->level - shape->sustain) * shape->decayMul);
 
-            if (env->level <= shape->sustain) {
+            if ((env->level - shape->sustain) <= SETTLED) {
                 hold(env, shape->sustain);
             }
             break;
@@ -153,10 +92,6 @@ double sn2_env_next(tSn2Env * env, const tSn2EnvShape * shape) {
             if (shape->sustain != env->held) {
                 env->held  = shape->sustain;
                 env->stage = eTiEnvGlide;
-            } else if (shape->slopeStep > 0.0) {
-                env->level = (env->level < RISE_TOP) ? fmin(RISE_TOP, env->level + shape->slopeStep) : env->level;
-            } else {
-                env->level = fmax(FLOOR, env->level * shape->slopeMul);
             }
             break;
 

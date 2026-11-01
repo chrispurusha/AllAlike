@@ -1,0 +1,227 @@
+#!/bin/zsh
+# Builds one AllAlike release: every plug-in in this repo (VST3 and Audio Unit), universal (arm64 + x86_64), ad-hoc
+# signed, in a single .dmg on the Desktop with a "Read Me First.txt". G2Alike is its own repo and is not included.
+# Each plug-in's own do-release still makes that plug-in's .dmg. The arguments are the same:
+#
+#   ./do-release beta      V0.1.0-beta.1 -> V0.1.0-beta.2   (the everyday one)
+#   ./do-release patch     V0.1.0-beta.1 -> V0.1.1-beta.1
+#   ./do-release minor     V0.1.0-beta.1 -> V0.2.0-beta.1
+#   ./do-release major     V0.1.0-beta.1 -> V1.0.0-beta.1
+#   ./do-release final     V0.1.0-beta.1 -> V0.1.0
+#   ./do-release 0.1.0-beta.1   a version as given (the first release: there is no tag yet)
+#   ./do-release           reuse the newest tag (rebuild an old release)
+#
+# The second argument is where the .dmg goes. It never creates or pushes the tag, AllAlike-V<version>: it prints the
+# commands, to run once the .dmg has been checked. Needs the VST3 SDK - a release ships both formats of all of them
+# or it stops.
+
+set -e
+
+ARG_BUMP="$1"
+DIST="${2:-$HOME/Desktop}"
+DIST="${DIST:a}"
+
+cd ${0:a:h}
+
+# name, the prefix of its build settings, and one line for the Read Me
+PRODUCTS=(
+    "Pulse2Alike|P2A|A reproduction inspired by the Waldorf Pulse 2."
+    "TiAlike|TIA|A reproduction inspired by the Access Virus TI's single-patch engine. Work in progress."
+    "Sn2Alike|SN2|A reproduction inspired by the Novation Supernova II. Work in progress."
+)
+
+WORK=$(mktemp -d)   # never on a host's VST3 search path, and never a working build/ directory
+trap 'rm -rf "$WORK"' EXIT
+
+# --- version -------------------------------------------------------------
+
+TAG_PREFIX="AllAlike-"
+LATEST=$(git tag --list --sort=-v:refname "${TAG_PREFIX}V*" 2>/dev/null | head -1)
+LATEST_VERSION="${LATEST#$TAG_PREFIX}"
+
+case "$ARG_BUMP" in
+    major|minor|patch|beta|final)
+        if [[ -z $LATEST ]]; then
+            echo "error: no ${TAG_PREFIX}V* tag to bump from yet - give the first version: ./do-release 0.1.0-beta.1" >&2
+            exit 1
+        fi
+
+        if [[ ! $LATEST_VERSION =~ '^[Vv]([0-9]+)\.([0-9]+)\.([0-9]+)(-beta\.([0-9]+))?$' ]]; then
+            echo "error: newest tag '$LATEST' is not V<n>.<n>.<n>[-beta.<n>]; give a version instead." >&2
+            exit 1
+        fi
+        MAJOR=$match[1]
+        MINOR=$match[2]
+        PATCH=$match[3]
+        BETA=$match[5]
+
+        case "$ARG_BUMP" in
+            major) (( MAJOR++ )); MINOR=0; PATCH=0; BETA=1 ;;
+            minor) (( MINOR++ ));          PATCH=0; BETA=1 ;;
+            patch) (( PATCH++ ));                   BETA=1 ;;
+            beta)
+                if [[ -z $BETA ]]; then
+                    echo "error: '$LATEST' has no -beta.n to bump; use 'patch' to start a new beta series." >&2
+                    exit 1
+                fi
+                (( BETA++ ))
+                ;;
+            final) BETA="" ;;
+        esac
+        VERSION="V$MAJOR.$MINOR.$PATCH${BETA:+-beta.$BETA}"
+
+        if git rev-parse -q --verify "refs/tags/$TAG_PREFIX$VERSION" >/dev/null; then
+            echo "error: tag $TAG_PREFIX$VERSION already exists." >&2
+            exit 1
+        fi
+        NEW_TAG="$TAG_PREFIX$VERSION"
+        echo "==> version $VERSION ($ARG_BUMP bump from $LATEST)"
+        ;;
+
+    "")
+        if [[ -z $LATEST ]]; then
+            echo "error: no tag yet and no version given - try: ./do-release 0.1.0-beta.1" >&2
+            exit 1
+        fi
+        VERSION="$LATEST_VERSION"
+        NEW_TAG=""
+        echo "==> version $VERSION (reusing newest tag)"
+        ;;
+
+    *)
+        if [[ ! $ARG_BUMP =~ '^[Vv]?[0-9]+\.' ]]; then
+            echo "error: '$ARG_BUMP' is not a bump keyword (major minor patch beta final) or a version." >&2
+            exit 1
+        fi
+        VERSION="V${ARG_BUMP#[Vv]}"
+        NEW_TAG="$TAG_PREFIX$VERSION"
+        echo "==> version $VERSION (specified)"
+        ;;
+esac
+
+if [[ -n $(git status --porcelain 2>/dev/null) ]]; then
+    echo "    WARNING: working tree has uncommitted changes" >&2
+fi
+VERSION_CLEAN="${VERSION#[Vv]}"
+
+# --- the plug-ins --------------------------------------------------------
+
+STAGE="$WORK/stage"
+mkdir -p "$STAGE/Licences"
+LIST=""
+INSTALL_VST3=""
+INSTALL_AU=""
+UNQUARANTINE=""
+
+for entry in $PRODUCTS; do
+    NAME="${entry%%|*}"
+    REST="${entry#*|}"
+    PREFIX="${REST%%|*}"
+    ABOUT="${REST#*|}"
+    OUT="$WORK/$NAME"
+
+    echo "==> building $NAME"
+
+    # --no-install: a release must not disturb what is installed for testing
+    if ! ( cd "$NAME" && env "${PREFIX}_VERSION=$VERSION_CLEAN" "${PREFIX}_PLUGIN_OUT_DIR=$OUT" ./do-plugin --no-install ) >"$WORK/$NAME.log" 2>&1; then
+        tail -20 "$WORK/$NAME.log" >&2
+        echo "error: the $NAME build failed (log above)." >&2
+        exit 1
+    fi
+
+    for b in "$OUT/$NAME.vst3" "$OUT/$NAME.component"; do
+        if [[ ! -d $b ]]; then
+            echo "error: $b was not built - a release ships both formats (is the VST3 SDK there?)." >&2
+            exit 1
+        fi
+        codesign --verify --strict "$b"
+    done
+    echo "    $(lipo -archs "$OUT/$NAME.vst3/Contents/MacOS/$NAME")"
+    cp -R "$OUT/$NAME.vst3" "$OUT/$NAME.component" "$STAGE/"
+
+    LIST+="    $NAME: $ABOUT"$'\n'
+    INSTALL_VST3+="    $NAME.vst3"$'\n'
+    INSTALL_AU+="    $NAME.component"$'\n'
+    UNQUARANTINE+="    sudo xattr -dr com.apple.quarantine /Library/Audio/Plug-Ins/VST3/$NAME.vst3"$'\n'
+    UNQUARANTINE+="    sudo xattr -dr com.apple.quarantine /Library/Audio/Plug-Ins/Components/$NAME.component"$'\n'
+done
+
+# --- the .dmg ------------------------------------------------------------
+
+cp LICENSE "$STAGE/LICENSE.txt"
+
+# THIRD_PARTY.md: FreeType (statically linked, FTL - the credit below is mandatory) and the VST3 SDK (MIT - its
+# notice travels with the binary). A release without them stops.
+FTL="../SynthLib/ThirdParty/freetype/docs/FTL.TXT"
+VST3_LICENSE="${VST3_SDK:-$HOME/Documents/vst3sdk}/LICENSE.txt"
+
+for f in "$FTL" "$VST3_LICENSE"; do
+    if [[ ! -f $f ]]; then
+        echo "error: $f is missing - a release must carry it (THIRD_PARTY.md)." >&2
+        exit 1
+    fi
+done
+cp "$FTL" "$STAGE/Licences/FreeType FTL.txt"
+cp "$VST3_LICENSE" "$STAGE/Licences/VST3 SDK LICENSE.txt"
+
+SYNTHLIB_COMMIT="$(git -C ../SynthLib describe --always --dirty --abbrev=12)"
+ALLALIKE_COMMIT="$(git describe --always --dirty --abbrev=12)"
+
+cat > "$STAGE/Read Me First.txt" <<EOF
+AllAlike $VERSION_CLEAN
+Reproductions of synthesizers as VST3 and Audio Unit plug-ins for macOS 12 or later (Apple silicon and Intel).
+
+$LIST
+INSTALLING
+
+Copy whichever plug-ins you want into the system plug-in folders. To /Library/Audio/Plug-Ins/VST3:
+
+$INSTALL_VST3
+To /Library/Audio/Plug-Ins/Components:
+
+$INSTALL_AU
+In Finder: Go > Go to Folder..., type the folder's path, and drag the plug-in in.
+
+These builds are not notarized (there is no paid Apple developer membership behind them), so macOS
+quarantines them and a host will refuse to load them until the quarantine is cleared. In Terminal, for the
+ones you copied:
+
+$UNQUARANTINE
+Then restart the host (or rescan its plug-ins). For the Audio Unit, a log-out and in may be needed
+before the host sees it.
+
+SOUNDS
+
+Each plug-in keeps its presets in ~/Library/Application Support/<plug-in>/Presets.syx, and they start empty.
+To fill them, use Import Presets in its Presets or File menu, with .syx or .mid files of the instrument's own sounds.
+No sounds ship with these plug-ins.
+
+LICENCE
+
+GPL version 3 - see LICENSE.txt.
+
+Portions of this software are copyright (C) The FreeType Project (www.freetype.org). All rights reserved.
+This software is based in part on the work of the FreeType Team. Its licence, and the VST3 SDK's, are in
+the Licences folder.
+
+Built from AllAlike $ALLALIKE_COMMIT with SynthLib $SYNTHLIB_COMMIT
+EOF
+
+VOL_NAME="AllAlike $VERSION_CLEAN"
+DMG="$DIST/AllAlike-$VERSION_CLEAN.dmg"
+rm -f "$DMG"
+
+# macOS 27 deprecates `hdiutil create` for `diskutil image create from`; older systems keep hdiutil
+if diskutil image create from -h >/dev/null 2>&1; then
+    diskutil image create from --format UDZO --volumeName "$VOL_NAME" "$STAGE" "$DMG" >/dev/null
+else
+    hdiutil create -volname "$VOL_NAME" -srcfolder "$STAGE" -fs HFS+ -format UDZO -ov "$DMG" >/dev/null
+fi
+echo "==> $DMG"
+echo "    contains: $(cd "$STAGE" && print -l *(/) | grep -c -E '\.(vst3|component)$') plug-in bundles, Read Me First.txt, LICENSE.txt, Licences/"
+
+if [[ -n $NEW_TAG ]]; then
+    echo
+    echo "Once the .dmg has been checked:"
+    echo "    git tag $NEW_TAG && git push origin $NEW_TAG"
+fi

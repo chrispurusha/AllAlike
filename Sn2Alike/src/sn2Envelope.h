@@ -30,13 +30,11 @@ typedef enum {
     eTiEnvRelease
 } tSn2EnvStage;
 
-// notes §1: the five controls as per-sample steps at one sample rate
+// notes §1: the four controls as per-sample steps at one sample rate
 typedef struct {
     double attackStep;     // added
     double decayMul;       // multiplied, down to sustain
     double sustain;        // level
-    double slopeStep;      // notes §4: rising, added up to the top; 0 when falling or held
-    double slopeMul;       // falling, multiplied down to the floor; 1 when rising or held
     double releaseMul;
     double glideStep;
 } tSn2EnvShape;
@@ -47,8 +45,8 @@ typedef struct {
     double       held;     // the sustain level the sustain stage started from
 } tSn2Env;
 
-// The panel's 0..127 for Attack, Decay, Sustain, Sustain Time (64 holds) and Release
-void sn2_env_shape(double attack, double decay, double sustain, double sustainTime, double release, double sampleRate, tSn2EnvShape * shape);
+// The panel's 0..127 for Attack, Decay, Sustain and Release; squared: the amplifier's Sustain (notes §3)
+void sn2_env_shape(double attack, double decay, double sustain, double release, bool squared, double sampleRate, tSn2EnvShape * shape);
 void sn2_env_gate(tSn2Env * env, bool on);                      // on: attack from where it is; off: release
 double sn2_env_next(tSn2Env * env, const tSn2EnvShape * shape); // one sample on
 

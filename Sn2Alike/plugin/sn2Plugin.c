@@ -24,6 +24,8 @@
 #include <time.h>
 
 #include "synthlibPlugin.h"
+#include "synthlibBackdoor.h"
+#include "synthlibResample.h"
 #include "synthlibLog.h"
 #include "synthlibSwapFade.h"
 #include "synthlibPanelView.h"
@@ -33,6 +35,8 @@
 #include "sn2Params.h"
 #include "sn2Patch.h"
 #include "sn2Prefs.h"
+#include "sn2Hardware.h"
+#include "sn2Effects.h"
 #include "sn2Voices.h"
 
 // touch /tmp/sn2alike-log, read /tmp/sn2alike.log - see SynthLib's plugin/synthlibLog.h.
@@ -59,6 +63,12 @@ static const uint8_t gControllerUid[16] = {0x2B, 0xE4, 0x1E, 0xF9, 0xA5, 0x0F, 0
 // notes §2: a block's notes, played at their own sample when the block renders
 #define MAX_EVENTS             (256)
 
+#define DEFAULT_TEMPO          (122.0) // notes §13
+#define CLIP_HOLD_S            (1.5)
+#define HOST_CEILING           (0.97675f)
+#define HOST_CHUNK             (256u)
+#define ENGINE_FRAMES          (4096u) // notes §12: HOST_CHUNK at a host rate down to 2.5 kHz
+
 typedef struct {
     uint32_t offset;
     uint8_t  note;
@@ -67,21 +77,36 @@ typedef struct {
 } tSn2Event;
 
 typedef struct {
-    tSn2Voices        voices;
-    tSn2Event         events[MAX_EVENTS];
-    uint32_t          eventCount;
-    double            values[kSn2ParamCount]; // normalized
+    tSn2Voices         voices;
+    tSynthLibResampler resampler;  // notes §12
+    tSynthLibResampler resamplerR;
+    tSn2Effects        effects;
+    double             hostRate;
+    double             tempo;
+    float              engine[ENGINE_FRAMES];
+    float              engineL[ENGINE_FRAMES], engineR[ENGINE_FRAMES];
+    tSn2Event          events[MAX_EVENTS];
+    uint32_t           eventCount;
+    double             values[kSn2ParamCount]; // normalized
     // notes §5: the sound, beyond its parameters - main thread, and the host's state calls
-    char              soundName[SN2_SINGLE_NAME_LENGTH + 1];
-    bool              haveBase;
-    uint8_t           base[SN2_SINGLE_LENGTH]; // the Single it came from, whose bytes a save keeps
-    char              patchPath[1024];
-    int               patchIndex;              // its place in that file
-    int               preset;                  // 1..SN2_PRESETS, 0 none
-    double            presetsChecked;
-    tSynthLibSwapFade fade;
-    _Atomic bool      startPreset;  // notes: a new instance plays A001
-    _Atomic int       wantPreset;   // a program change waiting for the fade
+    char               soundName[SN2_SINGLE_NAME_LENGTH + 1];
+    bool               haveBase;
+    uint8_t            base[SN2_SINGLE_LENGTH]; // the Single it came from, whose bytes a save keeps
+    char               patchPath[1024];
+    int                patchIndex;              // its place in that file
+    int                preset;                  // 1..SN2_PRESETS, 0 none
+    double             presetsChecked;
+    tSynthLibSwapFade  fade;
+    _Atomic bool       clipped;     // the audio thread saw the ceiling; the panel holds the lamp
+    double             clipUntil;
+    // notes §14: the link to the instrument
+    int                hwLock;
+    bool               hwSent, hwExtensionDue;
+    double             hwSentAt;
+    uint8_t            hwLast[SN2_SINGLE_LENGTH];
+    int                hwBend, hwWheel, hwPedal;
+    _Atomic bool       startPreset; // notes: a new instance plays A000
+    _Atomic int        wantPreset;  // a program change waiting for the fade
 } tSn2Plugin;
 
 static uint32_t voice_limit(const tSn2Plugin * t) {
@@ -101,12 +126,19 @@ static void * sn2_create(const tSynthLibPluginDesc * desc) {
         t->values[i] = gSn2Params[i].defaultNormalized;
     }
 
+    t->hwLock      = -1;
+    t->hwBend      = t->hwWheel = t->hwPedal = -1;
     synthlib_swap_fade_init(&t->fade);
     sn2_presets_refresh();
     t->startPreset = true;
 
     snprintf(t->soundName, sizeof(t->soundName), "Init");
-    sn2_voices_init(&t->voices, 48000.0);
+    sn2_voices_init(&t->voices);
+    sn2_effects_reset(&t->effects);
+    t->hostRate    = 48000.0;
+    t->tempo       = DEFAULT_TEMPO;
+    synthlib_resample_init(&t->resampler, SN2_ENGINE_HZ, t->hostRate);
+    synthlib_resample_init(&t->resamplerR, SN2_ENGINE_HZ, t->hostRate);
     sn2_voices_set_limit(&t->voices, voice_limit(t));
     sn2_prefs_init();
     synthlib_log_line("created - Sn2Alike %s", SN2_VERSION_STRING);
@@ -114,6 +146,9 @@ static void * sn2_create(const tSynthLibPluginDesc * desc) {
 }
 
 static void sn2_destroy(void * inst) {
+    sn2_hardware_release(&((tSn2Plugin *)inst)->hwLock);
+    synthlib_resample_free(&((tSn2Plugin *)inst)->resampler);
+    synthlib_resample_free(&((tSn2Plugin *)inst)->resamplerR);
     free(inst);
 }
 
@@ -167,10 +202,57 @@ static void sn2_set_state(void * inst, const void * data, size_t len) {
     t->preset                            = ((t->preset >= 1) && (t->preset <= SN2_PRESETS)) ? t->preset : 0;
 }
 
+// notes §12: voices at their own rate, converted to the host's
+static void render_host(tSn2Plugin * t, const tSn2Sound * sound, float * outL, float * outR, uint32_t frames, double gain) {
+    tSn2EffectsSound effects = sn2_effects_sound(t->values, t->tempo);
+
+    while (frames > 0) {
+        uint32_t chunk = (frames < HOST_CHUNK) ? frames : HOST_CHUNK;
+        uint32_t need  = synthlib_resample_needed(&t->resampler, chunk);
+
+        memset(t->engine, 0, (size_t)need * sizeof(float));
+        sn2_voices_render(&t->voices, sound, t->engine, need, gain);
+
+        if (t->values[kSn2ParamEffectsBypass] > 0.5) {
+            sn2_effects_bypass(&t->effects, t->engine, t->engineL, t->engineR, need);
+        } else {
+            sn2_effects_process(&t->effects, &effects, t->engine, t->engineL, t->engineR, need);
+        }
+
+        if (t->effects.clipped) {
+            t->effects.clipped = false;
+            atomic_store(&t->clipped, true);
+        }
+        synthlib_resample_process(&t->resampler, t->engineL, outL, chunk);
+        float    discard[HOST_CHUNK];
+
+        synthlib_resample_process(&t->resamplerR, t->engineR, (outR != NULL) ? outR : discard, chunk);
+
+        // the resampler rounds the ceiling's corners a little past it
+        for (uint32_t i = 0; i < chunk; i++) {
+            outL[i] = fminf(HOST_CEILING, fmaxf(-HOST_CEILING, outL[i]));
+
+            if (outR != NULL) {
+                outR[i] = fminf(HOST_CEILING, fmaxf(-HOST_CEILING, outR[i]));
+            }
+        }
+
+        outL   += chunk;
+        outR    = (outR != NULL) ? (outR + chunk) : NULL;
+        frames -= chunk;
+    }
+}
+
+static uint32_t sn2_latency_samples(void * inst) {
+    return ((tSn2Plugin *)inst)->resampler.latency;
+}
+
 static void sn2_prepare(void * inst, const tSynthLibSetup * setup) {
     tSn2Plugin * t = (tSn2Plugin *)inst;
 
-    sn2_voices_set_rate(&t->voices, setup->sampleRate);
+    t->hostRate = setup->sampleRate;
+    synthlib_resample_init(&t->resampler, SN2_ENGINE_HZ, t->hostRate);
+    synthlib_resample_init(&t->resamplerR, SN2_ENGINE_HZ, t->hostRate);
 
     if (setup->offline) {
         atomic_store(&t->startPreset, false);   // an offline render plays what it is given
@@ -183,11 +265,46 @@ static void sn2_set_active(void * inst, bool active) {
     sn2_voices_all_off(&((tSn2Plugin *)inst)->voices);
 }
 
-static void play(tSn2Plugin * t, const tSn2Event * e) {
+static tSn2Sound make_sound(const tSn2Plugin * t) {
+    tSn2Sound sound = (tSn2Sound){
+        .osc         = {
+            OSC_SOUND(t->values, kSn2ParamOscShape,  kSn2ParamPulseWidth, kSn2ParamOscSoften,  kSn2ParamOscLevel,  kSn2ParamOsc1Octave, kSn2ParamOsc1Semitone, kSn2ParamOsc1Fine),
+            OSC_SOUND(t->values, kSn2ParamOsc2Shape, kSn2ParamOsc2Width,  kSn2ParamOsc2Soften, kSn2ParamOsc2Level, kSn2ParamOsc2Octave, kSn2ParamOsc2Semitone, kSn2ParamOsc2Fine),
+            OSC_SOUND(t->values, kSn2ParamOsc3Shape, kSn2ParamOsc3Width,  kSn2ParamOsc3Soften, kSn2ParamOsc3Level, kSn2ParamOsc3Octave, kSn2ParamOsc3Semitone, kSn2ParamOsc3Fine),
+        },
+        .cutoff      = t->values[kSn2ParamCutoff] * 127.0,
+        .resonance   = t->values[kSn2ParamResonance] * 127.0,
+        .tracking    = t->values[kSn2ParamFilterTrack],
+        .overdrive   = t->values[kSn2ParamFilterDrive] * 127.0,
+        .normalise   = t->values[kSn2ParamFilterQ] * 127.0,
+        .oscsFree    = t->values[kSn2ParamOscTrigger] > 0.5,
+        .glideTime   = t->values[kSn2ParamGlideTime] * 127.0,
+        .glideStyle  = (int)lround(t->values[kSn2ParamGlideStyle]),
+        .glideCurve  = (int)lround(t->values[kSn2ParamGlideCurve]),
+        .glideType   = (int)lround(t->values[kSn2ParamGlideType] * 9.0),
+        .ampVelocity = t->values[kSn2ParamAmpVelocity] * 127.0,
+        .filterType  = (uint32_t)lround(t->values[kSn2ParamFilterType] * 11.0),
+        .filterSlope = (uint32_t)lround(t->values[kSn2ParamFilterSlope] * 2.0),
+        .ampAttack   = t->values[kSn2ParamAmpAttack] * 127.0,
+        .ampDecay    = t->values[kSn2ParamAmpDecay] * 127.0,
+        .ampSustain  = t->values[kSn2ParamAmpSustain] * 127.0,
+        .ampRelease  = t->values[kSn2ParamAmpRelease] * 127.0,
+        .noiseLevel  = t->values[kSn2ParamNoiseLevel] * 127.0 / 128.0,
+        .noiseSoften = t->values[kSn2ParamNoiseSoften] * 127.0,
+        .ring13      = t->values[kSn2ParamRing13] * 127.0 / 128.0,
+        .ring23      = t->values[kSn2ParamRing23] * 127.0 / 128.0,
+        .env         = {MOD_ENV_SOUND(t->values, kSn2ParamEnv2Attack, kSn2ParamEnv2Decay, kSn2ParamEnv2Sustain, kSn2ParamEnv2Release, kSn2ParamEnv2Velocity, kSn2ParamEnv2Cutoff), MOD_ENV_SOUND(t->values, kSn2ParamEnv3Attack, kSn2ParamEnv3Decay, kSn2ParamEnv3Sustain, kSn2ParamEnv3Release, kSn2ParamEnv3Velocity, kSn2ParamEnv3Cutoff)},
+    };
+
+    sn2_controls_sound(t->values, &sound);
+    return sound;
+}
+
+static void play(tSn2Plugin * t, const tSn2Sound * sound, const tSn2Event * e) {
     if (e->on) {
-        sn2_voices_note_on(&t->voices, e->note, e->velocity);
+        sn2_voices_note_on(&t->voices, sound, e->note, e->velocity);
     } else {
-        sn2_voices_note_off(&t->voices, e->note);
+        sn2_voices_note_off(&t->voices, sound, e->note);
     }
 }
 
@@ -196,16 +313,32 @@ static void queue(tSn2Plugin * t, tSn2Event e) {
     if (t->eventCount < MAX_EVENTS) {
         t->events[t->eventCount++] = e;
     } else {
-        play(t, &e);
+        tSn2Sound sound = make_sound(t);
+
+        play(t, &sound, &e);
     }
 }
 
+static uint8_t hw_channel(const tSn2Plugin * t) {
+    return (uint8_t)lround(t->values[kSn2ParamHwChannel] * 15.0);
+}
+
 static void sn2_note_on(void * inst, uint8_t channel, uint8_t note, float velocity, uint32_t sampleOffset) {
+    tSn2Plugin * t = (tSn2Plugin *)inst;
+
+    if (t->values[kSn2ParamHwLink] >= 0.5) {
+        sn2_hardware_short(sn2_hw_port(), (uint8_t)(0x90 | hw_channel(t)), note, (uint8_t)lroundf(velocity * 127.0f));
+    }
     (void)channel;
     queue((tSn2Plugin *)inst, (tSn2Event){sampleOffset, note, true, velocity});
 }
 
 static void sn2_note_off(void * inst, uint8_t channel, uint8_t note, float velocity, uint32_t sampleOffset) {
+    tSn2Plugin * t = (tSn2Plugin *)inst;
+
+    if (t->values[kSn2ParamHwLink] >= 0.5) {
+        sn2_hardware_short(sn2_hw_port(), (uint8_t)(0x90 | hw_channel(t)), note, 0);
+    }
     (void)channel;
     (void)velocity;
     queue((tSn2Plugin *)inst, (tSn2Event){sampleOffset, note, false, 0.0f});
@@ -213,7 +346,7 @@ static void sn2_note_off(void * inst, uint8_t channel, uint8_t note, float veloc
 
 static void sn2_load_single(void * user, const uint8_t * single, const char * path, int index, int preset);
 
-// A new instance plays A001, first audio block or first editor frame; with no presets it stays on Init
+// A new instance plays A000, first audio block or first editor frame; with no presets it stays on Init
 static void take_start_preset(tSn2Plugin * t) {
     if (atomic_exchange(&t->startPreset, false) && (sn2_presets_single(1)[0] == 0xF0)) {
         sn2_load_single(t, sn2_presets_single(1), "", 0, 1);
@@ -232,63 +365,62 @@ static void take_program_change(tSn2Plugin * t) {
 
 static void sn2_process(void * inst, const float *const * in, uint32_t numIn, float ** out, uint32_t numOut,
                         uint32_t frames, const tSynthLibTransport * transport) {
-    tSn2Plugin * t     = (tSn2Plugin *)inst;
+    tSn2Plugin * t      = (tSn2Plugin *)inst;
 
     take_start_preset(t);
     take_program_change(t);
-    double       gain  = 0.25 * pow(t->values[kSn2ParamVolume], 2.0);
+    double       gain   = sn2_volume_gain(t->values[kSn2ParamVolume]);
+    double       master = t->values[kSn2ParamMaster];
+    tSn2Sound    sound  = make_sound(t);
 
     (void)in;
     (void)numIn;
-    (void)transport;
+    t->tempo = ((transport != NULL) && transport->tempoValid && (transport->tempo > 0.0)) ? transport->tempo : DEFAULT_TEMPO;
 
     if ((out == NULL) || (numOut == 0) || (out[0] == NULL)) {
         for (uint32_t i = 0; i < t->eventCount; i++) {
-            play(t, &t->events[i]);
+            play(t, &sound, &t->events[i]);
         }
 
         t->eventCount = 0;
         return;
     }
-    tSn2Sound    sound = {
-        .shape          = (tSn2OscShape)lround(t->values[kSn2ParamOscShape] * (eTiOscShapes - 1)),
-        .pulseWidth     =                           0.05 + (0.9 * t->values[kSn2ParamPulseWidth]),
-        .cutoff         = t->values[kSn2ParamCutoff] * 127.0,
-        .resonance      = t->values[kSn2ParamResonance] * 127.0,
-        .filterType     = (uint32_t)lround(t->values[kSn2ParamFilterType] * 11.0),
-        .filterSlope    = (uint32_t)lround(t->values[kSn2ParamFilterSlope] * 2.0),
-        .ampAttack      = t->values[kSn2ParamAmpAttack] * 127.0,
-        .ampDecay       = t->values[kSn2ParamAmpDecay] * 127.0,
-        .ampSustain     = t->values[kSn2ParamAmpSustain] * 127.0,
-        .ampSustainTime = t->values[kSn2ParamAmpSustainTime] * 127.0,
-        .ampRelease     = t->values[kSn2ParamAmpRelease] * 127.0,
-    };
-
-    memset(out[0], 0, (size_t)frames * sizeof(float));
+    float *      left   = out[0];
+    float *      right  = (numOut > 1) ? out[1] : NULL;
 
     // notes §2: up to each note, then the note; the host sends them in time order
-    uint32_t     done  = 0;
+    uint32_t     done   = 0;
 
     for (uint32_t i = 0; i < t->eventCount; i++) {
         uint32_t at = (t->events[i].offset < frames) ? t->events[i].offset : frames;
 
         if (at > done) {
-            sn2_voices_render(&t->voices, &sound, out[0] + done, at - done, gain);
+            render_host(t, &sound, left + done, (right != NULL) ? (right + done) : NULL, at - done, gain);
             done = at;
         }
-        play(t, &t->events[i]);
+        play(t, &sound, &t->events[i]);
     }
 
     t->eventCount = 0;
 
     if (done < frames) {
-        sn2_voices_render(&t->voices, &sound, out[0] + done, frames - done, gain);
+        render_host(t, &sound, left + done, (right != NULL) ? (right + done) : NULL, frames - done, gain);
     }
-    synthlib_swap_fade_apply(&t->fade, out[0], NULL, frames, t->voices.rate);
 
-    for (uint32_t ch = 1; ch < numOut; ch++) {
+    // after the ceiling: it turns the output down and never saves the sound from it
+    for (uint32_t f = 0; f < frames; f++) {
+        left[f] *= (float)master;
+
+        if (right != NULL) {
+            right[f] *= (float)master;
+        }
+    }
+
+    synthlib_swap_fade_apply(&t->fade, left, right, frames, t->hostRate);
+
+    for (uint32_t ch = 2; ch < numOut; ch++) {
         if (out[ch] != NULL) {
-            memcpy(out[ch], out[0], (size_t)frames * sizeof(float));
+            memcpy(out[ch], left, (size_t)frames * sizeof(float));
         }
     }
 }
@@ -320,8 +452,8 @@ static double sn2_get_param(void * inst, uint32_t id) {
 }
 
 static bool sn2_param_text(const tSynthLibPluginDesc * desc, void * inst, uint32_t id, double value, char * out, size_t len) {
-    static const char *const shapes[]  = {"Saw", "Pulse", "Triangle"};
-    static const char *const filters[] = {"LPF", "BPF", "HPF", "Res LPF", "Res BPF", "Res HPF", "LPF+LPF", "HPF+LPF", "HPF+HPF", "Notch", "LPF/LPF", "BPF/BPF"};
+    static const char *const shapes[]  = {"Saw", "Square", "Double Saw"};
+    static const char *const filters[] = {"LPF", "BPF", "HPF", "Res LPF", "Res BPF", "Res HPF", "Notch", "LPF+LPF", "BPF+BPF", "HPF+HPF", "LPF+BPF", "BPF+HPF"};
     static const char *const slopes[]  = {"12 dB", "18 dB", "24 dB"};
 
     (void)desc;
@@ -332,10 +464,64 @@ static bool sn2_param_text(const tSynthLibPluginDesc * desc, void * inst, uint32
     }
     long                     step      = lround(value * gSn2Params[id].stepCount);
 
-    if (id == kSn2ParamOscShape) {
+    if ((id == kSn2ParamOscShape) || (id == kSn2ParamOsc2Shape) || (id == kSn2ParamOsc3Shape)) {
         snprintf(out, len, "%s", shapes[(step < 0) ? 0 : ((step > 2) ? 2 : step)]);
     } else if (id == kSn2ParamFilterType) {
         snprintf(out, len, "%s", filters[(step < 0) ? 0 : ((step > 11) ? 11 : step)]);
+    } else if (id == kSn2ParamChorusType) {
+        static const char *const types[] = {"Quad Chorus", "Chorus/Flanger", "Phaser"};
+
+        snprintf(out, len, "%s", types[(step < 0) ? 0 : ((step > 2) ? 2 : step)]);
+    } else if (id == kSn2ParamGlideType) {
+        static const char *const types[] = {"Normal", "Auto", "2 Semi Down", "2 Semi Up", "5 Semi Down", "5 Semi Up", "7 Semi Down", "7 Semi Up", "12 Semi Down", "12 Semi Up"};
+
+        snprintf(out, len, "%s", types[(step < 0) ? 0 : ((step > 9) ? 9 : step)]);
+    } else if (id == kSn2ParamGlideStyle) {
+        snprintf(out, len, "%s", (step > 0) ? "Glissando" : "Portamento");
+    } else if (id == kSn2ParamGlideCurve) {
+        snprintf(out, len, "%s", (step > 0) ? "Exponential" : "Linear");
+    } else if (id == kSn2ParamReverbType) {
+        static const char *const types[] = {"Gated Reverse", "Gated Rising", "Gated Gentle", "Gated Falling", "Dry Chamber", "Echo Chamber", "Small Room", "Big Room", "Medium 1", "Medium 2", "Medium Plate 1", "Medium Plate 2", "Large 1", "Large 2", "Large Plate 1", "Large Plate 2"};
+
+        snprintf(out, len, "%s", types[(step < 0) ? 0 : ((step > 15) ? 15 : step)]);
+    } else if (id == kSn2ParamEffectsOrder) {
+        static const char *const orders[] = {"D+R+C", "D>R>C", "D>C>R", "R>D>C", "R>C>D", "C>D>R", "C>R>D", "D+[R>C]", "D+[C>R]", "R+[D>C]", "R+[C>D]", "C+[D>R]", "C+[R>D]", "D>[R+C]", "R>[D+C]", "C>[D+R]", "[R+C]>D", "[D+C]>R", "[D+R]>C"};
+
+        snprintf(out, len, "%s", orders[(step < 0) ? 0 : ((step > 18) ? 18 : step)]);
+    } else if (id == kSn2ParamOscTrigger) {
+        snprintf(out, len, "%s", (step > 0) ? "Ensemble" : "Percussive");
+    } else if (id == kSn2ParamDelaySync) {
+        static const char *const syncs[] = {"Off", "32nd T", "32nd", "16th T", "16th", "8th T", "16th .", "8th", "4th T", "8th .", "4th", "2nd T", "4th .", "2nd", "1 Bar T", "2nd .", "1 Bar", "2 Bar T", "1 Bar .", "2 Bars", "4 Bar T", "3 Bars", "5 Bar T", "4 Bars", "3 Bar .", "7 Bar T", "5 Bars", "8 Bar T", "6 Bars", "7 Bars", "5 Bar .", "8 Bars", "6 Bar .", "7 Bar .", "8 Bar ."};
+
+        snprintf(out, len, "%s", syncs[(step < 0) ? 0 : ((step > 34) ? 34 : step)]);
+    } else if (id == kSn2ParamDelayRatio) {
+        static const char *const ratios[] = {"1:1", "1:0.75", "0.75:1", "1:0.66", "0.66:1", "1:0.5", "0.5:1", "1:0.33", "0.33:1", "1:0.25", "0.25:1", "1:Off", "Off:1"};
+
+        snprintf(out, len, "%s", ratios[(step < 0) ? 0 : ((step > 12) ? 12 : step)]);
+    } else if ((id == kSn2ParamDelayOn) || (id == kSn2ParamReverbOn)) {
+        snprintf(out, len, "%s", (step > 0) ? "On" : "Off");
+    } else if ((id == kSn2ParamLfo1Shape) || (id == kSn2ParamLfo2Shape)) {
+        static const char *const shapes[] = {"Square", "Saw", "Triangle", "S+H"};
+
+        snprintf(out, len, "%s", shapes[(step < 0) ? 0 : ((step > 3) ? 3 : step)]);
+    } else if ((id == kSn2ParamLfo1Range) || (id == kSn2ParamLfo2Range)) {
+        static const char *const ranges[] = {"x1", "x10", "x100"};
+
+        snprintf(out, len, "%s", ranges[(step < 0) ? 0 : ((step > 2) ? 2 : step)]);
+    } else if ((id == kSn2ParamLfo1Trigger) || (id == kSn2ParamLfo2Trigger)) {
+        snprintf(out, len, "%s", (step > 0) ? "Key" : "Free");
+    } else if ((id == kSn2ParamLfo1Fade) || (id == kSn2ParamLfo2Fade)) {
+        snprintf(out, len, "%s", (step > 0) ? "Out" : "In");
+    } else if ((id == kSn2ParamHwLink) || (id == kSn2ParamPanEffects)) {
+        snprintf(out, len, "%s", (step > 0) ? "On" : "Off");
+    } else if (id == kSn2ParamHwChannel) {
+        snprintf(out, len, "%ld", step + 1);
+    } else if (id == kSn2ParamEffectsBypass) {
+        snprintf(out, len, "%s", (step > 0) ? "Bypass" : "On");
+    } else if (id == kSn2ParamPolyMode) {
+        snprintf(out, len, "%s", (step > 0) ? "Mono" : "Poly");
+    } else if (id == kSn2ParamEnvTrigger) {
+        snprintf(out, len, "%s", (step > 0) ? "Legato" : "Retrigger");
     } else if (id == kSn2ParamFilterSlope) {
         snprintf(out, len, "%s", slopes[(step < 0) ? 0 : ((step > 2) ? 2 : step)]);
     } else {
@@ -350,7 +536,9 @@ static bool sn2_param_text(const tSynthLibPluginDesc * desc, void * inst, uint32
 
 // What a sound carries: everything but the plug-in's own settings
 static bool sound_param(uint32_t id) {
-    return (id != kSn2ParamVoiceLimit) && (id != kSn2ParamVolume) && (id != kSn2ParamProgram) && (id != kSn2ParamBank);
+    return (id != kSn2ParamVoiceLimit) && (id != kSn2ParamMaster) && (id != kSn2ParamEffectsBypass) && (id != kSn2ParamSustainPedal)
+           && (id != kSn2ParamHwLink) && (id != kSn2ParamHwChannel) && (id != kSn2ParamHwDevice) && (id != kSn2ParamProgram) && (id != kSn2ParamBank)
+           && (id != kSn2ParamPitchBend) && (id != kSn2ParamModWheel);
 }
 
 static void current_values(void * user, double values[kSn2ParamCount]) {
@@ -482,6 +670,9 @@ static bool preset_edited(tSn2Plugin * t, void * user) {
     return strcmp(name, t->soundName) != 0;
 }
 
+#define LINK_MIN_SECONDS    (0.5)    // notes §14: a whole sound, at most this often
+#define LINK_EXT_SECONDS    (0.2)    // the extension after the main message
+
 static double now_seconds(void) {
     struct timespec ts;
 
@@ -489,21 +680,127 @@ static double now_seconds(void) {
     return (double)ts.tv_sec + (ts.tv_nsec * 1e-9);
 }
 
+// notes §14: the instrument follows the sound, whole, and the controllers
+static void hardware_link(tSn2Plugin * t, void * user) {
+    if (synthlib_plugin_param_value(user, kSn2ParamHwLink) < 0.5) {
+        if (t->hwLock >= 0) {
+            sn2_hardware_short(sn2_hw_port(), (uint8_t)(0xB0 | hw_channel(t)), 123, 0);
+        }
+        sn2_hardware_release(&t->hwLock);
+        t->hwSent         = false;
+        t->hwExtensionDue = false;
+        return;
+    }
+
+    if (!sn2_hardware_claim(&t->hwLock)) {
+        return;
+    }
+    uint8_t single[SN2_SINGLE_LENGTH];
+    uint8_t device = (uint8_t)lround(synthlib_plugin_param_value(user, kSn2ParamHwDevice) * 127.0);
+
+    if (t->hwExtensionDue) {
+        if ((now_seconds() - t->hwSentAt) >= LINK_EXT_SECONDS) {
+            (void)sn2_hardware_send_extension(t->hwLast, sn2_hw_port(), device);
+            t->hwExtensionDue = false;
+        }
+        return;
+    }
+    current_single(user, single);
+
+    if ((!t->hwSent || (memcmp(single, t->hwLast, SN2_SINGLE_LENGTH) != 0)) && ((now_seconds() - t->hwSentAt) >= LINK_MIN_SECONDS)) {
+        tSn2HardwareResult r = sn2_hardware_send_main(single, sn2_hw_port(), device);
+
+        memcpy(t->hwLast, single, SN2_SINGLE_LENGTH);
+        t->hwSentAt       = now_seconds();
+        t->hwSent         = (r == eSn2HardwareSent);
+        t->hwExtensionDue = t->hwSent;
+        synthlib_log_line("Link: sound sent to \"%s\" (result %d)", sn2_hw_port(), (int)r);
+    }
+    uint8_t status = (uint8_t)(0xB0 | hw_channel(t));
+    int     bend   = (int)lround(synthlib_plugin_param_value(user, kSn2ParamPitchBend) * 16383.0);
+    int     wheel  = (int)lround(synthlib_plugin_param_value(user, kSn2ParamModWheel) * 127.0);
+    int     pedal  = (synthlib_plugin_param_value(user, kSn2ParamSustainPedal) >= 0.5) ? 127 : 0;
+
+    if (bend != t->hwBend) {
+        sn2_hardware_short(sn2_hw_port(), (uint8_t)(0xE0 | hw_channel(t)), (uint8_t)(bend & 0x7F), (uint8_t)(bend >> 7));
+        t->hwBend = bend;
+    }
+
+    if (wheel != t->hwWheel) {
+        sn2_hardware_short(sn2_hw_port(), status, 1, (uint8_t)wheel);
+        t->hwWheel = wheel;
+    }
+
+    if (pedal != t->hwPedal) {
+        sn2_hardware_short(sn2_hw_port(), status, 64, (uint8_t)pedal);
+        t->hwPedal = pedal;
+    }
+}
+
 static const tSn2PatchHost gPatchHost = {
     .load = sn2_load_faded, .save   = sn2_save_patch, .storePreset = sn2_store_preset, .init = sn2_init_patch,
     .name = sn2_sound_name, .rename = sn2_rename,
 };
 
+// In mono the voice limit means nothing: the dial says so
+static bool limit_display(uint32_t paramId, const double * values, int32_t * step, char * text, size_t len) {
+    if ((paramId != kSn2ParamVoiceLimit) || (values[kSn2ParamPolyMode] <= 0.5)) {
+        return false;
+    }
+    *step = 0;
+    snprintf(text, len, "Mono");
+    return true;
+}
+
 static void sn2_panel_init(void) {
     sn2_draw_init();
     sn2_draw_set_pages(gSn2Pages, gSn2PageCount);
     sn2_draw_set_host(&gPatchHost);
+    sn2_draw_set_display(limit_display);
 }
 
+// notes: a plain-text channel, off until /tmp/sn2alike-backdoor exists
+static double bd_get(void * user, uint32_t id) {
+    return sn2_get_param(user, id);
+}
+
+static void bd_set(void * user, uint32_t id, double normalized) {
+    sn2_set_param(user, id, normalized);
+    synthlib_plugin_param_edited(user, id, normalized);
+}
+
+static bool bd_text(void * user, uint32_t id, double normalized, char * out, size_t len) {
+    return sn2_param_text(NULL, user, id, normalized, out, len);
+}
+
+static bool bd_preset(void * user, int number) {
+    if ((number < 1) || (number > SN2_PRESETS)) {
+        return false;
+    }
+    (void)sn2_presets_refresh();
+    sn2_load_faded(user, sn2_presets_single(number), "", 0, number);
+    return true;
+}
+
+static const tSynthLibBackdoor gBackdoor = {
+    .params = gSn2Params,     .count  = kSn2ParamCount,
+    .get    = bd_get,         .set    = bd_set,        .text  = bd_text,
+    .name   = sn2_sound_name, .rename = sn2_rename,
+    .preset = bd_preset,      .save   = sn2_save_patch,.init  = sn2_init_patch,
+};
+
 static void sn2_panel_sync(void * user) {
+    synthlib_backdoor_poll("sn2alike", &gBackdoor, user);
     tSn2Plugin * t = (tSn2Plugin *)user;
 
     sn2_draw_set_user(user);
+
+    if (atomic_exchange(&t->clipped, false)) {
+        t->clipUntil = now_seconds() + CLIP_HOLD_S;
+    }
+    sn2_draw_set_clip(now_seconds() < t->clipUntil);
+    hardware_link(t, user);
+    sn2_draw_read_tick();
 
     // another instance's store shows within a second
     if ((now_seconds() - t->presetsChecked) >= 1.0) {
@@ -633,19 +930,20 @@ static const tSynthLibPluginDesc gDescriptor = {
     .editorAspect       = SN2_CANVAS_W / SN2_CANVAS_H,
 
     .cb                 = {
-        .create     = sn2_create,
-        .destroy    = sn2_destroy,
-        .prepare    = sn2_prepare,
-        .setActive  = sn2_set_active,
-        .process    = sn2_process,
-        .noteOn     = sn2_note_on,
-        .noteOff    = sn2_note_off,
-        .setParam   = sn2_set_param,
-        .getParam   = sn2_get_param,
-        .paramText  = sn2_param_text,
-        .getState   = sn2_get_state,
-        .setState   = sn2_set_state,
-        .createView = sn2_create_view,
+        .create         = sn2_create,
+        .destroy        = sn2_destroy,
+        .prepare        = sn2_prepare,
+        .latencySamples = sn2_latency_samples,
+        .setActive      = sn2_set_active,
+        .process        = sn2_process,
+        .noteOn         = sn2_note_on,
+        .noteOff        = sn2_note_off,
+        .setParam       = sn2_set_param,
+        .getParam       = sn2_get_param,
+        .paramText      = sn2_param_text,
+        .getState       = sn2_get_state,
+        .setState       = sn2_set_state,
+        .createView     = sn2_create_view,
     }
 };
 

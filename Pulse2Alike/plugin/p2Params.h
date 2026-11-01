@@ -145,6 +145,7 @@ enum {
     kP2ParamHwChannel,
     kP2ParamMasterTune,
     kP2ParamTranspose,
+    kP2ParamVoices,
     kP2ParamCount
 };
 

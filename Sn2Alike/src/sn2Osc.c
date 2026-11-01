@@ -20,34 +20,42 @@
 
 #include "sn2Osc.h"
 
-// notes §1: PolyBLEP, the step's band-limiting correction
-static double poly_blep(double t, double dt) {
-    if (t < dt) {
-        t /= dt;
-        return t + t - (t * t) - 1.0;
-    }
+#include <math.h>
 
-    if (t > (1.0 - dt)) {
-        t = (t - 1.0) / dt;
-        return (t * t) + t + t + 1.0;
-    }
-    return 0.0;
+#define EDGE_LAST        (1007.0)    // notes §1
+#define PITCH_STRETCH    (30.0)      // notes §2
+#define PITCH_TRIM       (25.0)
+#define SOFT_LEAST       (29.0)
+#define SOFT_SCALE       (61.0)
+#define SOFT_STEP        (0.96)
+
+// notes §1: a saw's ramp, shaped by the table towards its jump
+static double ramp(const double * edge, double phase, double stretch) {
+    double place = fmin((1.0 - fabs(phase)) * stretch, EDGE_LAST);
+    int    i     = (int)place;
+    double f     = place - i;
+
+    return phase * (edge[i] + (f * (edge[i + 1] - edge[i])));
 }
 
-double sn2_osc_sample(tSn2OscShape shape, double phase, double increment, double width) {
-    switch (shape) {
-        case eTiOscPulse:
-        {
-            double shifted = fmod(phase + 1.0 - width, 1.0);
-            double v       = (phase < width) ? 1.0 : -1.0;
+double sn2_osc_stretch(double increment, double soften) {
+    double pitch = (PITCH_STRETCH / increment) - PITCH_TRIM;
+    double whole = floor(soften / 16.0);
+    double soft  = SOFT_LEAST + (SOFT_SCALE * ((pow(2.0, whole) * (1.0 + (SOFT_STEP * ((soften / 16.0) - whole)))) - 1.0));
 
-            return v + poly_blep(phase, increment) - poly_blep(shifted, increment);
-        }
-        case eTiOscTriangle:
-            // notes §2: naive - its steps are in the slope, so aliasing is far below the saw's
-            return (phase < 0.5) ? ((4.0 * phase) - 1.0) : (3.0 - (4.0 * phase));
+    return fmax(fmin(pitch, soft), 1.0);
+}
 
-        default:
-            return (2.0 * phase) - 1.0 - poly_blep(phase, increment);
+double sn2_osc_sample(const double * edge, tSn2OscShape shape, double phase, double stretch, double offset) {
+    double out = ramp(edge, phase, stretch);
+
+    if (shape != eTiOscSaw) {
+        double other  = phase + ((shape == eTiOscSquare) ? offset : (offset - 1.0));
+
+        other = (other >= 1.0) ? (other - 2.0) : ((other < -1.0) ? (other + 2.0) : other);
+        double second = ramp(edge, other, stretch);
+
+        out  += (shape == eTiOscSquare) ? -second : second;
     }
+    return out / 2.0;
 }

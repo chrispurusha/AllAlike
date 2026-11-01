@@ -489,10 +489,11 @@ typedef struct {
     double          drive;     // 0..1
 } tTiFilterSet;
 
-#define RING_DC     (0.0006)
+#define RING_DC             (0.0006)
 
 #ifndef SAT_UNIT
-#define SAT_UNIT    TI_FIXED_UNIT
+#define SAT_UNIT            TI_FIXED_UNIT
+#define SAT_RECTIFIER_DC    (14.7)
 #endif
 
 // notes §17: nine points across the drive, in between a straight line
@@ -554,9 +555,11 @@ static double saturate(double x, uint8_t curve, double drive, double * state, do
     }
 
     if (curve == 7) {                       // Rectifier: from the signal to its folded form
-        double u = fmin(fmax(x, -1.0), 1.0);
+        double u = fmin(fmax(x * SAT_UNIT, -1.0), 1.0);
+        double y = ((0.975 * (1.0 - (drive * drive)) * u) + (drive * (1.0 + (0.96 * drive)) * (0.638 - fabs(u)))) / SAT_UNIT;
 
-        return (0.975 * (1.0 - (drive * drive)) * u) + (drive * (1.0 + (0.96 * drive)) * (0.638 - fabs(u)));
+        state[1] += (1.0 - exp(-2.0 * M_PI * SAT_RECTIFIER_DC / rate)) * (y - state[1]);
+        return y - state[1];
     }
 
     switch (curve) {
@@ -1037,7 +1040,7 @@ static void render_voice(tTiVoices * v, const tTiSound * s, tTiVoice * vc, const
     double   note2     = key_pitch(vc->pitch, s->a[31]) + ((double)s->a[93] - 64.0) + (mod[kDstTranspose] * 48.0);
     double   scale     = pow(DETUNE_SLOPE, -(vc->pitch - KEY_CENTRE) / 24.0);
     double   unison    = vc->detune;
-    double   bend      = v->control[eTiCtlBend] * ((v->control[eTiCtlBend] >= 0.0) ? bipolar(s->b[26]) : bipolar(s->b[27])) * 64.0;
+    double   bend      = fabs(v->control[eTiCtlBend]) * ((v->control[eTiCtlBend] >= 0.0) ? bipolar(s->b[26]) : bipolar(s->b[27])) * 64.0;
     double   env       = vc->filterEnv.level;
     double   semi1     = note1 + bend + unison + pitch_offset(s->a[20], mod[kDstPitch1]);
     double   semi2     = note2 + bend + unison + pitch_offset(s->a[25], mod[kDstPitch2]) + ((detune_cents(s->a[26] + (127.0 * mod[kDstDetune])) * scale) / 100.0)
@@ -1458,7 +1461,8 @@ void ti_voices_render(tTiVoices * v, const tTiSound * s, float * left, float * r
 
     // notes §18: the end of the chain clips hard at full scale, with no limiter before it
     for (uint32_t f = 0; f < frames; f++) {
-        left[f]  = fminf(fmaxf(left[f], -1.0f), 1.0f);
-        right[f] = fminf(fmaxf(right[f], -1.0f), 1.0f);
+        v->clipped = v->clipped || (fabsf(left[f]) > 1.0f) || (fabsf(right[f]) > 1.0f);
+        left[f]    = fminf(fmaxf(left[f], -1.0f), 1.0f);
+        right[f]   = fminf(fmaxf(right[f], -1.0f), 1.0f);
     }
 }

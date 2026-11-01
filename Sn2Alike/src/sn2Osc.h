@@ -19,14 +19,23 @@
 #ifndef __TI_OSC_H__
 #define __TI_OSC_H__
 
+#include <stdint.h>
+
+#define SN2_EDGE_POINTS    (1024)
+
 typedef enum {
     eTiOscSaw = 0,
-    eTiOscPulse,
-    eTiOscTriangle,
+    eTiOscSquare,
+    eTiOscDoubleSaw,
     eTiOscShapes
 } tSn2OscShape;
 
-// One sample at phase 0..1 (advanced by the caller); width is the pulse's, 0..1
-double sn2_osc_sample(tSn2OscShape shape, double phase, double increment, double width);
+// notes §4: fills SN2_EDGE_POINTS values
+void sn2_edge_build(double * edge);
+
+// notes §2: the edge table's stretch for a note's increment (cycles of -1..1 a sample) and a Soften of 0..127
+double sn2_osc_stretch(double increment, double soften);
+// notes §1: one sample at phase -1..1 (advanced by the caller); offset, 0..2, is the second saw's
+double sn2_osc_sample(const double * edge, tSn2OscShape shape, double phase, double stretch, double offset);
 
 #endif // __TI_OSC_H__

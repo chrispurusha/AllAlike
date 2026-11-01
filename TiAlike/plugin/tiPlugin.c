@@ -24,6 +24,7 @@
 #include <time.h>
 
 #include "synthlibPlugin.h"
+#include "synthlibBackdoor.h"
 #include "synthlibLog.h"
 #include "synthlibSwapFade.h"
 #include "synthlibPanelView.h"
@@ -92,6 +93,8 @@ typedef struct {
     double            hwSentAt;
     uint8_t           hwLast[TI_SINGLE_LENGTH];
     tSynthLibSwapFade fade;
+    _Atomic bool      clipped;      // the audio thread saw full scale; the panel holds the lamp
+    double            clipUntil;
     _Atomic bool      startPreset;  // notes §11
     _Atomic int       wantPreset;   // a program change waiting for the fade
 } tTiPlugin;
@@ -315,6 +318,18 @@ static void ti_process(void * inst, const float *const * in, uint32_t numIn, flo
     if (done < frames) {
         ti_voices_render(&t->voices, &t->sound, left + done, right + done, frames - done);
     }
+
+    if (t->voices.clipped) {
+        t->voices.clipped = false;
+        atomic_store(&t->clipped, true);
+    }
+
+    // after the ceiling: it turns the output down and never saves the sound from it
+    for (uint32_t f = 0; f < frames; f++) {
+        left[f]  *= (float)t->values[kTiParamMaster];
+        right[f] *= (float)t->values[kTiParamMaster];
+    }
+
     synthlib_swap_fade_apply(&t->fade, left, right, frames, t->voices.rate);
 
     // notes §8: a mono output hears both sides
@@ -433,7 +448,7 @@ static bool ti_dial_display(uint32_t paramId, const double * values, int32_t * s
 
 // What a sound carries: everything but the plug-in's own settings
 static bool sound_param(uint32_t id) {
-    return (id != kTiParamProgram) && (id != kTiParamBank) && (id != kTiParamVoiceLimit) && (id != kTiParamArithmetic) && (id != kTiParamHwLink) && (id != kTiParamDelayOn) && (id != kTiParamReverbOn) && ((id < kTiParamBend) || (id > kTiParamSostenuto));
+    return (id != kTiParamProgram) && (id != kTiParamBank) && (id != kTiParamMaster) && (id != kTiParamVoiceLimit) && (id != kTiParamArithmetic) && (id != kTiParamHwLink) && (id != kTiParamDelayOn) && (id != kTiParamReverbOn) && ((id < kTiParamBend) || (id > kTiParamSostenuto));
 }
 
 static void current_values(void * user, double values[kTiParamCount]) {
@@ -567,6 +582,8 @@ static bool preset_edited(tTiPlugin * t, void * user) {
     return strcmp(name, t->soundName) != 0;
 }
 
+#define CLIP_HOLD_S    (1.5)
+
 static double now_seconds(void) {
     struct timespec ts;
 
@@ -628,10 +645,46 @@ static void hardware_link(tTiPlugin * t, void * user) {
     t->hwSent = true;
 }
 
+// notes: a plain-text channel, off until /tmp/tialike-backdoor exists
+static double bd_get(void * user, uint32_t id) {
+    return ti_get_param(user, id);
+}
+
+static void bd_set(void * user, uint32_t id, double normalized) {
+    ti_set_param(user, id, normalized);
+    synthlib_plugin_param_edited(user, id, normalized);
+}
+
+static bool bd_text(void * user, uint32_t id, double normalized, char * out, size_t len) {
+    return ti_param_text(NULL, user, id, normalized, out, len);
+}
+
+static bool bd_preset(void * user, int number) {
+    if ((number < 1) || (number > TI_PRESETS)) {
+        return false;
+    }
+    (void)ti_presets_refresh();
+    ti_load_faded(user, ti_presets_single(number), "", 0, number);
+    return true;
+}
+
+static const tSynthLibBackdoor gBackdoor = {
+    .params = gTiParams,     .count  = kTiParamCount,
+    .get    = bd_get,        .set    = bd_set,       .text  = bd_text,
+    .name   = ti_sound_name, .rename = ti_rename,
+    .preset = bd_preset,     .save   = ti_save_patch,.init  = ti_init_patch,
+};
+
 static void ti_panel_sync(void * user) {
+    synthlib_backdoor_poll("tialike", &gBackdoor, user);
     tTiPlugin * t = (tTiPlugin *)user;
 
     ti_draw_set_user(user);
+
+    if (atomic_exchange(&((tTiPlugin *)user)->clipped, false)) {
+        ((tTiPlugin *)user)->clipUntil = now_seconds() + CLIP_HOLD_S;
+    }
+    ti_draw_set_clip(now_seconds() < ((tTiPlugin *)user)->clipUntil);
 
     // another instance's store shows within a second
     if ((now_seconds() - t->presetsChecked) >= 1.0) {

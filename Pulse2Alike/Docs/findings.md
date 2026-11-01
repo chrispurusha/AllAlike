@@ -1245,3 +1245,6 @@ open.
   after the release: the knee reached early).
 - Filter Velocity is exact: a saw through LP24 at cutoff 40, velocity 100 and 127, Filter Velocity 64/81/100/127 -
   every octave within ~0.5-1 dB.
+
+## 2026-11-01 - Voices
+- Polyphony as whole extra engines, an option beyond the instrument, up to 8. At Voices 1 the output is identical, sample for sample, to the build before it.

@@ -20,6 +20,7 @@
 #define __TI_PREFS_H__
 
 #define SN2_PREF_DIAL_MODE    "dialMode"
+#define SN2_PREF_HW_PORT      "hardwarePort"
 
 #include "synthlibTypes.h"
 
@@ -28,5 +29,9 @@ void sn2_prefs_init(void);    // once per process; restores the drag mode
 // the plug-in's own, since SynthLib's plug-in stubs keep no dial mode
 tDialMode sn2_dial_mode(void);
 void sn2_set_dial_mode(tDialMode mode);    // and saves it
+
+// The MIDI output the instrument hangs from, by name; "" none. Machine-wide, not per project.
+const char * sn2_hw_port(void);
+void sn2_set_hw_port(const char * name);
 
 #endif // __TI_PREFS_H__

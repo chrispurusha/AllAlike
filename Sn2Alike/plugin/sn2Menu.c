@@ -27,6 +27,7 @@
 #include "alertDialog.h"
 
 #include "sn2Draw.h"
+#include "sn2Hardware.h"
 #include "sn2Menu.h"
 #include "sn2Patch.h"
 #include "sn2Prefs.h"
@@ -108,8 +109,13 @@ static void action_export(int index) {
     sn2_draw_export_presets();
 }
 
+static void action_read_hardware(int index) {
+    (void)index;
+    sn2_draw_read_hardware();
+}
+
 static void open_presets_menu(tCoord anchor) {
-    static tMenuItem items[8];
+    static tMenuItem items[9];
     static char      storeLabel[32], revertLabel[40];
     int              preset   = sn2_draw_preset();
     char             label[8] = "";
@@ -140,7 +146,10 @@ static void open_presets_menu(tCoord anchor) {
     items[6] = (tMenuItem){
         "Export Presets to File...", ITEM, action_export, 0, NULL, 0, 0.0, NULL
     };
-    items[7] = END_OF_MENU;
+    items[7] = (tMenuItem){
+        "Read from Hardware...", ITEM, action_read_hardware, 0, NULL, 0, 0.0, NULL
+    };
+    items[8] = END_OF_MENU;
     open_context_menu(anchor, items, 0, 0.0);
 }
 
@@ -192,9 +201,10 @@ static void action_panel_help(int index) {
     show_alert("The Panel",
                "An early build: one oscillator, the two filters, the amplifier envelope (ENVELOPES) and the voice limit on the "
                "GLOBAL page.\n\n"
-               "Patches: < Prev and Next > step through the presets, A001-L128; Load... opens a .syx or .mid file of "
+               "Patches: < Prev and Next > step through the presets, A000-L127; Load... opens a .syx or .mid file of "
                "Singles, choosing one when it holds several. The name beside them edits on a click. A Single keeps "
                "every byte it came with, though only what is built so far plays.\n\n"
+               "Link (GLOBAL page): the Supernova II follows this sound and these notes. Choose its output in the MIDI menu; Channel and Device are the instrument's. Only its edit buffer is written, never a stored program.\n\n"
                "Dials: drag to turn, Shift to turn finely. Controls chooses how a drag turns them: Rotary follows the "
                "pointer round the dial, Vertical and Horizontal count its movement.\n\n"
                "Lists (the oscillator's shape, the filter's mode) open a menu of their values on a click.\n\n"
@@ -215,10 +225,43 @@ static void open_help_menu(tCoord anchor) {
     open_context_menu(anchor, items, 0, 0.0);
 }
 
+// ---- MIDI -------------------------------------------------------------------------------------------------
+
+static char gPortNames[SN2_HARDWARE_MAX_PORTS][256];
+static char gPortLabels[SN2_HARDWARE_MAX_PORTS][260];
+
+static void action_port(int index) {
+    sn2_set_hw_port(gPortNames[gContextMenu.items[index].param]);
+}
+
+static void open_midi_menu(tCoord anchor) {
+    static tMenuItem items[SN2_HARDWARE_MAX_PORTS + 2];
+    int              count = 0;
+
+    for (int i = 0; i < sn2_hardware_port_count(); i++) {
+        if (sn2_hardware_port_name(i, gPortNames[count], sizeof(gPortNames[count]))) {
+            snprintf(gPortLabels[count], sizeof(gPortLabels[count]), "%s%s", (strcmp(gPortNames[count], sn2_hw_port()) == 0) ? "* " : "", gPortNames[count]);
+            items[count] = (tMenuItem){
+                gPortLabels[count], ITEM, action_port, count, NULL, 0, 0.0, NULL
+            };
+            count++;
+        }
+    }
+
+    if (count == 0) {
+        items[count++] = (tMenuItem){
+            "No MIDI outputs", ITEM_DISABLED, NULL, 0, NULL, 0, 0.0, NULL
+        };
+    }
+    items[count] = END_OF_MENU;
+    open_context_menu(anchor, items, 0, 0.0);
+}
+
 static const tMenuBarItem gMenuBar[] = {
     {"File",     open_file_menu    },
     {"Presets",  open_presets_menu },
     {"Controls", open_controls_menu},
+    {"MIDI",     open_midi_menu    },
     {"Help",     open_help_menu    },
     {NULL,       NULL              },
 };

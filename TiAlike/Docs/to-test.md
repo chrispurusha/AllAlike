@@ -11,3 +11,4 @@ Built but not yet checked by ear or in a host. Confirmed: delete the line. Faile
 - Reopen a project: the sound, its name, file / preset and `*` come back as left (tiPlugin notes §5)
 - The amplifier envelope by ear in a host (ENVELOPES page): Attack, Decay to Sustain, Sustain Time both ways, Release; a loaded Single sets all five (tiEnvelope notes)
 - Notes at their own sample: a fast attack and release sound the same at host block sizes 64 and 1024
+- The five Overdrives by ear at low, middle and high Intensity; Saturation Rectifier

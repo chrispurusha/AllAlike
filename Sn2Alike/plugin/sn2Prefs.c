@@ -17,11 +17,13 @@
 // Notes: Docs/code-notes/sn2Prefs.md - "// notes §k" refers there.
 
 #include <stdbool.h>
+#include <stdio.h>
 
 #include "prefs.h"
 #include "sn2Prefs.h"
 
 static tDialMode gDialMode = eDialModeVertical;
+static char      gHwPort[256];
 
 tDialMode sn2_dial_mode(void) {
     return gDialMode;
@@ -32,6 +34,15 @@ void sn2_set_dial_mode(tDialMode mode) {
     prefs_set_int(SN2_PREF_DIAL_MODE, (long)mode);
 }
 
+const char * sn2_hw_port(void) {
+    return gHwPort;
+}
+
+void sn2_set_hw_port(const char * name) {
+    snprintf(gHwPort, sizeof(gHwPort), "%s", name);
+    prefs_set_string(SN2_PREF_HW_PORT, gHwPort);
+}
+
 void sn2_prefs_init(void) {
     static bool done = false;
 
@@ -40,6 +51,7 @@ void sn2_prefs_init(void) {
     }
     done = true;
     prefs_init("Sn2Alike");
+    snprintf(gHwPort, sizeof(gHwPort), "%s", prefs_get_string(SN2_PREF_HW_PORT, ""));
     long        mode = prefs_get_int(SN2_PREF_DIAL_MODE, (long)eDialModeVertical);
 
     if ((mode == (long)eDialModeRotary) || (mode == (long)eDialModeVertical) || (mode == (long)eDialModeHorizontal)) {

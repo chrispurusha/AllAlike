@@ -25,6 +25,7 @@
 #include <string.h>
 
 #include "synthlibPlugin.h"
+#include "synthlibBackdoor.h"
 #include "synthlibLog.h"
 #include "synthlibSwapFade.h"
 #include "p2Dco.h"
@@ -211,9 +212,28 @@ typedef struct {
     tP2Dco   a, b;
 } tP2Voice;
 
+#define POLY_VOICES_MAX      (32)         // notes §57
+#define POLY_CHUNK           (512u)
+#define POLY_QUIET           (1e-6f)
+#define POLY_QUIET_BLOCKS    (50)
+
+struct tP2Plugin_;
+
 typedef struct {
+    struct tP2Plugin_ * engine;    // NULL for the first, which is the plug-in's own
+    int                 note;      // -1 when free
+    bool                held;
+    uint64_t            order;
+    int                 quiet;     // blocks without sound or a held key
+} tP2PolyVoice;
+
+typedef struct tP2Plugin_ {
     double            sampleRate;
     double            param[kP2ParamCount]; // normalized
+    bool              isVoice;              // notes §57: an extra voice's engine
+    tP2PolyVoice      poly[POLY_VOICES_MAX];
+    uint64_t          polyClock;
+    int               polyLastNote;
     tP2Dco            dco[DCO_COUNT];
     tP2Voice          voice[PARA_VOICES_MAX];
     tP2Dco            unison[UNISON_OSCS]; // notes §21
@@ -244,6 +264,8 @@ typedef struct {
     double            smooth;
     _Atomic int       programShown;                        // notes §20: the last program change's sound number, for the panel
     int               preset;                              // notes §48: main thread; the preset the sound came from, 0 none
+    _Atomic bool      overload;                            // the output passed full scale; the panel holds the lamp
+    double            overUntil;
     _Atomic bool      startPreset;                         // notes §48: a new instance loads P001 - first block or first frame
     double            presetsChecked;                      // notes §48: when the presets file was last looked at
     bool              haveBase;
@@ -835,6 +857,8 @@ static void free_running_phases(tP2Plugin * p) {
     }
 }
 
+static _Thread_local bool gMakingVoice;   // notes §57: an extra voice makes no voices of its own
+
 static void * p2_create(const tSynthLibPluginDesc * desc) {
     tP2Plugin * p = (tP2Plugin *)calloc(1, sizeof(tP2Plugin));
 
@@ -874,11 +898,40 @@ static void * p2_create(const tSynthLibPluginDesc * desc) {
     p->glidePitch          = (int64_t)KEYTRACK_REFERENCE_NOTE * 256;   // notes §42: running before the first note
     update_filter(p);
 
+    p->polyLastNote        = -1;
+
+    if (!gMakingVoice) {
+        gMakingVoice = true;
+
+        for (int i = 0; i < POLY_VOICES_MAX; i++) {
+            p->poly[i].note = -1;
+
+            if (i > 0) {
+                tP2Plugin * v = (tP2Plugin *)p2_create(desc);
+
+                if (v != NULL) {
+                    v->isVoice     = true;
+                    v->startPreset = false;
+                    v->noise      ^= 0x51EDu * (uint32_t)i;
+                }
+                p->poly[i].engine = v;
+                p->poly[i].quiet  = POLY_QUIET_BLOCKS;
+            }
+        }
+
+        gMakingVoice = false;
+    }
     synthlib_log_line("created - Pulse2Alike %s", P2A_VERSION_STRING);
     return p;
 }
 
 static void p2_destroy(void * inst) {
+    for (int i = 1; i < POLY_VOICES_MAX; i++) {
+        if (((tP2Plugin *)inst)->poly[i].engine != NULL) {
+            p2_destroy(((tP2Plugin *)inst)->poly[i].engine);
+        }
+    }
+
 #ifndef P2_NO_EDITOR
     if (((tP2Plugin *)inst)->backingUp) {
         static uint8_t discard[P2_PATCH_SLOTS][P2_DUMP_LENGTH];
@@ -948,6 +1001,12 @@ static void p2_set_state(void * inst, const void * data, size_t len) {
 static void p2_prepare(void * inst, const tSynthLibSetup * setup) {
     tP2Plugin * p = (tP2Plugin *)inst;
 
+    for (int i = 1; i < POLY_VOICES_MAX; i++) {
+        if (p->poly[i].engine != NULL) {
+            p2_prepare(p->poly[i].engine, setup);
+        }
+    }
+
     p->sampleRate = setup->sampleRate;
 
     if (setup->offline) {
@@ -965,6 +1024,16 @@ static void p2_prepare(void * inst, const tSynthLibSetup * setup) {
 
 static void p2_reset(void * inst) {
     tP2Plugin * p = (tP2Plugin *)inst;
+
+    for (int i = 0; i < POLY_VOICES_MAX; i++) {
+        p->poly[i].held = false;
+        p->poly[i].note = -1;
+
+        if ((i > 0) && (p->poly[i].engine != NULL)) {
+            p2_reset(p->poly[i].engine);
+            p->poly[i].quiet = POLY_QUIET_BLOCKS;
+        }
+    }
 
     p->noteCount     = 0;
 
@@ -1090,13 +1159,13 @@ static void release_note(tP2Plugin * p, uint8_t note) {
 
 // notes §32: with the arpeggiator on, keys go to it and it plays the voice
 static bool arp_on(const tP2Plugin * p) {
-    return plain_int(p, kP2ParamArpActive) != eP2ArpOff;
+    return (plain_int(p, kP2ParamArpActive) != eP2ArpOff) && (plain_int(p, kP2ParamVoices) <= 1);  // notes §57
 }
 
 static void arp_settings(const tP2Plugin * p, tP2ArpSettings * s) {
     int    accent  = plain_int(p, kP2ParamArpAccent);
 
-    s->active   = plain_int(p, kP2ParamArpActive);
+    s->active   = arp_on(p) ? plain_int(p, kP2ParamArpActive) : eP2ArpOff;
     s->mode     = plain_int(p, kP2ParamArpMode);
     s->octaves  = plain_int(p, kP2ParamArpRange) + 1;
     s->clock    = plain_int(p, kP2ParamArpClock);
@@ -1133,7 +1202,7 @@ static void arp_note(void * user, int note, int velocity, bool on, bool glide) {
 
 // notes §45: Arp Active changed (by hand or by a program change) - the voice handed between the keys and the arp
 static void arp_follow_active(tP2Plugin * p) {
-    int active = plain_int(p, kP2ParamArpActive);
+    int active = (arp_on(p) ? plain_int(p, kP2ParamArpActive) : eP2ArpOff);
     int was    = p->arpActiveSeen;
 
     if (active == was) {
@@ -1153,6 +1222,78 @@ static void arp_follow_active(tP2Plugin * p) {
     }
 }
 
+// notes §57: how many voices are playing
+static int poly_voices(const tP2Plugin * p) {
+    int voices = plain_int(p, kP2ParamVoices);
+
+    return (voices < 1) ? 1 : ((voices > POLY_VOICES_MAX) ? POLY_VOICES_MAX : voices);
+}
+
+static tP2Plugin * poly_engine(tP2Plugin * p, int i) {
+    return (i == 0) ? p : p->poly[i].engine;
+}
+
+// notes §57: the longest-free voice, else the oldest held
+static int poly_pick(const tP2Plugin * p, int voices, uint8_t note) {
+    int pick = -1;
+
+    for (int i = 0; i < voices; i++) {
+        if (p->poly[i].held && (p->poly[i].note == note)) {
+            return i;
+        }
+    }
+
+    for (int free = 1; (free >= 0) && (pick < 0); free--) {
+        for (int i = 0; i < voices; i++) {
+            if ((p->poly[i].held != (free != 0)) && ((pick < 0) || (p->poly[i].order < p->poly[pick].order))) {
+                pick = i;
+            }
+        }
+    }
+
+    return pick;
+}
+
+static void poly_note_on(tP2Plugin * p, int voices, uint8_t note, float velocity) {
+    int            i  = poly_pick(p, voices, note);
+    tP2Plugin *    v  = poly_engine(p, i);
+    tP2PolyVoice * pv = &p->poly[i];
+
+    if (pv->held && (pv->note != note)) {
+        release_note(v, (uint8_t)pv->note);
+    }
+
+    // a key held only by the pedal gives way
+    if (!pv->held && (pv->note >= 0) && v->sustained[pv->note & 127]) {
+        v->sustained[pv->note & 127] = false;
+        release_note(v, (uint8_t)pv->note);
+    }
+
+    // notes §57: a glide starts from the last key played, whichever voice had it
+    if (p->polyLastNote >= 0) {
+        v->glidePitch = (int64_t)p->polyLastNote * 256;
+        v->glideKnown = true;
+    }
+    pv->note        = note;
+    pv->held        = true;
+    pv->order       = ++p->polyClock;
+    pv->quiet       = 0;
+    p->polyLastNote = note;
+    play_note_on(v, note, velocity);
+}
+
+static void poly_note_off(tP2Plugin * p, int voices, uint8_t note, float velocity) {
+    for (int i = 0; i < voices; i++) {
+        if (p->poly[i].held && (p->poly[i].note == note)) {
+            tP2Plugin * v = poly_engine(p, i);
+
+            v->releaseVelocity = velocity;
+            p->poly[i].held    = false;
+            play_note_off(v, note);
+        }
+    }
+}
+
 static void p2_note_on(void * inst, uint8_t channel, uint8_t note, float velocity, uint32_t sampleOffset) {
     tP2Plugin *    p = (tP2Plugin *)inst;
     tP2ArpSettings s;
@@ -1164,7 +1305,11 @@ static void p2_note_on(void * inst, uint8_t channel, uint8_t note, float velocit
     arp_settings(p, &s);
     p2_arp_key(&p->arp, &s, note, (int)lround(velocity * 127.0f), true);   // notes §45: the arp knows every key
 
-    if (!arp_on(p)) {
+    if (poly_voices(p) > 1) {
+        poly_note_on(p, poly_voices(p), note, velocity);
+    } else if (!arp_on(p)) {
+        p->poly[0].note = note;
+        p->poly[0].held = true;
         play_note_on(p, note, velocity);
     }
 }
@@ -1191,7 +1336,10 @@ static void p2_note_off(void * inst, uint8_t channel, uint8_t note, float veloci
     arp_settings(p, &s);
     p2_arp_key(&p->arp, &s, note, 0, false);
 
-    if (!arp_on(p)) {
+    if (poly_voices(p) > 1) {
+        poly_note_off(p, poly_voices(p), note, velocity);
+    } else if (!arp_on(p)) {
+        p->poly[0].held = false;
         play_note_off(p, note);
     }
 }
@@ -1230,8 +1378,8 @@ static void level_targets(tP2Plugin * p) {
 
 static void preset_change(tP2Plugin * p, int number);
 
-static void p2_process(void * inst, const float *const * in, uint32_t numIn, float ** out, uint32_t numOut,
-                       uint32_t frames, const tSynthLibTransport * t) {
+static void render_engine(void * inst, const float *const * in, uint32_t numIn, float ** out, uint32_t numOut,
+                          uint32_t frames, const tSynthLibTransport * t) {
     tP2Plugin *    p         = (tP2Plugin *)inst;
 
     if (atomic_exchange(&p->startPreset, false)) {   // notes §48
@@ -1502,7 +1650,7 @@ static void preset_change(tP2Plugin * p, int number) {
     }
 
     for (uint32_t id = 0; id < kP2ParamCount; id++) {
-        if (  (id == kP2ParamOversample) || (id == kP2ParamAnomalies) || (id == kP2ParamHiss) || (id == kP2ParamHwLink)
+        if (  (id == kP2ParamVoices) || (id == kP2ParamOversample) || (id == kP2ParamAnomalies) || (id == kP2ParamHiss) || (id == kP2ParamHwLink)
            || (id == kP2ParamHwChannel) || (id == kP2ParamMaster) || (id == kP2ParamMasterTune) || (id == kP2ParamTranspose)
            || (id == kP2ParamProgram) || (id == kP2ParamBank) || ((id >= kP2ParamPitchBend) && (id <= kP2ParamSustain)) || (values[id] == p->param[id])) {
             continue;
@@ -1522,6 +1670,93 @@ static void program_change(tP2Plugin * p, int program) {
     if (number != atomic_load(&p->programShown)) {
         atomic_store(&p->wantPreset, number);
         synthlib_swap_fade_start(&p->fade);
+    }
+}
+
+static void p2_set_param(void * inst, uint32_t id, double normalized);
+
+// notes §57: the extra voices' engines follow the plug-in's parameters a block at a time
+static void poly_follow(tP2Plugin * p, tP2Plugin * v) {
+    for (uint32_t id = 0; id < kP2ParamCount; id++) {
+        if (v->param[id] != p->param[id]) {
+            if (id == kP2ParamProgram) {
+                v->param[id] = p->param[id];
+            } else {
+                p2_set_param(v, id, p->param[id]);
+            }
+        }
+    }
+}
+
+static void poly_stop(tP2Plugin * p, int i) {
+    if (p->poly[i].held) {
+        release_note(p->poly[i].engine, (uint8_t)p->poly[i].note);
+        p->poly[i].held = false;
+    }
+}
+
+static void p2_process(void * inst, const float *const * in, uint32_t numIn, float ** out, uint32_t numOut,
+                       uint32_t frames, const tSynthLibTransport * t) {
+    tP2Plugin * p      = (tP2Plugin *)inst;
+    int         voices = poly_voices(p);
+
+    render_engine(p, in, numIn, out, numOut, frames, t);
+
+    for (int i = 1; i < POLY_VOICES_MAX; i++) {
+        tP2PolyVoice * pv = &p->poly[i];
+        tP2Plugin *    v  = pv->engine;
+
+        if (i >= voices) {
+            poly_stop(p, i);
+        }
+
+        if ((v == NULL) || (pv->quiet >= POLY_QUIET_BLOCKS)) {
+            continue;
+        }
+        poly_follow(p, v);
+
+        for (uint32_t done = 0; done < frames; done += POLY_CHUNK) {
+            uint32_t n       = ((frames - done) < POLY_CHUNK) ? (frames - done) : POLY_CHUNK;
+            float    l[POLY_CHUNK], r[POLY_CHUNK];
+            float *  mine[2] = {l, r};
+            float    peak    = 0.0f;
+
+            render_engine(v, NULL, 0, mine, 2, n, t);
+
+            for (uint32_t ch = 0; (ch < numOut) && (out != NULL); ch++) {
+                if (out[ch] != NULL) {
+                    for (uint32_t f = 0; f < n; f++) {
+                        out[ch][done + f] += (ch == 1) ? r[f] : l[f];
+                    }
+                }
+            }
+
+            for (uint32_t f = 0; f < n; f++) {
+                peak = fmaxf(peak, fabsf(l[f]));
+            }
+
+            pv->quiet = (pv->held || (peak > POLY_QUIET)) ? 0 : (pv->quiet + 1);
+        }
+    }
+
+    // notes §57
+    if (voices > 1) {
+        float headroom = 1.0f / sqrtf((float)voices);
+
+        for (uint32_t ch = 0; (ch < numOut) && (out != NULL); ch++) {
+            for (uint32_t f = 0; (out[ch] != NULL) && (f < frames); f++) {
+                out[ch][f] *= headroom;
+            }
+        }
+    }
+
+    for (uint32_t ch = 0; (ch < numOut) && (ch < 2) && (out != NULL); ch++) {
+        for (uint32_t f = 0; (out[ch] != NULL) && (f < frames); f++) {
+            if (fabsf(out[ch][f]) > 1.0f) {
+                atomic_store(&p->overload, true);
+                break;
+            }
+        }
     }
 }
 
@@ -1614,7 +1849,7 @@ static void p2_panel_init(void) {
 
 // What a sound carries: everything but the plug-in's own settings and the program change's two
 static bool sound_param(uint32_t id) {
-    return (id != kP2ParamOversample) && (id != kP2ParamAnomalies) && (id != kP2ParamHiss) && (id != kP2ParamHwLink)
+    return (id != kP2ParamVoices) && (id != kP2ParamOversample) && (id != kP2ParamAnomalies) && (id != kP2ParamHiss) && (id != kP2ParamHwLink)
            && (id != kP2ParamHwChannel) && (id != kP2ParamMaster) && (id != kP2ParamMasterTune) && (id != kP2ParamTranspose)
            && (id != kP2ParamProgram) && (id != kP2ParamBank) && ((id < kP2ParamPitchBend) || (id > kP2ParamSustain));
 }
@@ -1869,6 +2104,8 @@ static int hw_cc(uint32_t id) {
     return -1;
 }
 
+#define OVER_HOLD_S    (1.5)
+
 static double now_seconds(void) {
     struct timespec t;
 
@@ -2061,11 +2298,43 @@ static void backup_follow(tP2Plugin * p) {
     p2_draw_backup_done(found, (found > 0) && p2_presets_store_all(dumps));
 }
 
+// notes: a plain-text channel, off until /tmp/pulse2alike-backdoor exists
+static double bd_get(void * user, uint32_t id) {
+    return p2_get_param(user, id);
+}
+
+static void bd_set(void * user, uint32_t id, double normalized) {
+    p2_set_param(user, id, normalized);
+    synthlib_plugin_param_edited(user, id, normalized);
+}
+
+static bool bd_text(void * user, uint32_t id, double normalized, char * out, size_t len) {
+    return p2_param_text(NULL, user, id, normalized, out, len);
+}
+
+static bool bd_preset(void * user, int number) {
+    p2_load_preset(user, number);
+    return true;
+}
+
+static const tSynthLibBackdoor gBackdoor = {
+    .params = gP2Params,     .count  = kP2ParamCount,
+    .get    = bd_get,        .set    = bd_set,       .text  = bd_text,
+    .name   = p2_sound_name, .rename = p2_rename,
+    .preset = bd_preset,     .save   = p2_save_patch,.init  = p2_init_patch,
+};
+
 static void p2_panel_sync(void * user) {
+    synthlib_backdoor_poll("pulse2alike", &gBackdoor, user);
     tP2Plugin * p      = (tP2Plugin *)user;
     int         number = atomic_load(&p->programShown);
 
     p2_draw_set_user(user);
+
+    if (atomic_exchange(&p->overload, false)) {
+        p->overUntil = now_seconds() + OVER_HOLD_S;
+    }
+    p2_draw_set_over(now_seconds() < p->overUntil);
 
     if (atomic_exchange(&p->startPreset, false)) {   // notes §48: no audio block yet - the editor loads it
         p2_load_preset_now(user, 1);

@@ -74,6 +74,7 @@ void ti_draw_set_value(uint32_t paramId, double normalized);
 // Returns false to draw the control as usual.
 typedef bool (*tTiDialDisplay)(uint32_t paramId, const double * values, int32_t * step, char * text, size_t len);
 void ti_draw_set_display(tTiDialDisplay display);
+void ti_draw_set_clip(bool on);
 void ti_draw_set_mouse(double x, double y);
 void ti_draw_frame(int pixelWidth, int pixelHeight);
 bool ti_draw_menu_active(void);

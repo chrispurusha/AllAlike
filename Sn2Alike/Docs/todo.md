@@ -1,13 +1,39 @@
 # Sn2Alike todo
 
 ## First
-- Find the 2 Hz sidebands on every harmonic before measuring anything finer
-- Build the oscillator: Saw, pulse Width and the Soften cut
-- Filter: type 2 is about 6 dB out; high-pass types 5 and 8 keep more low end in the reference; Overdrive, Key Tracking, Special Width (measured no effect so far)
-- Filter: damping rises with level in the reference, not built
+- Oscillator: Sync, Hardness, Skew, Formant Width; audio inputs; tighten the stretch law (design: nulls stop near -31 dB)
+- Filter: Special Width
+- Filter: set the level into the filter against the reference (damping depends on it)
 - Keep the same voice limit as TiAlike (owner, 2026-10-30)
-- Real programs: output level is about 22 dB out against the reference; performances not read
-- Replace the placeholder oscillator and envelope laws in `src/`
+- Performances not read
+- FM (6%); LFO routes to level, Soften, sync and resonance; LFO Speed from Env 3, wheel and pressure; wheel and pressure to LFO depth; LFO Sync to tempo; Env routes to pitch, width, level and resonance; Env 2 Delay
+- Noise: join Soften 112-127 properly
 - Finish the panel: Filter page done, the rest still placeholder
 - `Docs/code-notes/` came across from TiAlike with the code: rewrite each as its file changes
 - Panel: named drop-downs for modulation sources and destinations, waves and other numbered choices
+- Resampler: uses SynthLib `audio/synthlibResample.c` for now; to merge with GenBridge's (SynthLib TODO)
+- Envelopes: Sustain Time and Rate on the amp envelope, measured: Time 127 holds, a lower Time ends in Release; Rate 64 and up is flat, below 64 falls steadily, 10 dB/s at 50, 108 at 34, doubling about every 4.7 steps. Time's curve still to measure. Env 2 and 3, then filter and pitch routes
+- Arithmetic option, FLOAT or FIXED per instance, as TiAlike: filter first, as its words are known
+- Effects: comb; Pan Type; phaser type; chorus feedback law
+- Effects orders in Performance mode, if performances are ever built: on the instrument a program ignores its order
+- Reverb: the Gated types' gates; closer than the measured model if its network can be read
+- SuperStrings1 about 18 dB loud, sustain falling about 55 dB/s while held: cause not found (its Sustain Time and Rate are default)
+- Glide Normal with a note held: the reference does not glide, ours does; find its rule
+- Bend and wheel on the panel; wheel to LFO depth, Env 1, width, Soften and sync
+- 8 notes on the hardware rose only 1 dB over 4: check Polyphony and voice count
+- Env Trigger values beyond Retrigger and Legato: 41 holds the sound open past note off; Env 2 and 3 are assumed to follow Env 1; Glissando and the fixed Glide types against reference curves in more cases
+- External audio input into the voices, as G2Alike's In 1/2: the Osc types Audio In 1 and 2 (they play as a Saw now), then the other Alikes
+- Output clip: placed last; whether the voice sum saturates at the same point before the effects is not known
+- Peaks: one note reaches about twice our peak on the instrument's model at the same rms (A001 0.46 against 0.21): the attack or a phase
+- Level meters at stages, as G2Alike's: voices, filter, effects, output; then the same on the other Alikes
+- Master Volume's law on the instrument, and where it sits: built as plain dial/127 after the ceiling
+- Distortion at low Volume: 5-9 dB cleaner here than the instrument at Volume 10 and below, 2 dB dirtier at A002's own settings
+- Volume 127 with Distortion on: the instrument is 2.5 dB up on 84, here level
+- Crest factor: the instrument's chords peak about 1.7x ours at the same rms, so it reaches the ceiling sooner
+- Voices peak about 3 dB above the instrument in A001: drives Distortion and the ceiling harder; look at oscillator start phases and the Osc mix law
+- A001 voices: 22-26 dB dark above 3 kHz with Sync off; Sync, then whatever else
+- Distortion Compensation on a saw: its level law at extreme Levels
+- Filter Overdrive and Q Normalise: check both again against the reference (owner, 2026-11-01)
+- Panel dials for LFO routes to pitch and width
+- Outliers after the LFOs: Vanilla group -3 dB, TB1, BubbleArp, China Cymbal, Ride 2, A Syncy Feeling, RainPicks, Timpani
+- A001 summed, Delay Send 0: 1.6 dB hot and flatter than the instrument (kurtosis 1.66 against 2.0)

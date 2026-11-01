@@ -59,7 +59,7 @@ typedef struct {
     double    distHeld[2];
     double    treble[2];
     double    highCut[2][2];
-    double    driveState[2][3];
+    double    driveState[2][4];
     float     distLine[2][TI_DIST_DELAY];
     uint32_t  distAt[2];
     // notes §3: the phaser

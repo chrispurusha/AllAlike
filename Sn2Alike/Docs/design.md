@@ -5,7 +5,7 @@ same layout, same SynthLib wrappers, new identifiers.
 
 ## State
 
-The plug-in builds as VST3 and AU (`aumu Sn2a CPur`). The filter is built and measured (see `code-notes/sn2Filter.md`); oscillator, envelope and most of the panel are still placeholders. Compare filters with `tools/sn2filtertest`.
+The plug-in builds as VST3 and AU (`aumu Sn2a CPur`). All 12 filter types and all three oscillators (Saw, Square, Double Saw, with pitch, Width, Soften and Level) are built and measured (see `code-notes/sn2Filter.md`, `sn2Osc.md`). Noise, ring, FM, modulation and the envelope laws are still to come. Compare filters with `tools/sn2filtertest`.
 
 ## The voice to build
 
@@ -17,13 +17,17 @@ A program is a 297-byte main dump and a 99-byte extension, Novation SysEx. Every
 
 ## Validation
 
-By spectrum and level over a note, in the box, starting from a real program with the fields under test edited, as a program left unset is not neutral. Renders repeat to about -25 dB at one block size, so nulls are only a rough check.
+In the box, starting from a real program with the fields under test edited, as a program left unset is not neutral. Bypass effects through the live parameter: editing the program does not turn them off. Oscillators free-run, so align each render to a fraction of a sample; renders then repeat to about -44 dB at any block size, and nulls are a real check.
 
 ## Measured so far
 
-- Square and Saw share their odd harmonics. Square is a pulse, and Width runs from silence at 0 through square at 64.
-- Soften is a steep cut at a harmonic number, not a slope: about the 2^(Soften/16)th harmonic of the note, so it doubles every 16 steps and the tone holds across the keyboard. It is above the 47th harmonic of the note from about 80 up.
-- Every harmonic carries small sidebands about 2 Hz away. Their source is not known.
+- Square is two saws, one offset by Width, so Width runs from silence at 0 through square at 64.
+- Soften widens the edge of the wave, doubling its reach every 16 steps, so the tone holds across the keyboard; above that limit pitch sets the width.
+- Sidebands seen on every partial in early renders were the chorus. With effects bypassed through the live parameter, L and R are identical and Saw harmonics fall as 1/k.
+
+## Sample rate
+
+The reference runs at one fixed rate whatever the host asks: 39062 Hz, solved from where its aliases fall at five notes, with a top end stopping near 19.5 kHz. Its output is converted to the host rate, so levels and spectra do not change with the host. Sn2Alike does the same, through SynthLib's resampler, so the sound and its top end hold at any host rate.
 
 ## To decide
 

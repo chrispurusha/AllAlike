@@ -92,6 +92,7 @@ typedef struct {
 
 void p2_draw_set_host(const tP2PatchHost * host); // static storage
 void p2_draw_set_user(void * user);
+void p2_draw_set_over(bool on);
 void p2_draw_set_patch(const char * path);        // the file loaded now, for the label; no '/' = a title
 void p2_draw_set_preset(int number, bool edited); // notes §4: shown as P012, P012* once edited; 0 none
 

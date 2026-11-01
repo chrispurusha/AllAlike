@@ -176,7 +176,8 @@ before the host sees it.
 
 SOUNDS
 
-An early build: one placeholder voice, the Voice Limit and Volume parameters, no patch loading yet.
+A work in progress. It reads Singles from .syx and .mid files: use Import Presets to fill its presets.
+No sounds ship with it.
 
 LICENCE
 

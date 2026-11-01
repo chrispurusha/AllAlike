@@ -341,15 +341,15 @@ typedef struct {
 
 // notes §2: each Overdrive's filter ahead of the shaper
 typedef struct {
-    double gain, lowCut, highCut, q, afterDb;
+    double gain, lowCut, highCut, q, afterDb, postHz;   // postHz: a pole after the shaper, 0 none
 } tOverdrive;
 
 static const tOverdrive kOverdrive[5] = {
-    { 1.9138, 612.3,  2165.3, 0.2602, -4.0},
-    { 0.9031,  87.8, 22730.4, 0.0121,  0.0},
-    {11.3588, 869.2,  1890.6, 0.1014,  3.0},
-    { 1.1529,  57.4,   577.9, 0.7912,  1.0},
-    { 0.9899, 333.2,  5289.6, 0.2862, -4.0},
+    {12.8121, 4980.7,  5615.1, 0.1971, -0.24, 350.0},
+    { 0.8958,   87.0, 22808.0, 0.0114,  0.00,   0.0},
+    {40.6764, 6000.0, 18243.1, 0.0200,  8.76, 350.0},
+    { 2.1389,  172.6,  2436.5, 0.2441,  6.48, 350.0},
+    { 2.4389,  959.3,  5654.4, 1.0593, -0.23, 550.0},
 };
 
 static double overdrive_filter(tTiEffects * e, int ch, const tBiquadCoeffs * top, double lowCut, double gain, double x) {
@@ -370,7 +370,7 @@ static void shaped(tTiEffects * e, int ch, uint8_t curve, double intensity, doub
 
     const tOverdrive * od      = ((curve >= 20) && (curve <= 24)) ? &kOverdrive[curve - 20] : NULL;
     tBiquadCoeffs      top     = {0};
-    double             lowCut = 0.0, after = 1.0;
+    double             lowCut = 0.0, after = 1.0, postPole = 0.0;
 
     shape_at(curve, intensity, &d);
 
@@ -396,13 +396,14 @@ static void shaped(tTiEffects * e, int ch, uint8_t curve, double intensity, doub
         double c  = cos(w);
         double n  = 1.0 + al;
 
-        top.b0 = 0.5 * (1.0 - c) / n;
-        top.b1 = (1.0 - c) / n;
-        top.b2 = top.b0;
-        top.a1 = -2.0 * c / n;
-        top.a2 = (1.0 - al) / n;
-        lowCut = 1.0 - exp(-2.0 * M_PI * od->lowCut / e->rate);
-        after  = pow(10.0, od->afterDb * fmin(intensity / 32.0, 1.0) / 20.0);
+        top.b0   = 0.5 * (1.0 - c) / n;
+        top.b1   = (1.0 - c) / n;
+        top.b2   = top.b0;
+        top.a1   = -2.0 * c / n;
+        top.a2   = (1.0 - al) / n;
+        lowCut   = 1.0 - exp(-2.0 * M_PI * od->lowCut / e->rate);
+        after    = pow(10.0, od->afterDb * fmin(intensity / 48.0, 1.0) / 20.0);
+        postPole = (od->postHz > 0.0) ? (1.0 - exp(-2.0 * M_PI * od->postHz / e->rate)) : 0.0;
     }
 
     for (uint32_t f = 0; f < frames; f++) {
@@ -416,7 +417,8 @@ static void shaped(tTiEffects * e, int ch, uint8_t curve, double intensity, doub
                 e->distHeld[ch] -= d.hold * e->rate / 48000.0;
                 e->distState[ch] = x;
             }
-            y                = e->distState[ch];
+            e->distHigh[ch] += a * (e->distState[ch] - e->distHigh[ch]);
+            y                = e->distState[ch] - e->distHigh[ch];
         } else {
             double in = x;
 
@@ -427,6 +429,11 @@ static void shaped(tTiEffects * e, int ch, uint8_t curve, double intensity, doub
             in = (od != NULL) ? overdrive_filter(e, ch, &top, lowCut, od->gain, in) : in;
 
             y  = after * dist_shape(&d, in);
+
+            if (postPole > 0.0) {
+                e->driveState[ch][3] += postPole * (y - e->driveState[ch][3]);
+                y                     = e->driveState[ch][3];
+            }
         }
 
         if (!direct) {

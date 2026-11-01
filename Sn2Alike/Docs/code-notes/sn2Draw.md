@@ -65,9 +65,9 @@ Drawn as a button, grey with black text like the tabs, wide enough for ten W's (
 name a Single holds; it lightens while being edited.
 
 ## 11. Presets
-A001-D128 through SynthLib's bank browser, banks A-D of 128 (sn2Patch notes §5). Prev/Next wrap through all 512; from
+A001-L128 through SynthLib's bank browser, banks A-L of 128 (sn2Patch notes §5). Prev/Next wrap through all 512; from
 no preset, Next is A001. Store always confirms, naming what the slot holds; Revert loads the stored preset again.
 
 ## 12. Import and export
-Import replaces all 512 after a confirm naming how many were found (sn2Patch notes §6). Export writes the 512 as one
+Import replaces all 1536 after a confirm naming how many were found (sn2Patch notes §6). Export writes the 512 as one
 `.syx`, which Import reads back.

@@ -24,6 +24,8 @@
 #include <stdlib.h>
 
 #include "sn2Draw.h"
+#include "sn2Hardware.h"
+#include "sn2Params.h"
 
 #include "synthlibDefs.h"
 #include "synthlibGlobals.h"
@@ -49,7 +51,7 @@
 #define FONT_PATH                 "/System/Library/Fonts/Supplemental/Arial.ttf"
 #define FONT_PRELOAD_SIZE         (16.0)
 
-#define MAX_PARAMS                (128)
+#define MAX_PARAMS                (200)
 #define MAX_PLACED                (64)
 #define MAX_PAGES                 (16)
 #define MARGIN_X                  (16.0)
@@ -69,6 +71,7 @@
 #define PATCH_BUTTON_H            (14.0)
 #define PATCH_BUTTON_GAP          (6.0)
 #define NAME_FIELD_SIZING         "WWWWWWWWWW"   // SN2_SINGLE_NAME_LENGTH of the widest capital
+#define PRESET_COUNT_TEXT         "1536"
 #define MENU_BG                   {0.22, 0.22, 0.25}
 #define MENU_MAX                  (32)
 #define MENU_CELL_W               (96.0)
@@ -164,6 +167,12 @@ void sn2_draw_set_pages(const tSn2Page * pages, uint32_t count) {
 }
 
 static tSn2DialDisplay gDisplay;
+
+static bool            gClip;
+
+void sn2_draw_set_clip(bool on) {
+    gClip = on;
+}
 
 void sn2_draw_set_display(tSn2DialDisplay display) {
     gDisplay = display;
@@ -371,7 +380,7 @@ static void load_preset(int number) {
     }
 }
 
-// notes §11: Prev/Next step through A001-D128 and wrap; from no preset, Next is A001
+// notes §11: Prev/Next step through A000-L127 and wrap; from no preset, Next is A000
 static void step_patch(int direction) {
     int from = (gPreset != 0) ? gPreset : ((direction > 0) ? 0 : 1);
 
@@ -448,7 +457,7 @@ static void on_store_slot(bool confirmed, uint32_t bank1Indexed, uint32_t locati
 
 void sn2_draw_load_preset_browser(void) {
     fill_slot_items();
-    open_bank_browser("Load Preset", "A001-D128, as banks A-D of 128.", "Load", gSlotItems, SN2_PRESETS, NULL, 0, on_load_slot);
+    open_bank_browser("Load Preset", "A000-L127, as banks A-L of 128.", "Load", gSlotItems, SN2_PRESETS, NULL, 0, on_load_slot);
 }
 
 void sn2_draw_store_preset_browser(void) {
@@ -497,9 +506,94 @@ static void confirm_import(int count, const char * from) {
         show_alert("Import Presets", message);
         return;
     }
-    snprintf(message, sizeof(message), "Replace all 512 presets with the %d Single%s in %s, from A001? Slots it has no Single for "
+    snprintf(message, sizeof(message), "Replace all " PRESET_COUNT_TEXT " presets with the %d Single%s in %s, from A001? Slots it has no Single for "
              "become Init.", count, (count == 1) ? "" : "s", from);
     show_confirm("Import Presets", message, "Replace", on_import_confirmed);
+}
+
+// notes §13: the instrument's whole backup, through the same confirm as a file
+static bool gReading;
+static char gReadStatus[64];
+static int  gReadCount;
+
+#define READ_EXPECTED    (1424)   // what the instrument holds
+
+static void draw_read_progress(void);
+
+static void draw_read_progress(void) {
+    if (gReadStatus[0] == '\0') {
+        return;
+    }
+    tRectangle box  = {{(SN2_CANVAS_W - 360.0) / 2.0, (SN2_CANVAS_H - 90.0) / 2.0}, {360.0, 90.0}};
+    double     frac = fmin(1.0, (double)gReadCount / READ_EXPECTED);
+    double     barY = box.coord.y + box.size.h - 18.0;
+    double     barW = box.size.w - 20.0;
+
+    draw_dialog_background_overlay();
+    draw_panel_chrome(mainArea, box, 24.0, "Reading from Hardware");
+    set_rgb_colour((tRgb)RGB_WHITE);
+    render_text(mainArea, (tRectangle){{box.coord.x + 10.0, box.coord.y + 34.0}, {0.0, 14.0}}, gReadStatus);
+    set_rgb_colour((tRgb){0.25, 0.25, 0.25});
+    render_rectangle(mainArea, (tRectangle){{box.coord.x + 10.0, barY}, {barW, 8.0}});
+    set_rgb_colour((tRgb)RGB_GREEN_ON);
+    render_rectangle(mainArea, (tRectangle){{box.coord.x + 10.0, barY}, {barW * frac, 8.0}});
+}
+
+void sn2_draw_read_hardware(void) {
+    if (gReading) {
+        return;
+    }
+
+    if (sn2_hw_port()[0] == '\0') {
+        show_alert("Read from Hardware", "Choose the instrument's output in the MIDI menu first.");
+        return;
+    }
+    tSn2HardwareResult r = sn2_hardware_read_start(sn2_hw_port(), (uint8_t)lround(gValue[kSn2ParamHwDevice] * 127.0));
+
+    if (r != eSn2HardwareSent) {
+        sn2_hardware_read_stop();
+        show_alert("Read from Hardware", "Could not reach the instrument on that MIDI port.");
+        return;
+    }
+    gReading   = true;
+    gReadCount = 0;
+    snprintf(gReadStatus, sizeof(gReadStatus), "Asking the instrument...");
+}
+
+void sn2_draw_read_tick(void) {
+    if (!gReading) {
+        return;
+    }
+    tSn2ReadState state = sn2_hardware_read_state();
+
+    if ((state == eSn2ReadWaiting) || (state == eSn2ReadReceiving)) {
+        if (state == eSn2ReadReceiving) {
+            gReadCount = sn2_hardware_read_programs();
+            snprintf(gReadStatus, sizeof(gReadStatus), "%d of %d programs", gReadCount, READ_EXPECTED);
+        }
+        return;
+    }
+    gReading       = false;
+    gReadStatus[0] = '\0';
+
+    if (state == eSn2ReadTimedOut) {
+        sn2_hardware_read_stop();
+        show_alert("Read from Hardware", "Nothing came back. Check the MIDI port, the Device number, and that MIDI runs both ways.");
+        return;
+    }
+    char          path[1100];
+
+    snprintf(path, sizeof(path), "%s", sn2_presets_path());
+    snprintf(strrchr(path, '/') + 1, 40, "From Hardware.syx");
+    bool          saved = sn2_hardware_read_save(path);
+
+    sn2_hardware_read_stop();
+
+    if (!saved) {
+        show_alert("Read from Hardware", "Could not write what came back.");
+        return;
+    }
+    confirm_import(sn2_presets_read_file(path, gImport), "the instrument");
 }
 
 static void on_import_file_chosen(const char * path) {
@@ -798,6 +892,9 @@ void sn2_draw_frame(int pixelWidth, int pixelHeight) {
     }
     set_rgb_colour((tRgb){0.95, 0.95, 0.97});
     render_text(mainArea, (tRectangle){{MARGIN_X, TITLE_Y}, {0.0, 18.0}}, "Sn2Alike");
+    fitted_button((tRectangle){{MARGIN_X + 92.0, TITLE_Y + 1.0}, {38.0, 15.0}}, "CLIP", gClip ? (tRgb){1.0, 0.15, 0.1}
+                                                                                                                       : (tRgb){0.32, 0.32, 0.32});
+
     draw_tabs();
     layout();
     draw_patch_bar();
@@ -830,13 +927,14 @@ void sn2_draw_frame(int pixelWidth, int pixelHeight) {
         if (c->kind == eTiControlChoice) {
             fitted_button((tRectangle){{pc->x, pc->dial.coord.y + ((DIAL_SIZE - BUTTON_H) / 2.0)}, {CONTROL_W - 6.0, BUTTON_H}}, text, colour);
         } else {
-            render_dial(mainArea, pc->dial, (uint32_t)shown, (uint32_t)c->steps, 0, colour);
+            render_dial(mainArea, pc->dial, (uint32_t)shown, (uint32_t)c->steps + 1u, 0, colour);
             set_rgb_colour((tRgb)RGB_WHITE);
             render_text(mainArea, (tRectangle){{pc->x, pc->dial.coord.y + DIAL_SIZE + 6.0}, {0.0, LABEL_H}}, text);
         }
     }
 
     render_menu_bar(sn2_menu_bar(), sn2_menu_bar_rect());
+    draw_read_progress();
     synthlib_popups_tick();
     synthlib_popups_render();  // menus, the file browser and dialogues, front-most last
     render_backend_flush();

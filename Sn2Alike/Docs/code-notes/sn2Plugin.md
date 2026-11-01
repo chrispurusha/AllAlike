@@ -38,3 +38,12 @@ on each editor frame; the presets file itself at most once a second.
 A new instance plays A001, whichever comes first of its first audio block and its editor's first frame; a project's state cancels that, an offline render plays what it is given, and with no presets stored it stays on Init.
 
 A program change selects a stored sound, with Bank Select picking the bank. If that sound is already loaded nothing happens, so edits survive a sequencer resending it. Otherwise the output fades down (`synthlibSwapFade`), the sound changes at the top of a block once it is silent, and the output comes back. Loads from the panel use the same fade.
+
+## 12. Engine rate
+The voices always run at SN2_ENGINE_HZ and SynthLib's resampler converts each host chunk to the host rate, so a sound does not change with the host and the plug-in reports the resampler's latency. A note starts at the nearest engine sample. ENGINE_FRAMES holds one HOST_CHUNK down to a host rate of about 2.5 kHz.
+
+## 13. Tempo
+Delay Sync follows the host's tempo, or 122 BPM when the host gives none, as the reference does.
+
+## 14. The link to the instrument
+Run from the panel's sync, so it needs the editor open. A changed sound goes whole, at most every 0.5 s, its extension 0.2 s later. Notes go from the audio thread, bend, wheel and pedal from the sync. Turning the link off sends All Notes Off. The output is chosen in the MIDI menu and kept for the machine.

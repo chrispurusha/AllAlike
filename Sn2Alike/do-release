@@ -176,7 +176,9 @@ before the host sees it.
 
 SOUNDS
 
-An early build: one placeholder voice, the Voice Limit and Volume parameters, no patch loading yet.
+A work in progress: three oscillators, noise, ring, the filter, Overdrive, the envelopes, glide, chorus and delay
+reverb, distortion and EQ are built. LFOs, FM and Unison are not yet. It reads Supernova II programs from .syx and .mid files: use
+Import Presets to fill its 1536 presets, A001-L128. No sounds ship with it.
 
 LICENCE
 

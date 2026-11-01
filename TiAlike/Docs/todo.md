@@ -7,7 +7,7 @@ One line per item. Measurements and reasoning go in `findings.md`, design in `de
 - Chorus: the other types, and Feedback checked. 
 - Filter Bank: VariSlope in-between Shapes, Vowel at high resonance, Vowel and shifter Stereo Phase
 - Effects, in order: Chorus (11% with mix on), Character types (13%), Filterbank (12%), and last of all Delay and Reverb. EQ is built; its mid cut is too wide against boosts
-- Distortion: the Overdrives are within 4 dB, refine; Treble Booster, High Cut and Tone
+- Distortion: Mint at Intensity 32 is 3.7 dB low and 7 dB out at 64; Treble Booster, High Cut and Tone
 - Ring at the same pitch: level right, spectrum still out on saws and pulses; Wave PWM, Grain and Formant not built
 - Median level across Singles rose when saturation went in (2.65 to 3.02 dB): find which stage after it is off
 - Model choices past HyperSaw on the panel do not change the engine yet
@@ -27,13 +27,10 @@ One line per item. Measurements and reasoning go in `findings.md`, design in `de
 - Osc Volume on the panel: its upper half drives the analog filter (filter notes §5, `drive`) and the Saturation curves; then re-fit the ladder's input level (filter notes §6)
 - Analog modes: the self-oscillation pitch at Resonance 127 is 0.9% below the reference's (634 vs 640 Hz) - check at other cutoffs
 - Singles drive only what is built (tiPatch notes §3; the amp envelope's 59-63 now carried): add each section's bytes to `kCarried` as it is built - Osc 1 shape/PW (page A 17/18) with the oscillator
-- Program change: a preset by MIDI program change, as Pulse2Alike's (bank select picks A-D)
-- Start a new instance on A001, as Pulse2Alike starts on P001 (now Init)
 - Changing Sustain while a note holds: glides at 2^-12 a tick (tiEnvelope notes §6) - check against the reference
 - The reference answers a note 1-1.5 ms after its sample: measure the delay and whether it steps with a block of its own
 - Parameter Smooth Mode: only On is built (cutoff, resonance - tiVoices notes §5); Off, Auto, Note and the quantised modes, and the other smoothed controls (oscillator shape, PW, ...)
 - Loading of custom wavetables, in various common file formats.
-
 
 ## Later
 - Effects (next to last), then the arpeggiator (last, if at all) - design §4
@@ -74,5 +71,5 @@ One line per item. Measurements and reasoning go in `findings.md`, design in `de
 - Note start: about 10% residual in the first millisecond on ChrisTestBass, the largest error left on that sound
 - Late release: up to 10% residual beyond 80 ms on ChrisTestBass
 - Filter Attack 1 to 8: a smooth curve on the instrument, a single value here
-- Distortion: Wave Shaper 3-5 dB; Overdrives within 4 dB; Bounces and Folds at high Amount; Rate Reducer at Amount 127, 6 dB loud
+- Distortion: Wave Shaper; Bounces and Folds at high Amount; Rate Reducer at Intensity 96 depends on phase
 - Matrix to effects: routes built but not yet measured or heard

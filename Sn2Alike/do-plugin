@@ -95,6 +95,8 @@ FREETYPE_LIB="$SL/build/libfreetype.a"
 
 SOURCES=(
     "$HERE/src/sn2Osc.c"
+    "$HERE/src/sn2Edge.c"
+    "$HERE/src/sn2Effects.c"
     "$HERE/src/sn2Envelope.c"
     "$HERE/src/sn2Filter.c"
     "$HERE/src/sn2Voices.c"
@@ -103,6 +105,7 @@ SOURCES=(
     "$HERE/plugin/sn2Draw.c"
     "$HERE/plugin/sn2Menu.c"
     "$HERE/plugin/sn2Prefs.c"
+    "$HERE/plugin/sn2Hardware.c"
     "$HERE/plugin/sn2Plugin.c"
 )
 

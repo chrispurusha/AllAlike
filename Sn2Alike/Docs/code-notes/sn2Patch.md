@@ -17,3 +17,9 @@ A001-L128 in one file, read when it changes. Other instances' stores are kept.
 
 ## 6. Importing
 In file order from A001; what is left over is Init.
+
+## 7. Filter type
+The program byte runs 3-14, in panel order: LPF, BPF, HPF, Res LPF, Res BPF, Res HPF, Notch, LPF+LPF, BPF+BPF, HPF+HPF, LPF+BPF, BPF+HPF. The parameter is the byte less 3. Every one of the 1424 backup programs lies in that range.
+
+## 8. Oscillator fields
+Stored with an offset by oscillator. Type: 0, 10, 20 (0 Square, 1 Saw, 2 and 3 audio inputs, 4 Double Saw). Octave: 30, 35, 40 at -2. Semitone: 45, 70, 95 at -12. Audio inputs are not built and play as a Saw.

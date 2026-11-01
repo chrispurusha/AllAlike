@@ -181,6 +181,12 @@ void p2_draw_set_host(const tP2PatchHost * host) {
     gHost = host;
 }
 
+static bool gOver;
+
+void p2_draw_set_over(bool on) {
+    gOver = on;
+}
+
 void p2_draw_set_user(void * user) {
     gUser = user;
 }
@@ -928,6 +934,8 @@ void p2_draw_frame(int pixelWidth, int pixelHeight) {
     }
     set_rgb_colour((tRgb){0.95, 0.95, 0.97});
     render_text(mainArea, (tRectangle){{MARGIN_X, TITLE_Y}, {0.0, 18.0}}, "Pulse2Alike");
+    fitted_button((tRectangle){{MARGIN_X + 124.0, TITLE_Y + 1.0}, {38.0, 15.0}}, "OVER", gOver ? (tRgb){1.0, 0.15, 0.1}
+                                                                                                                        : (tRgb){0.32, 0.32, 0.32});
     draw_tabs();
     layout();
     {
@@ -1011,7 +1019,7 @@ void p2_draw_frame(int pixelWidth, int pixelHeight) {
         if (c->kind == eP2ControlChoice) {
             fitted_button((tRectangle){{pc->x, pc->dial.coord.y + ((DIAL_SIZE - BUTTON_H) / 2.0)}, {CONTROL_W - 6.0, BUTTON_H}}, text, colour);
         } else {
-            render_dial(mainArea, pc->dial, (uint32_t)step_of(c), (uint32_t)c->steps, 0, colour);
+            render_dial(mainArea, pc->dial, (uint32_t)step_of(c), (uint32_t)c->steps + 1u, 0, colour);
             set_rgb_colour((tRgb)RGB_WHITE);
             render_text(mainArea, (tRectangle){{pc->x, pc->dial.coord.y + DIAL_SIZE + 6.0}, {0.0, LABEL_H}}, text);
         }

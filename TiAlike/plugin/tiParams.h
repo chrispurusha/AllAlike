@@ -291,6 +291,7 @@ enum {
     kTiParamC107Assign6Amount3,
     kTiParamProgram,
     kTiParamBank,
+    kTiParamMaster,
     kTiParamCount
 };
 

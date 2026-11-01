@@ -191,6 +191,7 @@ const tSynthLibParam     gP2Params[kP2ParamCount] = {
     {kP2ParamHwChannel,       "Pulse 2 MIDI Channel", "Channel",   eSynthLibUnitGeneric,     1.0,  16.0, 0.000000,  15, SYNTHLIB_MIDI_NONE,                                                                             0},
     {kP2ParamMasterTune,      "Master Tune",          "Tune",      eSynthLibUnitGeneric,   420.0, 460.0, 0.500000,  40, SYNTHLIB_MIDI_NONE,                                                                             0},
     {kP2ParamTranspose,       "Transpose",            "Transp",    eSynthLibUnitGeneric,   -24.0,  24.0, 0.500000,  48, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kP2ParamVoices,          "Voices",               "Voices",    eSynthLibUnitGeneric,     1.0,  32.0,      0.0,  31, SYNTHLIB_MIDI_NONE,                                                                             0},
 };
 
 // The instrument's sound bytes, in order: which parameter each one is, and the raw value of its lowest step.
@@ -568,6 +569,7 @@ static const tP2Control kSection24[]     = {
 };
 static const tP2Control kSection25[]     = {
     {kP2ParamOversample, "OvrSmp",    eP2ControlChoice,  2, 0.0, kNamesOversample},
+    {kP2ParamVoices,     "Voices",    eP2ControlDial,   31, 1.0, NULL            },
     {kP2ParamAnomalies,  "Anomalies", eP2ControlChoice,  1, 0.0, kNamesAnomalies },
     {kP2ParamHiss,       "Hiss",      eP2ControlChoice,  1, 0.0, kNamesHiss      },
     {kP2ParamHwLink,     "Link",      eP2ControlChoice,  1, 0.0, kNamesHwLink    },
@@ -612,7 +614,7 @@ static const tP2Section kPage6Sections[] = {
 };
 static const tP2Section kPage7Sections[] = {
     {"PERFORMANCE", {0.65, 0.65, 0.65}, kSection24, 6},
-    {"PLUG-IN",     {0.65, 0.65, 0.65}, kSection25, 5},
+    {"PLUG-IN",     {0.65, 0.65, 0.65}, kSection25, 6},
 };
 
 const tP2Page           gP2Pages[]       = {

@@ -110,6 +110,7 @@ typedef struct {
     double          control[eTiCtlCount];
     tTiFilterTables filterTables;
     uint64_t        clock;
+    bool            clipped;     // set when the output hits full scale; the caller clears it
     uint8_t         held[128];   // notes §10: keys down, oldest first, for the mono modes
     uint32_t        heldCount;
     int             lastNote;

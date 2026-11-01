@@ -171,6 +171,12 @@ void ti_draw_set_pages(const tTiPage * pages, uint32_t count) {
 
 static tTiDialDisplay gDisplay;
 
+static bool           gClip;
+
+void ti_draw_set_clip(bool on) {
+    gClip = on;
+}
+
 void ti_draw_set_display(tTiDialDisplay display) {
     gDisplay = display;
 }
@@ -818,6 +824,8 @@ void ti_draw_frame(int pixelWidth, int pixelHeight) {
     }
     set_rgb_colour((tRgb){0.95, 0.95, 0.97});
     render_text(mainArea, (tRectangle){{MARGIN_X, TITLE_Y}, {0.0, 18.0}}, "TiAlike");
+    fitted_button((tRectangle){{MARGIN_X + 92.0, TITLE_Y + 1.0}, {38.0, 15.0}}, "CLIP", gClip ? (tRgb){1.0, 0.15, 0.1}
+                                                                                                                       : (tRgb){0.32, 0.32, 0.32});
     draw_tabs();
     layout();
     draw_patch_bar();
@@ -850,7 +858,7 @@ void ti_draw_frame(int pixelWidth, int pixelHeight) {
         if (c->kind == eTiControlChoice) {
             fitted_button((tRectangle){{pc->x, pc->dial.coord.y + ((DIAL_SIZE - BUTTON_H) / 2.0)}, {CONTROL_W - 6.0, BUTTON_H}}, text, colour);
         } else {
-            render_dial(mainArea, pc->dial, (uint32_t)shown, (uint32_t)c->steps, 0, colour);
+            render_dial(mainArea, pc->dial, (uint32_t)shown, (uint32_t)c->steps + 1u, 0, colour);
             set_rgb_colour((tRgb)RGB_WHITE);
             render_text(mainArea, (tRectangle){{pc->x, pc->dial.coord.y + DIAL_SIZE + 6.0}, {0.0, LABEL_H}}, text);
         }

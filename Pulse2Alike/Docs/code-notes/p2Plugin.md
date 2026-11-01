@@ -541,3 +541,5 @@ added to the note before the oscillators' own offsets and modulation. They are t
 sound's: a preset or a sound dump leaves them alone (both exclusion lists), as on the instrument. Both are read rounded to their steps (whole hertz, whole semitones), so a host's
 automation between steps cannot leave the pitch between them.
 
+## 57. Voices
+Up to 32, as on every Alike. The instrument is monophonic, and at Voices 1 the plug-in is too, through exactly the same code. Above 1, each extra voice is a whole further engine, with its own oscillators, envelopes, filter, drive and LFOs, following the plug-in's parameters a block at a time. A new key takes the voice free longest, else the oldest held. A glide starts from the last key played. Above one voice the arpeggiator is off, whatever its setting says. An extra voice that has been silent for 50 blocks is not rendered, so it costs nothing. Voices is a setting of the instance, not of a sound, and is not sent to the instrument: notes beyond the first voice are only heard in the plug-in. Above one voice the mix is scaled by one over the root of Voices, so a chord leaves headroom; at one nothing changes.

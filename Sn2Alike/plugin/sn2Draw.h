@@ -24,7 +24,7 @@
 #include <stdint.h>
 
 #define SN2_CANVAS_W    (780.0)
-#define SN2_CANVAS_H    (320.0)
+#define SN2_CANVAS_H    (440.0)
 
 typedef enum {
     eTiControlDial = 0,
@@ -68,6 +68,9 @@ void sn2_draw_set_value(uint32_t paramId, double normalized);
 // Returns false to draw the control as usual.
 typedef bool (*tSn2DialDisplay)(uint32_t paramId, const double * values, int32_t * step, char * text, size_t len);
 void sn2_draw_set_display(tSn2DialDisplay display);
+void sn2_draw_set_clip(bool on);
+void sn2_draw_read_hardware(void);     // Presets > Read from Hardware
+void sn2_draw_read_tick(void);         // from the panel's sync
 void sn2_draw_set_mouse(double x, double y);
 void sn2_draw_frame(int pixelWidth, int pixelHeight);
 bool sn2_draw_menu_active(void);

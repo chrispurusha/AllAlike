@@ -17,7 +17,8 @@ Nearly every curve is a shaper with no memory, then a delay of 26 samples, then 
 - The Rate Reducers are a sample and hold. The older hold doubles every 23 steps, the newer every 12. Neither reducer takes Treble Booster or High Cut, and neither goes through the delay and high-pass.
 - Low Pass and High Pass are first-order filters with the corner moved by Intensity.
 - At a low Intensity, where the signal has not reached the curve, some curves run straight through.
-- The Overdrives are the Wide curve with a filter in front: a first-order low cut and a two-pole top, each its own, and a level after. Their filters were fitted at Intensity 0, and they are within about 4 dB at high Intensity.
+- The Overdrives are the Wide curve between filters: a first-order low cut and a two-pole top in front, then a level, ramped in over the first 48 steps of Intensity, then one pole after it, 350 Hz or 550 Hz, except Curry. The pole shapes the buzz at high drive, so it cannot sit ahead of the curve, though at Intensity 0 the response is the same. Measured against a saw: a near-sine leaves a fit with almost nothing to hold it.
+- The Rate Reducers pass no DC: a hold landing on the same point of each cycle gives silence, not a constant.
 
 ## 3. Phaser
 Stages n is 2n first-order allpass sections, so n notches once mixed with the dry signal; Mix is an equal-power crossfade, all wet at full. The corner is 393 Hz at Frequency 48 and 2.3 times higher every 16 steps. Feedback goes as the 1.5th power of its amount. The LFO swings the corner, up to 1.7 octaves each way. Spread is approximate: 5 times across the chain at full and none up to 96, which fits the two ends but not the middle.

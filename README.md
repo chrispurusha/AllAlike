@@ -7,7 +7,7 @@ Reproductions of synthesizers as VST3 and Audio Unit plug-ins, each built on
 |---|---|---|
 | [Pulse2Alike](Pulse2Alike/) | A reproduction inspired by the Waldorf Pulse 2 | Beta |
 | [TiAlike](TiAlike/) | A reproduction inspired by the Access Virus TI's single-patch engine | Work in progress |
-| [Sn2Alike](Sn2Alike/) | A reproduction inspired by the Novation Supernova II | Skeleton |
+| [Sn2Alike](Sn2Alike/) | A reproduction inspired by the Novation Supernova II | Work in progress |
 
 ## Building
 
@@ -26,5 +26,7 @@ Each plug-in builds and releases on its own, from its own folder. See
 
 Each plug-in has its own versions, so tags carry its name: `Pulse2Alike-V0.1.0-beta.7`, `TiAlike-V0.0.1-beta.1`.
 `./do-release` in a plug-in's folder works out the next one and prints the `git tag` command.
+
+`./do-release` here builds all of them into one `.dmg`, `AllAlike-<version>.dmg`, tagged `AllAlike-V<version>`, with the same arguments.
 
 GPLv3. See [LICENSE](LICENSE).

@@ -291,6 +291,7 @@ const tSynthLibParam     gTiParams[kTiParamCount] = {
     {kTiParamC107Assign6Amount3,              "Slot 6 Amount 3",         "Amt 3",             eSynthLibUnitGeneric, -64.0,          63.0,                   0.503937,               127, SYNTHLIB_MIDI_NONE,                                                                             0},
     {kTiParamProgram,                         "Program",                 "Program",           eSynthLibUnitGeneric,   0.0,         127.0,                   0.000000,               127, SYNTHLIB_MIDI_NONE,       SYNTHLIB_PARAM_PROGRAM | SYNTHLIB_PARAM_HIDDEN | SYNTHLIB_PARAM_NO_SAVE},
     {kTiParamBank,                            "Bank Select",             "Bank",              eSynthLibUnitGeneric,   0.0,         127.0,                   0.000000,               127,                       32, SYNTHLIB_PARAM_HIDDEN | SYNTHLIB_PARAM_NO_SAVE                         },
+    {kTiParamMaster,                          "Master Volume",           "Master",            eSynthLibUnitGeneric,   0.0,         127.0,                        1.0,               127, SYNTHLIB_MIDI_NONE,                                                                             0},
 };
 
 static const char *const kFilters[]                     = {"LP", "HP", "BP", "BS", "A1", "A2", "A3", "A4"};
@@ -488,6 +489,7 @@ static const tTiControl  kAmpEnv[]                      = {
 };
 static const tTiControl  kAmp[]                         = {
     {kTiParamVolume, "Volume", eTiControlDial, 127, 0.0, NULL},
+    {kTiParamMaster, "Master", eTiControlDial, 127, 0.0, NULL},
 };
 static const tTiControl  kVoices[]                      = {
     {kTiParamVoiceLimit, "Limit",  eTiControlDial,   TI_MAX_VOICES - 1, 1.0, NULL       },
@@ -514,6 +516,7 @@ static const tTiControl  kMix[]                         = {
     {kTiParamNoise,      "Noise",   eTiControlDial,   127, 0.0, NULL      },
     {kTiParamNoiseColor, "Color",   eTiControlDial,   127, 0.0, NULL      },
     {kTiParamRing,       "Ring",    eTiControlDial,   127, 0.0, NULL      },
+    {kTiParamPunch,      "Punch",   eTiControlDial,   127, 0.0, NULL      },
 };
 static const tTiControl  kFilterMod[]                   = {
     {kTiParamEnvAmount1, "Env 1", eTiControlDial,   127,   0.0, NULL        },
@@ -564,7 +567,6 @@ static const tTiControl  kPlay[]                        = {
     {kTiParamPortamento, "Porta", eTiControlDial,   127,   0.0, NULL     },
     {kTiParamPan,        "Pan",   eTiControlDial,   127, -64.0, NULL     },
     {kTiParamTranspose,  "Trans", eTiControlDial,   127, -64.0, NULL     },
-    {kTiParamPunch,      "Punch", eTiControlDial,   127,   0.0, NULL     },
 };
 
 static const tTiControl  kOsc3[]                        = {
@@ -666,7 +668,7 @@ static const tTiControl  kMod6[]                        = {
 static const tTiSection  kOscillatorsPage[]             = {
     {"OSC 1",       {0.30, 0.55, 0.85}, kOsc,          4},
     {"OSC 2",       {0.30, 0.55, 0.85}, kOsc2,         7},
-    {"MIX",         {0.30, 0.55, 0.85}, kMix,          7},
+    {"MIX",         {0.30, 0.55, 0.85}, kMix,          8},
     {"OSC 3",       {0.30, 0.55, 0.85}, kOsc3,         4},
     {"MODEL",       {0.30, 0.55, 0.85}, kModelsCtl,    2},
     {"KEY AND MOD", {0.30, 0.55, 0.85}, kNewKeyAndMod, 6},
@@ -679,7 +681,7 @@ static const tTiSection  kFilterPage[]                  = {
     {"ENVELOPE", {0.90, 0.55, 0.20}, kNewEnvelope, 3},
 };
 static const tTiSection  kAmpPage[]                     = {
-    {"MASTER",   {0.65, 0.65, 0.65}, kAmp,          1},
+    {"OUTPUT",   {0.65, 0.65, 0.65}, kAmp,          2},
     {"VELOCITY", {0.65, 0.65, 0.65}, kNewVelocity, 10},
 };
 static const tTiSection  kEnvelopesPage[]               = {
@@ -706,7 +708,7 @@ static const tTiSection  kModPage2[]                    = {
 };
 static const tTiSection  kGlobalPage[]                  = {
     {"PLUG-IN", {0.65, 0.65, 0.65}, kVoices,     5},
-    {"PLAY",    {0.65, 0.65, 0.65}, kPlay,       5},
+    {"PLAY",    {0.65, 0.65, 0.65}, kPlay,       4},
     {"UNISON",  {0.65, 0.65, 0.65}, kUnisonCtl,  4},
     {"CONTROL", {0.65, 0.65, 0.65}, kNewControl, 4},
 };
@@ -746,6 +748,6 @@ const tTiPage            gTiPages[]                     = {
     {"TABLES",  kTablesPage,      2},
     {"DRIVE",   kDistortionPage,  3},
     {"MOD FX",  kModulationPage,  3},
-    {"EFFECTS",   kDelayPage,       3},
+    {"EFFECTS", kDelayPage,       3},
 };
 const uint32_t           gTiPageCount                   = sizeof(gTiPages) / sizeof(gTiPages[0]);

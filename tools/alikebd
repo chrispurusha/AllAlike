@@ -1,0 +1,20 @@
+#!/bin/zsh
+# Sends commands to a running AllAlike plug-in with its editor open, and prints the answers.
+#
+#   ./alikebd sn2alike on                    allow it (off removes the file again)
+#   ./alikebd sn2alike 'LIST Osc 1' 'SET Cutoff=80' 'NAME Warm Pad' 'SAVE /tmp/warm.syx'
+#
+# Names: pulse2alike, tialike, sn2alike. Each argument is a command; HELP lists them.
+name=$1; shift
+gate=/tmp/$name-backdoor
+if [[ $1 == on ]]; then touch $gate; exit 0; fi
+if [[ $1 == off ]]; then rm -f $gate; exit 0; fi
+cmd=/tmp/${name}_cmd.txt
+res=/tmp/${name}_result.txt
+rm -f $res
+print -rl -- "$@" > $cmd.part && mv $cmd.part $cmd
+for i in {1..100}; do
+    [[ -e $res && ! -e $cmd ]] && break
+    perl -e 'select(undef, undef, undef, 0.1)'
+done
+if [[ -e $res ]]; then cat $res; else print "no answer: is the editor open, and $gate there?"; exit 1; fi
