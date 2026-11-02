@@ -96,3 +96,11 @@ A001 voices, with Sync off on both: above 3 kHz ours is 22-26 dB dark against th
 A001's 2.4 dB between panel and backup is one byte: the stored program's Delay Send is 0, the backup's 104. With it at 0 a load matches the panel, -23.85 against -23.8 dB.
 
 Effects on against bypass on the instrument, plain saw, Volume 30: 3.07 dB, Dry linear (127, 90, 64: -44.22, -47.21, -50.17 dB). The program's Effects Bypass byte works from the edit buffer. The rig reads 13.9 dB.
+
+## 2026-11-02 - chords and the voice pool (instrument, edit buffer only)
+A001 with effects and distortion off, held 1/2/4/8 notes (48 55 60 64 67 72 76 79), level in the sustain against one note:
+- Unison 1 voice: instrument +3.1/+5.1/+9.3 dB, reference +3.3/+5.8/+7.8, Sn2Alike +3.3/+6.2/+8.7 - a plain sum on all three.
+- Unison 16 voices (A001 as stored): instrument -0.3/+3.7/+6.2 dB, reference +3.1/+5.6/+8.3, Sn2Alike +3.3/+6.2/+8.7.
+  The instrument runs out of voices; neither the reference nor Sn2Alike does.
+- On a program change the instrument's delay echoes stop, as Sn2Alike's now do (by ear).
+

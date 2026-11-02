@@ -81,3 +81,11 @@ Fade Out, in place of the fade in: from full, an exponential fall after 12.5 ms,
 
 ## 16. Pan
 After the effects, in sn2Effects.c. A share of 0.5 + (64 - Pan)/128 + 0.5 Depth/127 sin, left 2 x share, right 2 x (1 - share), a sine at Speed^2/642.5 Hz. Bypass leaves it out. Pan Effects takes the wet signal with it. Measured. Read a panned sound by its sum: one channel of an auto-pan looks peaky, and misled a kurtosis comparison.
+
+## 12a. Where a glide starts (instrument, by ear, 2026-11-02)
+Glide Normal on the instrument: a key pressed while another is held glides (the reference does not; the instrument
+decides). Going back to the held key glides from the pitch the first glide had reached, not from the key let go; a
+new note after all keys are up glides from whatever pitch was last sounding - Normal against Auto, which glides only
+legato. So a glide starts from the pitch the voice had reached. In poly the instrument seems to glide each voice from
+that voice's own last pitch (hard to follow by ear); a voice that has never played starts from the last note.
+

@@ -115,5 +115,8 @@ void ti_draw_store_preset(int number);              // 0: back to the preset it 
 void ti_draw_revert_preset(void);
 void ti_draw_import_presets(bool folder);           // notes §12: all 512, after a confirm
 void ti_draw_export_presets(void);
+void ti_draw_read_hardware(bool all);               // notes §14: A-D, or every bank A-W; then the import's confirm
+void ti_draw_write_hardware(int bank);              // notes §14: a RAM bank 1-4 from the presets, after a confirm
+void ti_draw_transfer_tick(void);                   // on the editor's frame
 
 #endif // __TI_DRAW_H__

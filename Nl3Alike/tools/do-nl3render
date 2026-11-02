@@ -1,0 +1,8 @@
+#!/bin/zsh
+# Builds tools/nl3render and tools/nl3filtertest.
+set -e
+HERE="$(cd "$(dirname "$0")/.." && pwd)"
+SL="${SYNTHLIB_DIR:-$HERE/../../SynthLib}"
+INC=(-I"$HERE/src" -I"$HERE/plugin" -I"$SL/src" -I"$SL/plugin" -I"$SL/audio" -I"$SL/ThirdParty/glfw/include" -I"$SL/ThirdParty/freetype/include")
+clang -O2 -Wall -Wextra $INC "$HERE/tools/nl3render.c" "$HERE"/src/*.c "$HERE/plugin/nl3Patch.c" "$HERE/plugin/nl3Params.c" -lm -o "$HERE/tools/nl3render"
+clang -O2 -Wall -Wextra -I"$HERE/src" "$HERE/tools/nl3filtertest.c" "$HERE/src/nl3Filter.c" -lm -o "$HERE/tools/nl3filtertest"

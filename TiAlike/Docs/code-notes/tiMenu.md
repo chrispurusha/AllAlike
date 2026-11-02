@@ -6,3 +6,7 @@ File, Presets, Controls (how a drag turns a dial) and Help (the panel, About), a
 Pulse2Alike's Presets menu over A001-W128: Load, Store to the preset the sound came from, Store to a chosen one,
 Revert, Import from a file or a folder, Export. Pulse2Alike's Pulse 2 menu (link, backup) has no counterpart yet - it
 comes with the hardware link (design.md §6).
+
+## 2. Virus TI
+Read Banks A-D, or all of A-W, into the presets, and Write Presets A-D to the same bank on the instrument. ROM banks
+cannot be written (tiHardware notes §5).

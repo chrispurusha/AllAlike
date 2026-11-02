@@ -9,7 +9,7 @@
 
 cd ${0:a:h}
 
-PRODUCTS=(Pulse2Alike TiAlike Sn2Alike)
+PRODUCTS=(Pulse2Alike TiAlike Sn2Alike Nl3Alike)
 FAILED=()
 
 for product in $PRODUCTS; do

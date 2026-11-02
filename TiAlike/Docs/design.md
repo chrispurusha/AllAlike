@@ -83,6 +83,10 @@ Pulse 2 is. To settle when it starts: which of the TI's USB MIDI ports carries S
 and whether the panel's edits reach a host (to follow the instrument as well as drive it). Like Pulse2Alike, nothing is
 ever written to the instrument's memory without asking.
 
+**Banks (2026-11-02).** The Virus TI menu reads the instrument's banks into the presets (A-D, or all of A-W) and
+writes presets A-D back to the RAM bank of the same letter, confirmed and read back to check (code-notes/tiHardware.md
+§4-§5). ROM banks are never written.
+
 ## 7. Open questions
 
 - **The effects.** A Single carries its own effects (delay, reverb, chorus and the rest). Next to last in the order

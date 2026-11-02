@@ -46,9 +46,20 @@ typedef struct {
 void ti_osc_hyper(double density, double spread, tTiHyper * h);
 double ti_osc_hyper_sample(const tTiHyper * h, double * phases, double increment);
 
-// notes §5: the Wavetable oscillator. index 0..127 runs through the table's steps
+// notes §5: the Wavetable oscillator. index 0..127 runs through the table's frames, smooth 0..127 (Smooth)
 void ti_osc_wavetable_prepare(int table);   // builds a table on first use
-double ti_osc_wavetable(int table, double index, double phase, double increment);
+double ti_osc_wavetable_weight(double between, double smooth);
+double ti_osc_wavetable(int table, double index, double smooth, double phase, double increment);
+
+// notes §6: Wave PWM - the table read twice, the copies' rates from Detune, offset by Pulse Width
+void ti_osc_pwm_detune(double detune, double * down, double * up);   // the two copies' rates, against the note's
+double ti_osc_wave_pwm(int table, double index, double smooth, const double twin[2], double width, double increment);
+
+// notes §7-§8: Grain and Formant. k: how much faster than the note the wave is read within a grain
+double ti_osc_grain_window(double x);
+double ti_osc_grain(int table, double index, double smooth, double k, double phase, double increment);
+// grain: the half-rate phase, then streams A and B's detune drift (cycles); k: A's and B's
+double ti_osc_grain_pair(int table, double index, double smooth, const double k[2], const double grain[3], double increment);
 
 double ti_osc_sine(double phase);
 double ti_osc_triangle(double phase);

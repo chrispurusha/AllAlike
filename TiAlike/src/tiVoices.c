@@ -327,6 +327,11 @@ static void start_voice(tTiVoices * v, tTiVoice * vc, uint8_t note, float veloci
         vc->phase[1]    = (init > 0.0) ? (init / 128.0) : fmod((vc->random * 0.381966) + 0.7, 1.0);
         vc->phase[2]    = (init > 0.0) ? 0.0 : fmod((vc->random * 0.236068) + 0.2, 1.0);
         vc->subPhase    = 0.0;
+        vc->twin[0][0]  = vc->twin[0][1] = vc->phase[0];
+        vc->twin[1][0]  = vc->twin[1][1] = vc->phase[1];
+        vc->grain[0][0] = 0.5 * vc->phase[0];
+        vc->grain[1][0] = 0.5 * vc->phase[1];
+        vc->grain[0][1] = vc->grain[0][2] = vc->grain[1][1] = vc->grain[1][2] = 0.0;
 
         for (int k = 0; k < TI_HYPER_SAWS; k++) {
             vc->hyper[0][k] = fmod(0.618034 * (k + 1) * (vc->random + 2.0), 1.0);
@@ -466,6 +471,28 @@ static void smooth_toward(tTiSmooth * s, double target, double rate, bool instan
         s->left   = SMOOTH_S * rate;
         s->step   = (target - s->current) / s->left;
     }
+}
+
+static double wrap1(double p);
+
+// notes §29: k for each stream, in semitones from the note: Formant from 64; the Formant models (6, 7) hold it at a
+// fixed pitch, middle C at 64; the Complex ones (5, 7) spread the streams by Sync, 3/8 of a semitone a step
+static void grain_ratios(int model, double formant, double sync, double noteSemitones, double k[2]) {
+    double semis = formant - 64.0 + ((model >= 6) ? (60.0 - noteSemitones) : 0.0);
+    double apart = (model & 1) ? (0.375 * sync) : 0.0;
+
+    k[0] = pow(2.0, (semis + apart) / 12.0);
+    k[1] = pow(2.0, (semis - apart) / 12.0);
+}
+
+// notes §29: the half-rate phase, and each stream's drift away from it by Detune
+static void advance_grain(double g[3], double inc, const double k[2], double down, double up, bool pair) {
+    if (!pair) {
+        return;
+    }
+    g[0] = wrap1(g[0] + (0.5 * inc));
+    g[1] = wrap1(g[1] + (inc * k[0] * (up - 1.0)));
+    g[2] = wrap1(g[2] + (inc * k[1] * (down - 1.0)));
 }
 
 static double smooth_advance(tTiSmooth * s, uint32_t frames) {
@@ -1078,6 +1105,33 @@ static void render_voice(tTiVoices * v, const tTiSound * s, tTiVoice * vc, const
 
     bool     table1    = (s->c[30] == 2);
     bool     table2    = (s->c[35] == 2);
+    bool     pwm1      = (s->c[30] == 3);   // notes §28: Wave PWM
+    bool     pwm2      = (s->c[35] == 3);
+    double   twinDown1 = 0.0, twinUp1 = 0.0, twinDown2 = 0.0, twinUp2 = 0.0;
+
+    if (pwm1) {
+        ti_osc_pwm_detune(s->c[43], &twinDown1, &twinUp1);
+    }
+
+    if (pwm2) {
+        ti_osc_pwm_detune(s->c[63], &twinDown2, &twinUp2);
+    }
+    // notes §29: Grain (4, 5) and Formant (6, 7); the Complex ones (5, 7) run two streams
+    int      grain1    = ((s->c[30] >= 4) && (s->c[30] <= 7)) ? s->c[30] : 0;
+    int      grain2    = ((s->c[35] >= 4) && (s->c[35] <= 7)) ? s->c[35] : 0;
+    double   gk1[2], gk2[2], gDown1 = 1.0, gUp1 = 1.0, gDown2 = 1.0, gUp2 = 1.0;
+
+    if (grain1) {
+        grain_ratios(grain1, s->c[42], s->c[37], semi1, gk1);
+        ti_osc_pwm_detune(s->c[43], &gDown1, &gUp1);
+        gDown1 = 1.0 / gUp1;    // notes §29: the streams part evenly, unlike Wave PWM's copies
+    }
+
+    if (grain2) {
+        grain_ratios(grain2, s->c[62], s->c[57], semi2, gk2);
+        ti_osc_pwm_detune(s->c[63], &gDown2, &gUp2);
+        gDown2 = 1.0 / gUp2;
+    }
     bool     hyper1    = (s->c[30] == 1);
     bool     hyper2    = (s->c[35] == 1);
     tTiHyper stack1, stack2;
@@ -1116,8 +1170,14 @@ static void render_voice(tTiVoices * v, const tTiSound * s, tTiVoice * vc, const
             // silent
         } else if (hyper1) {
             o1 = ti_osc_hyper_sample(&stack1, vc->hyper[0], inc1);
+        } else if (grain1 & 1) {
+            o1 = ti_osc_grain_pair(s->a[19], shape1, s->c[44], gk1, vc->grain[0], inc1);
+        } else if (grain1) {
+            o1 = ti_osc_grain(s->a[19], shape1, s->c[44], gk1[0], vc->phase[0], inc1);
+        } else if (pwm1) {
+            o1 = ti_osc_wave_pwm(s->a[19], shape1, s->c[44], vc->twin[0], width1, inc1);
         } else if (table1) {
-            o1 = ti_osc_wavetable(s->a[19], shape1, vc->phase[0], inc1);
+            o1 = ti_osc_wavetable(s->a[19], shape1, s->c[44], vc->phase[0], inc1);
         } else {
             o1 = ti_osc_classic(wave1, shape1, width1, vc->phase[0], inc1);
         }
@@ -1141,8 +1201,14 @@ static void render_voice(tTiVoices * v, const tTiSound * s, tTiVoice * vc, const
             // silent
         } else if (hyper2) {
             o2 = syncLevel * ti_osc_hyper_sample(&stack2, vc->hyper[1], (syncUp > 0.0) ? (i2 * syncUp) : i2);
+        } else if (grain2 & 1) {
+            o2 = ti_osc_grain_pair(s->a[24], shape2, s->c[64], gk2, vc->grain[1], i2);
+        } else if (grain2) {
+            o2 = ti_osc_grain(s->a[24], shape2, s->c[64], gk2[0], vc->phase[1], i2);
+        } else if (pwm2) {
+            o2 = ti_osc_wave_pwm(s->a[24], shape2, s->c[64], vc->twin[1], width2, i2);
         } else if (table2) {
-            o2 = ti_osc_wavetable(s->a[24], shape2, vc->phase[1], i2);
+            o2 = ti_osc_wavetable(s->a[24], shape2, s->c[64], vc->phase[1], i2);
         } else {
             o2 = ti_osc_classic(wave2, shape2, width2, vc->phase[1], i2);
         }
@@ -1179,8 +1245,8 @@ static void render_voice(tTiVoices * v, const tTiSound * s, tTiVoice * vc, const
 
             // notes §15: the sign of the first sample, without the correction at a wave's edge
             if (age < 1.0) {
-                double n1 = (hyper1 || table1) ? o1 : ti_osc_classic(wave1, shape1, width1, vc->phase[0] + 1e-7, 1e-9);
-                double n2 = (hyper2 || table2) ? o2 : ti_osc_classic(wave2, shape2, width2, vc->phase[1] + 1e-7, 1e-9);
+                double n1 = (hyper1 || table1 || pwm1 || grain1) ? o1 : ti_osc_classic(wave1, shape1, width1, vc->phase[0] + 1e-7, 1e-9);
+                double n2 = (hyper2 || table2 || pwm2 || grain2) ? o2 : ti_osc_classic(wave2, shape2, width2, vc->phase[1] + 1e-7, 1e-9);
 
                 vc->punchSign = (((g1 * n1) + (g2 * n2)) > -1e-5) ? 1.0 : -1.0;
             }
@@ -1219,19 +1285,26 @@ static void render_voice(tTiVoices * v, const tTiSound * s, tTiVoice * vc, const
         double gain = y * OUTPUT_GAIN;
         double l = y1, r = (set->routing == eTiRoutingSplit) ? r2 : y1;
 
-        left[f]      += (float)(l * gain * levelL);
-        right[f]     += (float)(r * gain * levelR);
+        left[f]       += (float)(l * gain * levelL);
+        right[f]      += (float)(r * gain * levelR);
 
-        vc->phase[0] += inc1;
-        vc->phase[1] += i2;
-        vc->phase[2] += inc3;
-        vc->subPhase += 0.5 * inc1;
+        vc->phase[0]  += inc1;
+        vc->phase[1]  += i2;
+        vc->phase[2]  += inc3;
+        vc->subPhase  += 0.5 * inc1;
+        vc->twin[0][0] = wrap1(vc->twin[0][0] + (inc1 * twinDown1));
+        vc->twin[0][1] = wrap1(vc->twin[0][1] + (inc1 * twinUp1));
+        vc->twin[1][0] = wrap1(vc->twin[1][0] + (i2 * twinDown2));
+        vc->twin[1][1] = wrap1(vc->twin[1][1] + (i2 * twinUp2));
+        advance_grain(vc->grain[0], inc1, gk1, gDown1, gUp1, grain1 & 1);
+        advance_grain(vc->grain[1], i2, gk2, gDown2, gUp2, grain2 & 1);
 
         if (vc->phase[0] >= 1.0) {
             vc->phase[0] -= 1.0;
 
             if (sync) {
-                vc->phase[1] = vc->phase[0] * (i2 / inc1);    // notes §7: hard, at the sample's own fraction
+                vc->phase[1]   = vc->phase[0] * (i2 / inc1);  // notes §7: hard, at the sample's own fraction
+                vc->twin[1][0] = vc->twin[1][1] = vc->phase[1];
             }
 
             if (syncUp > 0.0) {
@@ -1240,9 +1313,9 @@ static void render_voice(tTiVoices * v, const tTiSound * s, tTiVoice * vc, const
                 }
             }
         }
-        vc->phase[1]  = wrap1(vc->phase[1]);
-        vc->phase[2]  = wrap1(vc->phase[2]);
-        vc->subPhase  = wrap1(vc->subPhase);
+        vc->phase[1]   = wrap1(vc->phase[1]);
+        vc->phase[2]   = wrap1(vc->phase[2]);
+        vc->subPhase   = wrap1(vc->subPhase);
     }
 
     if (ti_env_idle(&vc->amp)) {

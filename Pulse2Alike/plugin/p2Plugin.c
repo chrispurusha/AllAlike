@@ -227,11 +227,29 @@ typedef struct {
     int                 quiet;     // blocks without sound or a held key
 } tP2PolyVoice;
 
+#define BUS_SAMPLES    (POLY_CHUNK * 4u)       // a chunk at the highest oversampling
+
+// notes §60: the one drive every voice goes through above one voice, per oversampled sample of a chunk
+typedef struct {
+    double   sum[BUS_SAMPLES];    // each voice's filter output x its VCA gain
+    double   loudest[BUS_SAMPLES];
+    double   gain[BUS_SAMPLES];   // the VCA gains summed, for the weighted means below
+    double   drive[BUS_SAMPLES];  // the drive amounts, weighted by VCA gain
+    double   pan[2][BUS_SAMPLES]; // each side's pan ratio, weighted by VCA gain
+    tP2Drive driver;
+    double   history[DECIMATOR_TAPS];
+    uint32_t historyPos;
+} tP2Bus;
+
 typedef struct tP2Plugin_ {
     double            sampleRate;
     double            param[kP2ParamCount]; // normalized
     bool              isVoice;              // notes §57: an extra voice's engine
     tP2PolyVoice      poly[POLY_VOICES_MAX];
+    tP2Bus *          busOwned;             // notes §60: the plug-in's own engine only
+    tP2Bus *          bus;                  // where this engine's signal goes before the drive, NULL for its own drive
+    uint32_t          busAt;                // this call's first oversampled sample in the bus
+    double            busPeak;              // the loudest it sent there this call, in output units
     uint64_t          polyClock;
     int               polyLastNote;
     tP2Dco            dco[DCO_COUNT];
@@ -902,6 +920,7 @@ static void * p2_create(const tSynthLibPluginDesc * desc) {
 
     if (!gMakingVoice) {
         gMakingVoice = true;
+        p->busOwned  = (tP2Bus *)calloc(1, sizeof(tP2Bus));
 
         for (int i = 0; i < POLY_VOICES_MAX; i++) {
             p->poly[i].note = -1;
@@ -941,6 +960,7 @@ static void p2_destroy(void * inst) {
     }
     p2_hardware_release(&((tP2Plugin *)inst)->hwLock);
 #endif
+    free(((tP2Plugin *)inst)->busOwned);
     free(inst);
 }
 
@@ -1436,6 +1456,7 @@ static void render_engine(void * inst, const float *const * in, uint32_t numIn, 
     double         smooth    = 1.0 - exp(-1.0 / (CONTROL_SMOOTH_SECONDS * p->sampleRate));
 
     noise_band_limit_coefficients(rateIn, noiseLp);
+    p->busPeak = 0.0;
 
     if ((curve == eP2DriveFx) && !steps) {
         curve = eP2DriveNone;      // notes §25: FX is silent on the instrument, a measured quirk
@@ -1593,15 +1614,30 @@ static void render_engine(void * inst, const float *const * in, uint32_t numIn, 
             if (hiss > 0.0) {
                 filtered += band_limit(band_limit(HISS_AFTER_FILTER * hiss * white_noise(p), noiseLp, &p->hissLp[4]), noiseLp, &p->hissLp[6]);
             }
-            p->driveOut               = p2_drive_process(&p->drive, (tP2DriveCurve)curve,
-                                                         drive + ((!osc3Off && (routing == 3)) ? (level3 * cv3 * OSC3_TO_DRIVE) : 0.0), filtered);
+            double driveNow = drive + ((!osc3Off && (routing == 3)) ? (level3 * cv3 * OSC3_TO_DRIVE) : 0.0);
             double vcaLeak1 = (VCA_FEEDTHROUGH * pow(p->vca, VCA_FEEDTHROUGH_POWER)) - p->vcaCoupled; // notes §43: coupled twice
             double vcaLeak  = vcaLeak1 - p->vcaCoupled2;
 
             p->vcaCoupled            += vcaHp * vcaLeak1;
             p->vcaCoupled2           += vcaHp2 * vcaLeak;
-            double y        = (p->driveOut * p->vca) + vcaLeak;
+            double y        = vcaLeak;
 
+            if (p->bus != NULL) {
+                // notes §60: into the shared drive; this voice's own drive serves only its FB loop
+                uint32_t s = p->busAt + (i * (uint32_t)p->oversample) + (uint32_t)o;
+
+                p->bus->sum[s]    += filtered * p->vca;
+                p->bus->loudest[s] = fmax(p->bus->loudest[s], p->vca);
+                p->bus->gain[s]   += p->vca;
+                p->bus->drive[s]  += driveNow * p->vca;
+                p->bus->pan[0][s] += p->pan[0] * p->vca;
+                p->bus->pan[1][s] += p->pan[1] * p->vca;
+                p->busPeak         = fmax(p->busPeak, fabs(OUTPUT_GAIN * master * filtered * p->vca));
+                p->driveOut        = feedback ? p2_drive_process(&p->drive, (tP2DriveCurve)curve, driveNow, filtered) : 0.0;
+            } else {
+                p->driveOut = p2_drive_process(&p->drive, (tP2DriveCurve)curve, driveNow, filtered);
+                y          += p->driveOut * p->vca;
+            }
             p->history[p->historyPos] = y;
             p->historyPos             = (p->historyPos + 1) % DECIMATOR_TAPS;
         }
@@ -1629,7 +1665,8 @@ static void render_engine(void * inst, const float *const * in, uint32_t numIn, 
         }
     }
 
-    if ((out != NULL) && (numOut > 0) && (out[0] != NULL)) {
+    // notes §60: with the shared drive, the fade goes on the whole mix once it is made
+    if ((p->bus == NULL) && (out != NULL) && (numOut > 0) && (out[0] != NULL)) {
         synthlib_swap_fade_apply(&p->fade, out[0], (numOut > 1) ? out[1] : NULL, frames, p->sampleRate);
     }
 }
@@ -1695,11 +1732,169 @@ static void poly_stop(tP2Plugin * p, int i) {
     }
 }
 
+static void process_own_drives(tP2Plugin * p, const float *const * in, uint32_t numIn, float ** out, uint32_t numOut, uint32_t frames, const tSynthLibTransport * t, int voices);
+
+// notes §60: the drive curve the engines will use, FX standing for NONE where the engine does
+static tP2DriveCurve shared_curve(const tP2Plugin * p) {
+    int curve = plain_int(p, kP2ParamDriveCurve);
+
+    return ((curve == eP2DriveFx) && !anomalies_on(p)) ? eP2DriveNone : (tP2DriveCurve)curve;
+}
+
+// notes §60: the mixed voices through the one drive, then the VCA and pan they share, added to the output
+static void bus_render(tP2Plugin * p, float ** out, uint32_t numOut, uint32_t at, uint32_t frames) {
+    tP2Bus *      b      = p->busOwned;
+    tP2DriveCurve curve  = shared_curve(p);
+    double        base   = plain(p, kP2ParamDrive) + p->mod[eModDrive];
+    double        master = pow(plain(p, kP2ParamMaster) / 127.0, 2.0); // notes §19
+    uint32_t      os     = (uint32_t)p->oversample;
+
+    for (uint32_t f = 0; f < frames; f++) {
+        uint32_t last   = (f * os) + os - 1;
+
+        for (uint32_t o = 0; o < os; o++) {
+            uint32_t s = (f * os) + o;
+            double   e = b->loudest[s];
+            double   x = (e > 1e-12) ? (b->sum[s] / e) : 0.0;
+            double   d = (b->gain[s] > 1e-12) ? (b->drive[s] / b->gain[s]) : base;
+
+            b->history[b->historyPos] = p2_drive_process(&b->driver, curve, d, x) * e;
+            b->historyPos             = (b->historyPos + 1) % DECIMATOR_TAPS;
+        }
+
+        double   acc    = 0.0;
+
+        for (int k = 0; (os > 1) && (k < DECIMATOR_TAPS); k++) {
+            acc += p->decimator[k] * b->history[(b->historyPos + DECIMATOR_TAPS - 1 - k) % DECIMATOR_TAPS];
+        }
+
+        if (os == 1) {
+            acc = b->history[(b->historyPos + DECIMATOR_TAPS - 1) % DECIMATOR_TAPS];
+        }
+
+        if (!isfinite(acc) || (fabs(OUTPUT_GAIN * acc) > FAULT_LEVEL)) {
+            synthlib_log_line("FAULT: shared drive output %g", acc);
+            p2_drive_init(&b->driver, p->sampleRate * p->oversample);
+            memset(b->history, 0, sizeof(b->history));
+            acc = 0.0;
+        }
+        double   sample = OUTPUT_GAIN * acc * master;
+        double   g      = b->gain[last];
+
+        for (uint32_t ch = 0; ch < numOut; ch++) {
+            if (out[ch] != NULL) {
+                double side = ((numOut >= 2) && (ch < 2) && (g > 1e-12)) ? (b->pan[ch][last] / g) : 1.0;
+
+                out[ch][at + f] += (float)(sample * side);
+            }
+        }
+    }
+}
+
+// notes §60: above one voice with a drive curve on - every voice up to its VCA, then one drive for the instance
+static void process_shared_drive(tP2Plugin * p, float ** out, uint32_t numOut, uint32_t frames, const tSynthLibTransport * t, int voices) {
+    tP2Bus * b        = p->busOwned;
+    double   rate     = p->sampleRate * p->oversample;
+    float    headroom = powf((float)voices, -0.25f);   // notes §57, on what each voice adds past the drive
+
+    if (b->driver.rate != rate) {
+        p2_drive_init(&b->driver, rate);
+        memset(b->history, 0, sizeof(b->history));
+    }
+
+    for (int i = 1; i < POLY_VOICES_MAX; i++) {
+        if (i >= voices) {
+            poly_stop(p, i);
+        }
+
+        if (p->poly[i].engine != NULL) {
+            poly_follow(p, p->poly[i].engine);
+        }
+    }
+
+    for (uint32_t ch = 0; ch < numOut; ch++) {
+        if (out[ch] != NULL) {
+            memset(out[ch], 0, frames * sizeof(float));
+        }
+    }
+
+    for (uint32_t done = 0; done < frames; done += POLY_CHUNK) {
+        uint32_t n = ((frames - done) < POLY_CHUNK) ? (frames - done) : POLY_CHUNK;
+        size_t   m = (size_t)n * (size_t)p->oversample;
+
+        memset(b->sum, 0, m * sizeof(double));
+        memset(b->loudest, 0, m * sizeof(double));
+        memset(b->gain, 0, m * sizeof(double));
+        memset(b->drive, 0, m * sizeof(double));
+        memset(b->pan[0], 0, m * sizeof(double));
+        memset(b->pan[1], 0, m * sizeof(double));
+
+        for (int i = 0; i < POLY_VOICES_MAX; i++) {
+            tP2PolyVoice * pv      = &p->poly[i];
+            tP2Plugin *    v       = (i == 0) ? p : pv->engine;
+            float          l[POLY_CHUNK], r[POLY_CHUNK];
+            float *        mine[2] = {l, r};
+            float          peak    = 0.0f;
+
+            if ((v == NULL) || ((i > 0) && (pv->quiet >= POLY_QUIET_BLOCKS))) {
+                continue;
+            }
+            // a voice whose oversampling has not caught up keeps its own drive this block
+            v->bus   = (v->oversample == p->oversample) ? b : NULL;
+            v->busAt = 0;
+            render_engine(v, NULL, 0, mine, 2, n, t);
+            v->bus   = NULL;
+
+            for (uint32_t ch = 0; ch < numOut; ch++) {
+                if (out[ch] != NULL) {
+                    for (uint32_t f = 0; f < n; f++) {
+                        out[ch][done + f] += headroom * ((ch == 1) ? r[f] : l[f]);
+                    }
+                }
+            }
+
+            for (uint32_t f = 0; f < n; f++) {
+                peak = fmaxf(peak, fabsf(l[f]));
+            }
+
+            if (i > 0) {
+                pv->quiet = (pv->held || (peak > POLY_QUIET) || (v->busPeak > POLY_QUIET)) ? 0 : (pv->quiet + 1);
+            }
+        }
+
+        bus_render(p, out, numOut, done, n);
+    }
+
+    if (numOut > 0) {
+        synthlib_swap_fade_apply(&p->fade, out[0], (numOut > 1) ? out[1] : NULL, frames, p->sampleRate);
+    }
+}
+
 static void p2_process(void * inst, const float *const * in, uint32_t numIn, float ** out, uint32_t numOut,
                        uint32_t frames, const tSynthLibTransport * t) {
     tP2Plugin * p      = (tP2Plugin *)inst;
     int         voices = poly_voices(p);
 
+    // notes §60
+    if ((voices > 1) && (p->busOwned != NULL) && (out != NULL) && (shared_curve(p) != eP2DriveNone)) {
+        process_shared_drive(p, out, numOut, frames, t, voices);
+    } else {
+        process_own_drives(p, in, numIn, out, numOut, frames, t, voices);
+    }
+
+    for (uint32_t ch = 0; (ch < numOut) && (ch < 2) && (out != NULL); ch++) {
+        for (uint32_t f = 0; (out[ch] != NULL) && (f < frames); f++) {
+            if (fabsf(out[ch][f]) > 1.0f) {
+                atomic_store(&p->overload, true);
+                break;
+            }
+        }
+    }
+}
+
+// notes §57: each voice through its own drive, mixed after
+static void process_own_drives(tP2Plugin * p, const float *const * in, uint32_t numIn, float ** out, uint32_t numOut,
+                               uint32_t frames, const tSynthLibTransport * t, int voices) {
     render_engine(p, in, numIn, out, numOut, frames, t);
 
     for (int i = 1; i < POLY_VOICES_MAX; i++) {
@@ -1741,20 +1936,11 @@ static void p2_process(void * inst, const float *const * in, uint32_t numIn, flo
 
     // notes §57
     if (voices > 1) {
-        float headroom = 1.0f / sqrtf((float)voices);
+        float headroom = powf((float)voices, -0.25f);   // notes §57
 
         for (uint32_t ch = 0; (ch < numOut) && (out != NULL); ch++) {
             for (uint32_t f = 0; (out[ch] != NULL) && (f < frames); f++) {
                 out[ch][f] *= headroom;
-            }
-        }
-    }
-
-    for (uint32_t ch = 0; (ch < numOut) && (ch < 2) && (out != NULL); ch++) {
-        for (uint32_t f = 0; (out[ch] != NULL) && (f < frames); f++) {
-            if (fabsf(out[ch][f]) > 1.0f) {
-                atomic_store(&p->overload, true);
-                break;
             }
         }
     }

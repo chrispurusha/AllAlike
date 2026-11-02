@@ -74,3 +74,8 @@ Import replaces all 512 after a confirm naming how many were found (tiPatch note
 
 ## 13. Names that follow the model
 An oscillator's Wave byte is a wave in the Classic and HyperSaw models and a wavetable in the others, so its control carries both lists and shows the one its model selects. The lists end at their last name, which is what sets the length of the menu.
+
+## 14. The instrument's banks
+A read goes through the import's confirm, but replaces only the banks it read: the other presets are kept. A write is
+always confirmed, and suggests a read first. A progress box shows over the panel while either runs. The transfer is
+driven from the editor's frame, so it pauses while the editor is closed and carries on when it opens.

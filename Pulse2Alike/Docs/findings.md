@@ -1248,3 +1248,9 @@ open.
 
 ## 2026-11-01 - Voices
 - Polyphony as whole extra engines, an option beyond the instrument, up to 8. At Voices 1 the output is identical, sample for sample, to the build before it.
+
+## 2026-11-02 - the drive is one mono circuit (`192k/drive_init_tri/`)
+- Left and right with a drive curve on, Pan centred: after the best linear filter from one side to the other, the
+  residual is 55-58 dB under the signal (about -81 dBFS) for TUBE and FUZZ at Drive 0/64/127, and the same in absolute
+  terms with NONE (-67 dB under a louder signal). The two sides carry one clipper's output, so the drive is mono and
+  ahead of the left and right VCAs. Above one voice the plug-in now has one drive per instance (p2Plugin notes §60).

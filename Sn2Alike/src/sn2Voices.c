@@ -171,13 +171,16 @@ static void start_glide(tSn2Voices * v, const tSn2Sound * sound, tSn2Voice * pic
         held = held || (v->voice[i].gate && (&v->voice[i] != pick));
     }
 
+    // voices notes §12a: from the pitch this voice had reached, mid-glide or not; a voice never played, from the last note
+    double              from      = (pick->note > 0) ? ((double)pick->note + pick->glide) : (double)v->lastNote;
+
     pick->glide     = 0.0;
 
     if (sound->glideTime > 0.0) {
         if (sound->glideType >= 2) {
             pick->glide = kFixed[(sound->glideType - 2) & 7];
         } else if ((v->lastNote >= 0) && ((sound->glideType == 0) || held)) {
-            pick->glide = (double)v->lastNote - (double)note;
+            pick->glide = from - (double)note;
         }
     }
     pick->glideRate = fabs(pick->glide) / glide_seconds(sound->glideTime);

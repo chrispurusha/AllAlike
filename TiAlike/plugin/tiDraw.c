@@ -40,6 +40,7 @@
 #include "menuBar.h"
 #include "synthlibPopups.h"
 
+#include "tiHardware.h"
 #include "tiMenu.h"
 #include "tiPatch.h"
 #include "tiPrefs.h"
@@ -535,6 +536,170 @@ static void on_export_chosen(const char * path) {
     }
 }
 
+// ---- the instrument's banks - notes §14 -------------------------------------------------------------------
+
+static int  gReadFirst, gReadLast;   // what the read now running is for
+static int  gWriteBank;              // the bank a write is going to, 0 none
+static bool gTransferring;
+
+static void on_read_confirmed(bool confirmed) {
+    char failed[1200];
+
+    if (confirmed && !ti_presets_store_all((const uint8_t(*)[TI_SINGLE_LENGTH]) gImport)) {
+        snprintf(failed, sizeof(failed), "Could not write %s", ti_presets_path());
+        show_alert("Read from Virus TI", failed);
+    }
+}
+
+// the presets as they are, with the banks that came back in their places
+static void read_finished(void) {
+    static char message[600];
+
+    (void)ti_presets_refresh();
+
+    for (int n = 1; n <= TI_PRESETS; n++) {
+        const uint8_t * s = ti_presets_single(n);
+
+        if (s != NULL) {
+            memcpy(gImport[n - 1], s, TI_SINGLE_LENGTH);
+        } else {
+            ti_patch_init_single(gImport[n - 1]);
+        }
+    }
+
+    for (int b = gReadFirst; b <= gReadLast; b++) {
+        for (int p = 0; p < TI_BANK_SIZE; p++) {
+            const uint8_t * s = ti_hardware_read_single(b, p);
+
+            if (s != NULL) {
+                memcpy(gImport[((b - 1) * TI_BANK_SIZE) + p], s, TI_SINGLE_LENGTH);
+            }
+        }
+    }
+
+    snprintf(message, sizeof(message), "Replace presets %c001-%c128 with the %d Singles read from the Virus TI?%s",
+             'A' + gReadFirst - 1, 'A' + gReadLast - 1, (gReadLast - gReadFirst + 1) * TI_BANK_SIZE,
+             (gReadLast < 23) ? " The other banks stay as they are." : "");
+    show_confirm("Read from Virus TI", message, "Replace", on_read_confirmed);
+}
+
+static void transfer_refused(tTiHardwareResult r, const char * title) {
+    show_alert(title, (r == eTiHardwareBusy) ? "Another TiAlike is using the Virus TI, or Link is on in this one. Turn Link off and try again."
+               : "No Virus TI found. Connect it over USB and check that \"Virus TI USB Plugin\" is in Audio MIDI Setup.");
+}
+
+void ti_draw_read_hardware(bool all) {
+    tTiHardwareResult r;
+
+    if (gTransferring) {
+        return;
+    }
+    gReadFirst    = 1;
+    gReadLast     = all ? 23 : TI_HW_RAM_BANKS;
+    gWriteBank    = 0;
+    r             = ti_hardware_read_start(gReadFirst, gReadLast);
+
+    if (r != eTiHardwareSent) {
+        transfer_refused(r, "Read from Virus TI");
+        return;
+    }
+    gTransferring = true;
+}
+
+static void on_write_confirmed(bool confirmed) {
+    static uint8_t    bank[TI_BANK_SIZE][TI_SINGLE_LENGTH];
+    tTiHardwareResult r;
+
+    if (!confirmed) {
+        return;
+    }
+    (void)ti_presets_refresh();
+
+    for (int p = 0; p < TI_BANK_SIZE; p++) {
+        const uint8_t * s = ti_presets_single(((gWriteBank - 1) * TI_BANK_SIZE) + p + 1);
+
+        if (s != NULL) {
+            memcpy(bank[p], s, TI_SINGLE_LENGTH);
+        } else {
+            ti_patch_init_single(bank[p]);
+        }
+    }
+
+    r             = ti_hardware_write_start(gWriteBank, (const uint8_t(*)[TI_SINGLE_LENGTH]) bank);
+
+    if (r != eTiHardwareSent) {
+        transfer_refused(r, "Write to Virus TI");
+        return;
+    }
+    gTransferring = true;
+}
+
+// notes §14: RAM banks only, always confirmed
+void ti_draw_write_hardware(int bank) {
+    static char message[600];
+
+    if (gTransferring || (bank < 1) || (bank > TI_HW_RAM_BANKS)) {
+        return;
+    }
+    gWriteBank = bank;
+    snprintf(message, sizeof(message), "Write presets %c001-%c128 into the Virus TI's bank %c, replacing the 128 Singles stored there? "
+             "Read the banks from the Virus TI first if you want a copy of them. It takes about two and a half minutes, then the "
+             "bank is read back to check it.", 'A' + bank - 1, 'A' + bank - 1, 'A' + bank - 1);
+    show_confirm("Write to Virus TI", message, "Write", on_write_confirmed);
+}
+
+void ti_draw_transfer_tick(void) {
+    static char      message[300];
+    tTiTransferState state;
+
+    if (!gTransferring) {
+        return;
+    }
+    state         = ti_hardware_tick();
+
+    if (state == eTiTransferRunning) {
+        return;
+    }
+    gTransferring = false;
+
+    if (state == eTiTransferFailed) {
+        snprintf(message, sizeof(message), "%s", ti_hardware_transfer_status());
+        ti_hardware_transfer_stop();
+        show_alert((gWriteBank != 0) ? "Write to Virus TI" : "Read from Virus TI", message);
+        return;
+    }
+
+    if (gWriteBank != 0) {
+        int differ = ti_hardware_verify_mismatches();
+
+        ti_hardware_transfer_stop();
+        snprintf(message, sizeof(message), (differ == 0) ? "Bank %c written, and all 128 Singles read back the same."
+                 : "Bank %c written, but %d of the 128 Singles read back different.", 'A' + gWriteBank - 1, differ);
+        show_alert("Write to Virus TI", message);
+        return;
+    }
+    read_finished();
+    ti_hardware_transfer_stop();
+}
+
+static void draw_transfer_progress(void) {
+    if (!gTransferring) {
+        return;
+    }
+    tRectangle box  = {{(TI_CANVAS_W - 360.0) / 2.0, (TI_CANVAS_H - 90.0) / 2.0}, {360.0, 90.0}};
+    double     barY = box.coord.y + box.size.h - 18.0;
+    double     barW = box.size.w - 20.0;
+
+    draw_dialog_background_overlay();
+    draw_panel_chrome(mainArea, box, 24.0, (gWriteBank != 0) ? "Writing to Virus TI" : "Reading from Virus TI");
+    set_rgb_colour((tRgb)RGB_WHITE);
+    render_text(mainArea, (tRectangle){{box.coord.x + 10.0, box.coord.y + 34.0}, {0.0, 14.0}}, ti_hardware_transfer_status());
+    set_rgb_colour((tRgb){0.25, 0.25, 0.25});
+    render_rectangle(mainArea, (tRectangle){{box.coord.x + 10.0, barY}, {barW, 8.0}});
+    set_rgb_colour((tRgb)RGB_GREEN_ON);
+    render_rectangle(mainArea, (tRectangle){{box.coord.x + 10.0, barY}, {barW * fmin(1.0, ti_hardware_transfer_progress()), 8.0}});
+}
+
 void ti_draw_import_presets(bool folder) {
     set_file_browser_start_directory_provider(browser_start);
 
@@ -865,6 +1030,7 @@ void ti_draw_frame(int pixelWidth, int pixelHeight) {
     }
 
     render_menu_bar(ti_menu_bar(), ti_menu_bar_rect());
+    draw_transfer_progress();
     synthlib_popups_tick();
     synthlib_popups_render();  // menus, the file browser and dialogues, front-most last
     render_backend_flush();

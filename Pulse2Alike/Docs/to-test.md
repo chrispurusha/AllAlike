@@ -54,3 +54,4 @@ Built, not yet checked against the instrument or in a host. Confirmed → delete
 - P006's fade by ear (2026-10-25): a release now settles onto the instrument's floor instead of falling away to nothing
 - P010's top end by ear (2026-10-25): paraphonic voices and pulses softer at the top
 - Master Tune and Transpose (GLOBAL page) against the instrument: Tune 430 and 450, Transpose +12 and -7 at the same note; a preset change leaves both alone (p2Plugin notes §59)
+- Voices > 1 with a drive curve on (2026-11-02): chords go through one drive (p2Plugin notes §60) - by ear in a host, chords on TUBE and FUZZ, a single note as loud as at Voices 1, no clicks as voices come and go

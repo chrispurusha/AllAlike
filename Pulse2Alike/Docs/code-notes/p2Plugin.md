@@ -542,4 +542,24 @@ sound's: a preset or a sound dump leaves them alone (both exclusion lists), as o
 automation between steps cannot leave the pitch between them.
 
 ## 57. Voices
-Up to 32, as on every Alike. The instrument is monophonic, and at Voices 1 the plug-in is too, through exactly the same code. Above 1, each extra voice is a whole further engine, with its own oscillators, envelopes, filter, drive and LFOs, following the plug-in's parameters a block at a time. A new key takes the voice free longest, else the oldest held. A glide starts from the last key played. Above one voice the arpeggiator is off, whatever its setting says. An extra voice that has been silent for 50 blocks is not rendered, so it costs nothing. Voices is a setting of the instance, not of a sound, and is not sent to the instrument: notes beyond the first voice are only heard in the plug-in. Above one voice the mix is scaled by one over the root of Voices, so a chord leaves headroom; at one nothing changes.
+Up to 32, as on every Alike. The instrument is monophonic, and at Voices 1 the plug-in is too, through exactly the same code. Above 1, each extra voice is a whole further engine, with its own oscillators, envelopes, filter, VCA and LFOs (the drive is shared, §60), following the plug-in's parameters a block at a time. A new key takes the voice free longest, else the oldest held. A glide starts from the last key played. Above one voice the arpeggiator is off, whatever its setting says. An extra voice that has been silent for 50 blocks is not rendered, so it costs nothing. Voices is a setting of the instance, not of a sound, and is not sent to the instrument: notes beyond the first voice are only heard in the plug-in. Above one voice the mix is scaled by Voices to the power -1/4 (-3 dB at 4, -4.5 dB at 8), so a chord leaves some headroom; at one nothing changes. It was one over the root of Voices until 2026-11-02, which CT found took too much: the scale follows the setting, not the notes sounding, so a single note at Voices 8 was 9 dB down.
+
+## 60. One drive per instance (2026-11-02)
+On the instrument the drive is one mono circuit ahead of the two VCAs (left and right): with a drive curve on and Pan
+centred, its two outputs are the same waveform down to the noise floor (192k/drive_init_tri/, TUBE and FUZZ at Drive
+0/64/127: what no linear filter takes from left to right is 55-58 dB under the signal, about -81 dBFS, the same as with
+NONE). Two clippers would not match that closely, and one clipper feeding two VCAs means the drive comes before them.
+
+So above one voice with a drive curve on, every voice stops at its VCA and the voices go through ONE drive, as a
+chord would through the instrument's. Per oversampled sample the voices' filter outputs are summed, each times its VCA
+gain v (envelope x volume x the output gate, §55); the sum is divided by the loudest v, driven, and multiplied by it
+again. One voice sounding is therefore exactly the mono chain (filter, drive, VCA); under a louder voice a quieter
+one enters the drive at its share. The Drive amount (with its mods and osc 3 on DRIVE) and the pan are the voices'
+means weighted by v. Osc 3's FB keeps feeding back each voice's own drive, which runs for that alone: the loop is
+per sample and the voices are rendered a chunk at a time. The VCA feedthrough (§43) stays per voice.
+
+The shared drive's output is not scaled by §57's headroom, since one clipper's output does not grow with the voices,
+so one note at Voices 4 is as loud as at Voices 1, where it was 6 dB quieter. A TUBE chord now intermodulates:
+its energy off the notes' harmonics is -8 dB of the total, where four separate drives gave -32. Voices 1, and any
+voice count with Drive Curve NONE, render sample for sample as before. Switching the curve on or off with notes
+sounding can click, since the voices' own drives were not running.

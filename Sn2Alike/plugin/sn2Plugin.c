@@ -105,8 +105,9 @@ typedef struct {
     double             hwSentAt;
     uint8_t            hwLast[SN2_SINGLE_LENGTH];
     int                hwBend, hwWheel, hwPedal;
-    _Atomic bool       startPreset; // notes: a new instance plays A000
-    _Atomic int        wantPreset;  // a program change waiting for the fade
+    _Atomic bool       startPreset;  // notes: a new instance plays A000
+    _Atomic int        wantPreset;   // a program change waiting for the fade
+    _Atomic bool       clearEffects; // notes §15: a new sound starts with empty effects, the old one's echoes gone
 } tSn2Plugin;
 
 static uint32_t voice_limit(const tSn2Plugin * t) {
@@ -205,6 +206,10 @@ static void sn2_set_state(void * inst, const void * data, size_t len) {
 // notes §12: voices at their own rate, converted to the host's
 static void render_host(tSn2Plugin * t, const tSn2Sound * sound, float * outL, float * outR, uint32_t frames, double gain) {
     tSn2EffectsSound effects = sn2_effects_sound(t->values, t->tempo);
+
+    if (atomic_exchange(&t->clearEffects, false)) {
+        sn2_effects_reset(&t->effects);   // notes §15
+    }
 
     while (frames > 0) {
         uint32_t chunk = (frames < HOST_CHUNK) ? frames : HOST_CHUNK;
@@ -570,6 +575,7 @@ static void sn2_load_single(void * user, const uint8_t * single, const char * pa
         }
     }
 
+    atomic_store(&t->clearEffects, true);   // notes §15: the audio thread does it, at its next block
     memcpy(t->base, single, SN2_SINGLE_LENGTH);
     t->haveBase   = true;
     sn2_patch_name(single, t->soundName);

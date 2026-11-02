@@ -47,3 +47,6 @@ Delay Sync follows the host's tempo, or 122 BPM when the host gives none, as the
 
 ## 14. The link to the instrument
 Run from the panel's sync, so it needs the editor open. A changed sound goes whole, at most every 0.5 s, its extension 0.2 s later. Notes go from the audio thread, bend, wheel and pedal from the sync. Turning the link off sends All Notes Off. The output is chosen in the MIDI menu and kept for the machine.
+
+## 15. A new sound starts with empty effects
+The delay, chorus and reverb kept running across a change of sound, so a long delay left by one preset went on echoing under the next, near-forever if the new sound's feedback was high (A003 to A004, 2026-11-02). Loading a sound sets a flag, and the audio thread clears the effects before its next block - never the loading thread, which may be the main one. The swap is already faded to silence, so nothing audible is cut. The instrument does the same: its echoes stop on a program change (checked by ear 2026-11-02).

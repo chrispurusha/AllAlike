@@ -18,9 +18,9 @@
 - Effects orders in Performance mode, if performances are ever built: on the instrument a program ignores its order
 - Reverb: the Gated types' gates; closer than the measured model if its network can be read
 - SuperStrings1 about 18 dB loud, sustain falling about 55 dB/s while held: cause not found (its Sustain Time and Rate are default)
-- Glide Normal with a note held: the reference does not glide, ours does; find its rule
+- Glide (2026-11-02): built from the owner's by-ear report (start from the pitch reached; in poly each voice from its own last pitch) - CONFIRM in the instrument's own code before relying on it: Normal vs Auto, mono and poly
 - Bend and wheel on the panel; wheel to LFO depth, Env 1, width, Soften and sync
-- 8 notes on the hardware rose only 1 dB over 4: check Polyphony and voice count
+- Voice pool (2026-11-02): with unison off, notes sum on the instrument as here (+3.1/+5.1/+9.3 dB for 2/4/8 against +3.3/+6.2/+8.7); with 16 unison voices it runs out of voices (2 notes -0.3, 4 +3.7, 8 +6.2 dB), and this plug-in has no pool. The unit has 24 voices (CT). Still to find, in the instrument's own code (owner 2026-11-02): how it shares and steals unison voices when they run out; then a pool of 24
 - Env Trigger values beyond Retrigger and Legato: 41 holds the sound open past note off; Env 2 and 3 are assumed to follow Env 1; Glissando and the fixed Glide types against reference curves in more cases
 - External audio input into the voices, as G2Alike's In 1/2: the Osc types Audio In 1 and 2 (they play as a Saw now), then the other Alikes
 - Output clip: placed last; whether the voice sum saturates at the same point before the effects is not known

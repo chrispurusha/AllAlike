@@ -9,12 +9,14 @@ typedef struct {
     float amp, phase;
 } tTiPartial;
 
-extern const tTiPartial gTiWavePartials[62][TI_WAVE_PARTIALS];
+extern const tTiPartial     gTiWavePartials[62][TI_WAVE_PARTIALS];
 
 #define TI_WAVETABLES            (100)
-#define TI_WAVETABLE_STEPS       (16)
+#define TI_WAVETABLE_FRAMES      (1016)   // notes §5: every table's frames, one after another
 #define TI_WAVETABLE_PARTIALS    (64)
 
-extern const float      gTiWavetables[TI_WAVETABLES][TI_WAVETABLE_STEPS][TI_WAVETABLE_PARTIALS][2];
+extern const unsigned short gTiWavetableFirst[TI_WAVETABLES];   // a table's first frame
+extern const unsigned char  gTiWavetableCount[TI_WAVETABLES];   // and how many it has, spread evenly over Index
+extern const float          gTiWavetableFrames[TI_WAVETABLE_FRAMES][TI_WAVETABLE_PARTIALS][2];
 
 #endif // __TI_WAVES_H__

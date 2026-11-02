@@ -142,3 +142,12 @@ The filters are set once a block, and take the envelope as it will stand at the 
 
 ## 27. A key struck again
 Every note takes a new voice, even on a key already sounding, held or not: the note before rings out behind it, and six strikes of a held key are six voices.
+
+## 28. Wave PWM's copies
+Each oscillator keeps two more phases for Wave PWM's detuned copies (tiOsc notes §6); they start at the
+oscillator's phase and are reset with it by a hard sync.
+
+## 29. Grain and Formant
+The models' k per stream comes from Formant, Sync and the oscillator's own pitch (tiOsc notes §7-§8). The Complex
+ones keep a phase at half the note's rate and the two streams' Detune drift. Formant's and Sync's matrix destinations
+(F-Shift, F-Spread) are not routed yet.

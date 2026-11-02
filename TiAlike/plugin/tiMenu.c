@@ -27,6 +27,7 @@
 #include "alertDialog.h"
 
 #include "tiDraw.h"
+#include "tiHardware.h"
 #include "tiMenu.h"
 #include "tiPatch.h"
 #include "tiPrefs.h"
@@ -144,6 +145,39 @@ static void open_presets_menu(tCoord anchor) {
     open_context_menu(anchor, items, 0, 0.0);
 }
 
+// ---- Virus TI - notes §2 ----------------------------------------------------------------------------------
+
+static void action_read_hardware(int index) {
+    ti_draw_read_hardware(gContextMenu.items[index].param != 0);
+}
+
+static void action_write_hardware(int index) {
+    ti_draw_write_hardware((int)gContextMenu.items[index].param);
+}
+
+static void open_hardware_menu(tCoord anchor) {
+    static tMenuItem items[4 + TI_HW_RAM_BANKS];
+    static char      labels[TI_HW_RAM_BANKS][48];
+    int              n = 0;
+
+    items[n++] = (tMenuItem){
+        "Read Banks A-D into Presets...", ITEM, action_read_hardware, 0, NULL, 0, 0.0, NULL
+    };
+    items[n++] = (tMenuItem){
+        "Read All Banks A-W into Presets...", ITEM, action_read_hardware, 1, NULL, 0, 0.0, NULL
+    };
+
+    for (int b = 1; b <= TI_HW_RAM_BANKS; b++) {
+        snprintf(labels[b - 1], sizeof(labels[0]), "Write Presets %c to Bank %c...", 'A' + b - 1, 'A' + b - 1);
+        items[n++] = (tMenuItem){
+            labels[b - 1], ITEM, action_write_hardware, (uint32_t)b, NULL, 0, 0.0, NULL
+        };
+    }
+
+    items[n]   = END_OF_MENU;
+    open_context_menu(anchor, items, 0, 0.0);
+}
+
 // ---- Controls ---------------------------------------------------------------------------------------------
 
 static void action_drag_rotary(int index) {
@@ -218,6 +252,7 @@ static void open_help_menu(tCoord anchor) {
 static const tMenuBarItem gMenuBar[] = {
     {"File",     open_file_menu    },
     {"Presets",  open_presets_menu },
+    {"Virus TI", open_hardware_menu},
     {"Controls", open_controls_menu},
     {"Help",     open_help_menu    },
     {NULL,       NULL              },

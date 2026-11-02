@@ -917,7 +917,7 @@ static void draw_tabs(void) {
 }
 
 void p2_draw_frame(int pixelWidth, int pixelHeight) {
-    char text[64];
+    char       text[64];
 
     if ((pixelWidth <= 0) || (pixelHeight <= 0)) {
         return;
@@ -934,8 +934,12 @@ void p2_draw_frame(int pixelWidth, int pixelHeight) {
     }
     set_rgb_colour((tRgb){0.95, 0.95, 0.97});
     render_text(mainArea, (tRectangle){{MARGIN_X, TITLE_Y}, {0.0, 18.0}}, "Pulse2Alike");
-    fitted_button((tRectangle){{MARGIN_X + 124.0, TITLE_Y + 1.0}, {38.0, 15.0}}, "OVER", gOver ? (tRgb){1.0, 0.15, 0.1}
-                                                                                                                        : (tRgb){0.32, 0.32, 0.32});
+    // the overload lamp just after the title, and nothing to its right may start before it ends
+    tRectangle overRect = {{MARGIN_X + get_text_width("Pulse2Alike", 18.0, eNoCache) + 10.0, TITLE_Y + 1.0}, {38.0, 15.0}};
+    double     overEnd  = overRect.coord.x + overRect.size.w + (3.0 * PATCH_BUTTON_GAP);
+
+    fitted_button(overRect, "OVER", gOver ? (tRgb){1.0, 0.15, 0.1}
+                                                                   : (tRgb){0.32, 0.32, 0.32});
     draw_tabs();
     layout();
     {
@@ -944,7 +948,7 @@ void p2_draw_frame(int pixelWidth, int pixelHeight) {
         double       x;
 
         gLinkRect = (tRectangle){{
-                                     (gPageCount > LINK_ABOVE_TAB) ? gTabs[LINK_ABOVE_TAB].coord.x : MARGIN_X, TITLE_Y + 2.0
+                                     fmax(overEnd, (gPageCount > LINK_ABOVE_TAB) ? gTabs[LINK_ABOVE_TAB].coord.x : MARGIN_X), TITLE_Y + 2.0
                                  }, {
                                      62.0, PATCH_BUTTON_H
                                  }

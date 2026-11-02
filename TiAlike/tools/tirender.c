@@ -60,9 +60,10 @@ int main(int argc, char ** argv) {
         char   kind[16];
         int    ch, n;
 
-        if (sscanf(line, "%lf %15s %d %d %lf", &t, kind, &ch, &n, &v) >= 4) {
+        // "on"/"off" a note; "cc" sets page A byte n (a controller is page A's parameter of that number)
+        if ((sscanf(line, "%lf %15s %d %d %lf", &t, kind, &ch, &n, &v) >= 4) && ((strcmp(kind, "on") == 0) || (strcmp(kind, "off") == 0) || (strcmp(kind, "cc") == 0))) {
             events[count++] = (tEvent){
-                t, (strcmp(kind, "on") == 0) ? 1 : 0, n, v
+                t, (strcmp(kind, "on") == 0) ? 1 : ((strcmp(kind, "cc") == 0) ? 3 : 0), n, v
             };
         } else if (sscanf(line, "%lf ctl %d %lf", &t, &n, &v) == 3) {
             events[count++] = (tEvent){
@@ -96,6 +97,9 @@ int main(int argc, char ** argv) {
                 ti_voices_note_on(&gVoices, (uint8_t)e->a, (float)(e->b / 127.0));
             } else if (e->kind == 0) {
                 ti_voices_note_off(&gVoices, (uint8_t)e->a, 0.0f);
+            } else if (e->kind == 3) {
+                sound.a[e->a & 127] = (uint8_t)e->b;
+                gVoices.sound       = sound;
             } else {
                 ti_voices_control(&gVoices, (tTiControlId)e->a, e->b);
             }

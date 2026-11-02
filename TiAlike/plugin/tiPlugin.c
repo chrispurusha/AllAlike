@@ -701,6 +701,7 @@ static void ti_panel_sync(void * user) {
     }
 
     hardware_link(t, user);
+    ti_draw_transfer_tick();
 }
 
 static void ti_panel_frame(void * user, int pixelWidth, int pixelHeight) {

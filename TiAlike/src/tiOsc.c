@@ -186,7 +186,7 @@ double ti_osc_hyper_sample(const tTiHyper * h, double * phases, double increment
 #define WT_SIZE    (256)
 #define WT_MIPS    (5)
 
-static float * gTable[TI_WAVETABLES];     // TI_WAVETABLE_STEPS x WT_MIPS x WT_SIZE
+static float * gTable[TI_WAVETABLES];     // its frames x WT_MIPS x WT_SIZE
 
 void ti_osc_wavetable_prepare(int table) {
     table = (table < 0) ? 0 : ((table >= TI_WAVETABLES) ? (TI_WAVETABLES - 1) : table);
@@ -194,9 +194,10 @@ void ti_osc_wavetable_prepare(int table) {
     if (gTable[table] != NULL) {
         return;
     }
-    float * t = (float *)malloc(sizeof(float) * TI_WAVETABLE_STEPS * WT_MIPS * WT_SIZE);
+    int     frames = gTiWavetableCount[table];
+    float * t      = (float *)malloc(sizeof(float) * frames * WT_MIPS * WT_SIZE);
 
-    for (int k = 0; k < TI_WAVETABLE_STEPS; k++) {
+    for (int k = 0; k < frames; k++) {
         int top = TI_WAVETABLE_PARTIALS;
 
         for (int m = 0; m < WT_MIPS; m++, top /= 2) {
@@ -207,7 +208,7 @@ void ti_osc_wavetable_prepare(int table) {
                 double sum = 0.0;
 
                 for (int h = 1; h <= top; h++) {
-                    const float * q = gTiWavetables[table][k][h - 1];
+                    const float * q = gTiWavetableFrames[gTiWavetableFirst[table] + k][h - 1];
 
                     if (q[0] != 0.0f) {
                         sum += q[0] * cos((2.0 * M_PI * h * p) + q[1]);
@@ -230,25 +231,80 @@ static double wt_read(const float * t, double phase) {
     return t[i & (WT_SIZE - 1)] + (f * (t[(i + 1) & (WT_SIZE - 1)] - t[i & (WT_SIZE - 1)]));
 }
 
-double ti_osc_wavetable(int table, double index, double phase, double increment) {
+// notes §5: Smooth steepens the crossfade about its middle; 127 steps from frame to frame
+double ti_osc_wavetable_weight(double between, double smooth) {
+    double slope = 1.0 - (fmin(fmax(smooth, 0.0), 127.0) / 128.0);
+
+    return fmin(fmax(0.5 + ((between - 0.5) / (slope * slope)), 0.0), 1.0);
+}
+
+double ti_osc_wavetable(int table, double index, double smooth, double phase, double increment) {
     table = (table < 0) ? 0 : ((table >= TI_WAVETABLES) ? (TI_WAVETABLES - 1) : table);
 
     if (gTable[table] == NULL) {
         ti_osc_wavetable_prepare(table);
     }
-    double top = 0.5 / fmax(fabs(increment), 1e-9);
-    int    m   = 0;
+    double top    = 0.5 / fmax(fabs(increment), 1e-9);
+    int    m      = 0;
 
     for (double h = TI_WAVETABLE_PARTIALS; (h > top) && (m < WT_MIPS - 1); h /= 2.0) {
         m++;
     }
 
-    double p   = fmin(fmax(index, 0.0), 127.0) * (TI_WAVETABLE_STEPS - 1) / 127.0;
-    int    k   = (int)p;
+    int    frames = gTiWavetableCount[table];
 
-    k     = (k > TI_WAVETABLE_STEPS - 2) ? (TI_WAVETABLE_STEPS - 2) : k;
-    double a   = wt_read(gTable[table] + (((k * WT_MIPS) + m) * WT_SIZE), phase);
-    double b   = wt_read(gTable[table] + ((((k + 1) * WT_MIPS) + m) * WT_SIZE), phase);
+    if (frames < 2) {
+        return wt_read(gTable[table] + (m * WT_SIZE), phase);
+    }
+    double p      = fmin(fmax(index, 0.0), 127.0) * (frames - 1) / 127.0;
+    int    k      = (int)p;
 
-    return a + ((p - k) * (b - a));
+    k     = (k > frames - 2) ? (frames - 2) : k;
+    double w      = ti_osc_wavetable_weight(p - k, smooth);
+    double a      = wt_read(gTable[table] + (((k * WT_MIPS) + m) * WT_SIZE), phase);
+    double b      = (w > 0.0) ? wt_read(gTable[table] + ((((k + 1) * WT_MIPS) + m) * WT_SIZE), phase) : a;
+
+    return a + (w * (b - a));
+}
+
+// notes §6: cents either way; linear up to 32, then rising by about 1.8 every 16
+void ti_osc_pwm_detune(double detune, double * down, double * up) {
+    double v     = fmin(fmax(detune, 0.0), 127.0);
+    double cents = (v < 32.0) ? (0.0495 * v) : (5.04 * pow(2.0, (v - 64.0) / 19.3));
+
+    *up   = pow(2.0, cents / 1200.0);
+    *down = pow(2.0, -(cents + (0.0018 * cents * cents)) / 1200.0);
+}
+
+// notes §6: (wave(a) - wave(b + offset)) / sqrt 2, the offset half a cycle at Pulse Width 0 and none at 127
+double ti_osc_wave_pwm(int table, double index, double smooth, const double twin[2], double width, double increment) {
+    double offset = (127.0 - fmin(fmax(width, 0.0), 127.0)) / 254.0;
+
+    return M_SQRT1_2 * (ti_osc_wavetable(table, index, smooth, twin[0], increment) - ti_osc_wavetable(table, index, smooth, twin[1] + offset, increment));
+}
+
+// notes §7: the grain window, 1 at a grain's centre and 0 a period away, W(x) + W(1 - x) = 1
+double ti_osc_grain_window(double x) {
+    double u  = fmin(fmax(x, 0.0), 1.0) - 0.5;
+    double u2 = u * u;
+
+    return 0.5 + (u * (-2.3496 + (u2 * (11.2307 + (u2 * (-33.7016 + (u2 * 41.6111)))))));
+}
+
+// notes §7: one grain a period, centred on the period's start, the wave read k times as fast
+double ti_osc_grain(int table, double index, double smooth, double k, double phase, double increment) {
+    double centred = (phase < 0.5) ? phase : (phase - 1.0);
+
+    return ti_osc_grain_window(2.0 * fabs(centred)) * ti_osc_wavetable(table, index, smooth, k * centred, increment * k);
+}
+
+// notes §8: two streams of grains two periods long, one period apart, each fading into the other
+double ti_osc_grain_pair(int table, double index, double smooth, const double k[2], const double grain[3], double increment) {
+    double psi  = (grain[0] < 0.5) ? (2.0 * grain[0]) : ((2.0 * grain[0]) - 2.0);    // periods from stream A's centre
+    double psiB = (psi < 0.0) ? (psi + 1.0) : (psi - 1.0);
+    double w    = ti_osc_grain_window(fabs(psi));
+    double a    = ti_osc_wavetable(table, index, smooth, (k[0] * psi) + grain[1], increment * k[0]);
+    double b    = ti_osc_wavetable(table, index, smooth, (k[1] * psiB) + grain[2], increment * k[1]);
+
+    return (w * a) + ((1.0 - w) * b);
 }

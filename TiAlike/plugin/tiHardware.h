@@ -39,4 +39,25 @@ tTiHardwareResult ti_hardware_send_sound(uint8_t single[TI_SINGLE_LENGTH]);
 tTiHardwareResult ti_hardware_send_byte(int at, uint8_t value);   // at: its place in the Single message
 void ti_hardware_note(uint8_t note, uint8_t velocity);            // velocity 0 is note off; from any thread
 
+// notes §4-§5: a transfer of whole banks, one at a time on the machine; main thread, driven by ti_hardware_tick()
+#define TI_HW_RAM_BANKS    (4)     // A-D; the rest are ROM and are never written
+
+typedef enum {
+    eTiTransferIdle,
+    eTiTransferRunning,
+    eTiTransferDone,
+    eTiTransferFailed,     // ti_hardware_transfer_status() says why
+} tTiTransferState;
+
+// notes §4: banks first..last (1 = A .. 23 = W) into the reader's store
+tTiHardwareResult ti_hardware_read_start(int firstBank, int lastBank);
+// notes §5: 128 Singles into RAM bank 1-4, then read back to check them
+tTiHardwareResult ti_hardware_write_start(int bank, const uint8_t(*singles)[TI_SINGLE_LENGTH]);
+tTiTransferState ti_hardware_tick(void);
+const char * ti_hardware_transfer_status(void);                   // a line for the progress box, or why it failed
+double ti_hardware_transfer_progress(void);                       // 0..1
+const uint8_t * ti_hardware_read_single(int bank, int program);   // what arrived, NULL if nothing did
+int ti_hardware_verify_mismatches(void);                          // notes §5: after a write, Singles read back different
+void ti_hardware_transfer_stop(void);
+
 #endif // __TI_HARDWARE_H__

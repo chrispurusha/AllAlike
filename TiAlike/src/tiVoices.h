@@ -71,6 +71,8 @@ typedef struct {
     double    pitch;                        // semitones, gliding to note
     double    phase[3], subPhase;
     double    hyper[2][TI_HYPER_SAWS];
+    double    twin[2][2];                   // notes §28: Wave PWM's two detuned copies of Osc 1 and Osc 2
+    double    grain[2][3];                  // notes §29: the Complex models' half-rate phase and two drifts
     double    detune, pan;                  // unison's offsets
     double    place;                        // 0 at the centre of a stack, 1 at its edge
     double    noiseState;

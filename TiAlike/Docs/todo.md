@@ -8,13 +8,13 @@ One line per item. Measurements and reasoning go in `findings.md`, design in `de
 - Filter Bank: VariSlope in-between Shapes, Vowel at high resonance, Vowel and shifter Stereo Phase
 - Effects, in order: Chorus (11% with mix on), Character types (13%), Filterbank (12%), and last of all Delay and Reverb. EQ is built; its mid cut is too wide against boosts
 - Distortion: Mint at Intensity 32 is 3.7 dB low and 7 dB out at 64; Treble Booster, High Cut and Tone
-- Ring at the same pitch: level right, spectrum still out on saws and pulses; Wave PWM, Grain and Formant not built
+- Ring at the same pitch: level right, spectrum still out on saws and pulses
 - Median level across Singles rose when saturation went in (2.65 to 3.02 dB): find which stage after it is off
-- Model choices past HyperSaw on the panel do not change the engine yet
 - Level indications at various stages of the voice (oscillators, filters, saturation, output), to help monitor gain staging
 - Fixed point, per the Arithmetic parameter: the biquad is done. Next oscillators, envelopes, mix, saturation, the ladder. A null needs all of them, with the phases and timing
 - HyperSaw: cross-oscillator sync frequency (byte 27) and its filter-envelope routes
-- Oscillator models: Wave PWM, Grain and Formant - they fall back to the classic oscillator now. Wavetable: FM modes, Sync, Formant Shift and Interpolation not built
+- Oscillator models (11-02): Wave PWM, Grain and Formant built (tiOsc notes §6-§8). Open: their F-Shift / F-Spread matrix routes; Complex + Detune makes a half-frequency component 24 dB down; high Formant or Sync on rich tables keeps too many top partials (up to 2 dB)
+- Wavetables 7, 35, 77: about 0.5-1 dB of content above the 64th partial is missing
 - Velocity to Pulse Width and FM are built by analogy with Shape: check them
 - Worst Singles still to explain: Theory, RuffBelsBC, DRY DRUM
 - Oscillator start phases in a null: free-running ones are not known, and a fixed one is not yet aligned
@@ -23,13 +23,12 @@ One line per item. Measurements and reasoning go in `findings.md`, design in `de
 - Analog Boost's top-end dip, and the other character types (13% of the banks)
 - Soft knobs, the wheel-side ones, and bender scale
 - Oscillator phase and drift: why free-running ones sit a cent flat
-- Filter 1 (all eight modes) and Filter 2 with Serial 4 / Parallel 4, Balance and Link are in (code-notes/tiFilter.md, tiVoices.md §6); next: Serial 6 (Filter 1 four-pole) and Split (stereo), then the plug-in's stereo output
 - Osc Volume on the panel: its upper half drives the analog filter (filter notes §5, `drive`) and the Saturation curves; then re-fit the ladder's input level (filter notes §6)
 - Analog modes: the self-oscillation pitch at Resonance 127 is 0.9% below the reference's (634 vs 640 Hz) - check at other cutoffs
 - Singles drive only what is built (tiPatch notes §3; the amp envelope's 59-63 now carried): add each section's bytes to `kCarried` as it is built - Osc 1 shape/PW (page A 17/18) with the oscillator
 - Changing Sustain while a note holds: glides at 2^-12 a tick (tiEnvelope notes §6) - check against the reference
 - The reference answers a note 1-1.5 ms after its sample: measure the delay and whether it steps with a block of its own
-- Parameter Smooth Mode: only On is built (cutoff, resonance - tiVoices notes §5); Off, Auto, Note and the quantised modes, and the other smoothed controls (oscillator shape, PW, ...)
+- Parameter Smooth Mode (11-02): the reference renders show NO effect of any mode (Off/On/Auto/Note/Quantise) on a Cutoff change by CC or SysEx, mid-note or before it - yet tiVoices notes §5 glides On over 43.7 ms. CONFIRMED 11-02 with tirender (now takes cc lines): TiAlike glides ~45 ms, the reference jumps. Decide: drop the glide (match the reference) or keep it (if the hardware TI glides) - then Auto/Note
 - Loading of custom wavetables, in various common file formats.
 
 ## Later
@@ -48,7 +47,7 @@ One line per item. Measurements and reasoning go in `findings.md`, design in `de
 - Delay: Color, modulation, Tape types, Pattern timing at other tempos, order against the EQ. Reverb. Chorus types Vintage, Hyper, Air, Vibrato, Rotary
 - Reverb: top octave 4-6 dB hot, tank modulation, Feedback 1 and 2 modes, Reverb Clock
 - Analog filter modes: a high-frequency floor in the reference, 20 dB higher at 44.1 kHz than at 48, not in ours
-- Panel: controls with no effect yet: Delay Color, Tape, Delay LFO, Reverb Clock and Feedback, Quality, Tone, wavetable Sync, Formant, Detune, Smooth
+- Panel: controls with no effect yet: Delay Color, Tape, Delay LFO, Reverb Clock and Feedback, Quality, Tone (wavetable Sync, Formant, Detune and Smooth act since 11-02, on the models that use them)
 - Panel: not offered: arpeggiator, vocoder and input follower, soft knobs
 - Delay Clock: tempo law built but unverified on our side; the times wander at 60, 120 and 200 BPM, possibly with sample rate; sequencer patterns, whose right channel runs at the exact tempo
 - Reverb Clock: acts as predelay, not built
