@@ -68,3 +68,6 @@ The delay is 8 samples per step of Delay at 48 kHz, and swings down from there, 
 
 ## 14. Phaser sweep
 The sweep is a triangle, straight in octaves, starting at the top. It rises from the Frequency by 0.0465 octave per step of Depth, and its rate is the Chorus's. The right side stands 0.15 octave above the left at all times. Spread sets how far apart the stages lie, not the stereo. Feedback is 0.89 of the dial either side of centre, and is taken from the second section of the chain from the end, or the eighth at most.
+
+## 15. Reset
+`ti_effects_reset` empties every line and filter, as a new instance has them, and keeps the rate, the tempo and the plug-in's Delay and Reverb switches. The plug-in calls it on the audio thread when a sound loads (tiPlugin §12).

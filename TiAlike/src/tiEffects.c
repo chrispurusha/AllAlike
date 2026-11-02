@@ -40,6 +40,19 @@ void ti_effects_init(tTiEffects * e, double rate) {
     e->rate = rate;
 }
 
+// notes §15: empty lines and filters for a new sound; the rate and the plug-in's settings stay
+void ti_effects_reset(tTiEffects * e) {
+    double rate          = e->rate;
+    double bpm           = e->bpm;
+    bool   delayAllowed  = e->delayAllowed;
+    bool   reverbAllowed = e->reverbAllowed;
+
+    ti_effects_init(e, rate);
+    e->bpm           = bpm;
+    e->delayAllowed  = delayAllowed;
+    e->reverbAllowed = reverbAllowed;
+}
+
 static void set_coeffs(tTiBiquad * q, double b0, double b1, double b2, double a0, double a1, double a2) {
     q->b0 = b0 / a0;
     q->b1 = b1 / a0;

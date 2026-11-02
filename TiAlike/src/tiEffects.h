@@ -95,6 +95,7 @@ double ti_dist_high_pass_pole(double amount, double rate);
 double ti_dist_step(double intensity);
 double ti_dist_hold(double intensity);
 void ti_effects_init(tTiEffects * e, double rate);
+void ti_effects_reset(tTiEffects * e);   // notes §15
 // The Single's pages A, B and C
 void ti_effects_render(tTiEffects * e, const uint8_t * pageA, const uint8_t * pageB, const uint8_t * pageC, double volume, float * left, float * right, uint32_t frames);
 

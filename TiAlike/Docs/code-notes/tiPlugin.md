@@ -41,7 +41,10 @@ The host's values written over the Single they came from, redone only when somet
 With Link on, the editor's frame compares the sound with what the instrument was last given and sends the difference, so only while the editor is open and never on the audio thread. Notes go straight on. Link takes the machine's one hardware lock; if another instance has it, this one stays idle. The local engine keeps sounding: use the Volume to choose what is heard.
 
 ## 10. Program changes
-A program change selects a stored sound: Bank Select picks the bank, as on the instrument. If that sound is already loaded nothing happens, so edits survive a sequencer resending the same program. Otherwise the output fades down (`synthlibSwapFade`) and the sound changes at the top of the next block once it is silent, because a host may deliver the change on the audio thread. Loads from the panel use the same fade, and effect tails carry on behind it.
+A program change selects a stored sound: Bank Select picks the bank, as on the instrument. If that sound is already loaded nothing happens, so edits survive a sequencer resending the same program. Otherwise the output fades down (`synthlibSwapFade`) and the sound changes at the top of the next block once it is silent, because a host may deliver the change on the audio thread. Loads from the panel use the same fade, and the effects are emptied behind it (§12).
 
 ## 11. A new instance
 A new instance plays A001, whichever comes first of its first audio block and its editor's first frame, so a panel opened before audio runs shows the sound it will play. A project's state cancels this, and with no presets stored it stays on Init.
+
+## 12. A new sound starts with empty effects
+The delay, reverb, chorus and the other effects kept running across a change of sound, so a long delay left by one Single went on echoing under the next (2026-11-02, as Sn2Alike before it). Loading a sound sets a flag, and the audio thread empties the effects (`ti_effects_reset`, tiEffects §15) before its next block - never the loading thread, which may be the main one. The swap is already faded to silence, so nothing audible is cut. Whether the instrument stops its echoes on a program change has not been checked.

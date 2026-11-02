@@ -97,6 +97,7 @@ typedef struct {
     double            clipUntil;
     _Atomic bool      startPreset;  // notes §11
     _Atomic int       wantPreset;   // a program change waiting for the fade
+    _Atomic bool      clearEffects; // notes §12: a new sound starts with empty effects, the old one's echoes gone
 } tTiPlugin;
 
 static uint32_t voice_limit(const tTiPlugin * t) {
@@ -278,6 +279,9 @@ static void ti_process(void * inst, const float *const * in, uint32_t numIn, flo
     take_program_change(t);
     refresh_sound(t);
 
+    if (atomic_exchange(&t->clearEffects, false)) {
+        ti_effects_reset(&t->voices.effects);   // notes §12
+    }
     ti_voices_set_effects(&t->voices, t->values[kTiParamDelayOn] >= 0.5, t->values[kTiParamReverbOn] >= 0.5);
 
     if ((transport != NULL) && transport->tempoValid) {
@@ -490,6 +494,7 @@ static void ti_load_single(void * user, const uint8_t * single, const char * pat
     }
 
     t->soundStale = true;
+    atomic_store(&t->clearEffects, true);   // notes §12: the audio thread does it, at its next block
     ti_patch_name(single, t->soundName);
     snprintf(t->patchPath, sizeof(t->patchPath), "%s", path);
     t->patchIndex = index;
