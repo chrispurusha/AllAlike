@@ -39,3 +39,11 @@ char * alike_getenv(const char * name) {
     }
     return home;
 }
+
+const char * alike_font_path(void) {
+    static char path[1024];
+    const char * windows = getenv("WINDIR");
+
+    snprintf(path, sizeof(path), "%s\\Fonts\\arial.ttf", (windows != NULL) ? windows : "C:\\Windows");
+    return path;
+}

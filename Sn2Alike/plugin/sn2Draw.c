@@ -48,7 +48,11 @@
 #define GL_SILENCE_DEPRECATION    1
 #include <GLFW/glfw3.h>           // the key constants SynthLib's popups speak
 
+#if defined (_WIN32)
+#define FONT_PATH                 alike_font_path()   // tools/windows/alikeWin.c: Arial from the Windows fonts folder
+#else
 #define FONT_PATH                 "/System/Library/Fonts/Supplemental/Arial.ttf"
+#endif
 #define FONT_PRELOAD_SIZE         (16.0)
 
 #define MAX_PARAMS                (200)

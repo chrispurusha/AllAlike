@@ -60,6 +60,9 @@ static inline int getuid(void) {
 char * alike_getenv(const char * name);
 #define getenv(name)    alike_getenv(name)
 
+// The panel font: Arial from the Windows fonts folder, where the Mac reads it from /System/Library/Fonts.
+const char * alike_font_path(void);
+
 #endif // _WIN32 && !__cplusplus
 
 #endif // __ALIKE_COMPAT_H__

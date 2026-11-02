@@ -2,12 +2,15 @@
 #
 # do-windows-plugin - cross-builds an AllAlike VST3 for Windows on this Mac, with llvm-mingw.
 #
-#   tools/do-windows-plugin Pulse2Alike           x64
-#   tools/do-windows-plugin TiAlike arm64         native Windows on ARM - Parallels on Apple silicon
-#   tools/do-windows-plugin all [x64|arm64]       all four
+#   tools/do-windows-plugin Pulse2Alike           x64 and arm64
+#   tools/do-windows-plugin TiAlike x64           one architecture
+#   tools/do-windows-plugin all                   all four
 #
-# Result: <Product>/build/windows-<arch>/<Product>.vst3, ONE FILE (the DLL) - copy it into
-# C:\Program Files\Common Files\VST3. VST3 only: there is no Audio Unit on Windows.
+# Result: <Product>/build/windows/<Product>.vst3, the VST3 BUNDLE FOLDER - copy the whole folder into
+# C:\Program Files\Common Files\VST3. It holds Contents/x86_64-win/<Product>.vst3 and Contents/arm64-win/<Product>.vst3
+# (the DLLs), and a host loads the one matching ITSELF - so an x64 host emulated on Windows on ARM, which is
+# Ableton Live there, still finds its x64 copy. Not a single-file .vst3: that layout is deprecated, and with one file
+# the user had to pick the architecture and could pick wrong. VST3 only: there is no Audio Unit on Windows.
 #
 # G2Alike's tools/do-windows-plugin, made generic. THE SOURCE LIST AND THE DEFINES ARE THE PRODUCT'S
 # do-plugin's, read from it, so the two cannot drift. In place of the Mac's parts:
@@ -29,33 +32,36 @@ SL=${SL:A}
 G2=${G2ALIKE_DIR:-$ROOT/../G2Alike}
 G2=${G2:A}
 WIN=$G2/platform/windows
-ARCH=x86_64
+ARCHS=()
 PRODUCTS=()
 
 for arg in "$@"; do
     case $arg in
-        arm64|aarch64) ARCH=aarch64 ;;
-        x64|x86_64)    ARCH=x86_64 ;;
+        arm64|aarch64) ARCHS+=(aarch64) ;;
+        x64|x86_64)    ARCHS+=(x86_64) ;;
         all)           PRODUCTS=(Pulse2Alike TiAlike Sn2Alike Nl3Alike) ;;
         *Alike)        PRODUCTS+=($arg) ;;
-        *) echo "usage: tools/do-windows-plugin <Product>|all [x64|arm64]" >&2; exit 2 ;;
+        *) echo "usage: tools/do-windows-plugin <Product>|all [x64] [arm64]" >&2; exit 2 ;;
     esac
 done
-(( ${#PRODUCTS} > 0 )) || { echo "usage: tools/do-windows-plugin <Product>|all [x64|arm64]" >&2; exit 2; }
+(( ${#PRODUCTS} > 0 )) || { echo "usage: tools/do-windows-plugin <Product>|all [x64] [arm64]" >&2; exit 2; }
+(( ${#ARCHS} > 0 )) || ARCHS=(x86_64 aarch64)
 
-TRIPLE=$ARCH-w64-mingw32
-CC=$LLVM_MINGW/bin/$TRIPLE-clang
-CXX=$LLVM_MINGW/bin/$TRIPLE-clang++
-
-[[ -x $CC ]]                 || { echo "error: no llvm-mingw at $LLVM_MINGW - see G2Alike/Docs/windows-port-plan.md" >&2; exit 1; }
+[[ -x $LLVM_MINGW/bin/clang ]]              || { echo "error: no llvm-mingw at $LLVM_MINGW - see G2Alike/Docs/windows-port-plan.md" >&2; exit 1; }
 [[ -d $SDK/pluginterfaces ]] || { echo "error: VST3 SDK not found at $SDK" >&2; exit 1; }
 [[ -f $WIN/winCompat.h ]]    || { echo "error: G2Alike's platform/windows not found at $WIN (set G2ALIKE_DIR)" >&2; exit 1; }
 
-# --- FreeType, once per architecture, beside SynthLib's own third-party builds -----------------------
+# --- one architecture's compilers, and FreeType for it once, beside SynthLib's own third-party builds ----
 
-DEPS=$SL/build/windows-$ARCH/deps
+use_arch() {
+    ARCH=$1
+    TRIPLE=$ARCH-w64-mingw32
+    CC=$LLVM_MINGW/bin/$TRIPLE-clang
+    CXX=$LLVM_MINGW/bin/$TRIPLE-clang++
+    DEPS=$SL/build/windows-$ARCH/deps
+    BUNDLE_ARCH=${${ARCH/aarch64/arm64}}-win    # Steinberg's folder names: x86_64-win, arm64-win
 
-if [[ ! -f $DEPS/lib/libfreetype.a ]]; then
+    [[ -f $DEPS/lib/libfreetype.a ]] && return
     echo "==> freetype for $TRIPLE"
     cmake -S $SL/ThirdParty/freetype -B $SL/build/windows-$ARCH/freetype -G Ninja -DCMAKE_BUILD_TYPE=Release \
           -DCMAKE_TOOLCHAIN_FILE=$G2/cmake/toolchain-windows.cmake -DG2_WIN_ARCH=$ARCH -DLLVM_MINGW=$LLVM_MINGW \
@@ -63,7 +69,7 @@ if [[ ! -f $DEPS/lib/libfreetype.a ]]; then
           -DFT_DISABLE_PNG=ON -DFT_DISABLE_HARFBUZZ=ON -DFT_DISABLE_BROTLI=ON >/dev/null
     cmake --build $SL/build/windows-$ARCH/freetype >/dev/null
     cmake --install $SL/build/windows-$ARCH/freetype >/dev/null
-fi
+}
 
 # --- SynthLib, as the Mac library takes it but without the Mac's files -------------------------------
 
@@ -157,14 +163,24 @@ build_one() {
     $CXX -shared -static -o $DLL -Wl,-u,GetPluginFactory $OBJECTS $LIB $DEPS/lib/libfreetype.a \
          -lopengl32 -lgdi32 -luser32 -lole32 -lshell32 -lcomdlg32 -lwinmm -lpthread -Wl,--exclude-all-symbols || return 1
 
-    echo "built: $DLL ($(du -h $DLL | cut -f1))"
+    local bundle=$dir/build/windows/$PLUGIN_NAME.vst3
+
+    mkdir -p $bundle/Contents/$BUNDLE_ARCH
+    cp $DLL $bundle/Contents/$BUNDLE_ARCH/
+
+    echo "built: $DLL ($(du -h $DLL | cut -f1)) -> $bundle/Contents/$BUNDLE_ARCH"
     echo "exports: $(PATH=$LLVM_MINGW/bin:$PATH $TRIPLE-objdump -p $DLL | awk '/Ordinal +RVA +Name/ {on=1; next} on && NF==3 {print $3} on && NF<3 {on=0}' | tr '\n' ' ')"
     echo "needs: $(PATH=$LLVM_MINGW/bin:$PATH $TRIPLE-objdump -p $DLL | grep 'DLL Name' | awk '{print $3}' | tr '\n' ' ')"
 }
 
 FAILED=()
 for product in $PRODUCTS; do
-    build_one $product || FAILED+=($product)
+    rm -rf $ROOT/$product/build/windows    # the bundle, rebuilt with exactly the architectures asked for
+
+    for arch in $ARCHS; do
+        use_arch $arch
+        build_one $product || { FAILED+=($product); break; }
+    done
 done
 
 if (( ${#FAILED} > 0 )); then

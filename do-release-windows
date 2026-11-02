@@ -1,8 +1,8 @@
 #!/bin/zsh
 # Builds one AllAlike release for Windows, on this Mac: every plug-in do-release ships, as VST3 (Windows has no
-# Audio Unit), cross-built by tools/do-windows-plugin with llvm-mingw. Writes one .zip per architecture to the
-# Desktop - AllAlike-<version>-windows-x64.zip (any PC) and -arm64.zip (Windows on ARM, Parallels on Apple
-# silicon) - each with the plug-ins, "Read Me First.txt", LICENSE.txt and Licences/. Unsigned.
+# Audio Unit), cross-built by tools/do-windows-plugin with llvm-mingw. Writes ONE .zip to the Desktop,
+# AllAlike-<version>-windows.zip, with each plug-in as a VST3 bundle folder holding both an x64 and an arm64 DLL
+# (a host loads the one matching itself), "Read Me First.txt", LICENSE.txt and Licences/. Unsigned.
 #
 # Same arguments as ./do-release, and run with the SAME one for the same release, BEFORE the tag is made - both
 # work the next version out from the newest AllAlike-V* tag:
@@ -15,7 +15,7 @@
 #   ./do-release-windows 0.1.0-beta.1   a version as given
 #   ./do-release-windows           reuse the newest tag (rebuild an old release)
 #
-# The second argument is where the .zips go. Never creates or pushes the tag. Needs the VST3 SDK, llvm-mingw and
+# The second argument is where the .zip goes. Never creates or pushes the tag. Needs the VST3 SDK, llvm-mingw and
 # a G2Alike checkout beside this repo (see tools/do-windows-plugin).
 
 set -e
@@ -32,7 +32,6 @@ PRODUCTS=(
     "TiAlike|A reproduction inspired by the Access Virus TI's single-patch engine. Work in progress."
     "Sn2Alike|A reproduction inspired by the Novation Supernova II. Work in progress."
 )
-ARCHS=("x86_64|x64" "aarch64|arm64")
 
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
@@ -124,68 +123,68 @@ done
 
 NAMES=()
 LIST=""
+VST3_LIST=""
 for entry in $PRODUCTS; do
     NAMES+=("${entry%%|*}")
     LIST+="    ${entry%%|*}: ${entry#*|}"$'\n'
+    VST3_LIST+="    ${entry%%|*}.vst3"$'\n'
 done
 
 SYNTHLIB_COMMIT="$(git -C ../SynthLib describe --always --dirty --abbrev=12)"
 ALLALIKE_COMMIT="$(git describe --always --dirty --abbrev=12)"
-ZIPS=()
+STAGE="$WORK/AllAlike-$VERSION_CLEAN-windows"
 
-# --- one .zip per architecture --------------------------------------------
+echo "==> building for Windows (x64 + arm64): ${NAMES[*]}"
 
-for arch in $ARCHS; do
-    TRIPLE_ARCH="${arch%%|*}"
-    LABEL="${arch#*|}"
-    STAGE="$WORK/$LABEL/AllAlike-$VERSION_CLEAN-windows-$LABEL"
+if ! ALIKE_WIN_VERSION="$VERSION_CLEAN" tools/do-windows-plugin $NAMES >"$WORK/build.log" 2>&1; then
+    tail -20 "$WORK/build.log" >&2
+    echo "error: the Windows build failed (log above)." >&2
+    exit 1
+fi
 
-    echo "==> building for Windows $LABEL: ${NAMES[*]}"
+mkdir -p "$STAGE/Licences"
 
-    if ! ALIKE_WIN_VERSION="$VERSION_CLEAN" tools/do-windows-plugin $NAMES $LABEL >"$WORK/$LABEL.log" 2>&1; then
-        tail -20 "$WORK/$LABEL.log" >&2
-        echo "error: the Windows $LABEL build failed (log above)." >&2
-        exit 1
-    fi
+for name in $NAMES; do
+    bundle="$name/build/windows/$name.vst3"
 
-    mkdir -p "$STAGE/Licences"
-
-    for name in $NAMES; do
-        dll="$name/build/windows-$TRIPLE_ARCH/$name.vst3"
-
-        if [[ ! -f $dll ]]; then
-            echo "error: $dll was not built." >&2
+    for arch in x86_64-win arm64-win; do
+        if [[ ! -f $bundle/Contents/$arch/$name.vst3 ]]; then
+            echo "error: $bundle has no $arch DLL." >&2
             exit 1
         fi
-        cp "$dll" "$STAGE/"
     done
+    cp -R "$bundle" "$STAGE/"
+done
 
-    cp LICENSE "$STAGE/LICENSE.txt"
-    cp "$FTL" "$STAGE/Licences/FreeType FTL.txt"
-    cp "$VST3_LICENSE" "$STAGE/Licences/VST3 SDK LICENSE.txt"
+cp LICENSE "$STAGE/LICENSE.txt"
+cp "$FTL" "$STAGE/Licences/FreeType FTL.txt"
+cp "$VST3_LICENSE" "$STAGE/Licences/VST3 SDK LICENSE.txt"
 
-    if [[ $LABEL == arm64 ]]; then
-        WHICH="Windows on ARM (Snapdragon PCs, Parallels on an Apple silicon Mac). For an Intel or AMD PC, use the x64 .zip."
-    else
-        WHICH="64-bit Windows 10 or later on Intel or AMD. For Windows on ARM, use the arm64 .zip."
-    fi
-
-    # CRLF, so Notepad on an older Windows shows it as lines
-    cat <<EOF | sed 's/$/\r/' > "$STAGE/Read Me First.txt"
-AllAlike $VERSION_CLEAN for Windows ($LABEL)
-Reproductions of synthesizers as VST3 plug-ins for $WHICH
+# CRLF, so Notepad on an older Windows shows it as lines
+cat <<EOF | sed 's/$/\r/' > "$STAGE/Read Me First.txt"
+AllAlike $VERSION_CLEAN for Windows
+Reproductions of synthesizers as VST3 plug-ins for 64-bit Windows 10 or later: Intel and AMD PCs, and Windows
+on ARM (Snapdragon PCs, Parallels on an Apple silicon Mac). Each plug-in carries both, and a host loads the one it needs.
 
 $LIST
 INSTALLING
 
-Copy whichever .vst3 files you want into:
+Unpack the zip first (right-click it, Extract All...). The plug-ins are the folders at the top of it,
+beside this file:
+
+$VST3_LIST
+Each one is a FOLDER ending in .vst3, holding the plug-in for both Intel/AMD and ARM Windows. Copy the whole
+folder - not the files inside it - into:
 
     C:\\Program Files\\Common Files\\VST3
 
-then restart the host, or rescan its plug-ins. Each .vst3 is a single file and needs nothing beside it.
+so that you have, for example, C:\\Program Files\\Common Files\\VST3\\Pulse2Alike.vst3\\Contents\\...
+Then restart the host, or rescan its plug-ins. In Ableton Live: Options > Preferences > Plug-ins, turn on
+"Use VST3 Plug-in System Folders", then Rescan.
 
-These builds are not signed, so Windows may warn that the files came from the internet. If a host does
-not list a plug-in after a rescan, right-click the .vst3, choose Properties, tick Unblock, and rescan.
+These builds are not signed, so Windows may mark the files as coming from the internet. If a host does not
+list a plug-in after a rescan: before unpacking, right-click the .zip, choose Properties, tick Unblock, OK,
+then unpack and copy again.
 
 Sending sounds to and reading them from the instruments themselves is not in the Windows builds yet:
 those menu items report that there is no MIDI.
@@ -208,16 +207,14 @@ the Licences folder.
 Built from AllAlike $ALLALIKE_COMMIT with SynthLib $SYNTHLIB_COMMIT
 EOF
 
-    ZIP="$DIST/AllAlike-$VERSION_CLEAN-windows-$LABEL.zip"
-    rm -f "$ZIP"
-    ( cd "$WORK/$LABEL" && zip -qrX "$ZIP" "${STAGE:t}" )
-    ZIPS+=("$ZIP")
-    echo "==> $ZIP"
-    echo "    contains: ${#NAMES} plug-ins, Read Me First.txt, LICENSE.txt, Licences/"
-done
+ZIP="$DIST/AllAlike-$VERSION_CLEAN-windows.zip"
+rm -f "$ZIP"
+( cd "$STAGE" && zip -qrX "$ZIP" * )    # no enclosing folder: the .vst3s at the top of the zip
+echo "==> $ZIP"
+echo "    contains: ${#NAMES} plug-in bundles (x64 + arm64), Read Me First.txt, LICENSE.txt, Licences/"
 
 if [[ -n $NEW_TAG ]]; then
     echo
-    echo "Once the .zips (and the Mac .dmg from ./do-release with the same argument) have been checked:"
+    echo "Once the .zip (and the Mac .dmg from ./do-release with the same argument) have been checked:"
     echo "    git tag $NEW_TAG && git push origin $NEW_TAG"
 fi
