@@ -47,7 +47,10 @@ void ti_osc_hyper(double density, double spread, tTiHyper * h);
 double ti_osc_hyper_sample(const tTiHyper * h, double * phases, double increment);
 
 // notes §5: the Wavetable oscillator. index 0..127 runs through the table's frames, smooth 0..127 (Smooth)
-void ti_osc_wavetable_prepare(int table);   // builds a table on first use
+// The tables are built once, on a thread of their own that ti_osc_init() starts; until a table is ready
+// it plays silence. An offline render waits for them first.
+void ti_osc_wavetables_start(void);
+void ti_osc_wavetables_wait(void);
 double ti_osc_wavetable_weight(double between, double smooth);
 double ti_osc_wavetable(int table, double index, double smooth, double phase, double increment);
 

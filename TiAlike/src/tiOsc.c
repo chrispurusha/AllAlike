@@ -18,7 +18,10 @@
 
 #include <math.h>
 #include <pthread.h>
+#include <stdatomic.h>
+#include <stdbool.h>
 #include <stdlib.h>
+#include <time.h>
 
 #include "tiOsc.h"
 #include "tiWaves.h"
@@ -65,6 +68,7 @@ static void build_all(void) {
 
 void ti_osc_init(void) {
     pthread_once(&gOnce, build_all);
+    ti_osc_wavetables_start();
 }
 
 double ti_osc_sine(double phase) {
@@ -186,28 +190,35 @@ double ti_osc_hyper_sample(const tTiHyper * h, double * phases, double increment
 #define WT_SIZE    (256)
 #define WT_MIPS    (5)
 
-static float * gTable[TI_WAVETABLES];     // its frames x WT_MIPS x WT_SIZE
+static float * _Atomic gTable[TI_WAVETABLES];     // its frames x WT_MIPS x WT_SIZE; NULL until built
+static atomic_bool     gTablesBuilt;
+static pthread_once_t  gTablesOnce = PTHREAD_ONCE_INIT;
 
-void ti_osc_wavetable_prepare(int table) {
-    table = (table < 0) ? 0 : ((table >= TI_WAVETABLES) ? (TI_WAVETABLES - 1) : table);
-
-    if (gTable[table] != NULL) {
-        return;
-    }
+// A table takes up to ~12 ms to build, and 100 of them ~180 ms: far too long for the audio thread,
+// which used to build each one the first time a sound asked for it
+static float * build_table(int table) {
     int     frames = gTiWavetableCount[table];
     float * t      = (float *)malloc(sizeof(float) * frames * WT_MIPS * WT_SIZE);
+    int     k      = 0;
 
-    for (int k = 0; k < frames; k++) {
+    if (t == NULL) {
+        return NULL;
+    }
+
+    for (k = 0; k < frames; k++) {
         int top = TI_WAVETABLE_PARTIALS;
+        int m   = 0;
 
-        for (int m = 0; m < WT_MIPS; m++, top /= 2) {
+        for (m = 0; m < WT_MIPS; m++, top /= 2) {
             float * o = t + (((k * WT_MIPS) + m) * WT_SIZE);
+            int     i = 0;
 
-            for (int i = 0; i < WT_SIZE; i++) {
+            for (i = 0; i < WT_SIZE; i++) {
                 double p   = (double)i / WT_SIZE;
                 double sum = 0.0;
+                int    h   = 0;
 
-                for (int h = 1; h <= top; h++) {
+                for (h = 1; h <= top; h++) {
                     const float * q = gTiWavetableFrames[gTiWavetableFirst[table] + k][h - 1];
 
                     if (q[0] != 0.0f) {
@@ -220,7 +231,44 @@ void ti_osc_wavetable_prepare(int table) {
         }
     }
 
-    gTable[table] = t;
+    return t;
+}
+
+static void * build_tables(void * unused) {
+    int table = 0;
+
+    (void)unused;
+
+    for (table = 0; table < TI_WAVETABLES; table++) {
+        atomic_store_explicit(&gTable[table], build_table(table), memory_order_release);
+    }
+
+    atomic_store(&gTablesBuilt, true);
+    return NULL;
+}
+
+static void start_tables(void) {
+    pthread_t thread;
+
+    if (pthread_create(&thread, NULL, build_tables, NULL) == 0) {
+        pthread_detach(thread);
+    } else {
+        (void)build_tables(NULL);
+    }
+}
+
+void ti_osc_wavetables_start(void) {
+    pthread_once(&gTablesOnce, start_tables);
+}
+
+void ti_osc_wavetables_wait(void) {
+    const struct timespec tick = {0, 1000000};
+
+    ti_osc_wavetables_start();
+
+    while (!atomic_load(&gTablesBuilt)) {
+        nanosleep(&tick, NULL);
+    }
 }
 
 static double wt_read(const float * t, double phase) {
@@ -240,29 +288,31 @@ double ti_osc_wavetable_weight(double between, double smooth) {
 
 double ti_osc_wavetable(int table, double index, double smooth, double phase, double increment) {
     table = (table < 0) ? 0 : ((table >= TI_WAVETABLES) ? (TI_WAVETABLES - 1) : table);
+    const float * t      = atomic_load_explicit(&gTable[table], memory_order_acquire);
 
-    if (gTable[table] == NULL) {
-        ti_osc_wavetable_prepare(table);
+    // not built yet - only in the first moments after the first instance is made
+    if (t == NULL) {
+        return 0.0;
     }
-    double top    = 0.5 / fmax(fabs(increment), 1e-9);
-    int    m      = 0;
+    double        top    = 0.5 / fmax(fabs(increment), 1e-9);
+    int           m      = 0;
 
     for (double h = TI_WAVETABLE_PARTIALS; (h > top) && (m < WT_MIPS - 1); h /= 2.0) {
         m++;
     }
 
-    int    frames = gTiWavetableCount[table];
+    int           frames = gTiWavetableCount[table];
 
     if (frames < 2) {
-        return wt_read(gTable[table] + (m * WT_SIZE), phase);
+        return wt_read(t + (m * WT_SIZE), phase);
     }
-    double p      = fmin(fmax(index, 0.0), 127.0) * (frames - 1) / 127.0;
-    int    k      = (int)p;
+    double        p      = fmin(fmax(index, 0.0), 127.0) * (frames - 1) / 127.0;
+    int           k      = (int)p;
 
-    k     = (k > frames - 2) ? (frames - 2) : k;
-    double w      = ti_osc_wavetable_weight(p - k, smooth);
-    double a      = wt_read(gTable[table] + (((k * WT_MIPS) + m) * WT_SIZE), phase);
-    double b      = (w > 0.0) ? wt_read(gTable[table] + ((((k + 1) * WT_MIPS) + m) * WT_SIZE), phase) : a;
+    k = (k > frames - 2) ? (frames - 2) : k;
+    double        w      = ti_osc_wavetable_weight(p - k, smooth);
+    double        a      = wt_read(t + (((k * WT_MIPS) + m) * WT_SIZE), phase);
+    double        b      = (w > 0.0) ? wt_read(t + ((((k + 1) * WT_MIPS) + m) * WT_SIZE), phase) : a;
 
     return a + (w * (b - a));
 }

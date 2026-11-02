@@ -566,11 +566,17 @@ static void nl3_load_single(void * user, const uint8_t * single, const char * pa
     tNl3Plugin * t = (tNl3Plugin *)user;
     double       values[kNl3ParamCount];
 
-    current_values(user, values);
+    // the instance's own values, not the host's: asking the host takes a lock on VST3, and a program
+    // change runs this on the audio thread
+    memcpy(values, t->values, sizeof(values));
     nl3_patch_from_single(single, values);
 
+    // The whole sound into the engine now, while the fade holds it silent. The host's copies come back
+    // later - a block or more on VST3, and on an Audio Unit only once the main thread is free - so
+    // waiting for them let the fade open on half the old sound and half the new.
     for (uint32_t id = 0; id < kNl3ParamCount; id++) {
         if (sound_param(id)) {
+            t->values[id] = values[id];
             synthlib_plugin_param_edited(user, id, values[id]);
         }
     }
@@ -582,7 +588,6 @@ static void nl3_load_single(void * user, const uint8_t * single, const char * pa
     snprintf(t->patchPath, sizeof(t->patchPath), "%s", path);
     t->patchIndex = index;
     t->preset     = preset;
-    synthlib_log_line("loaded \"%s\" (%s #%d, preset %d)", t->soundName, path, index, preset);
 }
 
 static bool nl3_save_patch(void * user, const char * path) {
@@ -609,6 +614,7 @@ static void nl3_load_faded(void * user, const uint8_t * single, const char * pat
     synthlib_swap_fade_begin(&t->fade);
     nl3_load_single(user, single, path, index, preset);
     synthlib_swap_fade_end(&t->fade);
+    synthlib_log_line("loaded \"%s\" (%s #%d, preset %d)", t->soundName, path, index, preset);
 }
 
 static bool nl3_store_preset(void * user, int number) {

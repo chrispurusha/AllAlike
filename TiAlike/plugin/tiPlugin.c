@@ -210,6 +210,7 @@ static void ti_prepare(void * inst, const tSynthLibSetup * setup) {
 
     if (setup->offline) {
         atomic_store(&t->startPreset, false);   // an offline render plays what it is given
+        ti_osc_wavetables_wait();               // and every wavetable from its first sample
     }
 }
 
@@ -471,23 +472,28 @@ static void ti_load_single(void * user, const uint8_t * single, const char * pat
     tTiPlugin * t = (tTiPlugin *)user;
     double      values[kTiParamCount];
 
-    current_values(user, values);
+    // the instance's own values, not the host's: asking the host takes a lock on VST3, and a program
+    // change runs this on the audio thread
+    memcpy(values, t->values, sizeof(values));
     ti_patch_from_single(single, values);
+    memcpy(t->base, single, TI_SINGLE_LENGTH);
+    t->haveBase   = true;
 
+    // The whole sound into the engine now, while the fade holds it silent. The host's copies come back
+    // later - a block or more on VST3, and on an Audio Unit only once the main thread is free - so
+    // waiting for them let the fade open on half the old sound and half the new.
     for (uint32_t id = 0; id < kTiParamCount; id++) {
         if (sound_param(id)) {
+            t->values[id] = values[id];
             synthlib_plugin_param_edited(user, id, values[id]);
         }
     }
 
-    memcpy(t->base, single, TI_SINGLE_LENGTH);
-    t->haveBase   = true;
     t->soundStale = true;
     ti_patch_name(single, t->soundName);
     snprintf(t->patchPath, sizeof(t->patchPath), "%s", path);
     t->patchIndex = index;
     t->preset     = preset;
-    synthlib_log_line("loaded \"%s\" (%s #%d, preset %d)", t->soundName, path, index, preset);
 }
 
 static bool ti_save_patch(void * user, const char * path) {
@@ -531,6 +537,7 @@ static void ti_load_faded(void * user, const uint8_t * single, const char * path
     synthlib_swap_fade_begin(&t->fade);
     ti_load_single(user, single, path, index, preset);
     synthlib_swap_fade_end(&t->fade);
+    synthlib_log_line("loaded \"%s\" (%s #%d, preset %d)", t->soundName, path, index, preset);
 }
 
 // every sound parameter to its default; the next save has no Single to keep bytes from

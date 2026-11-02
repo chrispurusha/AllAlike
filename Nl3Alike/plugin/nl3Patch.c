@@ -27,7 +27,7 @@
 
 #include <sys/stat.h>
 
-#define SOUNDS_FOLDER       "Library/Mobile Documents/com~apple~CloudDocs/Patches/Nord Lead 32"    // under $HOME
+#define SOUNDS_FOLDER       "Library/Mobile Documents/com~apple~CloudDocs/Patches/Nord Lead 32"  // under $HOME
 #define PRESETS_FOLDER      "Library/Application Support/Nl3Alike"                               // beside prefs.txt
 #define PRESETS_FILE        "Presets.syx"
 

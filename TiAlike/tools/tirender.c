@@ -81,6 +81,7 @@ int main(int argc, char ** argv) {
     float *  r      = (float *)calloc(frames + BLOCK, sizeof(float));
 
     ti_voices_init(&gVoices, rate);
+    ti_osc_wavetables_wait();
     ti_voices_set_tempo(&gVoices, 120.0);
     ti_voices_set_effects(&gVoices, true, true);
     ti_voices_set_fixed(&gVoices, getenv("TI_FLOAT") == NULL);
