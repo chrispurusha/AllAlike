@@ -35,4 +35,5 @@
 - Distortion Compensation on a saw: its level law at extreme Levels
 - Filter Overdrive and Q Normalise: check both again against the reference (owner, 2026-11-01)
 - Panel dials for LFO routes to pitch and width
+- Link: detect the SysEx ID automatically - an identity request on the chosen MIDI port, and SysEx ID set from the reply (owner 2026-11-02: the ID is not visible on the instrument)
 - Outliers after the LFOs: Vanilla group -3 dB, TB1, BubbleArp, China Cymbal, Ride 2, A Syncy Feeling, RainPicks, Timpani
