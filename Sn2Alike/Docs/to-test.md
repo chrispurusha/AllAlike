@@ -10,6 +10,6 @@ Finished work not yet checked against the instrument.
 - Sustain pedal in a host; order against notes in one block
 - The LFOS page: Shape, Speed, Range, Delay, Fade, Offset, Trigger, Cutoff; routes to pitch and width come from programs, with no dials yet
 - LFO Key and Free in a chord: Free programs cannot be compared with the reference by time window, its phase depends on its run time
-- Link in a host: MIDI menu, Link, Channel, Device; notes, bend, wheel, pedal; editing a dial while holding notes
+- Link in a host: MIDI menu, Link HW button (green / amber No port / Link busy), Channel, SysEx ID; notes, bend, wheel, pedal; editing a dial while holding notes
 - GLOBAL page: Limit, Mode, Trigger, Effects, Delay, Reverb and Hardware all fit
 - Presets > Read from Hardware in a host: the Reading count, the confirm, and the instrument's data carrying on after it

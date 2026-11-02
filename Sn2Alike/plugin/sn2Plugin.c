@@ -695,10 +695,15 @@ static void hardware_link(tSn2Plugin * t, void * user) {
         sn2_hardware_release(&t->hwLock);
         t->hwSent         = false;
         t->hwExtensionDue = false;
+        sn2_draw_set_link_busy(false);
         return;
     }
+    bool    busy   = !sn2_hardware_claim(&t->hwLock);
 
-    if (!sn2_hardware_claim(&t->hwLock)) {
+    sn2_draw_set_link_busy(busy);
+
+    if (busy) {
+        t->hwSent = false;      // all of the sound once the instrument is free
         return;
     }
     uint8_t single[SN2_SINGLE_LENGTH];

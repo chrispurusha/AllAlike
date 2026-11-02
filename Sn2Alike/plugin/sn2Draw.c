@@ -123,7 +123,8 @@ static char                  gPatchPath[1024];
 static int                   gPatchIndex;
 static int                   gPreset;
 static bool                  gPresetEdited;
-static tRectangle            gPrevRect, gNextRect, gLoadRect, gNameRect;
+static tRectangle            gPrevRect, gNextRect, gLoadRect, gNameRect, gLinkRect;
+static bool                  gLinkBusy;
 
 // notes §9: the Singles of the file the sound came from, read again only when the file changes
 static uint8_t               gSingles[SN2_MAX_SINGLES][SN2_SINGLE_LENGTH];
@@ -172,6 +173,10 @@ static bool            gClip;
 
 void sn2_draw_set_clip(bool on) {
     gClip = on;
+}
+
+void sn2_draw_set_link_busy(bool busy) {
+    gLinkBusy = busy;
 }
 
 void sn2_draw_set_display(tSn2DialDisplay display) {
@@ -727,24 +732,39 @@ static void draw_patch_bar(void) {
     const char * base = strrchr(gPatchPath, '/');
     double       x;
 
-    gPrevRect = (tRectangle){{
+    gLinkRect = (tRectangle){{
                                  PATCH_BAR_X, TITLE_Y + 2.0
+                             }, {
+                                 62.0, PATCH_BUTTON_H
+                             }
+    };
+    x         = gLinkRect.coord.x + draw_button_bounds(gLinkRect).size.w + 3.0 * PATCH_BUTTON_GAP;
+    gPrevRect = (tRectangle){{
+                                 x, TITLE_Y + 2.0
                              }, {
                                  52.0, PATCH_BUTTON_H
                              }
     };
     gNextRect = (tRectangle){{
-                                 PATCH_BAR_X + 58.0, TITLE_Y + 2.0
+                                 x + 58.0, TITLE_Y + 2.0
                              }, {
                                  52.0, PATCH_BUTTON_H
                              }
     };
     gLoadRect = (tRectangle){{
-                                 PATCH_BAR_X + 116.0, TITLE_Y + 2.0
+                                 x + 116.0, TITLE_Y + 2.0
                              }, {
                                  56.0, PATCH_BUTTON_H
                              }
     };
+    // lit while the instrument follows; amber when another instance has it or no MIDI output is chosen
+    bool linkOn   = gValue[kSn2ParamHwLink] >= 0.5;
+    bool noPort   = sn2_hw_port()[0] == '\0';
+    bool linkWarn = linkOn && (gLinkBusy || noPort);
+
+    draw_button(mainArea, gLinkRect, !linkOn ? "Link HW" : (noPort ? "No port" : (gLinkBusy ? "Link busy" : "Link HW")),
+                !linkOn ? (tRgb)RGB_GREY_7 : (linkWarn ? (tRgb){0.85, 0.6, 0.15}
+                                                                                 : (tRgb)RGB_GREEN_ON));
     draw_button(mainArea, gPrevRect, "< Prev", (tRgb)RGB_GREY_7);
     draw_button(mainArea, gNextRect, "Next >", (tRgb)RGB_GREY_7);
     draw_button(mainArea, gLoadRect, "Load...", (tRgb)RGB_GREY_7);
@@ -998,6 +1018,12 @@ bool sn2_draw_press(double x, double y, tSn2Edit * edit, bool * grabbed) {
 
     if (gNameEdit.active) {
         name_edit_commit();
+    }
+
+    if (within_rectangle((tCoord){x, y}, draw_button_bounds(gLinkRect))) {
+        edit->paramId    = kSn2ParamHwLink;
+        edit->normalized = (gValue[kSn2ParamHwLink] >= 0.5) ? 0.0 : 1.0;
+        return true;
     }
 
     if (within_rectangle((tCoord){x, y}, draw_button_bounds(gPrevRect))) {

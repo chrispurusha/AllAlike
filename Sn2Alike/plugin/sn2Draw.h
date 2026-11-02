@@ -69,8 +69,9 @@ void sn2_draw_set_value(uint32_t paramId, double normalized);
 typedef bool (*tSn2DialDisplay)(uint32_t paramId, const double * values, int32_t * step, char * text, size_t len);
 void sn2_draw_set_display(tSn2DialDisplay display);
 void sn2_draw_set_clip(bool on);
-void sn2_draw_read_hardware(void);     // Presets > Read from Hardware
-void sn2_draw_read_tick(void);         // from the panel's sync
+void sn2_draw_set_link_busy(bool busy); // Link on, the instrument another instance's
+void sn2_draw_read_hardware(void);      // Presets > Read from Hardware
+void sn2_draw_read_tick(void);          // from the panel's sync
 void sn2_draw_set_mouse(double x, double y);
 void sn2_draw_frame(int pixelWidth, int pixelHeight);
 bool sn2_draw_menu_active(void);

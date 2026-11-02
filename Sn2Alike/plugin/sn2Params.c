@@ -157,7 +157,7 @@ const tSynthLibParam     gSn2Params[kSn2ParamCount] = {
     {kSn2ParamLfo2Fade,       "LFO 2 Fade",              "Fade",     eSynthLibUnitIndexed,   0.0,            1.0,                         0.0,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
     {kSn2ParamHwLink,         "Link Hardware",           "Link",     eSynthLibUnitIndexed,   0.0,            1.0,                         0.0,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
     {kSn2ParamHwChannel,      "Hardware MIDI Channel",   "Channel",  eSynthLibUnitGeneric,   1.0,           16.0,                  6.0 / 15.0,                 15, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kSn2ParamHwDevice,       "Hardware Device ID",      "Device",   eSynthLibUnitGeneric,   0.0,          127.0,                 6.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kSn2ParamHwDevice,       "Hardware SysEx ID",       "SysEx ID", eSynthLibUnitGeneric,   0.0,          127.0,                 6.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
     {kSn2ParamPan,            "Pan",                     "Pan",      eSynthLibUnitGeneric,   0.0,          127.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
     {kSn2ParamPanSpeed,       "Pan Speed",               "Speed",    eSynthLibUnitGeneric,   0.0,          127.0,                34.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
     {kSn2ParamPanDepth,       "Pan Depth",               "Depth",    eSynthLibUnitGeneric,   0.0,          127.0,                         0.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
@@ -350,9 +350,9 @@ static const tSn2Section kLfoPage[]         = {
     {"LFO 2", {0.55, 0.80, 0.85}, kLfo2, 8},
 };
 static const tSn2Control kHardware[]        = {
-    {kSn2ParamHwLink,    "Link",    eTiControlChoice,   1, 0.0, kOffOn},
-    {kSn2ParamHwChannel, "Channel", eTiControlDial,    15, 1.0, NULL  },
-    {kSn2ParamHwDevice,  "Device",  eTiControlDial,   127, 0.0, NULL  },
+    {kSn2ParamHwLink,    "Link",     eTiControlChoice,   1, 0.0, kOffOn},
+    {kSn2ParamHwChannel, "Channel",  eTiControlDial,    15, 1.0, NULL  },
+    {kSn2ParamHwDevice,  "SysEx ID", eTiControlDial,   127, 0.0, NULL  },
 };
 static const tSn2Control kPan[]             = {
     {kSn2ParamPan,        "Pan",     eTiControlDial,   127, 0.0, NULL  },
