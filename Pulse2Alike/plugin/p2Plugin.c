@@ -875,6 +875,17 @@ static void free_running_phases(tP2Plugin * p) {
     }
 }
 
+// notes §57: an extra voice starts its oscillators where the plug-in's own engine did, so every voice has one timbre
+static void same_phases(tP2Plugin * v, const tP2Plugin * p) {
+    for (int i = 0; i < DCO_COUNT; i++) {
+        v->dco[i].phase = p->dco[i].phase;
+    }
+
+    for (int i = 0; i < UNISON_OSCS; i++) {
+        v->unison[i].phase = p->unison[i].phase;
+    }
+}
+
 static _Thread_local bool gMakingVoice;   // notes §57: an extra voice makes no voices of its own
 
 static void * p2_create(const tSynthLibPluginDesc * desc) {
@@ -932,6 +943,7 @@ static void * p2_create(const tSynthLibPluginDesc * desc) {
                     v->isVoice     = true;
                     v->startPreset = false;
                     v->noise      ^= 0x51EDu * (uint32_t)i;
+                    same_phases(v, p);   // notes §57
                 }
                 p->poly[i].engine = v;
                 p->poly[i].quiet  = POLY_QUIET_BLOCKS;
