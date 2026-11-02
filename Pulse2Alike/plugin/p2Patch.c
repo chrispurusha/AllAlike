@@ -248,7 +248,12 @@ static bool path_time(const char * path, struct timespec * t) {
     if (stat(path, &st) != 0) {
         return false;
     }
+#if defined (_WIN32)
+    t->tv_sec  = st.st_mtime;
+    t->tv_nsec = 0;
+#else
     *t = st.st_mtimespec;
+#endif
     return true;
 }
 

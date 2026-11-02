@@ -1,0 +1,223 @@
+#!/bin/zsh
+# Builds one AllAlike release for Windows, on this Mac: every plug-in do-release ships, as VST3 (Windows has no
+# Audio Unit), cross-built by tools/do-windows-plugin with llvm-mingw. Writes one .zip per architecture to the
+# Desktop - AllAlike-<version>-windows-x64.zip (any PC) and -arm64.zip (Windows on ARM, Parallels on Apple
+# silicon) - each with the plug-ins, "Read Me First.txt", LICENSE.txt and Licences/. Unsigned.
+#
+# Same arguments as ./do-release, and run with the SAME one for the same release, BEFORE the tag is made - both
+# work the next version out from the newest AllAlike-V* tag:
+#
+#   ./do-release-windows beta      V0.1.0-beta.1 -> V0.1.0-beta.2   (the everyday one)
+#   ./do-release-windows patch     V0.1.0-beta.1 -> V0.1.1-beta.1
+#   ./do-release-windows minor     V0.1.0-beta.1 -> V0.2.0-beta.1
+#   ./do-release-windows major     V0.1.0-beta.1 -> V1.0.0-beta.1
+#   ./do-release-windows final     V0.1.0-beta.1 -> V0.1.0
+#   ./do-release-windows 0.1.0-beta.1   a version as given
+#   ./do-release-windows           reuse the newest tag (rebuild an old release)
+#
+# The second argument is where the .zips go. Never creates or pushes the tag. Needs the VST3 SDK, llvm-mingw and
+# a G2Alike checkout beside this repo (see tools/do-windows-plugin).
+
+set -e
+
+ARG_BUMP="$1"
+DIST="${2:-$HOME/Desktop}"
+DIST="${DIST:a}"
+
+cd ${0:a:h}
+
+# name and one line for the Read Me - the same plug-ins as ./do-release
+PRODUCTS=(
+    "Pulse2Alike|A reproduction inspired by the Waldorf Pulse 2."
+    "TiAlike|A reproduction inspired by the Access Virus TI's single-patch engine. Work in progress."
+    "Sn2Alike|A reproduction inspired by the Novation Supernova II. Work in progress."
+)
+ARCHS=("x86_64|x64" "aarch64|arm64")
+
+WORK=$(mktemp -d)
+trap 'rm -rf "$WORK"' EXIT
+
+# --- version (as ./do-release) -------------------------------------------
+
+TAG_PREFIX="AllAlike-"
+LATEST=$(git tag --list --sort=-v:refname "${TAG_PREFIX}V*" 2>/dev/null | head -1)
+LATEST_VERSION="${LATEST#$TAG_PREFIX}"
+
+case "$ARG_BUMP" in
+    major|minor|patch|beta|final)
+        if [[ -z $LATEST ]]; then
+            echo "error: no ${TAG_PREFIX}V* tag to bump from yet - give the first version: ./do-release-windows 0.1.0-beta.1" >&2
+            exit 1
+        fi
+
+        if [[ ! $LATEST_VERSION =~ '^[Vv]([0-9]+)\.([0-9]+)\.([0-9]+)(-beta\.([0-9]+))?$' ]]; then
+            echo "error: newest tag '$LATEST' is not V<n>.<n>.<n>[-beta.<n>]; give a version instead." >&2
+            exit 1
+        fi
+        MAJOR=$match[1]
+        MINOR=$match[2]
+        PATCH=$match[3]
+        BETA=$match[5]
+
+        case "$ARG_BUMP" in
+            major) (( MAJOR++ )); MINOR=0; PATCH=0; BETA=1 ;;
+            minor) (( MINOR++ ));          PATCH=0; BETA=1 ;;
+            patch) (( PATCH++ ));                   BETA=1 ;;
+            beta)
+                if [[ -z $BETA ]]; then
+                    echo "error: '$LATEST' has no -beta.n to bump; use 'patch' to start a new beta series." >&2
+                    exit 1
+                fi
+                (( BETA++ ))
+                ;;
+            final) BETA="" ;;
+        esac
+        VERSION="V$MAJOR.$MINOR.$PATCH${BETA:+-beta.$BETA}"
+
+        if git rev-parse -q --verify "refs/tags/$TAG_PREFIX$VERSION" >/dev/null; then
+            echo "error: tag $TAG_PREFIX$VERSION already exists." >&2
+            exit 1
+        fi
+        NEW_TAG="$TAG_PREFIX$VERSION"
+        echo "==> version $VERSION ($ARG_BUMP bump from $LATEST)"
+        ;;
+
+    "")
+        if [[ -z $LATEST ]]; then
+            echo "error: no tag yet and no version given - try: ./do-release-windows 0.1.0-beta.1" >&2
+            exit 1
+        fi
+        VERSION="$LATEST_VERSION"
+        NEW_TAG=""
+        echo "==> version $VERSION (reusing newest tag)"
+        ;;
+
+    *)
+        if [[ ! $ARG_BUMP =~ '^[Vv]?[0-9]+\.' ]]; then
+            echo "error: '$ARG_BUMP' is not a bump keyword (major minor patch beta final) or a version." >&2
+            exit 1
+        fi
+        VERSION="V${ARG_BUMP#[Vv]}"
+        NEW_TAG="$TAG_PREFIX$VERSION"
+        echo "==> version $VERSION (specified)"
+        ;;
+esac
+
+if [[ -n $(git status --porcelain 2>/dev/null) ]]; then
+    echo "    WARNING: working tree has uncommitted changes" >&2
+fi
+VERSION_CLEAN="${VERSION#[Vv]}"
+
+# --- what every .zip carries ----------------------------------------------
+
+# THIRD_PARTY.md: FreeType (statically linked, FTL - the credit below is mandatory) and the VST3 SDK (MIT - its
+# notice travels with the binary). A release without them stops.
+FTL="../SynthLib/ThirdParty/freetype/docs/FTL.TXT"
+VST3_LICENSE="${VST3_SDK:-$HOME/Documents/vst3sdk}/LICENSE.txt"
+
+for f in "$FTL" "$VST3_LICENSE"; do
+    if [[ ! -f $f ]]; then
+        echo "error: $f is missing - a release must carry it (THIRD_PARTY.md)." >&2
+        exit 1
+    fi
+done
+
+NAMES=()
+LIST=""
+for entry in $PRODUCTS; do
+    NAMES+=("${entry%%|*}")
+    LIST+="    ${entry%%|*}: ${entry#*|}"$'\n'
+done
+
+SYNTHLIB_COMMIT="$(git -C ../SynthLib describe --always --dirty --abbrev=12)"
+ALLALIKE_COMMIT="$(git describe --always --dirty --abbrev=12)"
+ZIPS=()
+
+# --- one .zip per architecture --------------------------------------------
+
+for arch in $ARCHS; do
+    TRIPLE_ARCH="${arch%%|*}"
+    LABEL="${arch#*|}"
+    STAGE="$WORK/$LABEL/AllAlike-$VERSION_CLEAN-windows-$LABEL"
+
+    echo "==> building for Windows $LABEL: ${NAMES[*]}"
+
+    if ! ALIKE_WIN_VERSION="$VERSION_CLEAN" tools/do-windows-plugin $NAMES $LABEL >"$WORK/$LABEL.log" 2>&1; then
+        tail -20 "$WORK/$LABEL.log" >&2
+        echo "error: the Windows $LABEL build failed (log above)." >&2
+        exit 1
+    fi
+
+    mkdir -p "$STAGE/Licences"
+
+    for name in $NAMES; do
+        dll="$name/build/windows-$TRIPLE_ARCH/$name.vst3"
+
+        if [[ ! -f $dll ]]; then
+            echo "error: $dll was not built." >&2
+            exit 1
+        fi
+        cp "$dll" "$STAGE/"
+    done
+
+    cp LICENSE "$STAGE/LICENSE.txt"
+    cp "$FTL" "$STAGE/Licences/FreeType FTL.txt"
+    cp "$VST3_LICENSE" "$STAGE/Licences/VST3 SDK LICENSE.txt"
+
+    if [[ $LABEL == arm64 ]]; then
+        WHICH="Windows on ARM (Snapdragon PCs, Parallels on an Apple silicon Mac). For an Intel or AMD PC, use the x64 .zip."
+    else
+        WHICH="64-bit Windows 10 or later on Intel or AMD. For Windows on ARM, use the arm64 .zip."
+    fi
+
+    # CRLF, so Notepad on an older Windows shows it as lines
+    cat <<EOF | sed 's/$/\r/' > "$STAGE/Read Me First.txt"
+AllAlike $VERSION_CLEAN for Windows ($LABEL)
+Reproductions of synthesizers as VST3 plug-ins for $WHICH
+
+$LIST
+INSTALLING
+
+Copy whichever .vst3 files you want into:
+
+    C:\\Program Files\\Common Files\\VST3
+
+then restart the host, or rescan its plug-ins. Each .vst3 is a single file and needs nothing beside it.
+
+These builds are not signed, so Windows may warn that the files came from the internet. If a host does
+not list a plug-in after a rescan, right-click the .vst3, choose Properties, tick Unblock, and rescan.
+
+Sending sounds to and reading them from the instruments themselves is not in the Windows builds yet:
+those menu items report that there is no MIDI.
+
+SOUNDS
+
+Each plug-in keeps its presets in %USERPROFILE%\\Library\\Application Support\\<plug-in>\\Presets.syx,
+as on the Mac, and they start empty.
+To fill them, use Import Presets in its Presets or File menu, with .syx or .mid files of the instrument's own sounds.
+No sounds ship with these plug-ins.
+
+LICENCE
+
+GPL version 3 - see LICENSE.txt.
+
+Portions of this software are copyright (C) The FreeType Project (www.freetype.org). All rights reserved.
+This software is based in part on the work of the FreeType Team. Its licence, and the VST3 SDK's, are in
+the Licences folder.
+
+Built from AllAlike $ALLALIKE_COMMIT with SynthLib $SYNTHLIB_COMMIT
+EOF
+
+    ZIP="$DIST/AllAlike-$VERSION_CLEAN-windows-$LABEL.zip"
+    rm -f "$ZIP"
+    ( cd "$WORK/$LABEL" && zip -qrX "$ZIP" "${STAGE:t}" )
+    ZIPS+=("$ZIP")
+    echo "==> $ZIP"
+    echo "    contains: ${#NAMES} plug-ins, Read Me First.txt, LICENSE.txt, Licences/"
+done
+
+if [[ -n $NEW_TAG ]]; then
+    echo
+    echo "Once the .zips (and the Mac .dmg from ./do-release with the same argument) have been checked:"
+    echo "    git tag $NEW_TAG && git push origin $NEW_TAG"
+fi

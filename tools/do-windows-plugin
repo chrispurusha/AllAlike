@@ -1,0 +1,173 @@
+#!/bin/zsh
+#
+# do-windows-plugin - cross-builds an AllAlike VST3 for Windows on this Mac, with llvm-mingw.
+#
+#   tools/do-windows-plugin Pulse2Alike           x64
+#   tools/do-windows-plugin TiAlike arm64         native Windows on ARM - Parallels on Apple silicon
+#   tools/do-windows-plugin all [x64|arm64]       all four
+#
+# Result: <Product>/build/windows-<arch>/<Product>.vst3, ONE FILE (the DLL) - copy it into
+# C:\Program Files\Common Files\VST3. VST3 only: there is no Audio Unit on Windows.
+#
+# G2Alike's tools/do-windows-plugin, made generic. THE SOURCE LIST AND THE DEFINES ARE THE PRODUCT'S
+# do-plugin's, read from it, so the two cannot drift. In place of the Mac's parts:
+#   <prefix>Hardware.c       -> plugin/<prefix>HardwareWin.c (no MIDI to the instrument yet)
+#   synthlibPanelView.m      -> SynthLib's synthlibPanelViewWin.c (HWND + OpenGL)
+#   synthlibPluginVst3View.mm -> SynthLib's synthlibPluginVst3ViewWin.cpp
+#   synthlibMidi*.c          -> G2Alike's platform/windows stand-ins, and its winCompat.h
+# SynthLib is compiled from source: Windows does not use libSynthLib.a (SynthLib/Docs/build.md).
+#
+# Environment: VST3_SDK, LLVM_MINGW, SYNTHLIB_DIR, G2ALIKE_DIR, ALIKE_WIN_VERSION (the version string).
+
+set -e
+HERE=${0:A:h}
+ROOT=${HERE:h}
+LLVM_MINGW=${LLVM_MINGW:-$HOME/Developer/llvm-mingw}
+SDK=${VST3_SDK:-$HOME/Documents/vst3sdk}
+SL=${SYNTHLIB_DIR:-$ROOT/../SynthLib}
+SL=${SL:A}
+G2=${G2ALIKE_DIR:-$ROOT/../G2Alike}
+G2=${G2:A}
+WIN=$G2/platform/windows
+ARCH=x86_64
+PRODUCTS=()
+
+for arg in "$@"; do
+    case $arg in
+        arm64|aarch64) ARCH=aarch64 ;;
+        x64|x86_64)    ARCH=x86_64 ;;
+        all)           PRODUCTS=(Pulse2Alike TiAlike Sn2Alike Nl3Alike) ;;
+        *Alike)        PRODUCTS+=($arg) ;;
+        *) echo "usage: tools/do-windows-plugin <Product>|all [x64|arm64]" >&2; exit 2 ;;
+    esac
+done
+(( ${#PRODUCTS} > 0 )) || { echo "usage: tools/do-windows-plugin <Product>|all [x64|arm64]" >&2; exit 2; }
+
+TRIPLE=$ARCH-w64-mingw32
+CC=$LLVM_MINGW/bin/$TRIPLE-clang
+CXX=$LLVM_MINGW/bin/$TRIPLE-clang++
+
+[[ -x $CC ]]                 || { echo "error: no llvm-mingw at $LLVM_MINGW - see G2Alike/Docs/windows-port-plan.md" >&2; exit 1; }
+[[ -d $SDK/pluginterfaces ]] || { echo "error: VST3 SDK not found at $SDK" >&2; exit 1; }
+[[ -f $WIN/winCompat.h ]]    || { echo "error: G2Alike's platform/windows not found at $WIN (set G2ALIKE_DIR)" >&2; exit 1; }
+
+# --- FreeType, once per architecture, beside SynthLib's own third-party builds -----------------------
+
+DEPS=$SL/build/windows-$ARCH/deps
+
+if [[ ! -f $DEPS/lib/libfreetype.a ]]; then
+    echo "==> freetype for $TRIPLE"
+    cmake -S $SL/ThirdParty/freetype -B $SL/build/windows-$ARCH/freetype -G Ninja -DCMAKE_BUILD_TYPE=Release \
+          -DCMAKE_TOOLCHAIN_FILE=$G2/cmake/toolchain-windows.cmake -DG2_WIN_ARCH=$ARCH -DLLVM_MINGW=$LLVM_MINGW \
+          -DCMAKE_INSTALL_PREFIX=$DEPS -DBUILD_SHARED_LIBS=OFF -DFT_DISABLE_ZLIB=ON -DFT_DISABLE_BZIP2=ON \
+          -DFT_DISABLE_PNG=ON -DFT_DISABLE_HARFBUZZ=ON -DFT_DISABLE_BROTLI=ON >/dev/null
+    cmake --build $SL/build/windows-$ARCH/freetype >/dev/null
+    cmake --install $SL/build/windows-$ARCH/freetype >/dev/null
+fi
+
+# --- SynthLib, as the Mac library takes it but without the Mac's files -------------------------------
+
+SL_SOURCES=()
+for src in $SL/src/*.c $SL/audio/*.c $SL/plugin/*.c; do
+    case ${src:t} in
+        synthlibMidi.c|synthlibMidiPorts.c|synthlibPluginAu.c|device.c) ;;    # CoreMIDI, the Audio Unit, CoreAudio
+        *) SL_SOURCES+=($src) ;;
+    esac
+done
+SL_SOURCES+=($WIN/synthlibMidiWin.c $WIN/synthlibMidiPortsWin.c)
+SL_CXX=(
+    $SL/src/*.cpp
+    $SL/plugin/synthlibPluginVst3.cpp
+    $SL/plugin/synthlibPluginVst3ViewWin.cpp
+    $SDK/pluginterfaces/base/funknown.cpp
+    $SDK/pluginterfaces/base/coreiids.cpp
+    $SDK/public.sdk/source/vst/vstinitiids.cpp
+    $SDK/public.sdk/source/common/commoniids.cpp
+    $SDK/pluginterfaces/base/ustring.cpp
+    $SDK/pluginterfaces/base/conststringtable.cpp
+)
+
+FLAGS=(-O2 -include $WIN/winCompat.h -include $HERE/windows/alikeCompat.h -D_USE_MATH_DEFINES -D_POSIX_THREAD_SAFE_FUNCTIONS=200112L -DSYNTHLIB_PLUGIN_BUILD=1)
+
+build_one() {
+    local product=$1
+    local dir=$ROOT/$product
+    local OUT=$dir/build/windows-$ARCH
+    local OBJ=$OUT/obj
+
+    [[ -f $dir/do-plugin ]] || { echo "error: no $dir/do-plugin" >&2; return 1; }
+
+    # The product's name, version, SOURCES and DEFS, with HERE and SL pointing where its do-plugin expects
+    local HERE=$dir PLUGIN_NAME SOURCES DEFS AU_VERSION VERSION_CORE VERSION_PARTS
+    # The version as do-plugin takes it (its own variable, else 0.1.0); ALIKE_WIN_VERSION overrides it.
+    local script=$(sed -n '/^PLUGIN_NAME=/,/^AU_VERSION=/p; /^SOURCES=(/,/^)/p; /^DEFS=/p' $dir/do-plugin)
+
+    if [[ -n $ALIKE_WIN_VERSION ]]; then
+        script=$(print -r -- $script | sed -E "s/^([A-Z0-9]+_VERSION)=\"\\\$\\{[A-Z0-9_]+:-[^}]*\\}\"/\\1=\"$ALIKE_WIN_VERSION\"/")
+    fi
+    eval "$script"
+    local version=${${DEFS[(r)-DSYNTHLIB_VERSION_STRING=*]#*=\"}%\"}
+
+    # The Mac's link to the instrument out, its Windows stand-in in
+    SOURCES=(${SOURCES:#*Hardware.c})
+    SOURCES+=($dir/plugin/*HardwareWin.c)
+    SOURCES+=($ROOT/tools/windows/alikeWin.c)    # alikeCompat.h's getenv("HOME")
+
+    local INCLUDES=(-I$dir/src -I$dir/plugin -I$SL/src -I$SL/audio -I$SL/plugin -I$SL/ThirdParty/glfw/include
+                    -I$DEPS/include/freetype2 -isystem $SDK)
+
+    rm -rf $OBJ
+    mkdir -p $OBJ
+    local OBJECTS=() LIB_OBJECTS=() o src
+
+    echo "==> $PLUGIN_NAME $version VST3 for $TRIPLE (${#SOURCES} + ${#SL_SOURCES} C, ${#SL_CXX} C++)"
+
+    for src in $SOURCES; do
+        o=$OBJ/${${src:t}%.*}.o
+        $CC -std=gnu17 $FLAGS $DEFS $INCLUDES -c $src -o $o &
+        OBJECTS+=($o)
+    done
+
+    for src in $SL_SOURCES; do
+        o=$OBJ/sl_${${src:t}%.*}.o
+        $CC -std=gnu17 $FLAGS $DEFS $INCLUDES -c $src -o $o &
+        LIB_OBJECTS+=($o)
+    done
+
+    for src in $SL_CXX; do
+        o=$OBJ/${${src:t}%.*}.oxx
+        local quiet=()
+        [[ $src == $SDK/* ]] && quiet=(-w)    # Steinberg's own files, theirs to warn about
+        $CXX -std=gnu++17 $FLAGS $quiet -Wno-pragma-pack $DEFS $INCLUDES -c $src -o $o &
+        LIB_OBJECTS+=($o)
+    done
+    wait
+
+    for o in $OBJECTS $LIB_OBJECTS; do
+        [[ -f $o ]] || { echo "error: compile failed for ${o:t}" >&2; return 1; }
+    done
+
+    # SynthLib as an archive, as on the Mac, so the files this plug-in never calls (the GLFW window) drop out
+    local LIB=$OBJ/libSynthLib.a
+    local DLL=$OUT/$PLUGIN_NAME.vst3
+
+    $LLVM_MINGW/bin/llvm-ar rcs $LIB $LIB_OBJECTS
+    rm -rf $DLL
+    # One self-contained DLL: the C++ runtime and winpthreads linked in, so nothing beside it is needed
+    $CXX -shared -static -o $DLL -Wl,-u,GetPluginFactory $OBJECTS $LIB $DEPS/lib/libfreetype.a \
+         -lopengl32 -lgdi32 -luser32 -lole32 -lshell32 -lcomdlg32 -lwinmm -lpthread -Wl,--exclude-all-symbols || return 1
+
+    echo "built: $DLL ($(du -h $DLL | cut -f1))"
+    echo "exports: $(PATH=$LLVM_MINGW/bin:$PATH $TRIPLE-objdump -p $DLL | awk '/Ordinal +RVA +Name/ {on=1; next} on && NF==3 {print $3} on && NF<3 {on=0}' | tr '\n' ' ')"
+    echo "needs: $(PATH=$LLVM_MINGW/bin:$PATH $TRIPLE-objdump -p $DLL | grep 'DLL Name' | awk '{print $3}' | tr '\n' ' ')"
+}
+
+FAILED=()
+for product in $PRODUCTS; do
+    build_one $product || FAILED+=($product)
+done
+
+if (( ${#FAILED} > 0 )); then
+    echo "FAILED: ${FAILED[*]}" >&2
+    exit 1
+fi
