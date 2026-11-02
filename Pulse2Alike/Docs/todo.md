@@ -70,6 +70,7 @@ One line per item. Measurements and reasoning go in `findings.md`, design in `de
 - Value text in real units (times, rates, semitones) where the laws are measured; the panel shows raw values now, as the instrument does
 - SynthLib: maximise the C and reduce the C++ (CT 2026-10-21) - port src/fileBrowser.cpp, bankBrowser.cpp and prefs.cpp to C; the VST3 wrapper and views stay C++/Obj-C++ as the SDK requires
 - Editor loads (p2_load_patch, p2_load_preset): the fade opens before the new sound is in the engine. Only synthlib_plugin_param_edited carries the values, and they come back a block or more later on VST3, and on an Audio Unit only once the main thread is free, after the fade has ended. So the old sound fades back in, then the new values land one by one with no fade over them. TiAlike fixed this 2026-11-02 by writing each value into the engine as well as reporting it, while the fade still holds (tiPlugin.c ti_load_single)
+- The instrument's random sound generator (CT 2026-11-02): one preset, P500 CT thinks, makes a random sound when loaded - confirm which slot and how it behaves on the instrument, then model it (the plug-in plays P500 as a stored dump now)
 
 ## DO NOT RE-TRY
 - Four one-pole stages with LP24 at the end (per-stage poles): worse than the free-mix fit, implausible stage ratios, no HP notch (findings, first linear filter fit)

@@ -181,10 +181,10 @@ void p2_draw_set_host(const tP2PatchHost * host) {
     gHost = host;
 }
 
-static bool gOver;
+static bool gClip;
 
-void p2_draw_set_over(bool on) {
-    gOver = on;
+void p2_draw_set_clip(bool on) {
+    gClip = on;
 }
 
 void p2_draw_set_user(void * user) {
@@ -934,11 +934,11 @@ void p2_draw_frame(int pixelWidth, int pixelHeight) {
     }
     set_rgb_colour((tRgb){0.95, 0.95, 0.97});
     render_text(mainArea, (tRectangle){{MARGIN_X, TITLE_Y}, {0.0, 18.0}}, "Pulse2Alike");
-    // the overload lamp just after the title, and nothing to its right may start before it ends
-    tRectangle overRect = {{MARGIN_X + get_text_width("Pulse2Alike", 18.0, eNoCache) + 10.0, TITLE_Y + 1.0}, {38.0, 15.0}};
-    double     overEnd  = overRect.coord.x + overRect.size.w + (3.0 * PATCH_BUTTON_GAP);
+    // the clip lamp just after the title, and nothing to its right may start before it ends
+    tRectangle clipRect = {{MARGIN_X + get_text_width("Pulse2Alike", 18.0, eNoCache) + 10.0, TITLE_Y + 1.0}, {38.0, 15.0}};
+    double     clipEnd  = clipRect.coord.x + clipRect.size.w + (3.0 * PATCH_BUTTON_GAP);
 
-    fitted_button(overRect, "OVER", gOver ? (tRgb){1.0, 0.15, 0.1}
+    fitted_button(clipRect, "CLIP", gClip ? (tRgb){1.0, 0.15, 0.1}
                                                                    : (tRgb){0.32, 0.32, 0.32});
     draw_tabs();
     layout();
@@ -948,7 +948,7 @@ void p2_draw_frame(int pixelWidth, int pixelHeight) {
         double       x;
 
         gLinkRect = (tRectangle){{
-                                     fmax(overEnd, (gPageCount > LINK_ABOVE_TAB) ? gTabs[LINK_ABOVE_TAB].coord.x : MARGIN_X), TITLE_Y + 2.0
+                                     fmax(clipEnd, (gPageCount > LINK_ABOVE_TAB) ? gTabs[LINK_ABOVE_TAB].coord.x : MARGIN_X), TITLE_Y + 2.0
                                  }, {
                                      62.0, PATCH_BUTTON_H
                                  }

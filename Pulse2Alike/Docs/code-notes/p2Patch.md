@@ -35,7 +35,15 @@ rewrites that slot's 137 bytes in place in the file (`pwrite`); if the file is m
 whole cache is written instead, through a temporary file renamed over it, so a failed write never leaves half a
 file. Every store and every read notes the file's modification time; `p2_presets_refresh()` re-reads the file when
 that time has moved, which is how one instance sees another process's store. Within a process the cache is shared,
-so every instance sees a store at once. INIT is every parameter at its default, named INIT, device byte 00.
+so every instance sees a store at once. INIT is every parameter at its default, named INIT, device byte 00. With
+no presets file, the first read makes one of the 500 INITs.
+
+A dump carries no voice count, so `voices.txt` beside `presets.syx` holds one: a line `NNN V` for each of the 500,
+and a preset with no line (a hand-edited file) is 1. With no file, one is made with every preset at 1. A store writes the
+instance's Voices with the dump; an import or a backup puts every preset back to 1. Loading a preset - on the panel
+or by program change - sets Voices from it, so a preset never stored with more plays one voice. A host project
+restores its own Voices, as it does the rest of the sound. The counts are cached beside the dumps (atomic bytes, so
+the audio thread's program change reads them) and re-read when the file's modification time moves.
 
 ## 7. Import and export
 A `.syx` file of any length is read dump by dump: each goes to the slot it is addressed to, or, when it is

@@ -282,8 +282,8 @@ typedef struct tP2Plugin_ {
     double            smooth;
     _Atomic int       programShown;                        // notes §20: the last program change's sound number, for the panel
     int               preset;                              // notes §48: main thread; the preset the sound came from, 0 none
-    _Atomic bool      overload;                            // the output passed full scale; the panel holds the lamp
-    double            overUntil;
+    _Atomic bool      clipped;                             // the output passed full scale; the panel holds the lamp
+    double            clipUntil;
     _Atomic bool      startPreset;                         // notes §48: a new instance loads P001 - first block or first frame
     double            presetsChecked;                      // notes §48: when the presets file was last looked at
     bool              haveBase;
@@ -346,6 +346,17 @@ static double plain(const tP2Plugin * p, uint32_t id) {
 
 static int32_t plain_int(const tP2Plugin * p, uint32_t id) {
     return (int32_t)lround(plain(p, id));
+}
+
+// Main thread: the Voices parameter as the host holds it
+static int host_voices(void * user) {
+    return (int)lround(gP2Params[kP2ParamVoices].plainMin
+                       + (synthlib_plugin_param_value(user, kP2ParamVoices) * (gP2Params[kP2ParamVoices].plainMax - gP2Params[kP2ParamVoices].plainMin)));
+}
+
+// A preset's voice count as the Voices parameter's normalized value
+static double voices_normalized(int voices) {
+    return (voices - gP2Params[kP2ParamVoices].plainMin) / (gP2Params[kP2ParamVoices].plainMax - gP2Params[kP2ParamVoices].plainMin);
 }
 
 // notes §2
@@ -1708,6 +1719,13 @@ static void preset_change(tP2Plugin * p, int number) {
         synthlib_plugin_param_edited(p, id, values[id]);
     }
 
+    // a preset plays with the voice count stored with it - 1 unless stored with more
+    values[kP2ParamVoices] = voices_normalized(p2_presets_voices(number));
+
+    if (values[kP2ParamVoices] != p->param[kP2ParamVoices]) {
+        p->param[kP2ParamVoices] = values[kP2ParamVoices];
+        synthlib_plugin_param_edited(p, kP2ParamVoices, values[kP2ParamVoices]);
+    }
     update_dcos(p);
     atomic_store(&p->programShown, number);
 }
@@ -1897,7 +1915,7 @@ static void p2_process(void * inst, const float *const * in, uint32_t numIn, flo
     for (uint32_t ch = 0; (ch < numOut) && (ch < 2) && (out != NULL); ch++) {
         for (uint32_t f = 0; (out[ch] != NULL) && (f < frames); f++) {
             if (fabsf(out[ch][f]) > 1.0f) {
-                atomic_store(&p->overload, true);
+                atomic_store(&p->clipped, true);
                 break;
             }
         }
@@ -2221,6 +2239,7 @@ static void p2_load_preset_now(void * user, int number) {
         }
     }
 
+    synthlib_plugin_param_edited(user, kP2ParamVoices, voices_normalized(p2_presets_voices(number)));
     memcpy(p->baseDump, dump, P2_DUMP_LENGTH);
     p->haveBase     = true;
     p->patchPath[0] = '\0';
@@ -2236,7 +2255,7 @@ static bool p2_store_preset(void * user, int number) {
 
     current_dump(user, "", dump);
 
-    if (!p2_presets_store(number, dump)) {
+    if (!p2_presets_store(number, dump, host_voices(user))) {
         synthlib_log_line("could not store P%03d to %s", number, p2_presets_path());
         return false;
     }
@@ -2261,7 +2280,7 @@ static bool preset_edited(tP2Plugin * p, void * user) {
     }
     current_dump(user, "", now);
     p2_presets_dump(p->preset, stored);
-    return memcmp(now + 7, stored + 7, P2_DUMP_LENGTH - 9) != 0;
+    return (memcmp(now + 7, stored + 7, P2_DUMP_LENGTH - 9) != 0) || (host_voices(user) != p2_presets_voices(p->preset));
 }
 
 // ---- the instrument, over USB MIDI (notes §41) --------------------------------------------------
@@ -2302,7 +2321,7 @@ static int hw_cc(uint32_t id) {
     return -1;
 }
 
-#define OVER_HOLD_S    (1.5)
+#define CLIP_HOLD_S    (1.5)
 
 static double now_seconds(void) {
     struct timespec t;
@@ -2529,10 +2548,10 @@ static void p2_panel_sync(void * user) {
 
     p2_draw_set_user(user);
 
-    if (atomic_exchange(&p->overload, false)) {
-        p->overUntil = now_seconds() + OVER_HOLD_S;
+    if (atomic_exchange(&p->clipped, false)) {
+        p->clipUntil = now_seconds() + CLIP_HOLD_S;
     }
-    p2_draw_set_over(now_seconds() < p->overUntil);
+    p2_draw_set_clip(now_seconds() < p->clipUntil);
 
     if (atomic_exchange(&p->startPreset, false)) {   // notes §48: no audio block yet - the editor loads it
         p2_load_preset_now(user, 1);

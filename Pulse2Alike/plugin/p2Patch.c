@@ -156,6 +156,7 @@ bool p2_patch_save_file(const char * path, const uint8_t dump[P2_DUMP_LENGTH]) {
 #define SOUNDS_FOLDER     "Library/Mobile Documents/com~apple~CloudDocs/Patches/Pulse2"   // under $HOME
 #define PRESETS_FOLDER    "Library/Application Support/Pulse2Alike"                       // beside prefs.txt
 #define PRESETS_FILE      "presets.syx"
+#define VOICES_FILE       "voices.txt"                                                    // beside presets.syx
 
 // notes §5: each slot is a seqlock - the main thread writes it, the audio thread copies it and keeps the copy only
 // if the generation did not move (odd = being written)
@@ -163,6 +164,9 @@ static uint8_t          gCache[P2_PATCH_SLOTS][P2_DUMP_LENGTH];
 static _Atomic uint32_t gGeneration[P2_PATCH_SLOTS];
 static char             gCacheName[P2_PATCH_SLOTS][P2_SOUND_NAME_LENGTH + 1];
 static struct timespec  gFileTime;   // the presets file's modification time when last read or written
+// each preset's voice count, which a sound dump does not carry - 0 stands for 1, the default; read by the audio thread
+static _Atomic uint8_t  gVoices[P2_PATCH_SLOTS];
+static struct timespec  gVoicesTime; // the voices file's modification time when last read or written
 static pthread_once_t   gCacheOnce = PTHREAD_ONCE_INIT;
 
 const char * p2_patch_sounds_folder(void) {
@@ -176,6 +180,13 @@ const char * p2_presets_path(void) {
     static char path[1024];
 
     snprintf(path, sizeof(path), "%s/%s/%s", getenv("HOME") ? getenv("HOME") : "", PRESETS_FOLDER, PRESETS_FILE);
+    return path;
+}
+
+const char * p2_presets_voices_path(void) {
+    static char path[1024];
+
+    snprintf(path, sizeof(path), "%s/%s/%s", getenv("HOME") ? getenv("HOME") : "", PRESETS_FOLDER, VOICES_FILE);
     return path;
 }
 
@@ -231,17 +242,90 @@ static void slot_write(int number, const uint8_t dump[P2_DUMP_LENGTH]) {
     atomic_fetch_add(&gGeneration[i], 1);
 }
 
-static bool file_time(struct timespec * t) {
+static bool path_time(const char * path, struct timespec * t) {
     struct stat st;
 
-    if (stat(p2_presets_path(), &st) != 0) {
+    if (stat(path, &st) != 0) {
         return false;
     }
     *t = st.st_mtimespec;
     return true;
 }
 
-// notes §6: slot n from the file's dump n, or INIT where the file is missing, short or not a sound there
+static bool file_time(struct timespec * t) {
+    return path_time(p2_presets_path(), t);
+}
+
+static bool same_time(const struct timespec * a, const struct timespec * b) {
+    return (a->tv_sec == b->tv_sec) && (a->tv_nsec == b->tv_nsec);
+}
+
+static bool voices_write(void);
+
+// The voices file: a line "NNN V" for each preset; a preset with no line is 1. With no file, one is made, every
+// preset at 1
+static void voices_read(void) {
+    FILE *  f                     = fopen(p2_presets_voices_path(), "r");
+    uint8_t found[P2_PATCH_SLOTS] = {0};
+    int     number                = 0;
+    int     voices                = 0;
+    int     n                     = 0;
+
+    while ((f != NULL) && (fscanf(f, "%d %d", &number, &voices) == 2)) {
+        if ((number >= 1) && (number <= P2_PATCH_SLOTS) && (voices >= 1) && (voices <= P2_PRESET_VOICES_MAX)) {
+            found[number - 1] = (uint8_t)voices;
+        }
+    }
+
+    if (f != NULL) {
+        fclose(f);
+    }
+
+    for (n = 0; n < P2_PATCH_SLOTS; n++) {
+        atomic_store(&gVoices[n], (found[n] > 1) ? found[n] : 0);
+    }
+
+    if ((f == NULL) && (access(p2_presets_voices_path(), F_OK) != 0)) {
+        (void)voices_write();
+    }
+
+    if (!path_time(p2_presets_voices_path(), &gVoicesTime)) {
+        gVoicesTime = (struct timespec){
+            0, 0
+        };
+    }
+}
+
+// The whole voices file - a line for each of the 500 - through a temporary, so a failed write never leaves half a file
+static bool voices_write(void) {
+    char   temp[1100];
+    FILE * f      = NULL;
+    bool   ok     = true;
+    int    n      = 0;
+    int    voices = 0;
+
+    p2_presets_make_folder();
+    snprintf(temp, sizeof(temp), "%s.tmp", p2_presets_voices_path());
+    f  = fopen(temp, "w");
+
+    if (f == NULL) {
+        return false;
+    }
+
+    for (n = 0; n < P2_PATCH_SLOTS; n++) {
+        voices = atomic_load(&gVoices[n]);
+        ok     = (fprintf(f, "%03d %d\n", n + 1, (voices > 1) ? voices : 1) > 0) && ok;
+    }
+
+    ok = (fclose(f) == 0) && ok && (rename(temp, p2_presets_voices_path()) == 0);
+    (void)path_time(p2_presets_voices_path(), &gVoicesTime);
+    return ok;
+}
+
+static bool file_write_all(void);
+
+// notes §6: slot n from the file's dump n, or INIT where the file is missing, short or not a sound there. With no
+// file, one is made of the 500 INITs
 static void cache_read(void) {
     FILE *  f = fopen(p2_presets_path(), "rb");
     uint8_t dump[P2_DUMP_LENGTH];
@@ -262,6 +346,8 @@ static void cache_read(void) {
 
     if (f != NULL) {
         fclose(f);
+    } else if (access(p2_presets_path(), F_OK) != 0) {
+        (void)file_write_all();
     }
 
     if (!file_time(&gFileTime)) {
@@ -269,6 +355,7 @@ static void cache_read(void) {
             0, 0
         };
     }
+    voices_read();
 }
 
 void p2_presets_load(void) {
@@ -276,11 +363,19 @@ void p2_presets_load(void) {
 }
 
 bool p2_presets_refresh(void) {
-    struct timespec now;
+    struct timespec now       = {0, 0};
+    struct timespec voicesNow = {0, 0};
 
     p2_presets_load();
 
-    if (!file_time(&now) || ((now.tv_sec == gFileTime.tv_sec) && (now.tv_nsec == gFileTime.tv_nsec))) {
+    // a missing file reads as time 0, so one deleted elsewhere is seen too
+    (void)path_time(p2_presets_voices_path(), &voicesNow);
+
+    if (!same_time(&voicesNow, &gVoicesTime)) {
+        voices_read();
+    }
+
+    if (!file_time(&now) || same_time(&now, &gFileTime)) {
         return false;
     }
     cache_read();
@@ -323,8 +418,9 @@ static bool file_write_all(void) {
     return ok;
 }
 
-// notes §6: write-through - the slot in the cache, then its 137 bytes in place (the whole file if it is not whole)
-bool p2_presets_store(int number, const uint8_t dump[P2_DUMP_LENGTH]) {
+// notes §6: write-through - the slot in the cache, then its 137 bytes in place (the whole file if it is not whole);
+// its voice count to the voices file
+bool p2_presets_store(int number, const uint8_t dump[P2_DUMP_LENGTH], int voices) {
     uint8_t     slot[P2_DUMP_LENGTH];
     struct stat st;
     bool        ok = false;
@@ -346,10 +442,17 @@ bool p2_presets_store(int number, const uint8_t dump[P2_DUMP_LENGTH]) {
         ok = file_write_all();
     }
     (void)file_time(&gFileTime);
+
+    voices = ((voices > 1) && (voices <= P2_PRESET_VOICES_MAX)) ? voices : 0;
+
+    if (atomic_load(&gVoices[number - 1]) != voices) {
+        atomic_store(&gVoices[number - 1], (uint8_t)voices);
+        ok = voices_write() && ok;
+    }
     return ok;
 }
 
-// notes §6: all 500 at once (an import), one file write
+// notes §6: all 500 at once (an import), one file write; every preset back to one voice, as dumps carry none
 bool p2_presets_store_all(const uint8_t dumps[P2_PATCH_SLOTS][P2_DUMP_LENGTH]) {
     bool ok;
 
@@ -365,6 +468,12 @@ bool p2_presets_store_all(const uint8_t dumps[P2_PATCH_SLOTS][P2_DUMP_LENGTH]) {
 
     ok = file_write_all();
     (void)file_time(&gFileTime);
+
+    for (int n = 0; n < P2_PATCH_SLOTS; n++) {
+        atomic_store(&gVoices[n], 0);
+    }
+
+    ok = voices_write() && ok;
     return ok;
 }
 
@@ -521,6 +630,17 @@ bool p2_patch_cached(int number, double normalized[kP2ParamCount], char name[P2_
 void p2_presets_dump(int number, uint8_t dump[P2_DUMP_LENGTH]) {
     p2_presets_load();
     memcpy(dump, gCache[((number >= 1) && (number <= P2_PATCH_SLOTS)) ? number - 1 : 0], P2_DUMP_LENGTH);
+}
+
+// Any thread: the preset's voice count, 1 unless it was stored with more
+int p2_presets_voices(int number) {
+    int voices = 0;
+
+    if ((number < 1) || (number > P2_PATCH_SLOTS)) {
+        return 1;
+    }
+    voices = atomic_load(&gVoices[number - 1]);
+    return (voices > 1) ? voices : 1;
 }
 
 const char * p2_presets_name(int number) {
