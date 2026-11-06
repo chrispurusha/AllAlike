@@ -35,10 +35,10 @@ Missing everywhere, or built in one and wanted in the others:
 **Needs more work**
 - **Drive.** Mono, as on the instrument (one circuit ahead of the two VCAs; `code-notes/p2Plugin.md` §60). The model is at its limit: a rebuild as one gain stage plus a fixed clipper per curve is planned (`code-notes/p2Drive.md` §9). FUZZ is close by ear at low and middle Drive, not at 127, and its even harmonics do not grow with Drive; quiet inputs are not lifted as on the instrument. TUBE at high Drive is a near-switch the present chain cannot make, and is 10 dB loud on noise.
 - **Filter.** LP12's stopband 2.5 dB high at 1-2.5 kHz at cutoff 0; level sweeps for its nonlinearity and lower-level resonance sweeps still to take.
-- **Oscillators.** The triangle at full Level (too rounded at the top, low odd harmonics too strong); pulses at full Level 2.4 dB bright at 16 kHz; noise 9 dB quiet at Level 12; the saw's reset and ramp shape against pitch; APW mixed with other sources; X3-PWM with sync.
+- **Oscillators.** Levels against pitch and Level now within 0.4 dB (2026-11-06); the toggle flip (an anomaly) built for the pulse. The triangle at full Level (too rounded at the top, low odd harmonics too strong); pulses at full Level 2.4 dB bright at 16 kHz; the noise now matches at every Level (2026-11-06); the saw's reset and ramp shape against pitch; APW mixed with other sources; X3-PWM with sync.
 - **Osc 3 routings.** LEVEL2 1.5-4 dB loud below osc 2 Level 101; the VCF, DRIVE and FB depths are guesses beyond what was measured; FB alone does not sing as the instrument's does.
 - **Envelopes and VCA.** Short filter-envelope attacks; the first ~4 ms of a note over a release; the release tail 3-4 dB low at low volume; the VCA thump at Decay 0 too big.
-- **Modulation.** The math sources (M-DELAY, M-SMOOTH, M-PRODUCT/MIN/MAX) want captures; the less-used targets want spot checks; Amp Velocity's law away from 64 and 127.
+- **Modulation.** The source and target lists match the instrument's; CONTROL-X is built (2026-11-06). The math sources (M-DELAY, M-SMOOTH, M-PRODUCT/MIN/MAX) want captures; the less-used targets want spot checks; Amp Velocity's law away from 64 and 127.
 - **Arpeggiator.** What Arp Pattern selects; the SOFT and HARD velocity offsets.
 - **Sounds by ear:** P001-P015 close (CT 2026-11-06) apart from P003, the only one with drive on; P016 onwards still to
   hear. The measured residues of the close ones are parked in `todo.md`.

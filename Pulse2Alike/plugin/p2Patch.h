@@ -53,6 +53,10 @@ void p2_presets_load(void);                                                     
 bool p2_presets_refresh(void);                                                                           // main thread: re-read if the file changed; true if so
 bool p2_presets_store(int number, const uint8_t dump[P2_DUMP_LENGTH], int voices);                       // main thread; false if not written
 bool p2_presets_store_all(const uint8_t dumps[P2_PATCH_SLOTS][P2_DUMP_LENGTH]);
+// notes §8: P500 is the instrument's random sound generator: recalled, it plays a new random sound, never the slot
+#define P2_RANDOM_SLOT    (500)
+void p2_random_sound(uint32_t * seed, uint8_t dump[P2_DUMP_LENGTH]); // any thread; *seed carries on between calls
+
 bool p2_patch_cached(int number, double normalized[kP2ParamCount], char name[P2_SOUND_NAME_LENGTH + 1]); // audio thread
 void p2_presets_dump(int number, uint8_t dump[P2_DUMP_LENGTH]);                                          // main thread
 const char * p2_presets_name(int number);                                                                // main thread

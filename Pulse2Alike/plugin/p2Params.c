@@ -192,6 +192,8 @@ const tSynthLibParam     gP2Params[kP2ParamCount] = {
     {kP2ParamMasterTune,      "Master Tune",          "Tune",      eSynthLibUnitGeneric,   420.0, 460.0, 0.500000,  40, SYNTHLIB_MIDI_NONE,                                                                             0},
     {kP2ParamTranspose,       "Transpose",            "Transp",    eSynthLibUnitGeneric,   -24.0,  24.0, 0.500000,  48, SYNTHLIB_MIDI_NONE,                                                                             0},
     {kP2ParamVoices,          "Voices",               "Voices",    eSynthLibUnitGeneric,     1.0,  32.0,      0.0,  31, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kP2ParamControlX,        "Control X",            "Ctrl X",    eSynthLibUnitGeneric,     1.0, 119.0, 0.025424, 118, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kP2ParamControlXIn,      "Control X Value",      "CtrlXIn",   eSynthLibUnitGeneric,     0.0, 127.0, 0.000000,   0, SYNTHLIB_MIDI_NONE,       SYNTHLIB_PARAM_HIDDEN | SYNTHLIB_PARAM_NO_SAVE                         },
 };
 
 // The instrument's sound bytes, in order: which parameter each one is, and the raw value of its lowest step.
@@ -566,6 +568,7 @@ static const tP2Control kSection24[]     = {
     {kP2ParamOsc2Fade,   "Fade 2", eP2ControlDial, 127,   0.0, NULL},
     {kP2ParamMasterTune, "Tune",   eP2ControlDial,  40, 420.0, NULL},
     {kP2ParamTranspose,  "Transp", eP2ControlDial,  48, -24.0, NULL},
+    {kP2ParamControlX,   "Ctrl X", eP2ControlDial, 118,   1.0, NULL},
 };
 static const tP2Control kSection25[]     = {
     {kP2ParamOversample, "OvrSmp",    eP2ControlChoice,  2, 0.0, kNamesOversample},
@@ -613,7 +616,7 @@ static const tP2Section kPage6Sections[] = {
     {"TIMING",      {0.65, 0.65, 0.65}, kSection23, 5},
 };
 static const tP2Section kPage7Sections[] = {
-    {"PERFORMANCE", {0.65, 0.65, 0.65}, kSection24, 6},
+    {"PERFORMANCE", {0.65, 0.65, 0.65}, kSection24, 7},
     {"PLUG-IN",     {0.65, 0.65, 0.65}, kSection25, 6},
 };
 

@@ -121,7 +121,12 @@ instrument sends every panel edit, so a session can log where the panel is.
 - From 2026-11-06 the rig is a dedicated Intel MacBook, the same Fireface wiring. Its copies of the captures are in
   `~/Captures/Pulse2/`: the tools read `$P2_CAPTURES` and fall back to the SSD path. Build `capture`/`tone` (G2Alike's
   `tools/README.md`) and `midisend`/`p2dump` (`swiftc -O`) on it; Python with numpy/scipy is in `~/.venvs/p2rig`.
+  The app running the tools needs Microphone access (System Settings > Privacy & Security), or `capture` waits for
+  input forever. EXT IN checked 2026-11-06: a 1 kHz tone at -60 and -20 dBFS out of output 6 reaches both outputs
+  through osc 3 EXT (Level 127, MIX) at -46.1 and -6.4 dB, linear. New takes from this machine go to
+  `~/Desktop/Pulse2-captures-<date>/` for the main machine.
 - MIDI over USB, port "Pulse2", **channel 12** (status `9B`/`8B`, CCs `BB`).
+- The instrument's globals (CT 2026-11-06): INPUT GAIN 0, CONTROL X 4 (the foot controller, CC 4).
 - Tools: G2Alike's `tools/capture` (`--device Fireface --channels 6,7`), `tools/tone`
   (`--channels 5`), `filter_response.py`, `harmonics.py`. The method follows G2Alike's
   `Docs/analogue-filter-capture-design.md`, the Voyager filter, which hit the same nonlinearity and drift

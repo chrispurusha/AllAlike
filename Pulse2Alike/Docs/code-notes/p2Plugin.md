@@ -216,7 +216,7 @@ the same parameters); they are played, never saved, and a program change or Init
 every oscillator by Bend Up or Bend Down semitones at full throw, and is also the PITCHBEND mod source (-1..+1).
 The wheel, pressure and breath are mod sources 0..1, and LFO1*MODW / LFO1*PRS are LFO 1 times the wheel or
 pressure. V.RELEASE is the last note-off's velocity. The pedal holds released notes until it is lifted (64 and
-up is down). CC 7 is the sound's Volume, as on the instrument. CONTROL-X (a global choosing a CC) is not wired.
+up is down). CC 7 is the sound's Volume, as on the instrument. CONTROL-X: the Control X setting (§61).
 Depths are as the mod matrix's own; none of this is measured against the instrument yet.
 
 ## 29. Filter velocity scales the envelope
@@ -565,3 +565,49 @@ so one note at Voices 4 is as loud as at Voices 1, where it was 6 dB quieter. A 
 its energy off the notes' harmonics is -8 dB of the total, where four separate drives gave -32. Voices 1, and any
 voice count with Drive Curve NONE, render sample for sample as before. Switching the curve on or off with notes
 sounding can click, since the voices' own drives were not running.
+
+## 61. Control X (2026-11-06)
+The instrument's global CONTROL X names one controller (1-119) as the CONTROL-X mod source; the CT unit has it at 4,
+the foot controller, which is the plug-in's default. Control X (GLOBAL > PERFORMANCE) is a setting, not part of a sound
+(both exclusion lists). p2_midi_mapping takes that controller to the hidden Control X Value ahead of the table, as
+the instrument takes it ahead of its CC map (the manual: the CC then serves only Control X); every other controller
+maps as the table says. Mod source 15 reads it, 0..1. An Audio Unit asks the mapping for each controller, so a change
+takes effect at once; a VST3 host reads the assignments when it loads the plug-in and may keep them until the project
+is reopened. Only P255 uses CONTROL-X among the 500 presets.
+
+## 62. A loaded sound goes into the engine under the fade (2026-11-06)
+Open Patch, Load Preset and Init change the whole sound behind a swap fade. They used to report each value to the
+host only (synthlib_plugin_param_edited), and the host's copies come back a block or more later on VST3 - on an
+Audio Unit only once the main thread is free, which is after the fade has ended. So the fade opened on the old
+sound and the new values then landed one by one with nothing over them. load_value now writes each value into
+the engine's parameters as well, while the fade holds, as TiAlike's ti_load_single does (Sn2Alike and Nl3Alike
+already did). A sound parameter's setter only stores it; the oscillators are retuned on the next control tick.
+Init had no fade at all and now has one. A program change was never affected: it runs on the audio thread and
+writes the engine directly (§20).
+
+## 63. Each oscillator's level against pitch and Level (2026-11-06)
+The engine had every shape the same size at every pitch. On the instrument the DCOs' ramps are only roughly held
+level against pitch, and loud oscillator levels are squeezed in the mix. Measured on `192k/shapes/` (each shape
+alone at notes 36-96, Levels 40 and 127, filter open) and `osc/law_level_*` (osc 1 saw, note 48, Levels 0-127):
+- kPitchGainDb, dB by octave from note 36, at Level 40 where the squeeze is nothing: osc 1/2 saw -0.9 .. +1.7,
+  triangle +0.4 .. +1.4, pulse and APW +0.6 flat; osc 3 saw -0.8 .. +2.8, triangle +1.3 .. +2.6 (note 60 from its
+  neighbours: that take was flipped, p2Dco notes §12). Osc 3's square needed nothing. Read at the oscillator's own
+  pitch (its period), so semitone offsets and modulation count. Unison, para and X-PWM keep 1 - not measured.
+- kLevelTrimDb: 0 to Level 64, then down to -0.8 dB at 127 (osc 1, 2); osc 3 the same x 1.25. Applied to the mix's
+  levels, not the VCA feedthrough (§43), which was fitted with the untrimmed law.
+Result: every shape within +-0.4 dB at both Levels and every note (was up to 2.8 dB); the law sweep flat at +0.2 to
++0.4 dB from Level 16 to 127 (was +0.1 rising to +1.0); the cycles closer too (osc 1 TRI at 40: 5.7 -> 1.3%, osc 3
+SAW at 40: 9.9 -> 4.3%). P001-P015: no patch worse by 0.5 in patch_regress (55.79 -> 55.20); sustain level error
+1.42 -> 1.19 dB mean (P003 aside).
+Still open: the squeeze is a saturation, and its shape in the cycle (the error still grows a little with Level)
+is not modelled - only its level.
+
+## 64. The noise's level law and its darkening (2026-11-06)
+`192k/noise_law/`: noise alone, filter open, Volume 40, Levels 12/20/30/40/64/90/127 (`tools/noise_law_session.py`,
+which retakes any take not quiet before its note). Against them (`noise_law_compare.py`) the engine was -10.6, -1.9,
+-1.3, -0.9, +0.1, +1.2, +2.7 dB, and the instrument's noise darkens as it gets louder: the top octave, against the
+middle, flat to Level 40, then +1.7 / +3.1 / +4.8 dB too bright at 64 / 90 / 127 - one further pole whose 1/f^2 grows
+about linearly with Level over 40 (23, 16, 11 kHz at 64, 90, 127). Now: that pole (NOISE_DARK_PER_STEP), then
+kNoiseTrimDb on the noise's level, interpolated in Level: every Level within 0.2 dB, every octave band within about 1
+dB (125 Hz about 1 dB low at most Levels), the amplitude distribution as the instrument's (crest 3.2-3.3 on both).
+

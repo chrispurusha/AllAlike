@@ -67,8 +67,24 @@ double p2_dco_pulse_fraction(int32_t width) {
 
 #define PULSE_EDGE_HZ    (16000.0)   // notes §11
 
+// notes §12: a period over this many ticks is counted out in steps with the pin set explicitly
+#define LONG_PERIOD_TICKS    (0x10000u)
+#define FLIP_CHANCE          (0.68)
+
 void p2_dco_set(tP2Dco * dco, int32_t pitch, int32_t width, tP2Shape shape, double sampleRate) {
     uint32_t period = p2_dco_period_ticks(pitch);
+    bool     isLong = period > LONG_PERIOD_TICKS;
+
+    // notes §12: leaving the long-period range can lose one of the pulse's toggles; inside it the pin is re-set
+    if (dco->longPeriod && !isLong && dco->anomalies) {
+        dco->flipSeed = (dco->flipSeed * 1664525u) + 1013904223u;
+        dco->flipped  = ((double)(dco->flipSeed >> 8) / 16777216.0) < FLIP_CHANCE;
+    }
+
+    if (isLong || !dco->anomalies) {
+        dco->flipped = false;
+    }
+    dco->longPeriod    = isLong;
 
     dco->increment     = (P2_DCO_CLOCK_HZ / (double)period) / sampleRate;
     dco->pulseFraction = p2_dco_pulse_fraction(width);
@@ -169,6 +185,7 @@ float p2_dco_next(tP2Dco * dco) {
             out  = (t >= rise) ? 1.0 : -1.0;
             out += poly_blep(fall, dt) - poly_blep(t, dt);
             out  = -out;            // notes §6: high for the width's fraction once the mix has inverted it
+            out  = dco->flipped ? -out : out;   // notes §12: complemented
             break;
         }
     }

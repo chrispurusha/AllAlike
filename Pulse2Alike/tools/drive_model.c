@@ -43,3 +43,29 @@ void drive_run2(const double * x, int n, double rate, const double * shape, doub
 void drive_run(const double * x, int n, double rate, const double * shape, double gain, const double * loss, double * out) {
     drive_run2(x, n, rate, shape, gain, loss, 1.0, out);
 }
+
+// p2Drive notes §9's model: an OTA-style gain stage, then a fixed clipper inside the coupling loop, then the shelf.
+// p: I0, a, b (the stage's current, I0 + exp(a + b * drive / 127): its gain and its ceiling together), s (input
+// scale into the stage's tanh), e (the stage's offset: lopsided only as it saturates), pos, neg, hardPos, hardNeg,
+// couplingHz, shelfDirect, shelfHz
+void drive_run3(const double * x, int n, double rate, const double * p, double drive, double * out) {
+    double current = p[0] + exp(p[1] + (p[2] * drive / 127.0));
+    double kc      = 1.0 - exp(-2.0 * M_PI * p[9] / rate), ks = 1.0 - exp(-2.0 * M_PI * p[11] / rate);
+    double kd      = 1.0 - exp(-2.0 * M_PI * 5.0 / rate);
+    double rest    = tanh(p[4]);
+    double coupled = 0.0, low = 0.0, dc = 0.0;
+    int    i       = 0;
+
+    for (i = 0; i < n; i++) {
+        double y = current * (tanh((x[i] * p[3]) + p[4]) - rest);
+        double u = y - coupled;
+        double c = (u >= 0.0) ? knee_clip(u, p[5], p[7]) : knee_clip(u, p[6], p[8]);
+        double o = 0.0;
+
+        coupled += kc * c;
+        low     += ks * (c - low);
+        o        = (p[10] * c) + ((1.0 - p[10]) * low) - dc;
+        dc      += kd * o;
+        out[i]   = o;
+    }
+}

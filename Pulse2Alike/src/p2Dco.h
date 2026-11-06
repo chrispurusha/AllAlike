@@ -49,6 +49,10 @@ typedef struct {
     double   readOffset;       // notes §10: where the wave is read against the cycle's timing (synced osc 2)
     double   edgeCoef;         // notes §11: a pulse's edges, softer than the saw's
     double   edgeState;
+    bool     anomalies;        // notes §12: set by the caller - the toggle flip below is one of the instrument's quirks
+    bool     longPeriod;       // notes §12: the period is over the timer's reach, counted out in steps
+    bool     flipped;          // notes §12: the pulse came up complemented on leaving the long-period range
+    uint32_t flipSeed;
 } tP2Dco;
 
 int32_t p2_pitch_from_midi_note(double note);

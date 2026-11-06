@@ -146,6 +146,8 @@ enum {
     kP2ParamMasterTune,
     kP2ParamTranspose,
     kP2ParamVoices,
+    kP2ParamControlX,          // the instrument's global CONTROL X: which CC is the CONTROL-X mod source
+    kP2ParamControlXIn,        //   that controller's value, as it arrives
     kP2ParamCount
 };
 

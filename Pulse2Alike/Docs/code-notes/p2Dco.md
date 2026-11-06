@@ -61,3 +61,17 @@ A pulse's edges are softer on the instrument than the saw's reset: against a saw
 16 kHz, osc 1's pulse came out 1.4 dB bright at 8 kHz and 3 dB at 16 kHz. Pulse and APW go through a one-pole at
 16 kHz (PULSE_EDGE_HZ). On a loud pulse the filter's saturation sharpens the edge again, even open, so normal-mode
 pulses at full Level keep about +2.4 dB at 16 kHz (2026-10-25); the paraphonic voices, 11 dB quieter, take it whole.
+
+## 12. The toggle flip (2026-11-06, an anomaly)
+On the instrument a pulse can come up complemented - high for 1 - w of the cycle instead of w - and stay so. Its
+period decides it: below about 183 Hz (a period over 0x10000 ticks of the 12 MHz clock) the oscillator is counted out
+in steps with its pin set explicitly, and the pulse is always the right way up; on the change from there into the
+ordinary range a toggle can be lost (findings 2026-11-06, "what flips the pulse"). Measured from note 48 up, 41 of
+60 changes came up complemented (5/6 just above the threshold, 3/6 at notes 72-84); a change between two notes
+above the threshold keeps the state; any note below it rights it. The odds also depend on the note it came from
+(from 36 or 43: 0/7 to 55-60, 5/5 to 67-72), which is the timer's phase at the change - not modelled.
+p2_dco_set does the same with Anomalies on: entering the ordinary range from the long one, `flipped` is drawn at
+0.68; in the long range, or with Anomalies off, it is false. A flipped pulse is the pulse negated (the same after
+the AC-coupled mix). Only the plain pulse: APW, osc 3's square and its triangle (seen stepped when flipped) are not
+yet done.
+

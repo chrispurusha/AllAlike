@@ -5,7 +5,6 @@ One line per item. Measurements and reasoning go in `findings.md`, design in `de
 ## First
 - P001-P015 close by ear (CT 2026-11-06) apart from P003, the only one of them with drive on (FUZZ, Drive 17) - the drive rebuild below is next; then listen on from P016
 - Presets, still to do (design §7): Restore Presets to Pulse 2 (writes only slots that differ, never P500) - waits for CT; Store Sound to Pulse 2 Slot is built (2026-11-06, in to-test.md)
-- Editor loads (p2_load_patch, p2_load_preset): write each value into the engine while the fade holds, as TiAlike's ti_load_single (see Plug-in)
 
 ## Measured, close by ear (2026-11-06) - only if a later sound needs them
 - P012: the instrument's filter drifted up since 10-17 (+0.6 semitone at cutoff 0 to +0.1 at 88; findings 2026-10-23); TUNE FILTER, then re-measure cutoff 0/40/64/88 at note 60, before any filter refit
@@ -25,7 +24,7 @@ One line per item. Measurements and reasoning go in `findings.md`, design in `de
 - FUZZ overall (CT 2026-10-25): better but still not close by ear; after the §8 waveform refit (10-26) Drive 0/64 close, 127 slightly worse, even harmonics still not growing with Drive
 - FUZZ at quiet Levels (14-20): the instrument still clips and lifts quiet signals (+3.8 dB against NONE at -45 dBFS in, BP12), the engine does not (0) - more gain into the clipper; refit running (`drive_shape.py 2 gated`)
 - TUBE: the gated refit gained nothing (8.2 dB rms, a parameter at its bound) - its structure (§9: Drive 127 is a near-switch the present chain cannot make); a level trend of -3..-5 dB at Levels 14-24 easing to 0 by 80
-- TUBE on noise (P030: noise 127 through BP12, Drive 127): 10 dB loud, same decay shape - capture noise through TUBE at a few Drives
+- Noise through the drive (2026-11-06, `192k/drive_noise/`): TUBE 1-3 dB quiet (4-5 against NONE), worst 1-4 kHz; FUZZ close but 15 dB short at 125 Hz through BP12 at Drive 0; NONE's noise level and colour fixed (p2Plugin notes §64) - check the rebuilt drive on these
 - FUZZ at quiet EXT inputs: even harmonics ~15 dB above the instrument's (p2Drive notes §6)
 - Rig: osc 3 on DRIVE raises the baseline by about 8 drive units at any level - find why
 - The drive-on output gate's thresholds were measured with FUZZ; check one TUBE point
@@ -34,12 +33,13 @@ One line per item. Measurements and reasoning go in `findings.md`, design in `de
 - Dedicated capture machine (2026-11-06): the Intel MacBook, Fireface UC inputs 7/8 (indices 6/7), USB MIDI channel 12 (design §5); tools built there, Python in ~/.venvs/p2rig; captures copied to ~/Captures/Pulse2 (set P2_CAPTURES)
 - Regression references: use `192k/patches1025/` (fresh 2026-10-25); the 10-17 takes in `patches/` misled on P001 and P010
 - Build a known test sound over CCs (one osc, semitone/detune centred, filter open, envelopes flat) before every capture
-- Read INPUT GAIN off the panel and record it with the EXT captures; sweep the EXT level per step
+- INPUT GAIN is 0 (CT 2026-11-06); record it with every EXT capture, and sweep the EXT level per step
 
 ## Oscillators
+- The toggle flip (p2Dco notes §12): built for the plain pulse under Anomalies, at 0.68 per crossing from the long-period range; still to do: APW, osc 3's square and its stepped triangle, and the odds' dependence on the note it came from (the timer's phase)
+- Amplitude against pitch and Level: corrected (p2Plugin notes §63, 2026-11-06); left: the high-Level squeeze is a saturation whose wave shape is not modelled, only its level; unison/para/X-PWM levels against pitch unmeasured
 - The triangle (findings 2026-10-25): at Level 127 the filter's open-cutoff saturation rounds it (h41-61 15-22 dB under its own Level-40 shape; the instrument keeps 12 dB/oct to h61), and the instrument's own shape has weaker low odd harmonics (h3 -25, ideal -19) and even ones at 6-10 dB/oct (h16 -57, h32 -67: an asymmetry or a small step at the reset) - rework the open filter's saturation with the pulses' top end
 - Normal-mode pulses at full Level keep +2.4 dB at 16 kHz: the filter's saturation re-sharpens the softened edge (p2Dco notes §11)
-- The noise at Level 12: 9 dB under the instrument's (within 1 dB at 40) - its level law low down
 - Osc 3's square against a synced osc 2 (polarity audit, findings 2026-10-24): where its edges sit relative to the sync point
 - P014 3.6 -> 4.1 after APW's polarity fix (APW mixed with other sources) - check APW's own shape against its two-cycle period
 - Osc 3 EXT is not built: the plug-in has no audio input - a side-chain input, as G2Alike's
@@ -52,7 +52,7 @@ One line per item. Measurements and reasoning go in `findings.md`, design in `de
 - Retake the LP12/BP12/HP12 resonance-92 and LP24 resonance-88 sweeps at −45 dBFS (LP24 confirmed compressed at −30)
 - Level sweeps (−40..−6 dBFS) per mode at a few settings, for the nonlinearity
 - LP12's stopband: ~2.5 dB high at 1-2.5 kHz at cutoff 0
-- The modulation step shape, more closely: a faster LFO (larger steps), and the same test on pitch modulation
+- The modulation step (findings 2026-11-06): matches on cutoff; on pitch the engine's 1 ms step is a little more abrupt (63% in its first quarter against 54%) - soften pitch's glide slightly if it is ever heard
 
 ## Engine
 - The VCA's release tail (p2Env notes §4a): 3-4 dB low 0.2-0.3 s into a release at low volume; the knee reached a little early
@@ -63,6 +63,8 @@ One line per item. Measurements and reasoning go in `findings.md`, design in `de
 - FB alone sings on the instrument from FB 64 (cutoff 64, ~950 Hz, -40 dB); the engine does not - frequency-dependent feedback?
 - Amp Velocity: the engine moved P011 1.7 dB more than the instrument (velocity 100, Amp Velocity 95) - check the law away from velocity 64/127
 - Arp Pattern (0-14): what it selects
+- PITCH FLW now follows the glide and the bend (the manual; 2026-11-06) - 64 presets use it, P004 and P006 among them: recheck those two by ear and in the regression
+- CLASS (sound byte 127, 0-21: ARP, ATMO, BASS ... INIT) could fill the preset browser's Category column
 - Arp SOFT and HARD: measure their velocity offsets (the plug-in uses -32 and +64)
 - Arp, by program change: does a chord kept by one HOLD sound start again after a non-arp sound, in the next HOLD sound? (the plug-in does so with Anomalies on - p2Plugin notes §45)
 - The 1 kHz leak (−96 dBFS with a note sounding): decide whether to model it
@@ -70,8 +72,6 @@ One line per item. Measurements and reasoning go in `findings.md`, design in `de
 ## Plug-in
 - Value text in real units (times, rates, semitones) where the laws are measured; the panel shows raw values now, as the instrument does
 - SynthLib: maximise the C and reduce the C++ (CT 2026-10-21) - port src/fileBrowser.cpp, bankBrowser.cpp and prefs.cpp to C; the VST3 wrapper and views stay C++/Obj-C++ as the SDK requires
-- Editor loads (p2_load_patch, p2_load_preset): the fade opens before the new sound is in the engine. Only synthlib_plugin_param_edited carries the values, and they come back a block or more later on VST3, and on an Audio Unit only once the main thread is free, after the fade has ended. So the old sound fades back in, then the new values land one by one with no fade over them. TiAlike fixed this 2026-11-02 by writing each value into the engine as well as reporting it, while the fade still holds (tiPlugin.c ti_load_single)
-- The instrument's random sound generator is P500 (CT 2026-11-06; never write it): its dump carries Osc 1 Shape 119, out of range (findings 2026-11-06) - capture a few loads of it and model it (the plug-in plays P500 as a stored dump now)
 
 ## DO NOT RE-TRY
 - Four one-pole stages with LP24 at the end (per-stage poles): worse than the free-mix fit, implausible stage ratios, no HP notch (findings, first linear filter fit)

@@ -612,6 +612,101 @@ int p2_presets_write_folder(const char * folder) {
     return written;
 }
 
+// notes §8: the random generator's draw, as the instrument makes it. Every sound byte below 112 is drawn uniformly
+// in its range (a 7-bit number, drawn again until it fits); then one more draw decides a few tidy-ups
+#define P2_RANDOM_ROWS    (112)
+static const uint8_t kRandomRange[P2_RANDOM_ROWS][2] = {
+    {  0,   9}, {  0, 127}, { 16, 112}, {  0, 127}, {  0,   1}, {  0, 127}, {  0,   4}, {  0, 127},
+    { 16, 112}, {  0, 127}, {  0,   1}, {  0, 127}, {  0,   4}, {  0,   3}, { 16, 112}, {  0, 127},
+    {  0,   1}, {  0, 127}, {  0, 127}, {  0,   9}, {  0, 127}, {  0, 127}, {  0, 127}, {  0,   4},
+    {  0, 127}, {  0, 127}, {  0, 127}, {  0, 127}, {  0,   2}, {  0,   4}, {  0, 127}, {  0, 127},
+    {  0, 127}, {  0, 127}, {  0,   2}, {  0,   4}, {  0,   2}, {  0,   9}, {  0, 127}, {  0,  19},
+    {  0,  14}, {  0,   6}, {  0, 127}, {  0, 127}, {  0, 127}, {  0,   3}, {  0, 127}, {  0, 127},
+    {  0, 127}, {  0,   3}, {  0, 127}, {  0, 127}, {  0, 127}, {  0, 127}, {  0,  24}, {  0, 127},
+    {  0,  31}, {  0,  24}, {  0, 127}, {  0,  31}, {  0,  24}, {  0, 127}, {  0,  31}, {  0,  24},
+    {  0, 127}, {  0,  31}, {  0,  24}, {  0, 127}, {  0,  31}, {  0,  24}, {  0, 127}, {  0,  31},
+    {  0,  24}, {  0, 127}, {  0,  31}, {  0,  24}, {  0, 127}, {  0,  31}, {  0, 127}, {  0, 127},
+    {  0, 127}, {  0,   5}, {  0,   5}, {  0, 127}, {  0, 127}, {  0,  36}, {  0,  36}, {  0,  14},
+    { 14, 114}, { 14, 114}, {  0, 127}, {  0, 127}, {  0, 127}, {  0, 127}, {  0, 127}, {  0, 127},
+    {  0, 127}, {  0, 127}, {  0, 127}, {  0, 127}, {  0, 127}, {  0, 127}, {  0, 127}, {  0, 127},
+    {  0, 127}, {  0, 127}, {  0,  15}, {  0,  24}, {  0,  15}, {  0,   1}, {  0, 127}, {  0,   9},
+};
+
+// The instrument's generator: seed x 1103515245 + 12345, the top half as a signed 16-bit number
+static int32_t random_next(uint32_t * seed) {
+    *seed = (*seed * 1103515245u) + 12345u;
+    return (int32_t)(int16_t)(*seed >> 16);
+}
+
+void p2_random_sound(uint32_t * seed, uint8_t dump[P2_DUMP_LENGTH]) {
+    static const char kName[] = "RANDOM";
+    uint8_t *         s       = dump + DATA_OFFSET;
+    int32_t           r       = 0;
+    int               b       = 0;
+    int               sum     = 0;
+
+    memset(dump, 0, P2_DUMP_LENGTH);
+    dump[0] = 0xF0;
+    dump[1] = 0x3E;
+    dump[2] = 0x16;
+    dump[4] = 0x10;
+    dump[5] = 0x7F;      // the edit buffer: a save never writes slot 500 by accident
+    dump[P2_DUMP_LENGTH - 1] = 0xF7;
+
+    for (b = 0; b < P2_RANDOM_ROWS; b++) {
+        do {
+            r = random_next(seed) & 0x7F;
+        } while ((r < kRandomRange[b][0]) || (r > kRandomRange[b][1]));
+        s[b] = (uint8_t)r;
+    }
+    s[112] = 1;
+    memcpy(s + P2_SOUND_NAME_OFFSET, kName, sizeof(kName) - 1);
+    r      = random_next(seed);
+
+    s[52] |= 0x40;       // Volume, Amp Velocity, Filter Keytrack, Filter Velocity: into their upper halves
+    s[53] |= 0x40;
+    s[46] |= 0x40;
+    s[47] |= 0x40;
+
+    if (s[49] > 2) {
+        s[49] = 0;       // Drive Curve FX: NONE
+    }
+
+    if (r & 0x01) {      // the noise's level onto osc 2's, the noise off, Arp Swing straight
+        s[11] |= s[51];
+        s[51]  = 0;
+        s[88]  = 64;
+    }
+
+    if (r & 0x02) {      // no glide, Arp Swing straight
+        s[22] = 0;
+        s[88] = 64;
+    }
+
+    if (r & 0x04) {      // osc 1 at the key or an octave up
+        s[2] = (r & 0x80) ? 76 : 64;
+    }
+
+    if (r & 0x08) {
+        s[8] = 64;
+    }
+
+    if (r & 0x10) {
+        s[14] = 64;
+    }
+    s[5]  |= 0x20;       // osc 1 Level 32 up, Drive 64 up
+    s[48] |= 0x40;
+
+    if (s[36] != 0) {    // the arpeggiator on: Amp Attack under 64
+        s[30] &= 0x3F;
+    }
+
+    for (b = 1; b < (P2_DUMP_LENGTH - 2); b++) {
+        sum += dump[b];
+    }
+    dump[P2_DUMP_LENGTH - 2] = (uint8_t)(sum & 0x7F);
+}
+
 // The audio thread's read: no lock, no file - a copy that is kept only if no write overlapped it
 bool p2_patch_cached(int number, double normalized[kP2ParamCount], char name[P2_SOUND_NAME_LENGTH + 1]) {
     uint8_t  copy[P2_DUMP_LENGTH];

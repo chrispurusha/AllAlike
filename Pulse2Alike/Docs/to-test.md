@@ -2,6 +2,11 @@
 
 Built, not yet checked against the instrument or in a host. Confirmed → delete the line; failed → move it to `todo.md`.
 
+- Load Preset / Open Patch / Init in a host (AU and VST3), notes held: one clean fade to the new sound, no old sound returning and no values arriving after
+- The pulse flip (Anomalies on): a narrow pulse played low then high sometimes sounds the complement; Anomalies off never
+- P500 by program change and from Presets > Load Preset: a new RANDOM sound each time (via another preset), playable, not P500*; Save keeps it
+- Control X (GLOBAL, default 4): P255 with a foot controller (CC 4) against the instrument; change it to another CC (AU at once; VST3 after reopening)
+- PITCH FLW now follows glide and bend: P004 and P006 by ear, gliding and bending, against the instrument
 - Store Sound to Pulse 2 Slot (Pulse 2 menu): the browser lists P001-P499, the confirm names the slot's last-backed-up sound, the store reaches the instrument (read the slot back or recall it there); disabled during a backup; another instance's Link gives the busy alert
 - Pulse2Alike loads and plays in Live (VST3 and AU), last-note priority, no clicks at note on/off
 - Osc 2 semitone offset against the instrument's osc 2 semitone at the same setting

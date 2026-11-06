@@ -53,3 +53,21 @@ instrument's backup in `iCloud Drive/Patches/Pulse2` and of an export. Either wa
 INIT, and nothing is stored until the panel's confirm. Exporting writes the 500 as one file, or as 500 `NNN Name.syx`
 files with the name's trailing spaces dropped and `/` and `:` made `-`. Checked: the 407-sound library imported,
 exported as a file and as a folder and re-imported, identical each way (2026-10-23).
+
+## 8. P500, the random sound generator (2026-11-06)
+On the instrument P500 is not a stored sound: recalling it makes a new random one, named RANDOM (six recalls
+read back, `192k/p500_random/`: every sound byte below 112 different each time; a program change to the program
+already showing does nothing, as §20 of p2Plugin has it). p2_random_sound makes it the same way:
+- each of bytes 0-111 drawn uniformly in its own range, a 7-bit draw repeated until it fits;
+- byte 112 = 1, the name RANDOM, the rest 0;
+- one more draw, r: Volume, Amp Velocity, Filter Keytrack and Filter Velocity into 64-127, Drive 64-127, osc 1
+  Level 32-127, Drive Curve FX made NONE; r bit 0: the noise's level ORed onto osc 2's, the noise 0, Arp Swing 64;
+  bit 1: Glide Rate 0, Arp Swing 64; bit 2: osc 1 Semitone 64, or 76 if bit 7; bit 3: osc 2 Semitone 64; bit 4:
+  osc 3 Semitone 64; with the arpeggiator on, Amp Attack under 64;
+- the generator is seed x 1103515245 + 12345, the top half signed. Each instance has its own seed, the same each
+  run, so an offline render repeats; the instrument's own seed is not known, so the sounds are its kind, not its
+  sequence.
+Both recalls (a program change on the audio thread, the Presets menu on the main thread) go through it; the dump
+it made is the sound's base for a save and for the edited mark (P500* only once edited). The slot's stored INIT
+is never played.
+

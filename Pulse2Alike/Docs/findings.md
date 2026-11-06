@@ -1264,3 +1264,82 @@ open.
   were taken first.
 - P500's 119 in Osc 1 Shape is a candidate for the random sound CT hears from P500: no other sound read holds an
   out-of-range Shape.
+
+## 2026-11-06 - the sound's parameter list, checked
+- Sound byte p is the instrument's parameter p, in the manual's order. Every row with a name is mapped in `gP2SoundBytes`, and the mod
+  matrix's 25 sources and 32 targets are the instrument's lists in order. The unmapped bytes: 83-84 and 110, 112
+  (unnamed), 108 FX CONFIG (0-15), 109 FX STEREO (0-1), 111 ROW (0-9) - none with a CC, nearly always 0 (112 nearly
+  always 1) over the 500 presets - and 127 CLASS (0-21), the sound's category (ARP, ATMO, BASS, ... INIT).
+  (Byte 85, first taken for an unmapped one, is BEND UP.)
+- Globals the plug-in lacks: CONTROL X, INPUT GAIN (for osc 3 EXT), and the MIDI/CV settings that have no
+  meaning in a plug-in. The instrument also names a velocity curve (VEL. CURV), but the Global menu does not offer
+  it and nothing on the instrument acts on it: velocity is taken as played, as the plug-in takes it.
+- PITCH FLW is "KEYTRACK, but with consideration of portamento and pitchbend" (the manual): the engine took it
+  as KEYTRACK and now adds the glided pitch and the bend.
+
+## 2026-11-06 - noise through the drive (`192k/drive_noise/`, `tools/drive_noise_session.py`, `drive_noise_compare.py`)
+- Noise 127 alone at Volume 40, LP24 open and P030's BP12 (cutoff 53, resonance 83), NONE and both curves at Drive
+  0/32/64/127; the engine rendered from the same sound (the edit buffer read back, filter and drive bytes per take).
+- NONE: the engine 2.6 dB loud open (+1.0 through BP12), rising to +6-7 dB at 16 kHz - the noise source or the
+  filter, not the drive.
+- TUBE: the engine 0.7-3.3 dB QUIET (4-5 dB against its own NONE), worst at 1-4 kHz (-3 to -4.5 dB) - not 10 dB loud:
+  that was P030 whole, before §8's refit. FUZZ within 0.3 dB open and 0.1-1.6 dB through BP12, but 15 dB short at
+  125 Hz through BP12 at Drive 0 (6 at 32, 5 at 64, none at 127).
+- The shape, as noise's amplitude distribution (crest = 99.9th percentile of |x| / rms, skew, +peak/-peak),
+  instrument / engine: FUZZ 0 through BP12 crest 3.22 / 2.08, skew +1.06 / +0.04, peaks 1.98 / 1.04 - the
+  instrument barely clips there but shapes one side, which is also where its extra 125 Hz (15 dB) comes from; FUZZ 0
+  open skew -0.44 / +0.05, peaks 0.72 / 1.03. TUBE 32-64 open crest 1.90 / 2.29-2.42 (the instrument clips harder);
+  TUBE 127 open skew +0.92 / +0.65, peaks 2.25 / 1.78 (more lopsided). FUZZ from Drive 32 matches in shape too.
+  Both curves want an asymmetry that moves with Drive - the §9 gain stage's offset.
+- So the drive model, once rebuilt, is checked on these too (not fitted), shape and level.
+
+## 2026-11-06 - P500 is a random sound generator (`192k/p500_random/`)
+- Six recalls of P500 by program change (each from P499), the edit buffer read back after each and a note captured:
+  a sound named RANDOM, 112 of its bytes different every time, each within its range; byte 112 stays 1, the class
+  0. Recalled again without leaving it, it does not change. Some values come back far more often than chance
+  (Semitones at 64, Glide Rate 0, Arp Swing 64) - the generator tidies a few up; built as p2Patch notes §8.
+
+## 2026-11-06 - wave shapes (`192k/shapes/`, `192k/pulse_state/`, `tools/shapes_session.py`, `shapes_compare.py`)
+116 takes, test sound at Volume 40, filter open: osc 1 PWM (widths 0/64/110), SAW, TRI, APW and osc 3 SQR/SAW/TRI at
+notes 36-96, each at Level 40 and 127; osc 2's saw synced by osc 3 at +7/+12/+19, alone and with osc 3's square;
+LFO 1 on cutoff and on pitch. The engine rendered from the same sound (the edit buffer read back as the base);
+one averaged cycle each, aligned, error as % of the instrument's peak.
+- **Where the state is normal the shapes match:** osc 1 SAW 2-8% (14% at note 36, Level 127), PWM 110 2-9%, APW
+  2-9%, TRI 3-10%, osc 3 SQR 3-9%, osc 3 SAW 4-16%; the errors grow with pitch at Level 40, where the engine also
+  falls 1-3 dB quiet (osc 3 SAW -0.7 -> -2.8 dB from note 48 to 96), and the low notes at Level 127 are 1-2 dB loud
+  - amplitude against pitch, not shape. PW 0 is silent on both.
+- **An oscillator's toggle state can come up the other way.** PWM 64 from note 60 up was high for 0.871 of the
+  cycle, exactly 1 - 0.129 (the law); osc 3's TRI at notes 60-84 had a step in it, its slopes out of step with its
+  reset; osc 3's square in the synced mix came out inverted at +7 and +19, not at +12. Repeated (`pulse_state/`, 18
+  takes): the pulse at PW 64 or 40 complemented in 2 of 18, after a note change upward to 60 (from 36, and from 48
+  at PW 40), and back to normal at a later change; most changes keep the state. So it is a state the DCO's output
+  holds, changed at some pitch changes - two timer edges toggling one pin can lose one - not the width law. This is
+  also why earlier sessions read the pulse "the wrong way up" at some times and not others (2026-10-17, 10-24).
+
+## 2026-11-06 - the modulation step, closer (`192k/modstep2/`, `tools/modstep2_session.py`, `modstep_compare.py`)
+LFO 1 triangle through MOD 1 (amount 100) at speed 40 and 100; cutoff read from the self-oscillating filter, pitch
+from osc 1's TRI at note 84; the engine rendered from the same sound. At speed 40 (0.27 semitone a step):
+- cutoff: instrument / engine clock 1.000 / 1.000 ms, step 0.268 / 0.277 st, 49 / 47% of each step in its first
+  quarter, 76 / 71% in its first half - the engine's staircase and its softening match;
+- pitch: clock 1.000 / 1.000 ms, step 0.272 / 0.271 st, 54 / 63% in the first quarter, 78 / 79% in the first half -
+  the same clock and size, the engine's step a little more abrupt (the instrument smooths pitch slightly more).
+- At speed 100 each step is about 6 semitones and the cycle tracker cannot resolve it; the sweep's range matches
+  (about 55-122 on both).
+The 2026-10-17 shapes (1 kHz, a ~0.3 ms glide) stand for cutoff, and now for pitch.
+
+## 2026-11-06 - what flips the pulse (`192k/flip/`, `192k/flip_targets/`, `tools/flip_session.py`, `flip_targets_session.py`)
+- 60 random note changes (notes 36-84), osc 1 PWM at PW 64 alone, the state read from each take's duty: every
+  flipped take came after a change from a note at 48 or below to one at 55 or above (11 of 25 such changes);
+  every change to a note at 48 or below came out right; changes between notes above 55 kept the state.
+- The line is the period: below about 183 Hz the oscillator's period is over the timer's reach and counted out
+  in steps with the pin set explicitly, which rights the state; leaving that range can lose a toggle.
+- From note 48 to each target six times (back to 48 between): 55 5/6, 57 5/6, 60 4/6, 62 5/6, 64 5/6, 67 4/6,
+  69 4/6, 72 3/6, 76 3/6, 84 3/6 - 41/60. From 36 or 43 the odds differ (0/7 to 55-60, 5/5 to 67-72): the timer's
+  phase at the change decides it. Modelled as 0.68 per crossing (p2Dco notes §12).
+
+## 2026-11-06 - the noise's level law (`192k/noise_law/`) - see p2Plugin notes §64
+- Engine minus instrument at Levels 12/20/30/40/64/90/127: -10.6/-1.9/-1.3/-0.9/+0.1/+1.2/+2.7 dB; the instrument's
+  noise darkens with Level above 40 (top octave +1.7/+3.1/+4.8 dB too bright in the engine at 64/90/127). Fixed:
+  within 0.2 dB at every Level, bands within about 1 dB. The first run of this sweep caught someone playing (three
+  takes at -10 dBFS, 32-64 Hz, before the note); the session now retakes any take not quiet before its note.
+

@@ -5,7 +5,7 @@ import os, subprocess, sys, time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 MIDISEND = os.path.join(HERE, 'midisend')
-CAPTURE = os.path.join(HERE, '..', '..', 'G2Alike', 'tools', 'capture')
+CAPTURE = os.path.join(HERE, '..', '..', '..', 'G2Alike', 'tools', 'capture')
 PORT = 'Pulse2'
 CHANNEL = 12                     # the instrument's, 1-indexed
 IN_CHANNELS = '6,7'              # Fireface inputs 7/8 = Pulse 2 L/R

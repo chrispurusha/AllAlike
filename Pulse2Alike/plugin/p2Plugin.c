@@ -179,6 +179,8 @@ enum {
 #define NOISE_REFERENCE_RATE     (768000.0) // notes §34: the internal rate NOISE_LEVEL was measured at
 #define NOISE_BANDWIDTH_HZ       (22000.0)
 #define NOISE_COLOUR_HZ          (8500.0)   // notes §34: the noise is darker than white, measured on the noise itself
+#define NOISE_DARK_FROM          (40.0)     // notes §64: above this Level the noise darkens as it gets louder:
+#define NOISE_DARK_PER_STEP      (9.5e-11)  //   a further pole, 1/f^2 this much per Level step over NOISE_DARK_FROM
 #define HISS_INTO_FILTER         (1.19e-3)  // notes §38: the instrument's hiss, measured against a saw
 #define HISS_AFTER_FILTER        (2.03e-4)
 #define FILTER_ENV_TIME_SCALE    (1.08)     // p2Env notes §6
@@ -273,6 +275,8 @@ typedef struct tP2Plugin_ {
     uint8_t           notes[NOTE_STACK_SIZE];
     int               noteCount;
     int64_t           glidePitch;       // notes §17: the glided note, 1/256 semitone units
+    uint32_t          randomSeed;       // p2Patch notes §8: P500's generator, carried on between recalls
+    uint8_t           randomDump[P2_DUMP_LENGTH]; // the last sound it made (a save keeps its other bytes)
     bool              glideKnown;       // a note has sounded, so there is somewhere to glide from
     double            glideClock;       // time not yet spent in 1 ms glide steps
     tP2Lfo            lfo1, lfo2;
@@ -314,6 +318,7 @@ typedef struct tP2Plugin_ {
     uint32_t          noise;           // xorshift state
     double            noiseLp[4];      // notes §34: the band limit, two biquad states
     double            noiseColour;
+    double            noiseDark;        // notes §64
     double            levelTarget[5];  // notes §43: osc 1-3, noise, the feedthrough - set per control tick
     double            levelNow[5];     //   and glided per sample
     bool              levelsSet;
@@ -348,11 +353,13 @@ static int32_t plain_int(const tP2Plugin * p, uint32_t id) {
     return (int32_t)lround(plain(p, id));
 }
 
+#ifndef P2_NO_EDITOR
 // Main thread: the Voices parameter as the host holds it
 static int host_voices(void * user) {
     return (int)lround(gP2Params[kP2ParamVoices].plainMin
                        + (synthlib_plugin_param_value(user, kP2ParamVoices) * (gP2Params[kP2ParamVoices].plainMax - gP2Params[kP2ParamVoices].plainMin)));
 }
+#endif
 
 // A preset's voice count as the Voices parameter's normalized value
 static double voices_normalized(int voices) {
@@ -403,6 +410,13 @@ static void update_dcos(tP2Plugin * p) {
     double  note   = (double)p->glidePitch / 256.0;
     double  rate   = p->sampleRate * p->oversample;
     int32_t shape3 = plain_int(p, kP2ParamOsc3Shape);
+    int     i      = 0;
+
+    // p2Dco notes §12: the toggle flip is one of the instrument's quirks, so it follows Anomalies
+    for (i = 0; i < 3; i++) {
+        p->dco[i].anomalies = plain_int(p, kP2ParamAnomalies) != 0;
+        p->dco[i].flipSeed  = (p->dco[i].flipSeed != 0) ? p->dco[i].flipSeed : (0x51ED27u * (uint32_t)(i + 1));
+    }
 
     p2_dco_set(&p->dco[0], osc_pitch(p, note, kP2ParamOsc1Semitone, kP2ParamOsc1Detune), width_from_dial((int32_t)lround(fmin(127.0, fmax(0.0, plain(p, kP2ParamOsc1Width) + p->mod[eModPulseWidth1])))),
                dco_shape(plain_int(p, kP2ParamOsc1Shape)), rate);
@@ -529,6 +543,67 @@ static double level_gain(const tP2Plugin * p, uint32_t id) {
     return pow(x, LEVEL_EXPONENT);
 }
 
+// notes §63: each shape's level against pitch, dB at notes 36..96 in octaves, measured at Level 40 (192k/shapes/).
+// The DCOs' ramps (saw, triangle) are tracked against pitch only roughly by the instrument; its pulses are the pin
+enum { eGainPulse12, eGainSaw12, eGainTri12, eGainSaw3, eGainTri3, GAIN_SHAPES };
+static const double kPitchGainDb[GAIN_SHAPES][6] = {
+    { 0.6, 0.6, 0.6, 0.6, 0.6, 0.6 },      // osc 1/2 PWM and APW
+    {-0.9, 0.1, 0.5, 0.9, 1.2, 1.7 },      // osc 1/2 SAW
+    { 0.4, 0.6, 0.7, 0.9, 1.0, 1.4 },      // osc 1/2 TRI
+    {-0.8, 0.7, 1.3, 1.8, 2.2, 2.8 },      // osc 3 SAW
+    { 1.3, 1.5, 1.65, 1.8, 2.1, 2.6},      // osc 3 TRI
+};
+
+static double pitch_gain(const tP2Plugin * p, int osc, int kind) {
+    double hz   = p->dco[osc].increment * p->sampleRate * p->oversample;
+    double note = 69.0 + (12.0 * log2(fmax(1.0, hz) / 440.0));
+    double at   = fmin(5.0, fmax(0.0, (note - 36.0) / 12.0));
+    int    i    = (int)fmin(4.0, floor(at));
+    double db   = kPitchGainDb[kind][i] + ((at - i) * (kPitchGainDb[kind][i + 1] - kPitchGainDb[kind][i]));
+
+    return pow(10.0, db / 20.0);
+}
+
+// notes §63: the mix squeezes loud oscillator levels more than the engine's law: dB off at Levels 64..127, by 8s
+// (127 last), measured on osc 1 (law_level/ and shapes/); osc 3's is the same curve, deeper
+static const double kLevelTrimDb[10] = {0.0, -0.1, -0.2, -0.3, -0.3, -0.5, -0.5, -0.7, -0.8, -0.8};
+#define OSC3_LEVEL_TRIM_SCALE    (1.25)
+
+static double level_trim(const tP2Plugin * p, uint32_t id, int target, double scale) {
+    double cc = fmin(127.0, fmax(0.0, plain(p, id) + p->mod[target]));
+    double at = fmin(8.0, fmax(0.0, (cc - 64.0) / 8.0));
+    int    i  = (int)fmin(7.0, floor(at));
+    double db = (cc >= 127.0) ? kLevelTrimDb[9] : (kLevelTrimDb[i] + ((at - i) * (kLevelTrimDb[i + 1] - kLevelTrimDb[i])));
+
+    return pow(10.0, scale * db / 20.0);
+}
+
+// notes §64: the noise's level law, dB to add at Levels 12, 20, 30, 40, 64, 90, 127 (192k/noise_law/)
+static const double kNoiseLevelAt[7] = {12.0, 20.0, 30.0, 40.0, 64.0, 90.0, 127.0};
+static const double kNoiseTrimDb[7]  = {10.6, 1.9, 1.3, 0.9, 0.1, -0.7, -2.0};
+
+static double noise_trim(const tP2Plugin * p) {
+    double cc = fmin(127.0, fmax(0.0, plain(p, kP2ParamNoiseLevel) + p->mod[eModNoiseLevel]));
+    int    i  = 0;
+
+    if (cc <= kNoiseLevelAt[0]) {
+        return pow(10.0, kNoiseTrimDb[0] / 20.0);
+    }
+
+    while ((i < 5) && (cc > kNoiseLevelAt[i + 1])) {
+        i++;
+    }
+    return pow(10.0, (kNoiseTrimDb[i] + ((cc - kNoiseLevelAt[i]) / (kNoiseLevelAt[i + 1] - kNoiseLevelAt[i]) * (kNoiseTrimDb[i + 1] - kNoiseTrimDb[i]))) / 20.0);
+}
+
+// osc 1's or 2's shape dial's correction; none where nothing was measured (unison, para, X-PWM)
+static double osc_pitch_gain(const tP2Plugin * p, int osc, int shape, bool osc1) {
+    if ((shape == 0) || (osc1 && (shape == 3))) {
+        return pitch_gain(p, osc, eGainPulse12);
+    }
+    return (shape == 1) ? pitch_gain(p, osc, eGainSaw12) : ((shape == 2) ? pitch_gain(p, osc, eGainTri12) : 1.0);
+}
+
 // notes §52: LEVEL2's depth, nepers per unit of osc 3 - set by osc 3's Level, deeper the lower osc 2 is set
 static double level2_swing(const tP2Plugin * p) {
     double l3 = fmin(127.0, fmax(0.0, plain(p, kP2ParamOsc3Level) + p->mod[eModOsc3Level]));
@@ -642,7 +717,7 @@ static void recover_signal_path(tP2Plugin * p, double acc) {
     memset(p->hissLp, 0, sizeof(p->hissLp));
     memset(p->oscEvenDc, 0, sizeof(p->oscEvenDc));
     p->slewed      = p->mixCoupled = p->filterCoupled = p->osc3Coupled = p->level2Coupled = p->driveOut = 0.0;
-    p->feedCoupled = p->vcaCoupled = p->vcaCoupled2 = p->paraLp = p->noiseColour = 0.0;
+    p->feedCoupled = p->vcaCoupled = p->vcaCoupled2 = p->paraLp = p->noiseColour = p->noiseDark = 0.0;
 }
 
 static void update_filter(tP2Plugin * p) {
@@ -750,6 +825,7 @@ static void control_tick(tP2Plugin * p, double dt) {
     source[12]               = wheel;
     source[13]               = pressure;
     source[14]               = plain(p, kP2ParamBreath) / 127.0;
+    source[15]               = plain(p, kP2ParamControlXIn) / 127.0;   // CONTROL-X: the CC the Control X setting names
     source[16]               = p->releaseVelocity;
     source[4]                = lfo2;
     source[5]                = lfo2 * envA;
@@ -757,7 +833,8 @@ static void control_tick(tP2Plugin * p, double dt) {
     source[7]                = envA;
     source[8]                = p->velocity;
     source[9]                = (note - KEYTRACK_REFERENCE_NOTE) / 64.0;
-    source[10]               = source[9];
+    // PITCH FLW: KEYTRACK with the glide and the bend in it (the manual), on KEYTRACK's scale
+    source[10]               = (((double)p->glidePitch / 256.0) + bend_semitones(p) - KEYTRACK_REFERENCE_NOTE) / 64.0;
     source[23]               = (highest_note(p) - KEYTRACK_REFERENCE_NOTE) / 64.0;
     source[24]               = (lowest_note(p) - KEYTRACK_REFERENCE_NOTE) / 64.0;
     memcpy(p->source, source, sizeof(p->source));
@@ -899,6 +976,8 @@ static void same_phases(tP2Plugin * v, const tP2Plugin * p) {
 
 static _Thread_local bool gMakingVoice;   // notes §57: an extra voice makes no voices of its own
 
+static uint32_t gRandomInstances = 0;
+
 static void * p2_create(const tSynthLibPluginDesc * desc) {
     tP2Plugin * p = (tP2Plugin *)calloc(1, sizeof(tP2Plugin));
 
@@ -912,6 +991,7 @@ static void * p2_create(const tSynthLibPluginDesc * desc) {
     p->noise               = 0x9E3779B9u;
     p->oversample          = OVERSAMPLE_DEFAULT;
     free_running_phases(p);
+    p->randomSeed          = 0x2545F491u * ++gRandomInstances;   // p2Patch notes §8: each instance its own, the same each run
     snprintf(p->soundName, sizeof(p->soundName), "INIT");
     p2_arp_reset(&p->arp);
     p->hwChannelKnown      = -1.0;
@@ -1412,6 +1492,9 @@ static void level_targets(tP2Plugin * p) {
     p->levelTarget[2] = (shape3 != 3) ? level_gain(p, kP2ParamOsc3Level) : 0.0;   // EXT: no input in the plug-in yet
     p->levelTarget[3] = level_gain(p, kP2ParamNoiseLevel);
     p->levelTarget[4] = LEVEL_FEEDTHROUGH * (p->levelTarget[0] + p->levelTarget[1] + p->levelTarget[2]);
+    p->levelTarget[0] *= level_trim(p, kP2ParamOsc1Level, eModOsc1Level, 1.0);   // notes §63: the mix, not the feedthrough
+    p->levelTarget[1] *= level_trim(p, kP2ParamOsc2Level, eModOsc2Level, 1.0);
+    p->levelTarget[3] *= noise_trim(p);   // notes §64
 
     if (!p->levelsSet) {
         memcpy(p->levelNow, p->levelTarget, sizeof(p->levelNow));
@@ -1435,12 +1518,15 @@ static void render_engine(void * inst, const float *const * in, uint32_t numIn, 
     }
     // notes §30: a pulse is quieter than the DCO's saw; the three oscillators' share in the mix
     int32_t        shape1    = plain_int(p, kP2ParamOsc1Shape);
-    double         mix1      = ((shape1 == 1) || (shape1 == 2)) ? 1.0 : PULSE_LEVEL;
+    double         mix1      = (((shape1 == 1) || (shape1 == 2)) ? 1.0 : PULSE_LEVEL) * osc_pitch_gain(p, 0, shape1, true);   // notes §63
     int32_t        shape2    = plain_int(p, kP2ParamOsc2Shape);
     bool           synced    = plain_int(p, kP2ParamOsc3Sync) != 0;
     // notes §39, §22: osc 2's pulse the other way up from osc 1's - and, synced, the way osc 1's is
-    double         mix2      = (shape2 == 0) ? (synced ? PULSE_LEVEL : -PULSE_LEVEL) : ((shape2 >= SHAPE_X3PWM) ? (PULSE_LEVEL * XPWM_SWING) : ((shape2 == 2) ? -1.0 : 1.0));   // notes §39: osc 2's pulse and triangle the other way up
+    double         mix2      = ((shape2 == 0) ? (synced ? PULSE_LEVEL : -PULSE_LEVEL) : ((shape2 >= SHAPE_X3PWM) ? (PULSE_LEVEL * XPWM_SWING) : ((shape2 == 2) ? -1.0 : 1.0)))
+                               * osc_pitch_gain(p, 1, shape2, false);   // notes §39: osc 2's pulse and triangle the other way up; §63
     int32_t        shape3    = plain_int(p, kP2ParamOsc3Shape);
+    double         gain3     = ((shape3 == 1) ? pitch_gain(p, 2, eGainSaw3) : ((shape3 == 2) ? pitch_gain(p, 2, eGainTri3) : 1.0))
+                               * level_trim(p, kP2ParamOsc3Level, eModOsc3Level, OSC3_LEVEL_TRIM_SCALE);   // notes §63
     bool           feedback  = shape3 == 4;
     double         coupling  = 1.0 - exp(-2.0 * M_PI * OSC3_COUPLING_HZ / (p->sampleRate * p->oversample));
     double         coupling2 = 1.0 - exp(-1.0 / (LEVEL2_COUPLING_S * p->sampleRate * p->oversample));
@@ -1448,6 +1534,7 @@ static void render_engine(void * inst, const float *const * in, uint32_t numIn, 
     double         ceiling2  = level2_ceiling(p);
     int            routing   = feedback ? 0 : plain_int(p, kP2ParamOsc3Routing);     // notes §25
     double         mixHp     = 1.0 - exp(-2.0 * M_PI * MIX_COUPLING_HZ / (p->sampleRate * p->oversample));
+
     double         feedHp    = 1.0 - exp(-2.0 * M_PI * FEEDTHROUGH_COUPLING_HZ / (p->sampleRate * p->oversample));
     double         evenHp    = 1.0 - exp(-2.0 * M_PI * OSC_EVEN_COUPLING_HZ / (p->sampleRate * p->oversample));
     double         vcaHp     = 1.0 - exp(-2.0 * M_PI * VCA_COUPLING_HZ / (p->sampleRate * p->oversample));
@@ -1461,6 +1548,8 @@ static void render_engine(void * inst, const float *const * in, uint32_t numIn, 
     double         noiseRate = NOISE_LEVEL * sqrt(rateIn / NOISE_REFERENCE_RATE);
     double         noiseLp[5];
     double         colour    = 1.0 - exp(-2.0 * M_PI * NOISE_COLOUR_HZ / rateIn);
+    double         darkInv   = NOISE_DARK_PER_STEP * fmax(0.0, fmin(127.0, plain(p, kP2ParamNoiseLevel) + p->mod[eModNoiseLevel]) - NOISE_DARK_FROM);
+    double         dark      = (darkInv > 0.0) ? (1.0 - exp(-2.0 * M_PI / sqrt(darkInv) / rateIn)) : 1.0;   // notes §64
     double         hiss      = (plain_int(p, kP2ParamHiss) != 0) ? sqrt(rateIn / NOISE_REFERENCE_RATE) : 0.0;
     int            voices    = para_voices(p);
     bool           unison    = unison_mode(p) != 0;
@@ -1547,7 +1636,8 @@ static void render_engine(void * inst, const float *const * in, uint32_t numIn, 
             double white   = band_limit(band_limit((noise + NOISE_FLOOR) * white_noise(p), noiseLp, &p->noiseLp[0]), noiseLp, &p->noiseLp[2]);
 
             p->noiseColour      += colour * (white - p->noiseColour);
-            double sources = p->noiseColour;
+            p->noiseDark        += dark * (p->noiseColour - p->noiseDark);   // notes §64
+            double sources = p->noiseDark;
             double osc     = 0.0;                             // the oscillators alone
             double cv3     = osc3 - p->osc3Coupled;           // notes §25
 
@@ -1560,7 +1650,7 @@ static void render_engine(void * inst, const float *const * in, uint32_t numIn, 
                 // notes §25: subtracted, as on the instrument; the seed is the noise floor a loop starts from
                 sources -= level3 * OSC3_FB_GAIN * p->driveOut;
             } else if (routing == 0) {
-                osc += osc_stage(p, 2, osc3_mix_gain(p) * osc3 * ((shape3 == 0) ? PULSE_LEVEL : 1.0), evenHp);
+                osc += osc_stage(p, 2, osc3_mix_gain(p) * gain3 * osc3 * ((shape3 == 0) ? PULSE_LEVEL : 1.0), evenHp);
             } else if (routing == 1) {
                 // notes §52: osc 3 inverted and AC coupled; osc 2's level times exp(swing x it), softly no higher than the ceiling
                 double l2 = -osc3 - p->level2Coupled;
@@ -1705,13 +1795,21 @@ static void preset_change(tP2Plugin * p, int number) {
     }
     memcpy(values, p->param, sizeof(values));
 
-    if (!p2_patch_cached(number, values, name)) {
+    // p2Patch notes §8: P500 is the instrument's random generator - a new sound each time it is recalled
+    if (number == P2_RANDOM_SLOT) {
+        p2_random_sound(&p->randomSeed, p->randomDump);
+
+        if (!p2_patch_from_syx(p->randomDump, P2_DUMP_LENGTH, values, name)) {
+            return;
+        }
+    } else if (!p2_patch_cached(number, values, name)) {
         return;
     }
 
     for (uint32_t id = 0; id < kP2ParamCount; id++) {
         if (  (id == kP2ParamVoices) || (id == kP2ParamOversample) || (id == kP2ParamAnomalies) || (id == kP2ParamHiss) || (id == kP2ParamHwLink)
            || (id == kP2ParamHwChannel) || (id == kP2ParamMaster) || (id == kP2ParamMasterTune) || (id == kP2ParamTranspose)
+           || (id == kP2ParamControlX) || (id == kP2ParamControlXIn)
            || (id == kP2ParamProgram) || (id == kP2ParamBank) || ((id >= kP2ParamPitchBend) && (id <= kP2ParamSustain)) || (values[id] == p->param[id])) {
             continue;
         }
@@ -1976,6 +2074,32 @@ static void process_own_drives(tP2Plugin * p, const float *const * in, uint32_t 
     }
 }
 
+// The controller the Control X setting names becomes the CONTROL-X mod source, ahead of the table (the manual: that
+// CC then serves only Control X, whatever it otherwise does); every other one as the table says. A changed Control X
+// reaches an Audio Unit at once; a VST3 host may keep the assignment it read until the project is reopened
+static bool p2_midi_mapping(const tSynthLibPluginDesc * desc, void * inst, uint8_t channel, int16_t control, uint32_t * idOut) {
+    const tP2Plugin * p        = (const tP2Plugin *)inst;
+    int               controlX = (p != NULL) ? plain_int(p, kP2ParamControlX) : 4;
+    uint32_t          id       = 0;
+
+    (void)desc;
+    (void)channel;
+
+    if ((control >= 1) && (control <= 119) && (control == controlX)) {
+        *idOut = kP2ParamControlXIn;
+        return true;
+    }
+
+    for (id = 0; id < kP2ParamCount; id++) {
+        if ((gP2Params[id].midiControl != SYNTHLIB_MIDI_NONE) && (gP2Params[id].midiControl == control)) {
+            *idOut = id;
+            return true;
+        }
+    }
+
+    return false;
+}
+
 static void p2_set_param(void * inst, uint32_t id, double normalized) {
     tP2Plugin * p = (tP2Plugin *)inst;
 
@@ -2068,7 +2192,17 @@ static void p2_panel_init(void) {
 static bool sound_param(uint32_t id) {
     return (id != kP2ParamVoices) && (id != kP2ParamOversample) && (id != kP2ParamAnomalies) && (id != kP2ParamHiss) && (id != kP2ParamHwLink)
            && (id != kP2ParamHwChannel) && (id != kP2ParamMaster) && (id != kP2ParamMasterTune) && (id != kP2ParamTranspose)
+           && (id != kP2ParamControlX) && (id != kP2ParamControlXIn)
            && (id != kP2ParamProgram) && (id != kP2ParamBank) && ((id < kP2ParamPitchBend) || (id > kP2ParamSustain));
+}
+
+// notes §62: a loaded sound's value into the engine now, while the fade holds it silent, as well as to the host - the
+// host's copy comes back a block or more later on VST3, and on an Audio Unit only once the main thread is free, so
+// waiting for it let the fade open on the old sound and the new values land after it, one by one. A sound
+// parameter's setter does nothing more than store it; the audio thread retunes the oscillators each control tick
+static void load_value(void * user, uint32_t id, double normalized) {
+    ((tP2Plugin *)user)->param[id] = normalized;
+    synthlib_plugin_param_edited(user, id, normalized);
 }
 
 static void p2_edit_param(void * user, uint32_t id, double normalized) {
@@ -2088,9 +2222,11 @@ static void p2_rename(void * user, const char * name) {
 static void p2_init_patch(void * user) {
     tP2Plugin * p = (tP2Plugin *)user;
 
+    synthlib_swap_fade_begin(&p->fade);   // notes §62: Init changes the whole sound too
+
     for (uint32_t id = 0; id < kP2ParamCount; id++) {
         if (sound_param(id)) {
-            synthlib_plugin_param_edited(user, id, gP2Params[id].defaultNormalized);
+            load_value(user, id, gP2Params[id].defaultNormalized);
         }
     }
 
@@ -2099,6 +2235,7 @@ static void p2_init_patch(void * user) {
     p->preset       = 0;
     atomic_store(&p->programShown, 0);
     set_sound_name(p, "INIT");
+    synthlib_swap_fade_end(&p->fade);
 }
 
 // notes §23: the sound's name from the file's - without the folder, ".syx" and a leading "NNN ", in capitals
@@ -2191,7 +2328,7 @@ static void p2_load_patch_now(void * user, const char * path) {
 
     for (uint32_t id = 0; id < kP2ParamCount; id++) {
         if (sound_param(id)) {
-            synthlib_plugin_param_edited(user, id, values[id]);
+            load_value(user, id, values[id]);
         }
     }
 
@@ -2224,7 +2361,13 @@ static void p2_load_preset_now(void * user, int number) {
         return;
     }
     p2_presets_refresh();
-    p2_presets_dump(number, dump);
+
+    if (number == P2_RANDOM_SLOT) {       // p2Patch notes §8
+        p2_random_sound(&p->randomSeed, p->randomDump);
+        memcpy(dump, p->randomDump, P2_DUMP_LENGTH);
+    } else {
+        p2_presets_dump(number, dump);
+    }
 
     for (uint32_t id = 0; id < kP2ParamCount; id++) {
         values[id] = synthlib_plugin_param_value(user, id);
@@ -2236,11 +2379,11 @@ static void p2_load_preset_now(void * user, int number) {
 
     for (uint32_t id = 0; id < kP2ParamCount; id++) {
         if (sound_param(id)) {
-            synthlib_plugin_param_edited(user, id, values[id]);
+            load_value(user, id, values[id]);
         }
     }
 
-    synthlib_plugin_param_edited(user, kP2ParamVoices, voices_normalized(p2_presets_voices(number)));
+    load_value(user, kP2ParamVoices, voices_normalized(p2_presets_voices(number)));
     memcpy(p->baseDump, dump, P2_DUMP_LENGTH);
     p->haveBase     = true;
     p->patchPath[0] = '\0';
@@ -2280,7 +2423,11 @@ static bool preset_edited(tP2Plugin * p, void * user) {
         return false;
     }
     current_dump(user, "", now);
-    p2_presets_dump(p->preset, stored);
+    if (p->preset == P2_RANDOM_SLOT) {   // p2Patch notes §8: against the random sound it made, not the slot
+        memcpy(stored, p->randomDump, P2_DUMP_LENGTH);
+    } else {
+        p2_presets_dump(p->preset, stored);
+    }
     return (memcmp(now + 7, stored + 7, P2_DUMP_LENGTH - 9) != 0) || (host_voices(user) != p2_presets_voices(p->preset));
 }
 
@@ -2590,8 +2737,13 @@ static void p2_panel_sync(void * user) {
 
     // a program change: the panel names it, and a save keeps its dump's bytes
     if ((number != 0) && (number != p->preset)) {
-        set_sound_name(p, p2_presets_name(number));
-        p2_presets_dump(number, p->baseDump);
+        set_sound_name(p, (number == P2_RANDOM_SLOT) ? "RANDOM" : p2_presets_name(number));
+
+        if (number == P2_RANDOM_SLOT) {
+            memcpy(p->baseDump, p->randomDump, P2_DUMP_LENGTH);
+        } else {
+            p2_presets_dump(number, p->baseDump);
+        }
         p->haveBase     = true;
         p->patchPath[0] = '\0';
         p->preset       = number;
@@ -2734,6 +2886,7 @@ static const tSynthLibPluginDesc gDescriptor = {
         .noteOff    = p2_note_off,
         .setParam   = p2_set_param,
         .getParam   = p2_get_param,
+        .midiMapping = p2_midi_mapping,
         .getState   = p2_get_state,
         .setState   = p2_set_state,
         .paramText  = p2_param_text,
