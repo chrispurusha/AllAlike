@@ -50,13 +50,12 @@ Missing everywhere, or built in one and wanted in the others:
 **Missing**
 - **Effects:** Chorus types other than Classic; Delay Color, Tape types and modulation; Reverb's Feedback modes and Clock; the Distortion Wave Shaper; Character types other than Analog Boost.
 - **Arpeggiator, vocoder, input follower, soft knobs:** not offered (the arpeggiator last, if at all).
-- **Parameter Smooth Mode** Auto, Note and the Quantise modes - but see below: whether any mode smooths at all is unsettled.
 - **Matrix routes:** LFO 1 to Filter Gain, the Unison destinations, Osc 3 Detune, and the oscillator models' F-Shift and F-Spread.
 - **Loading custom wavetables** from common file formats.
 - **Fixed point** beyond the filter (oscillators, envelopes, mix, saturation, ladder): a sample-exact null needs all of them.
 
 **Needs more work**
-- **Smooth Mode: a contradiction.** The engine glides a Cutoff or Resonance change over 43.7 ms with Smooth On, but fresh reference renders show no smoothing in any mode. Settle which is right before building the other modes (the hardware TI could decide it).
+- **Smooth Mode settled on the hardware (2026-11-06):** no mode glides; Off/On/Auto/Note act at once, the Quantise values hold a change to the next tempo division - built.
 - **Oscillator models** (Wave PWM, Grain, Formant, built 2026-11-02): with Detune on, the Complex models make a half-frequency component 24 dB down that the reference does not; high Formant or Sync on rich tables keeps up to 2 dB too much at the top. Wavetables 7, 35 and 77 are missing content above the 64th partial.
 - **Oscillators generally:** start phases (free-running and fixed) do not yet line up for a null; a cent flat when free-running and 0.3 cents sharp otherwise; about 6 dB down at note 108; Ring at the same pitch; HyperSaw's cross-sync frequency.
 - **Filters:** Serial 6's second section carries no resonance (close but not exact above 64); the analog modes' self-oscillation pitch (0.9% low) and high-frequency floor; Osc Volume's upper half into the analog filter.

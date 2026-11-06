@@ -98,3 +98,47 @@ Measurements, results and the traps that cost time, newest last.
 - FM depth has four slopes, reaching 15 times the frequency, through zero. The high pass sits on the oscillators. Across 70 Singles: level 1.55 dB, spectrum 5.01, signed level 0.0.
 - EQ against reference renders: shelves within about 0.6 dB, mid boosts within about 0.8. Mid cuts are too wide.
 
+## 2026-11-06 - the capture rig, and the Virus's S/PDIF low bit (`VirusTI/48k/spdif_check/`, `tools/spdif_bits.py`)
+- Rig (the Intel MacBook, as Pulse2Alike's): the Virus's S/PDIF into the Fireface UC, inputs 9/10 (indices 8/9; the
+  Fireface's input channel limit raised to 16), the Fireface clocked from the Virus at 48 kHz. MIDI on the port
+  **"Virus TI USB Plugin I/O"**, channel 1 - "External I/O" is the Virus's MIDI socket, not the synth. The Virus's own
+  USB audio (6 channels) carries no synth audio without Virus Control running: two channels sit at small fixed values
+  (about -75 dBFS), the rest at 0.
+- **S/PDIF silence is exact digital zero** (every word 0, both channels).
+- **The least significant bit is not audio.** During a held note (-9 dBFS, 153 000 samples a channel) bit 0 is 1 on
+  every positive sample and 0 on every negative one, on both channels - the sign, inverted. Bits 1-7 are ordinary
+  (0.50 ones each, uncorrelated with each other); bit 0 is 0.54 ones and correlates +0.95 with itself a sample on.
+  So the stream carries 23 bits: an error under one 24-bit step (about -138 dBFS) at each zero crossing, inaudible,
+  but a floor for bit-exact comparisons and deep nulls - drop bit 0 (or compare to 23 bits) when nulling against the
+  engine.
+
+## 2026-11-06 - Parameter Smooth Mode on the instrument (`VirusTI/48k/smooth/`, `smooth_init/`, `tools/ti_smooth_session.py`, `ti_smooth_analyse.py`)
+A held note (C4), Cutoff 30 -> 100 one second in, by CC 40 or by SysEx (page A 40), Smooth Mode (page B 25) Off and
+On; first on whatever sound was loaded, then on TiAlike's Init Single sent to the edit buffer. Read as the energy
+above 1.5 kHz (2 ms rms, dB), which rises 12.6 dB:
+- **Off: a step.** The change lands within 2-3 ms, by CC and by SysEx, and stays.
+- **On: also a step.** No glide anywhere like TiAlike's 45 ms (tiVoices notes §5, now removed). These two takes
+  showed a treble overshoot (about +9 dB, ~25 ms) after the On jumps; the cleaner takes below show one after Off
+  jumps too, so it is not Smooth Mode's - the filter's own transient at an instant change.
+- So the reference renders (a jump in every mode) are right about the glide; they do not show the overshoot.
+- The Init sound's own ripple (about every 8 ms) defeats a 10%-90% timing; the curves (smooth.png) are the result.
+  To time the overshoot exactly: a sound without that ripple (one oscillator, no detune) and the MIDI's send time
+  marked in the capture.
+
+## 2026-11-06 - the Cutoff jumps again, osc 1 alone (`VirusTI/48k/smooth_osc1/`, `tools/ti_smooth2_session.py`, `ti_smooth2_analyse.py`)
+Init with Osc Balance 0, Sub, Noise and both Filter Env Amounts at 0; CC Cutoff 30->100, 30->60, 100->30, Smooth Off
+and On. Every jump is a step in both modes; a +10 dB treble spike right at the jump came with Smooth OFF (30->100,
+30->60), so the overshoot is not the smoothing. The takes are not clean enough to measure the spike: the one-period
+rms is not quite the Virus's period (its C4 is not exactly 261.63 Hz in Init), and the Init sound still moves for
+hundreds of ms after the jump. Enough to settle the glide: there is none.
+
+## 2026-11-06 - every Smooth Mode on the hardware (`VirusTI/48k/smooth_modes/`, `tools/ti_smooth_modes_session.py`, `ti_smooth_modes_analyse.py`)
+Init, osc 1 alone; a CC Cutoff jump 30 -> 100 sent 1.0 or 1.3 s into a held C4, for Off, On, Auto, Note, Quantise
+1/16, 1/4 and 1/1. The Init sound sweeps its own treble about every 350 ms, locked to the note, so each take is read
+against two references played the same way (Cutoff 30 throughout, 100 throughout). From the 1.3 s sends (at 1.0 s the
+references sit too close to read):
+- Off, On, Auto, Note: landed 9-22 ms after sending, a step (10-90% in 2-15 ms).
+- Quantise 1/16: 28 ms; 1/4: 245 and 305 ms; 1/1: 590 and 1340 ms - each a step (7-8 ms), each under one division at
+  120 bpm (125 ms, 500 ms, 2 s): the change waits for the next division of a clock that runs free of the note.
+- No mode glides. Built so (tiVoices notes §5); the offline render lands each mode at its division.
+

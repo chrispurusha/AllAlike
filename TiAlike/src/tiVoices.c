@@ -461,6 +461,22 @@ void ti_voices_all_off(tTiVoices * v) {
     }
 }
 
+// notes §5: Smooth Mode's Quantise values 4..20 hold a change to the next division, in whole notes
+static const double kQuantiseWhole[17] = {
+    1.0 / 64.0, 1.0 / 32.0, 1.0 / 16.0, 1.0 / 8.0, 1.0 / 4.0, 1.0 / 2.0, 3.0 / 64.0, 3.0 / 32.0, 3.0 / 16.0, 3.0 / 8.0,
+    1.0 / 24.0, 1.0 / 12.0, 1.0 / 6.0, 1.0 / 3.0, 2.0 / 3.0, 3.0 / 4.0, 1.0
+};
+
+// notes §5: a quantised control waits here, its new value in target, until the division passes
+static void smooth_hold(tTiSmooth * s, double target) {
+    if (!s->started) {
+        s->started = true;
+        s->current = target;
+    }
+    s->target = target;
+    s->left   = 0.0;
+}
+
 static void smooth_toward(tTiSmooth * s, double target, double rate, bool instant) {
     if (!s->started || instant) {
         s->started = true;
@@ -499,7 +515,7 @@ static double smooth_advance(tTiSmooth * s, uint32_t frames) {
     if (s->left > (double)frames) {
         s->current += s->step * frames;
         s->left    -= frames;
-    } else {
+    } else if (s->left > 0.0) {   // a glide ending; with none running the value stays (notes §5: a quantised hold)
         s->current = s->target;
         s->left    = 0.0;
     }
@@ -1373,16 +1389,36 @@ static const struct {
 };
 
 void ti_voices_render(tTiVoices * v, const tTiSound * s, float * left, float * right, uint32_t frames) {
-    bool instant = (s->b[25] == 0);    // Parameter Smooth Mode Off
+    // notes §5: a Cutoff, Resonance or Balance change lands at once in Smooth Off, On, Auto and Note; the Quantise
+    // values hold it to the next division of the tempo, then step - measured on the hardware (findings 2026-11-06)
+    bool     instant   = true;
+    int      mode      = s->b[25];
+    bool     quantise  = (mode >= 4) && (mode <= 20);
+    double   bpm       = (v->tempo > 0.0) ? v->tempo : (63.0 + s->b[16]);
+    double   division  = quantise ? ((60.0 / bpm) * 4.0 * kQuantiseWhole[mode - 4]) : 0.0;
+    double   was       = v->seconds;
+    tTiSmooth * held[5] = {&v->cutoff, &v->resonance, &v->cutoff2, &v->resonance2, &v->balance};
+    double   to[5]     = {s->a[40], s->a[42], s->a[41], s->a[43], s->a[48]};
+    int      c         = 0;
 
     v->seconds += (double)frames / v->rate;
 
     v->sound    = *s;
-    smooth_toward(&v->cutoff, s->a[40], v->rate, instant);
-    smooth_toward(&v->resonance, s->a[42], v->rate, instant);
-    smooth_toward(&v->cutoff2, s->a[41], v->rate, instant);
-    smooth_toward(&v->resonance2, s->a[43], v->rate, instant);
-    smooth_toward(&v->balance, s->a[48], v->rate, instant);
+
+    for (c = 0; c < 5; c++) {
+        if (quantise) {
+            smooth_hold(held[c], to[c]);
+        } else {
+            smooth_toward(held[c], to[c], v->rate, instant);
+        }
+    }
+
+    // notes §5: the division passed in this block - every held control takes its new value (a block early at most)
+    if (quantise && (floor(v->seconds / division) != floor(was / division))) {
+        for (c = 0; c < 5; c++) {
+            held[c]->current = held[c]->target;
+        }
+    }
 
     // notes §4: per voice every sub-block, because every voice's keyfollow, envelopes and modulation differ
     for (uint32_t done = 0; done < frames; done += SUB_BLOCK) {

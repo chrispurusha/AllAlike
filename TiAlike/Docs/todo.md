@@ -28,7 +28,6 @@ One line per item. Measurements and reasoning go in `findings.md`, design in `de
 - Singles drive only what is built (tiPatch notes §3; the amp envelope's 59-63 now carried): add each section's bytes to `kCarried` as it is built - Osc 1 shape/PW (page A 17/18) with the oscillator
 - Changing Sustain while a note holds: glides at 2^-12 a tick (tiEnvelope notes §6) - check against the reference
 - The reference answers a note 1-1.5 ms after its sample: measure the delay and whether it steps with a block of its own
-- Parameter Smooth Mode (11-02): the reference renders show NO effect of any mode (Off/On/Auto/Note/Quantise) on a Cutoff change by CC or SysEx, mid-note or before it - yet tiVoices notes §5 glides On over 43.7 ms. CONFIRMED 11-02 with tirender (now takes cc lines): TiAlike glides ~45 ms, the reference jumps. Decide: drop the glide (match the reference) or keep it (if the hardware TI glides) - then Auto/Note
 - Loading of custom wavetables, in various common file formats.
 
 ## Later

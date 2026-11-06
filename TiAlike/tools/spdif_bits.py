@@ -24,19 +24,24 @@ def words(path):
     return np.frombuffer(raw.tobytes(), '<i2').reshape(-1, ch).astype(np.int32), 16, w.getframerate()
 
 
-for path in sys.argv[1:]:
-    v, bits, rate = words(path)
-    print(path.split('/')[-1], '- %d frames, %d-bit words, %d Hz' % (len(v), bits, rate))
-    for c in range(v.shape[1]):
-        x = v[:, c]
-        u = x & ((1 << bits) - 1)
-        ones = [(u >> b & 1).mean() for b in range(bits)]
-        nz = np.flatnonzero(np.array(ones) > 0)
-        lowest = int(nz[0]) if len(nz) else -1
-        peak = np.max(np.abs(x)) / float(1 << (bits - 1))
-        print('  ch %d: %d distinct values, range %d..%d (peak %.1f dBFS), lowest bit in use %d' % (
-            c, len(np.unique(x)), x.min(), x.max(), 20 * np.log10(peak) if peak > 0 else -np.inf, lowest))
-        print('        share of ones, bit 0..%d: %s' % (min(11, bits - 1), ' '.join('%.2f' % o for o in ones[:12])))
-        if len(np.unique(x)) < 12:
-            vals, counts = np.unique(x, return_counts=True)
-            print('        values: %s' % ', '.join('%d x%d' % (a, b) for a, b in zip(vals, counts)))
+def main():
+    for path in sys.argv[1:]:
+        v, bits, rate = words(path)
+        print(path.split('/')[-1], '- %d frames, %d-bit words, %d Hz' % (len(v), bits, rate))
+        for c in range(v.shape[1]):
+            x = v[:, c]
+            u = x & ((1 << bits) - 1)
+            ones = [(u >> b & 1).mean() for b in range(bits)]
+            nz = np.flatnonzero(np.array(ones) > 0)
+            lowest = int(nz[0]) if len(nz) else -1
+            peak = np.max(np.abs(x)) / float(1 << (bits - 1))
+            print('  ch %d: %d distinct values, range %d..%d (peak %.1f dBFS), lowest bit in use %d' % (
+                c, len(np.unique(x)), x.min(), x.max(), 20 * np.log10(peak) if peak > 0 else -np.inf, lowest))
+            print('        share of ones, bit 0..%d: %s' % (min(11, bits - 1), ' '.join('%.2f' % o for o in ones[:12])))
+            if len(np.unique(x)) < 12:
+                vals, counts = np.unique(x, return_counts=True)
+                print('        values: %s' % ', '.join('%d x%d' % (a, b) for a, b in zip(vals, counts)))
+
+
+if __name__ == '__main__':
+    main()

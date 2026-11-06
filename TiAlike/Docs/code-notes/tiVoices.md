@@ -17,11 +17,18 @@ The filter's coefficients are worked out every 32 samples and shared by every vo
 cutoff yet. Every 32 rather than once a host block so that a glide (§5) is not stepped by a host's block size, which
 can be 1024 samples. Keyfollow and the filter envelope will make them per voice.
 
-## 5. Smoothing a control change
-The reference glides a changed Cutoff or Resonance to its new value in a straight line over a fixed time, whatever
-the size of the change: 2048 samples at 46875 Hz, 43.7 ms (measured on the Init Single, whose Parameter Smooth Mode
-is On, against Off, where the change is immediate - findings.md). Here both glide that way; a new value starts a new
-glide from wherever the last one had got to. The other Smooth modes (Auto, Note, the quantised ones) are not built.
+## 5. Smoothing a control change: none, or held to the tempo
+Parameter Smooth Mode never glides. Off, On, Auto and Note: a changed Cutoff, Resonance or Balance (both filters')
+takes effect at once. The seventeen Quantise values (1/64 .. 1/1, the triplet and dotted ones too): the change is held
+until the next division of the tempo, then lands as a step. Measured on the hardware TI (findings 2026-11-06: every
+mode a step within 2-15 ms; Quantise 1/16, 1/4, 1/1 held 28, 245-305, 590-1340 ms, each under one division at 120 bpm;
+the reference renders likewise jump). It used to glide in a straight line over 43.7 ms with Smooth On, read from an
+early comparison of the Init Single - wrong.
+The divisions run on the engine's own clock (`seconds` since the instance started) at the host's tempo, or the
+sound's Clock Tempo (63 + B16) with none - the instrument's clock runs free of the note too, so where its boundaries
+fall against a note differs take to take there as here. A held control waits in its smoother's target (smooth_hold)
+and takes it in the block the division passes, a block early at most. A short treble spike at some jumps comes with
+Off as well - the filter's own response to an instant change, not a smoothing.
 
 ## 6. The two filters: routing, Balance, Link
 Filter 2 has the digital modes only (low, high, band pass, band stop). Balance runs through a centre-detented curve,
