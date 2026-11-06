@@ -24,7 +24,7 @@ STATIC_FROM_DB = -29.5     # inputs above the quiet-input knee: the shape alone
 PRE_S = 0.1                # the model starts this far ahead of the onset, so its couplings settle as the note's do
 
 DP = ctypes.POINTER(ctypes.c_double)
-SINES = '/Volumes/ext-ssd/Captures/Pulse2/192k/drive/'
+SINES = os.environ.get('P2_CAPTURES', '/Volumes/ext-ssd/Captures/Pulse2') + '/192k/drive/'
 SINE_LEVELS = (-30, -20, -10)   # the EXT IN steps, HOLD s each (tools/vol_check.py)
 SINE_HOLD_S = 2.0
 

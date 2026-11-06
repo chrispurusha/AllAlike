@@ -63,6 +63,11 @@ static void action_send_to_hardware(int index) {
     p2_draw_send_to_hardware();
 }
 
+static void action_store_to_hardware(int index) {
+    (void)index;
+    p2_draw_store_to_hardware_browser();
+}
+
 static void action_load_preset(int index) {
     (void)index;
     p2_draw_load_preset_browser();
@@ -159,14 +164,17 @@ static void open_presets_menu(tCoord anchor) {
     open_context_menu(anchor, items, 0, 0.0);
 }
 
-// notes §4: the instrument - read only, for now: nothing here writes its memory
+// notes §4: the instrument - only Store Sound to Pulse 2 Slot writes its memory, one slot, after a confirm
 static void open_pulse2_menu(tCoord anchor) {
-    static tMenuItem items[4];
+    static tMenuItem items[5];
     bool             running = p2_draw_backing_up();
     int              i       = 0;
 
     items[i++] = (tMenuItem){
         "Send Sound to Pulse 2", running ? ITEM_DISABLED : ITEM, running ? NULL : action_send_to_hardware, 0, NULL, 0, 0.0, NULL
+    };
+    items[i++] = (tMenuItem){
+        "Store Sound to Pulse 2 Slot...", running ? ITEM_DISABLED : ITEM, running ? NULL : action_store_to_hardware, 0, NULL, 0, 0.0, NULL
     };
     items[i++] = running ? (tMenuItem){
         "Cancel Backup", ITEM, action_cancel_backup, 0, NULL, 0, 0.0, NULL
@@ -248,8 +256,10 @@ static const char *const kHelpTexts[HELP_TOPICS]  = {
     "to it as it is made, by MIDI controller where the instrument has one and as a sound dump otherwise. A sound "
     "loaded by number also selects that number on the instrument.\n\n"
     "Set Channel on the GLOBAL page to the instrument's MIDI channel; it is remembered for every project.\n\n"
-    "File > Send Sound to Pulse 2 sends the sound once. Both only ever replace the instrument's edit buffer: "
-    "nothing is stored to its memory.\n\n"
+    "Pulse 2 > Send Sound to Pulse 2 sends the sound once. Both only ever replace the instrument's edit buffer: "
+    "nothing is stored to its memory. Pulse 2 > Store Sound to Pulse 2 Slot is the one thing that does: it writes "
+    "the sound into one of the instrument's slots, P001-P499, after asking. P500 is never written: it is the "
+    "Pulse 2's random sound generator.\n\n"
     "Link works while the plug-in's window is open.",
 
     "Oversample: 1, 2 or 4 times the host's rate (2 by default, 4 the cleanest). Changing it clicks once.\n\n"

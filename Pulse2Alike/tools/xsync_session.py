@@ -10,7 +10,7 @@ import p2rig
 import squash_session as sq
 from osc_analyse import read
 
-OUT = '/Volumes/ext-ssd/Captures/Pulse2/192k/xpwm'
+OUT = os.environ.get('P2_CAPTURES', '/Volumes/ext-ssd/Captures/Pulse2') + '/192k/xpwm'
 NOTE, HOLD = 48, 2.0
 CASES = {'sync_x3_s7': (3, 7), 'sync_x3_s19': (3, 19), 'sync_pwm_s7': (0, 7), 'sync_pwm_s19': (0, 19), 'sync_saw_s7': (1, 7), 'sync_saw_s19': (1, 19), 'sync_saw_s12': (1, 12)}
 

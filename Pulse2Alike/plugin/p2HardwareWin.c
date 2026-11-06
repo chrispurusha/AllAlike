@@ -45,6 +45,12 @@ tP2HardwareResult p2_hardware_send_to_edit_buffer(uint8_t dump[P2_DUMP_LENGTH]) 
     return eP2HardwareNoMidi;
 }
 
+tP2HardwareResult p2_hardware_store_to_slot(uint8_t dump[P2_DUMP_LENGTH], int number) {
+    (void)dump;
+    (void)number;
+    return eP2HardwareNoMidi;
+}
+
 tP2HardwareResult p2_hardware_backup_start(void) {
     return eP2HardwareNoMidi;
 }

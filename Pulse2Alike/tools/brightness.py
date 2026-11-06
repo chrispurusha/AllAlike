@@ -12,7 +12,7 @@ import p2rig
 from osc_analyse import read
 
 LIB = os.path.expanduser('~/Library/Mobile Documents/com~apple~CloudDocs/Patches/Pulse2')
-OUT = '/Volumes/ext-ssd/Captures/Pulse2/192k/brightness-phase0'
+OUT = os.environ.get('P2_CAPTURES', '/Volumes/ext-ssd/Captures/Pulse2') + '/192k/brightness-phase0'
 HERE = os.path.dirname(os.path.abspath(__file__))
 
 

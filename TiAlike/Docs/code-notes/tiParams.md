@@ -5,9 +5,8 @@ Each dial's plain range is the panel's 0..127, as the instrument's controls are,
 controller maps straight on. The ids are appended to and never reordered: host projects save them.
 
 ## 2. Pages
-Pulse2Alike's page names and section colours, so the two plug-ins read alike: OSCILLATORS, FILTER, AMP, ENVELOPES,
-LFOS, MOD, EFFECTS, ARP, GLOBAL. A page appears only once something on it is built, so the panel shows what plays;
-for now OSCILLATORS, FILTER, AMP, ENVELOPES (AMP ENV) and GLOBAL. Volume sits under AMP's MASTER and the voice limit under GLOBAL's PLUG-IN,
+The page names and order every Alike shares (CT 2026-11-06), with Pulse2Alike's section colours: OSC, FILTER, AMP, ENV, LFO, MOD, then the instrument's own pages (ARP, TABLES beside OSC, the effects), GLOBAL always last. A page appears only once something on it is built, so the panel shows what plays;
+for now OSC, FILTER, AMP, ENV (AMP ENV) and GLOBAL. Volume sits under AMP's MASTER and the voice limit under GLOBAL's PLUG-IN,
 where Pulse2Alike puts its own.
 
 ## 3. The live controls

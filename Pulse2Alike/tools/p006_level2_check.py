@@ -10,8 +10,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import p2rig
 from osc_analyse import read
 
-OUT = '/Volumes/ext-ssd/Captures/Pulse2/192k/p006_level2'
-SYX = '/Volumes/ext-ssd/Captures/Pulse2/192k/patches/fixedlfo_006.syx'
+OUT = os.environ.get('P2_CAPTURES', '/Volumes/ext-ssd/Captures/Pulse2') + '/192k/p006_level2'
+SYX = os.environ.get('P2_CAPTURES', '/Volumes/ext-ssd/Captures/Pulse2') + '/192k/patches/fixedlfo_006.syx'
 CCS = ((45, 0), (48, 0), (50, 127), (52, 64), (56, 0), (53, 64), (51, 64))
 OVR = ['osc1level=0', 'noiselevel=0', 'cutoff=127', 'filterenvamount=64', 'resonance=0', 'filtervelocity=64', 'filterkeytrack=64']
 

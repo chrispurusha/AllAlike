@@ -3,23 +3,24 @@
 One line per item. Measurements and reasoning go in `findings.md`, design in `design.md`.
 
 ## First
-- P012 (CT 2026-10-23): resonance tone higher on the instrument - measured: the instrument's filter has drifted up since 10-17 (+0.6 semitone at cutoff 0 to +0.1 at 88; findings 2026-10-23), the law matches 10-17. NEXT: CT runs TUNE FILTER on the instrument, then re-measure cutoff 0/40/64/88 at note 60
-- P012 (CT): left alone ~10 s, the instrument's first note sounds as if the filter glides in - what resets or drifts while idle (its slow LFO 1 drives VCF ENV AMT and RESONANCE; glide 10 on the pitch the keytrack follows)
-- Sync and LEVEL2 are in (p2Plugin notes §22, §52). Left: LEVEL2 below osc 2 Level 101 1.5-4 dB loud (findings 2026-10-25, a richer form needed); the synced pulse against osc 3's square (0.78); P046, P073, P160, P228 slightly worse with it
-- LEVEL2 (P006, P015): the coupled linear law is fitted (p2Plugin notes §52); CT to check by ear. Left: the engine's slew and loop saturation compress loud fast signals more than the instrument (2 kHz LEVEL2 takes, open triangle) - refit with the filter (see the Filter item)
-- P010 (CT 2026-10-25): more chorused - all its parts match on the instrument; its top end fixed (findings 2026-10-25, 'brightness') - CT to recheck by ear
-- P002 (CT): close; perhaps the start of the note (attack) - not certain
-- P002: a steady +2.2 dB loud against a fresh take (osc 3 on VCF at Level 51, cutoff 13) - the VCF routing's gain into the filter?
-- P003 (CT 2026-10-25): better but still not close - with the FUZZ items under Drive
-- P001: osc 3's level law refitted (findings 2026-10-25); its release ~3.6 dB short
+- P001-P015 close by ear (CT 2026-11-06) apart from P003, the only one of them with drive on (FUZZ, Drive 17) - the drive rebuild below is next; then listen on from P016
+- Presets, still to do (design §7): Restore Presets to Pulse 2 (writes only slots that differ, never P500) - waits for CT; Store Sound to Pulse 2 Slot is built (2026-11-06, in to-test.md)
+- Editor loads (p2_load_patch, p2_load_preset): write each value into the engine while the fade holds, as TiAlike's ti_load_single (see Plug-in)
+
+## Measured, close by ear (2026-11-06) - only if a later sound needs them
+- P012: the instrument's filter drifted up since 10-17 (+0.6 semitone at cutoff 0 to +0.1 at 88; findings 2026-10-23); TUNE FILTER, then re-measure cutoff 0/40/64/88 at note 60, before any filter refit
+- P012: after ~10 s idle the first note seemed to glide its filter in (slow LFO 1 on VCF ENV AMT and RESONANCE; glide 10)
+- LEVEL2 below osc 2 Level 101 1.5-4 dB loud (findings 2026-10-25); the synced pulse against osc 3's square (0.78); P046, P073, P160, P228 slightly worse with sync/LEVEL2 in
+- LEVEL2 (P006, P015): the engine's slew and loop saturation compress loud fast signals more than the instrument (2 kHz takes, open triangle) - refit with the filter
+- P002: a steady +2.2 dB loud against a fresh take (osc 3 on VCF at Level 51, cutoff 13); its attack
+- P001: its release ~3.6 dB short
+- P006: 1-4 kHz 3-7 dB bright; first 150 ms ~3 dB quiet; 2nd-4th harmonics 4/5/10 dB under over 7.5 s; its tail's VCA knee ~0.1 s early
 - Filter envelope short attacks: measure with noise through the filter (p2Plugin notes §43); P004's burst; redo `fenv_attack/` with Filter Velocity set (at 0 the envelope did not open)
 - The first ~4 ms of a note over a release: the instrument's first half-cycle is smoother (P004)
-- P006 (findings 2026-10-25 'fade'): its first moment and release are within the instrument's take-to-take spread (LEVEL2's phase); the very tail steps down early (the VCA knee reached ~0.1 s before the instrument's) - CT to recheck by ear; 1-4 kHz 3-7 dB bright (resonance 41 / filter keytrack 95 at cutoff 0?); first 150 ms ~3 dB quiet; 2nd-4th harmonics 4/5/10 dB under over 7.5 s (how osc 2, osc 3 and the noise combine)
-- Presets, still to do (design §7): Store Sound to Pulse 2 Slot and Restore Presets to Pulse 2 (flash writes - wait for CT's go-ahead); the rest is built
 - The thump (VCA feedthrough, p2Plugin notes §43): Decay 0 too big (0.149 against 0.103), Attack 20's small positive bump
 
 ## Drive
-- NEXT WEEK (CT 2026-10-26): rebuild the drive model as an OTA-style gain stage plus a fixed per-curve clipper, every per-Drive value one smooth function of Drive - plan in p2Drive notes §9; the waveform refit (§8) is in and "sounding much better", not identical
+- NOW (planned CT 2026-10-26): rebuild the drive model as an OTA-style gain stage plus a fixed per-curve clipper, every per-Drive value one smooth function of Drive - plan in p2Drive notes §9; the waveform refit (§8) is in and "sounding much better", not identical
 - The output gate is in (p2Plugin notes §55) and the fitted quiet-input loss is off (p2Drive notes §7); P003 gates off as the instrument's does
 - FUZZ overall (CT 2026-10-25): better but still not close by ear; after the §8 waveform refit (10-26) Drive 0/64 close, 127 slightly worse, even harmonics still not growing with Drive
 - FUZZ at quiet Levels (14-20): the instrument still clips and lifts quiet signals (+3.8 dB against NONE at -45 dBFS in, BP12), the engine does not (0) - more gain into the clipper; refit running (`drive_shape.py 2 gated`)
@@ -30,6 +31,7 @@ One line per item. Measurements and reasoning go in `findings.md`, design in `de
 - The drive-on output gate's thresholds were measured with FUZZ; check one TUBE point
 
 ## Rig
+- Dedicated capture machine (2026-11-06): the Intel MacBook, Fireface UC inputs 7/8 (indices 6/7), USB MIDI channel 12 (design §5); tools built there, Python in ~/.venvs/p2rig; captures copied to ~/Captures/Pulse2 (set P2_CAPTURES)
 - Regression references: use `192k/patches1025/` (fresh 2026-10-25); the 10-17 takes in `patches/` misled on P001 and P010
 - Build a known test sound over CCs (one osc, semitone/detune centred, filter open, envelopes flat) before every capture
 - Read INPUT GAIN off the panel and record it with the EXT captures; sweep the EXT level per step
@@ -66,11 +68,10 @@ One line per item. Measurements and reasoning go in `findings.md`, design in `de
 - The 1 kHz leak (−96 dBFS with a note sounding): decide whether to model it
 
 ## Plug-in
-- Link: send the program change on all 16 channels, so the P number follows whatever the Channel setting (only the Pulse 2 listens on its USB port) - offered to CT 2026-10-20, undecided
 - Value text in real units (times, rates, semitones) where the laws are measured; the panel shows raw values now, as the instrument does
 - SynthLib: maximise the C and reduce the C++ (CT 2026-10-21) - port src/fileBrowser.cpp, bankBrowser.cpp and prefs.cpp to C; the VST3 wrapper and views stay C++/Obj-C++ as the SDK requires
 - Editor loads (p2_load_patch, p2_load_preset): the fade opens before the new sound is in the engine. Only synthlib_plugin_param_edited carries the values, and they come back a block or more later on VST3, and on an Audio Unit only once the main thread is free, after the fade has ended. So the old sound fades back in, then the new values land one by one with no fade over them. TiAlike fixed this 2026-11-02 by writing each value into the engine as well as reporting it, while the fade still holds (tiPlugin.c ti_load_single)
-- The instrument's random sound generator (CT 2026-11-02): one preset, P500 CT thinks, makes a random sound when loaded - confirm which slot and how it behaves on the instrument, then model it (the plug-in plays P500 as a stored dump now)
+- The instrument's random sound generator is P500 (CT 2026-11-06; never write it): its dump carries Osc 1 Shape 119, out of range (findings 2026-11-06) - capture a few loads of it and model it (the plug-in plays P500 as a stored dump now)
 
 ## DO NOT RE-TRY
 - Four one-pole stages with LP24 at the end (per-stage poles): worse than the free-mix fit, implausible stage ratios, no HP notch (findings, first linear filter fit)

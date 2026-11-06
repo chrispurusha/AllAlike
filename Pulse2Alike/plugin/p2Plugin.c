@@ -2044,6 +2044,7 @@ static void p2_edit_param(void * user, uint32_t id, double normalized);
 static const char * p2_sound_name(void * user);
 static void p2_rename(void * user, const char * name);
 static int p2_send_to_hardware(void * user);
+static int p2_store_to_hardware(void * user, int number);
 static void p2_load_preset(void * user, int number);
 static bool p2_store_preset(void * user, int number);
 static int p2_preset_number(void * user);
@@ -2051,10 +2052,10 @@ static int p2_backup_start(void * user);
 static void p2_backup_cancel(void * user);
 
 static const tP2PatchHost gPatchHost = {
-    .load       = p2_load_patch,   .save         = p2_save_patch,   .init   = p2_init_patch,       .edit = p2_edit_param,
-    .name       = p2_sound_name,   .rename       = p2_rename,       .send   = p2_send_to_hardware,
-    .loadPreset = p2_load_preset,  .storePreset  = p2_store_preset, .preset = p2_preset_number,
-    .backup     = p2_backup_start, .cancelBackup = p2_backup_cancel
+    .load       = p2_load_patch,   .save         = p2_save_patch,    .init            = p2_init_patch,       .edit = p2_edit_param,
+    .name       = p2_sound_name,   .rename       = p2_rename,        .send            = p2_send_to_hardware,
+    .loadPreset = p2_load_preset,  .storePreset  = p2_store_preset,  .preset          = p2_preset_number,
+    .backup     = p2_backup_start, .cancelBackup = p2_backup_cancel, .storeToHardware = p2_store_to_hardware
 };
 
 static void p2_panel_init(void) {
@@ -2344,6 +2345,30 @@ static int p2_send_to_hardware(void * user) {
 
     if (temporary) {
         p2_hardware_release(&p->hwLock);
+    }
+    return (int)result;
+}
+
+// Store Sound to Pulse 2 Slot: the sound as it is now, as one dump addressed to P<number> - one flash write on the
+// instrument (p2Hardware notes §2; P500 is refused there). Not while a backup is asking; the lock as a one-off send
+static int p2_store_to_hardware(void * user, int number) {
+    tP2Plugin *       p         = (tP2Plugin *)user;
+    bool              temporary = p->hwLock < 0;
+    uint8_t           dump[P2_DUMP_LENGTH];
+    tP2HardwareResult result;
+
+    if (p->backingUp || !p2_hardware_claim(&p->hwLock)) {
+        return (int)eP2HardwareBusy;
+    }
+    current_dump(user, p->patchPath, dump);
+    result = p2_hardware_store_to_slot(dump, number);
+
+    if (temporary) {
+        p2_hardware_release(&p->hwLock);
+    }
+
+    if (result == eP2HardwareSent) {
+        synthlib_log_line("stored \"%s\" to the Pulse 2's P%03d", p->soundName, number);
     }
     return (int)result;
 }

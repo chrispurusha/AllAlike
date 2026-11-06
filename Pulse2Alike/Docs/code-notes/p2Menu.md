@@ -26,6 +26,6 @@ Load Preset..., Store Preset to P012 (back to the one it came from), Store Prese
 import and export of all 500 (p2Draw notes §4, §10). Store and Revert are greyed with no preset.
 
 ## 4. Pulse 2
-What talks to the instrument: Send Sound to Pulse 2 (its edit buffer) and Backup Pulse 2 to Presets... - Cancel
-Backup in its place while one runs. Nothing here writes the instrument's memory yet: Store Sound to Slot and
-Restore Presets to Pulse 2 wait (CT, 2026-10-23).
+What talks to the instrument: Send Sound to Pulse 2 (its edit buffer), Store Sound to Pulse 2 Slot... (one slot's
+flash, P001-P499, after a confirm; p2Draw notes §13) and Backup Pulse 2 to Presets... - Cancel Backup in its place
+while one runs, and the other two disabled meanwhile. Restore Presets to Pulse 2 waits (CT).

@@ -11,8 +11,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import p2rig
 from osc_analyse import read
 
-OUT = '/Volumes/ext-ssd/Captures/Pulse2/192k/variants'
-PATCHES = '/Volumes/ext-ssd/Captures/Pulse2/192k/patches'
+OUT = os.environ.get('P2_CAPTURES', '/Volumes/ext-ssd/Captures/Pulse2') + '/192k/variants'
+PATCHES = os.environ.get('P2_CAPTURES', '/Volumes/ext-ssd/Captures/Pulse2') + '/192k/patches'
 OCTAVES = (125, 250, 500, 1000, 2000, 4000, 8000)
 HOLD = 2.5
 

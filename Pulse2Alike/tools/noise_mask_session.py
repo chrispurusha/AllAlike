@@ -11,8 +11,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import p2rig
 from osc_analyse import read
 
-OUT = '/Volumes/ext-ssd/Captures/Pulse2/192k/noise_mask'
-SYX = '/Volumes/ext-ssd/Captures/Pulse2/192k/patches/fixedlfo_006.syx'
+OUT = os.environ.get('P2_CAPTURES', '/Volumes/ext-ssd/Captures/Pulse2') + '/192k/noise_mask'
+SYX = os.environ.get('P2_CAPTURES', '/Volumes/ext-ssd/Captures/Pulse2') + '/192k/patches/fixedlfo_006.syx'
 NOTE, F0, HOLD, TAKES = 60, 130.8128, 3.0, 2
 CASES = {'noise':  (0, 0, 0, 104),
          'osc1':   (120, 0, 0, 104),

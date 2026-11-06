@@ -9,7 +9,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import p2rig
 from osc_analyse import read
 
-OUT = '/Volumes/ext-ssd/Captures/Pulse2/192k/lfo_slow'
+OUT = os.environ.get('P2_CAPTURES', '/Volumes/ext-ssd/Captures/Pulse2') + '/192k/lfo_slow'
 SPEEDS = (0, 4, 9, 14)
 HOLD = 14.0
 

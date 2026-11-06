@@ -11,7 +11,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import squash_session as sq
 from osc_analyse import read
 
-SWEEP = '/Volumes/ext-ssd/Captures/Pulse2/drive_sweep/'
+SWEEP = os.environ.get('P2_CAPTURES', '/Volumes/ext-ssd/Captures/Pulse2') + '/drive_sweep/'
 
 
 def measure(path, gain, f0):

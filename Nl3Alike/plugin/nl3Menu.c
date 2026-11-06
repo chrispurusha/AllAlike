@@ -199,7 +199,7 @@ static void action_about(int index) {
 static void action_panel_help(int index) {
     (void)index;
     show_alert("The Panel",
-               "An early build: one oscillator, the two filters, the amplifier envelope (ENVELOPES) and the voice limit on the "
+               "An early build: one oscillator, the two filters, the amplifier envelope (ENV) and the voice limit on the "
                "GLOBAL page.\n\n"
                "Patches: < Prev and Next > step through the presets, A000-L127; Load... opens a .syx or .mid file of "
                "Singles, choosing one when it holds several. The name beside them edits on a click. A Single keeps "

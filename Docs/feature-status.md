@@ -1,7 +1,7 @@
 # Feature status
 
 Where each plug-in stands: what is **missing**, what is **built but needs more work**, and what is **built but not
-yet checked** in a host or against the instrument. Updated 2026-11-02 (Sn2Alike voice levels checked on the hardware; effects now cleared on a change of sound, as the instrument does).
+yet checked** in a host or against the instrument. Updated 2026-11-06 (Pulse2Alike P001-P015 close by ear except P003, the drive; a dedicated Pulse 2 capture rig).
 
 This is a summary for planning. The working lists stay in each plug-in's `Docs/todo.md` (one line per item) and
 `Docs/to-test.md`; the reasoning and measurements in `Docs/findings.md` and `Docs/code-notes/`. When an item here is
@@ -11,7 +11,7 @@ done, change it there first, then here.
 |---|---|---|---|
 | State | Beta: the whole instrument plays | Work in progress: the voice is nearly complete, effects partly | Work in progress: oscillators and filter done, most modulation to come |
 | Scope | One sound per instance, optional extra voices | One Single per instance, a voice limit, no Multi | One program per instance (to confirm), no performances yet |
-| Hardware link | Built: follows the sound, backs up the instrument's sounds | Built: follows the sound; bank backup and restore built, not yet tried | Built: follows the sound, reads a backup |
+| Hardware link | Built: follows the sound, backs up the instrument's sounds, stores one sound to a slot | Built: follows the sound; bank backup and restore built, not yet tried | Built: follows the sound, reads a backup |
 
 ## Across all of them
 
@@ -21,26 +21,27 @@ Missing everywhere, or built in one and wanted in the others:
 - **External audio into the voices.** Pulse2Alike's osc 3 EXT, Sn2Alike's Audio In oscillators (they play as a Saw); G2Alike's side-chain input is the model.
 - **Named drop-downs** for modulation sources and destinations, waves and other numbered choices (TiAlike, Sn2Alike).
 - **Value text in real units** (times, rates, semitones) where the laws are measured; the panels show raw values now.
-- **Writing sounds back to the instrument.** Pulse2Alike's Store to Slot and Restore Presets wait for a go-ahead on flash writes; TiAlike's bank write is built but untried; Sn2Alike only reads.
+- **Writing sounds back to the instrument.** Pulse2Alike's Store to Slot is built (a test store to P450 read back), Restore Presets waits; TiAlike's bank write is built but untried; Sn2Alike only reads.
 - **Arithmetic option** (float or the instrument's fixed point, per instance): TiAlike has the filter's biquad; Sn2Alike to follow.
+- **Panel pages, in common** (CT 2026-11-06): OSC, FILTER, AMP, ENV, LFO, MOD, then the instrument's own pages (ARP, TABLES beside OSC, the effects), GLOBAL always last. Short names as on the instruments' panels; a new Alike follows the same.
 - **The panel code** (`p2Draw.c`, copied as `tiDraw.c` and `sn2Draw.c`) is three near-copies: a fix in one probably belongs in all three until it moves into SynthLib.
 
 ## Pulse2Alike
 
 **Missing**
 - Osc 3's EXT source (no audio input to the plug-in yet).
-- Store Sound to Pulse 2 Slot and Restore Presets to Pulse 2 (flash writes, waiting for a go-ahead).
-- Link sending the program change on every channel, so the P number follows whatever channel is set (undecided).
+- Restore Presets to Pulse 2 (flash writes, waiting for a go-ahead). Store Sound to Pulse 2 Slot is built (2026-11-06, P001-P499; P500 is the random generator and is never written), not yet tried from a host.
 
 **Needs more work**
-- **Drive.** The model is at its limit: a rebuild as one gain stage plus a fixed clipper per curve is planned (`code-notes/p2Drive.md` §9). FUZZ is close by ear at low and middle Drive, not at 127, and its even harmonics do not grow with Drive; quiet inputs are not lifted as on the instrument. TUBE at high Drive is a near-switch the present chain cannot make, and is 10 dB loud on noise.
+- **Drive.** Mono, as on the instrument (one circuit ahead of the two VCAs; `code-notes/p2Plugin.md` §60). The model is at its limit: a rebuild as one gain stage plus a fixed clipper per curve is planned (`code-notes/p2Drive.md` §9). FUZZ is close by ear at low and middle Drive, not at 127, and its even harmonics do not grow with Drive; quiet inputs are not lifted as on the instrument. TUBE at high Drive is a near-switch the present chain cannot make, and is 10 dB loud on noise.
 - **Filter.** LP12's stopband 2.5 dB high at 1-2.5 kHz at cutoff 0; level sweeps for its nonlinearity and lower-level resonance sweeps still to take.
 - **Oscillators.** The triangle at full Level (too rounded at the top, low odd harmonics too strong); pulses at full Level 2.4 dB bright at 16 kHz; noise 9 dB quiet at Level 12; the saw's reset and ramp shape against pitch; APW mixed with other sources; X3-PWM with sync.
 - **Osc 3 routings.** LEVEL2 1.5-4 dB loud below osc 2 Level 101; the VCF, DRIVE and FB depths are guesses beyond what was measured; FB alone does not sing as the instrument's does.
 - **Envelopes and VCA.** Short filter-envelope attacks; the first ~4 ms of a note over a release; the release tail 3-4 dB low at low volume; the VCA thump at Decay 0 too big.
 - **Modulation.** The math sources (M-DELAY, M-SMOOTH, M-PRODUCT/MIN/MAX) want captures; the less-used targets want spot checks; Amp Velocity's law away from 64 and 127.
 - **Arpeggiator.** What Arp Pattern selects; the SOFT and HARD velocity offsets.
-- **Sounds still off by ear:** P002 (2.2 dB loud, the attack), P003 (with Drive), P006 (1-4 kHz bright, the start), P010 (chorus, to recheck), P012 (the instrument's filter has drifted; retune it first).
+- **Sounds by ear:** P001-P015 close (CT 2026-11-06) apart from P003, the only one with drive on; P016 onwards still to
+  hear. The measured residues of the close ones are parked in `todo.md`.
 
 **Built, not yet checked** - the full list is `to-test.md`. The big ones: the plug-in in a real host end to end (load, panel, menus, presets, program changes, project reopen); Drive by ear; the arpeggiator against the instrument; Link and the backup in Live; extra voices through one shared drive.
 

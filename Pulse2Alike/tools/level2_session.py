@@ -11,7 +11,7 @@ import p2rig
 import squash_session as sq
 from osc_analyse import read
 
-OUT = '/Volumes/ext-ssd/Captures/Pulse2/192k/level2_law'
+OUT = os.environ.get('P2_CAPTURES', '/Volumes/ext-ssd/Captures/Pulse2') + '/192k/level2_law'
 NOTE, F2, F3 = 60, 2093.0, 261.6256 / 16
 LEVELS = (0, 15, 30, 45, 58, 75, 90, 110, 127)
 CASES = [('saw', 1, lv, 101) for lv in LEVELS] + [('sqr', 0, lv, 101) for lv in LEVELS] + \

@@ -10,7 +10,7 @@ import p2rig
 import squash_session as sq
 import drive_gate_session as dg
 
-OUT = '/Volumes/ext-ssd/Captures/Pulse2/192k/drive_quiet'
+OUT = os.environ.get('P2_CAPTURES', '/Volumes/ext-ssd/Captures/Pulse2') + '/192k/drive_quiet'
 CUTS = (40, 64, 80, 96, 110)
 
 if __name__ == '__main__':

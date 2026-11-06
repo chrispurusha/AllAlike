@@ -618,11 +618,11 @@ static const tP2Section kPage7Sections[] = {
 };
 
 const tP2Page           gP2Pages[]       = {
-    {"OSCILLATORS", kPage0Sections, 5},
+    {"OSC",         kPage0Sections, 5},
     {"FILTER",      kPage1Sections, 2},
     {"AMP",         kPage2Sections, 2},
-    {"ENVELOPES",   kPage3Sections, 2},
-    {"LFOS",        kPage4Sections, 2},
+    {"ENV",         kPage3Sections, 2},
+    {"LFO",         kPage4Sections, 2},
     {"MOD",         kPage5Sections, 8},
     {"ARP",         kPage6Sections, 2},
     {"GLOBAL",      kPage7Sections, 2},

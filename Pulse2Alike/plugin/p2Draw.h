@@ -88,6 +88,7 @@ typedef struct {
     int (*preset)(void * user);                                   // the preset the sound came from, 0 none
     int (*backup)(void * user);                                   // notes §11: a tP2HardwareResult
     void (*cancelBackup)(void * user);
+    int (*storeToHardware)(void * user, int number);              // notes §13: one flash write; a tP2HardwareResult
 } tP2PatchHost;
 
 void p2_draw_set_host(const tP2PatchHost * host); // static storage
@@ -113,8 +114,9 @@ bool p2_draw_has_patch_file(void);
 void p2_draw_save_patch(bool chooseFile);         // false: over the current file, after a confirm
 void p2_draw_init_patch(void);
 void p2_draw_send_to_hardware(void);
-void p2_draw_set_link_busy(bool busy);       // notes §8: Link on, the instrument another instance's
-void p2_draw_hardware_problem(int result);   // a tP2HardwareResult that is not eP2HardwareSent
+void p2_draw_store_to_hardware_browser(void); // notes §13: Store Sound to Pulse 2 Slot - choose, then confirm
+void p2_draw_set_link_busy(bool busy);        // notes §8: Link on, the instrument another instance's
+void p2_draw_hardware_problem(int result);    // a tP2HardwareResult that is not eP2HardwareSent
 double p2_draw_value(uint32_t paramId);
 void p2_draw_edit(uint32_t paramId, double normalized);
 

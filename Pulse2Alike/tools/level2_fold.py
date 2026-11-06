@@ -9,8 +9,8 @@ import numpy as np
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from osc_analyse import read
 
-CAP = '/Volumes/ext-ssd/Captures/Pulse2/192k/level2/'
-SYX = '/Volumes/ext-ssd/Captures/Pulse2/192k/patches/fixedlfo_006.syx'
+CAP = os.environ.get('P2_CAPTURES', '/Volumes/ext-ssd/Captures/Pulse2') + '/192k/level2/'
+SYX = os.environ.get('P2_CAPTURES', '/Volumes/ext-ssd/Captures/Pulse2') + '/192k/patches/fixedlfo_006.syx'
 LEVELS = (0, 15, 30, 58, 90, 127)
 F3 = 261.6256 / 8
 

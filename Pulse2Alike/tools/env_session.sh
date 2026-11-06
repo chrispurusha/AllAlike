@@ -3,7 +3,7 @@
 # then the sustain level law. Writes to $1 (default /Volumes/ext-ssd/Captures/Pulse2/192k/env).
 set -e
 HERE="$(cd "$(dirname "$0")" && pwd)"
-OUT="${1:-/Volumes/ext-ssd/Captures/Pulse2/192k/env}"
+OUT="${1:-${P2_CAPTURES:-/Volumes/ext-ssd/Captures/Pulse2}/192k/env}"
 span() { local v=$1; if (( v <= 40 )); then print 1.5; elif (( v <= 64 )); then print 3; elif (( v <= 80 )); then print 6;
          elif (( v <= 96 )); then print 12; elif (( v <= 112 )); then print 25; else print 45; fi; }
 VALUES=($(seq 0 8 120) 127)

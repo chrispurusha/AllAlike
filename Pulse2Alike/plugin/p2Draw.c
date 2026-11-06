@@ -63,6 +63,7 @@
 #define TAB_Y                     (58.0)
 #define TAB_H                     (14.0)
 #define TAB_GAP                   (6.0)
+#define TAB_PAD                   (4.0)      // either side of a tab's title
 #define PAGE_Y                    (90.0)
 #define ROW_H                     (112.0)
 #define SECTION_GAP               (16.0)
@@ -607,13 +608,60 @@ void p2_draw_send_to_hardware(void) {
     }
 }
 
+// ---- Store Sound to Pulse 2 Slot - notes §13: one flash write, always confirmed; P500 is never offered ---------
+
+static int gHardwareStoreTo;
+
+static void on_hardware_store_confirmed(bool confirmed) {
+    static char message[160];
+    int         result = eP2HardwareNoMidi;
+
+    if (!confirmed || (gHost == NULL) || (gHost->storeToHardware == NULL) || (gUser == NULL)) {
+        return;
+    }
+    result = gHost->storeToHardware(gUser, gHardwareStoreTo);
+
+    if (result == eP2HardwareSent) {
+        snprintf(message, sizeof(message), "Stored to the Pulse 2's P%03d.", gHardwareStoreTo);
+        show_alert("Store Sound to Pulse 2 Slot", message);
+        return;
+    }
+    p2_draw_hardware_problem(result);
+}
+
+static void on_hardware_store_slot(bool confirmed, uint32_t bank1Indexed, uint32_t location1Indexed) {
+    static char  message[320];
+    const char * name = ((gHost != NULL) && (gUser != NULL)) ? gHost->name(gUser) : "";
+
+    if (!confirmed) {
+        return;
+    }
+    gHardwareStoreTo = slot_number(bank1Indexed, location1Indexed);
+
+    if ((gHardwareStoreTo < 1) || (gHardwareStoreTo > P2_HARDWARE_LAST_STORE_SLOT)) {
+        p2_draw_hardware_problem(eP2HardwareBadSlot);
+        return;
+    }
+    snprintf(message, sizeof(message),
+             "Store \"%s\" to P%03d on the Pulse 2? This writes the instrument's memory. The slot held \"%s\" at the last backup.",
+             name, gHardwareStoreTo, p2_presets_name(gHardwareStoreTo));
+    show_confirm("Store Sound to Pulse 2 Slot", message, "Store", on_hardware_store_confirmed);
+}
+
+void p2_draw_store_to_hardware_browser(void) {
+    fill_slot_items();
+    open_bank_browser("Store Sound to Pulse 2 Slot", "The Pulse 2 slot to store the sound into (P001-P499; P500 is the random generator).",
+                      "Store...", gSlotItems, P2_HARDWARE_LAST_STORE_SLOT, NULL, 0, on_hardware_store_slot);
+}
+
 void p2_draw_set_link_busy(bool busy) {
     gLinkBusy = busy;
 }
 
 void p2_draw_hardware_problem(int result) {
     show_alert("Pulse 2", (result == eP2HardwareNotFound) ? "No MIDI port with \"Pulse\" in its name. Is the Pulse 2 connected by USB?"
-               : (result == eP2HardwareBusy) ? "Another Pulse2Alike has the Pulse 2 (its Link is on). Turn that off first."
+               : (result == eP2HardwareBusy) ? "Another Pulse2Alike has the Pulse 2 (its Link is on), or a backup is running. Turn that off first."
+               : (result == eP2HardwareBadSlot) ? "Only P001-P499 can be stored to: P500 is the Pulse 2's random sound generator."
                : "CoreMIDI would not send to the Pulse 2.");
 }
 
@@ -903,11 +951,27 @@ static void value_text(const tP2Control * c, char * out, size_t len) {
     }
 }
 
+// Each title is measured at the height draw_button draws it (TAB_H), centred with TAB_PAD each side; if the tabs
+// would run past the panel, the padding shrinks so they fit (TiAlike has twelve)
 static void draw_tabs(void) {
-    double x = MARGIN_X;
+    double   x       = MARGIN_X;
+    double   textW[MAX_PAGES];
+    double   total   = 0.0;
+    double   pad     = TAB_PAD;
+    uint32_t p       = 0;
 
-    for (uint32_t p = 0; p < gPageCount; p++) {
-        double w = get_text_width(gPages[p].title, TAB_H - 2.0, eNoCache) + 12.0;
+    for (p = 0; (p < gPageCount) && (p < MAX_PAGES); p++) {
+        textW[p] = get_text_width(gPages[p].title, TAB_H, eNoCache);
+        total   += textW[p] + (2.0 * DRAW_BUTTON_MARGIN) + ((p > 0) ? TAB_GAP : 0.0);
+    }
+
+    if ((p > 0) && ((total + (2.0 * pad * p)) > (P2_CANVAS_W - (2.0 * MARGIN_X)))) {
+        pad = fmax(0.0, ((P2_CANVAS_W - (2.0 * MARGIN_X)) - total) / (2.0 * p));
+    }
+
+    for (p = 0; (p < gPageCount) && (p < MAX_PAGES); p++) {
+        double w      = textW[p] + (2.0 * pad);
+        tRgb   colour = (p == gPage) ? (tRgb)RGB_GREEN_ON : (tRgb)RGB_GREY_7;
 
         gTabs[p] = (tRectangle){{
                                     x, TAB_Y
@@ -915,7 +979,9 @@ static void draw_tabs(void) {
                                     w, TAB_H
                                 }
         };
-        draw_button(mainArea, gTabs[p], gPages[p].title, (p == gPage) ? (tRgb)RGB_GREEN_ON : (tRgb)RGB_GREY_7);
+        draw_button(mainArea, gTabs[p], "", colour);
+        set_rgb_colour(contrasting_text_colour(colour));
+        render_text(mainArea, (tRectangle){{x + DRAW_BUTTON_MARGIN + pad, TAB_Y + DRAW_BUTTON_MARGIN}, {0.0, TAB_H}}, gPages[p].title);
         x       += w + TAB_GAP;
     }
 }

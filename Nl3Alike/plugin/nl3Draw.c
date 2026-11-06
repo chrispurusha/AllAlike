@@ -63,6 +63,7 @@
 #define TAB_Y                     (58.0)
 #define TAB_H                     (14.0)
 #define TAB_GAP                   (6.0)
+#define TAB_PAD                   (4.0)      // either side of a tab's title
 #define PAGE_Y                    (90.0)
 #define ROW_H                     (112.0)
 #define SECTION_GAP               (16.0)
@@ -861,11 +862,27 @@ static void value_text(const tNl3Control * c, char * out, size_t len) {
     }
 }
 
+// Each title is measured at the height draw_button draws it (TAB_H), centred with TAB_PAD each side; if the tabs
+// would run past the panel, the padding shrinks so they fit (TiAlike has twelve)
 static void draw_tabs(void) {
-    double x = MARGIN_X;
+    double   x       = MARGIN_X;
+    double   textW[MAX_PAGES];
+    double   total   = 0.0;
+    double   pad     = TAB_PAD;
+    uint32_t p       = 0;
 
-    for (uint32_t p = 0; p < gPageCount; p++) {
-        double w = get_text_width(gPages[p].title, TAB_H - 2.0, eNoCache) + 12.0;
+    for (p = 0; (p < gPageCount) && (p < MAX_PAGES); p++) {
+        textW[p] = get_text_width(gPages[p].title, TAB_H, eNoCache);
+        total   += textW[p] + (2.0 * DRAW_BUTTON_MARGIN) + ((p > 0) ? TAB_GAP : 0.0);
+    }
+
+    if ((p > 0) && ((total + (2.0 * pad * p)) > (NL3_CANVAS_W - (2.0 * MARGIN_X)))) {
+        pad = fmax(0.0, ((NL3_CANVAS_W - (2.0 * MARGIN_X)) - total) / (2.0 * p));
+    }
+
+    for (p = 0; (p < gPageCount) && (p < MAX_PAGES); p++) {
+        double w      = textW[p] + (2.0 * pad);
+        tRgb   colour = (p == gPage) ? (tRgb)RGB_GREEN_ON : (tRgb)RGB_GREY_7;
 
         gTabs[p] = (tRectangle){{
                                     x, TAB_Y
@@ -873,7 +890,9 @@ static void draw_tabs(void) {
                                     w, TAB_H
                                 }
         };
-        draw_button(mainArea, gTabs[p], gPages[p].title, (p == gPage) ? (tRgb)RGB_GREEN_ON : (tRgb)RGB_GREY_7);
+        draw_button(mainArea, gTabs[p], "", colour);
+        set_rgb_colour(contrasting_text_colour(colour));
+        render_text(mainArea, (tRectangle){{x + DRAW_BUTTON_MARGIN + pad, TAB_Y + DRAW_BUTTON_MARGIN}, {0.0, TAB_H}}, gPages[p].title);
         x       += w + TAB_GAP;
     }
 }

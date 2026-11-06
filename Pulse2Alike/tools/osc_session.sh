@@ -3,7 +3,7 @@
 # level, detune and semitone laws. Writes to $1 (default /Volumes/ext-ssd/Captures/Pulse2/192k/osc).
 set -e
 HERE="$(cd "$(dirname "$0")" && pwd)"
-OUT="${1:-/Volumes/ext-ssd/Captures/Pulse2/192k/osc}"
+OUT="${1:-${P2_CAPTURES:-/Volumes/ext-ssd/Captures/Pulse2}/192k/osc}"
 mkdir -p "$OUT"
 cap() { "$HERE/osc_capture.py" "$OUT/$1.wav" "${@:2}" > /dev/null; print -n "$1 "; }
 NOTES=notes=24,36,48,60,72,84,96,108

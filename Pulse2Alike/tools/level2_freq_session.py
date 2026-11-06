@@ -10,7 +10,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import p2rig
 import level2_session as ls
 
-OUT = '/Volumes/ext-ssd/Captures/Pulse2/192k/level2_freq'
+OUT = os.environ.get('P2_CAPTURES', '/Volumes/ext-ssd/Captures/Pulse2') + '/192k/level2_freq'
 SEMIS = (-48, -36, -24, -12)
 
 

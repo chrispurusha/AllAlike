@@ -27,7 +27,10 @@ typedef enum {
     eP2HardwareNotFound,   // no MIDI destination with "Pulse" in its name
     eP2HardwareNoMidi,     // CoreMIDI refused the client, the port or the send
     eP2HardwareBusy,       // notes §3: another instance owns the instrument
+    eP2HardwareBadSlot,    // notes §2: a store to a slot outside P001-P499 (P500 is the random-sound generator)
 } tP2HardwareResult;
+
+#define P2_HARDWARE_LAST_STORE_SLOT    (P2_PATCH_SLOTS - 1)   // notes §2: P500 is never written
 
 // notes §3: one instance on the machine owns the instrument - an exclusive flock() on hardware.lock, released by
 // the system if the owner goes. *lock is the instance's descriptor, -1 when it holds nothing
@@ -39,6 +42,10 @@ tP2HardwareResult p2_hardware_send(const uint8_t * data, uint32_t length);
 
 // Readdresses the dump to the edit buffer (7F 00), fixes its checksum and sends it; never writes a slot
 tP2HardwareResult p2_hardware_send_to_edit_buffer(uint8_t dump[P2_DUMP_LENGTH]);
+
+// notes §2: Store Sound to Pulse 2 Slot - addresses the dump to slot P<number> (1-499), fixes its checksum and
+// sends it: ONE FLASH WRITE on the instrument. P500 and anything out of range are refused, nothing sent
+tP2HardwareResult p2_hardware_store_to_slot(uint8_t dump[P2_DUMP_LENGTH], int number);
 
 // notes §4: Backup - every sound read from the instrument, one request at a time on a thread of its own. Only
 // requests are sent: nothing on the instrument changes. The caller holds the lock throughout

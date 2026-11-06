@@ -11,7 +11,7 @@ import p2rig
 import squash_session as sq
 from osc_analyse import read
 
-OUT = '/Volumes/ext-ssd/Captures/Pulse2/192k/legato'
+OUT = os.environ.get('P2_CAPTURES', '/Volumes/ext-ssd/Captures/Pulse2') + '/192k/legato'
 CH = p2rig.CHANNEL - 1
 GLIDES = ('OFF', 'NORM', 'FNGR', 'FNON', 'FOFF')
 TRIGS = ('SNG1', 'SNG2', 'RET1', 'RET2', 'RET3')

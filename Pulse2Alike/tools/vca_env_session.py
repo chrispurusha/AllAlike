@@ -11,7 +11,7 @@ import p2rig
 import squash_session as sq
 from osc_analyse import read
 
-OUT = '/Volumes/ext-ssd/Captures/Pulse2/192k/vca_env'
+OUT = os.environ.get('P2_CAPTURES', '/Volumes/ext-ssd/Captures/Pulse2') + '/192k/vca_env'
 HOLD = 1.5
 CASES = (('vol0_vel95', dict(volume=0, vca_velocity=95), ['volume=0', 'ampvelocity=95']),
          ('vol48', dict(volume=48, vca_velocity=64), ['volume=48', 'ampvelocity=64']),

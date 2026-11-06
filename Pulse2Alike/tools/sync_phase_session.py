@@ -10,7 +10,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import p2rig
 import polarity_session as ps
 
-OUT = '/Volumes/ext-ssd/Captures/Pulse2/192k/sync_phase'
+OUT = os.environ.get('P2_CAPTURES', '/Volumes/ext-ssd/Captures/Pulse2') + '/192k/sync_phase'
 CASES = {
     'A_pw40_alone':   (dict(osc2_shape=0, osc2_pw=40, osc2_level=127, osc3_shape=0, osc3_level=0),
                        ['osc2shape=0', 'osc2pulsewidth=40', 'osc2level=127', 'osc3shape=0', 'osc3level=0']),

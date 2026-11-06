@@ -11,7 +11,7 @@ import p2rig
 import squash_session as sq
 from osc_analyse import read
 
-OUT = '/Volumes/ext-ssd/Captures/Pulse2/192k/selfosc_level'
+OUT = os.environ.get('P2_CAPTURES', '/Volumes/ext-ssd/Captures/Pulse2') + '/192k/selfosc_level'
 NOTE, HOLD = 48, 3.0
 CASES = [(c, r) for r in (127, 100) for c in (40, 64, 88)]
 

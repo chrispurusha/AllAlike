@@ -10,7 +10,7 @@ import p2rig
 import squash_session as sq
 from osc_analyse import read
 
-OUT = '/Volumes/ext-ssd/Captures/Pulse2/192k/unison_key'
+OUT = os.environ.get('P2_CAPTURES', '/Volumes/ext-ssd/Captures/Pulse2') + '/192k/unison_key'
 CASES = [(k, n) for k in (1, 0) for n in (36, 72)]
 
 

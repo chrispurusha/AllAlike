@@ -118,6 +118,9 @@ instrument sends every panel edit, so a session can log where the panel is.
 - Fireface UC output 6 (index 5) → the Pulse 2's EXT IN.
 - Pulse 2 L/R → Fireface inputs 7/8 (indices 6, 7).
 - Captures go to `/Volumes/ext-ssd/Captures/Pulse2/` (the external SSD; every project's captures live there).
+- From 2026-11-06 the rig is a dedicated Intel MacBook, the same Fireface wiring. Its copies of the captures are in
+  `~/Captures/Pulse2/`: the tools read `$P2_CAPTURES` and fall back to the SSD path. Build `capture`/`tone` (G2Alike's
+  `tools/README.md`) and `midisend`/`p2dump` (`swiftc -O`) on it; Python with numpy/scipy is in `~/.venvs/p2rig`.
 - MIDI over USB, port "Pulse2", **channel 12** (status `9B`/`8B`, CCs `BB`).
 - Tools: G2Alike's `tools/capture` (`--device Fireface --channels 6,7`), `tools/tone`
   (`--channels 5`), `filter_response.py`, `harmonics.py`. The method follows G2Alike's
@@ -145,7 +148,8 @@ averaged phase-locked.
 4. Envelopes and LFOs (digital: find their laws), then the mod matrix.
 
 ## 7. Presets (design 2026-10-23; built the same day except Store Sound to Slot and Restore, which write the
-instrument's flash and wait for CT's go-ahead. Slots are chosen in SynthLib's bank browser, as in the siblings)
+instrument's flash. Store Sound to Slot built 2026-11-06 (P001-P499: P500 is the random generator, never written);
+Restore still waits. Slots are chosen in SynthLib's bank browser, as in the siblings)
 
 Program changes recall sounds from **one presets file**, as the instrument recalls them from its own memory,
 in place of today's folder of `NNN Name.syx` files (p2Patch notes §2). Single `.syx` files stay for loading and
@@ -189,7 +193,7 @@ Dumps are paced so the instrument finishes each write before the next arrives. A
 
 *Pulse 2* - the instrument:
 - Send Sound to Pulse 2 (edit buffer, as now)
-- Store Sound to Pulse 2 Slot... (one flash write)
+- Store Sound to Pulse 2 Slot... (one flash write; P001-P499, never P500)
 - Backup Pulse 2 to Presets (all 500 into the presets file)
 - Restore Presets to Pulse 2... (§7.5)
 

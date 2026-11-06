@@ -11,7 +11,7 @@ import p2rig
 import squash_session as sq
 from osc_analyse import read
 
-OUT = '/Volumes/ext-ssd/Captures/Pulse2/192k/lfo2'
+OUT = os.environ.get('P2_CAPTURES', '/Volumes/ext-ssd/Captures/Pulse2') + '/192k/lfo2'
 DELAYS = (0, 8, 16, 30, 45, 60, 75, 90, 105, 127)
 F0, HOLD = 130.8128, 12.0
 

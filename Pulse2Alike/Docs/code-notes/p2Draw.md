@@ -86,3 +86,10 @@ of the very click that opened it chose the item there: the menu flashed up and w
 release that ends the opening press is ignored when the pointer has not moved more than 4 units; the menu stays open
 for a click of its own. Dragging from the control into the menu and letting go still chooses, as before.
 
+## 13. Store Sound to Pulse 2 Slot (2026-11-06)
+The bank browser lists P001-P499 only: P500, the instrument's random sound generator, is not offered (and the
+hardware layer refuses it too, p2Hardware notes §2). Choosing a slot always asks first, naming the sound and what
+the slot held at the last backup (the presets file's name for it: the plug-in does not read the slot again before
+writing). The store sends the sound as it is now, like Send Sound, under the same one-off lock; it does not touch
+the presets file or the plug-in's preset number. A store that went out says so; a failure shows the usual Pulse 2
+alert. One store is one flash write: nothing repeats it.

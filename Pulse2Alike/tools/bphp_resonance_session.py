@@ -10,7 +10,7 @@ import p2rig
 import squash_session as sq
 from resonance_response import psd, CENT
 
-OUT = '/Volumes/ext-ssd/Captures/Pulse2/192k/bphp_res'
+OUT = os.environ.get('P2_CAPTURES', '/Volumes/ext-ssd/Captures/Pulse2') + '/192k/bphp_res'
 RES = (0, 41, 60, 80, 92)
 
 if __name__ == '__main__':

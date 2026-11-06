@@ -1,6 +1,7 @@
 # Sn2Alike to test
 
 Finished work not yet checked against the instrument.
+- Presets > Load Preset / Store Preset to...: the browser reads Bank A-L, Loc 000-127 (as A000-L127), names without the slot prefix; A-Z sorts by name (2026-11-06)
 - Filter tab no longer crashes: not yet opened in a host
 - A new instance starts on A001: seen in the log, with stored presets that are all Init
 - Program changes and the fade on a change of sound: run through the Audio Unit only, on presets that are all Init; not heard, not run in a host

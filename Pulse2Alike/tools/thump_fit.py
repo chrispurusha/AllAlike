@@ -11,7 +11,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import squash_session as sq
 from osc_analyse import read
 
-OUT = '/Volumes/ext-ssd/Captures/Pulse2/192k/thump'
+OUT = os.environ.get('P2_CAPTURES', '/Volumes/ext-ssd/Captures/Pulse2') + '/192k/thump'
 RATE, SPAN = 48000, 0.4
 CASES = {'vol127_a0_d34': dict(volume=127, ampenvattack=0, ampenvdecay=34),
          'vol64_a0_d34': dict(volume=64, ampenvattack=0, ampenvdecay=34),

@@ -10,7 +10,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import p2rig
 from osc_analyse import read
 
-OUT = '/Volumes/ext-ssd/Captures/Pulse2/192k/squash'
+OUT = os.environ.get('P2_CAPTURES', '/Volumes/ext-ssd/Captures/Pulse2') + '/192k/squash'
 NOTE, F0, HOLD, NOISE = 48, 130.8128, 2.5, 104
 LEVELS = (0, 60, 90, 120, 127)
 SETTINGS = {'c127_v40': (127, 0, 40), 'c64_v40': (64, 0, 40), 'c40_v40': (40, 0, 40),

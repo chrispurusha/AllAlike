@@ -368,11 +368,11 @@ static const tNl3Section kGlobalPage[]      = {
 };
 
 const tNl3Page           gNl3Pages[]        = {
-    {"OSCILLATORS", kOscillatorsPage, 5},
+    {"OSC",         kOscillatorsPage, 5},
     {"FILTER",      kFilterPage,      1},
     {"AMP",         kAmpPage,         1},
-    {"ENVELOPES",   kEnvelopesPage,   3},
-    {"LFOS",        kLfoPage,         2},
+    {"ENV",         kEnvelopesPage,   3},
+    {"LFO",         kLfoPage,         2},
     {"EFFECTS",     kEffectsPage,     6},
     {"GLOBAL",      kGlobalPage,      4},
 };

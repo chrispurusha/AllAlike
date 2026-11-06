@@ -63,6 +63,7 @@
 #define TAB_Y                     (58.0)
 #define TAB_H                     (14.0)
 #define TAB_GAP                   (6.0)
+#define TAB_PAD                   (4.0)      // either side of a tab's title
 #define PAGE_Y                    (90.0)
 #define ROW_H                     (112.0)
 #define SECTION_GAP               (16.0)
@@ -434,13 +435,10 @@ static tBankBrowserItem gSlotItems[TI_PRESETS];
 static char             gSlotNames[TI_PRESETS][TI_SINGLE_NAME_LENGTH + 8];
 
 static void fill_slot_items(void) {
-    char label[8];
-
     (void)ti_presets_refresh();
 
     for (int n = 1; n <= TI_PRESETS; n++) {
-        ti_preset_label(n, label, sizeof(label));
-        snprintf(gSlotNames[n - 1], sizeof(gSlotNames[0]), "%s %s", label, ti_presets_name(n));
+        snprintf(gSlotNames[n - 1], sizeof(gSlotNames[0]), "%s", ti_presets_name(n));   // the browser shows the slot
         gSlotItems[n - 1] = (tBankBrowserItem){
             gSlotNames[n - 1], 0, (uint32_t)(((n - 1) / TI_BANK_SIZE) + 1), (uint32_t)(((n - 1) % TI_BANK_SIZE) + 1)
         };
@@ -465,12 +463,12 @@ static void on_store_slot(bool confirmed, uint32_t bank1Indexed, uint32_t locati
 
 void ti_draw_load_preset_browser(void) {
     fill_slot_items();
-    open_bank_browser("Load Preset", "A001-W128, as banks A-W of 128.", "Load", gSlotItems, TI_PRESETS, NULL, 0, on_load_slot);
+    open_bank_browser_lettered("Load Preset", "A001-W128, as banks A-W of 128.", "Load", gSlotItems, TI_PRESETS, NULL, 0, 1, on_load_slot);
 }
 
 void ti_draw_store_preset_browser(void) {
     fill_slot_items();
-    open_bank_browser("Store Preset", "The slot to store the sound as it is now into.", "Store...", gSlotItems, TI_PRESETS, NULL, 0,
+    open_bank_browser_lettered("Store Preset", "The slot to store the sound as it is now into.", "Store...", gSlotItems, TI_PRESETS, NULL, 0, 1,
                       on_store_slot);
 }
 
@@ -958,11 +956,27 @@ static void value_text(const tTiControl * c, char * out, size_t len) {
     }
 }
 
+// Each title is measured at the height draw_button draws it (TAB_H), centred with TAB_PAD each side; if the tabs
+// would run past the panel, the padding shrinks so they fit (TiAlike has twelve)
 static void draw_tabs(void) {
-    double x = MARGIN_X;
+    double   x       = MARGIN_X;
+    double   textW[MAX_PAGES];
+    double   total   = 0.0;
+    double   pad     = TAB_PAD;
+    uint32_t p       = 0;
 
-    for (uint32_t p = 0; p < gPageCount; p++) {
-        double w = get_text_width(gPages[p].title, TAB_H - 2.0, eNoCache) + 12.0;
+    for (p = 0; (p < gPageCount) && (p < MAX_PAGES); p++) {
+        textW[p] = get_text_width(gPages[p].title, TAB_H, eNoCache);
+        total   += textW[p] + (2.0 * DRAW_BUTTON_MARGIN) + ((p > 0) ? TAB_GAP : 0.0);
+    }
+
+    if ((p > 0) && ((total + (2.0 * pad * p)) > (TI_CANVAS_W - (2.0 * MARGIN_X)))) {
+        pad = fmax(0.0, ((TI_CANVAS_W - (2.0 * MARGIN_X)) - total) / (2.0 * p));
+    }
+
+    for (p = 0; (p < gPageCount) && (p < MAX_PAGES); p++) {
+        double w      = textW[p] + (2.0 * pad);
+        tRgb   colour = (p == gPage) ? (tRgb)RGB_GREEN_ON : (tRgb)RGB_GREY_7;
 
         gTabs[p] = (tRectangle){{
                                     x, TAB_Y
@@ -970,7 +984,9 @@ static void draw_tabs(void) {
                                     w, TAB_H
                                 }
         };
-        draw_button(mainArea, gTabs[p], gPages[p].title, (p == gPage) ? (tRgb)RGB_GREEN_ON : (tRgb)RGB_GREY_7);
+        draw_button(mainArea, gTabs[p], "", colour);
+        set_rgb_colour(contrasting_text_colour(colour));
+        render_text(mainArea, (tRectangle){{x + DRAW_BUTTON_MARGIN + pad, TAB_Y + DRAW_BUTTON_MARGIN}, {0.0, TAB_H}}, gPages[p].title);
         x       += w + TAB_GAP;
     }
 }

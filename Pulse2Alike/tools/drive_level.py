@@ -9,7 +9,7 @@ import numpy as np
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from osc_analyse import read
 
-SWEEP = '/Volumes/ext-ssd/Captures/Pulse2/drive_sweep/'
+SWEEP = os.environ.get('P2_CAPTURES', '/Volumes/ext-ssd/Captures/Pulse2') + '/drive_sweep/'
 DRIVES = (0, 16, 32, 64, 127)
 DRIVE_AT = (0.0, 16.0, 32.0, 64.0, 96.0, 127.0)
 # src/p2Drive.c's shapes: positive, negative, bias, couplingHz, shelfDirect, shelfHz, gainDb at DRIVE_AT

@@ -67,8 +67,8 @@ As Pulse2Alike's: SynthLib beside it, `do-plugin` (VST3 and Audio Unit, universa
 Pulse2Alike's, driven by tables of pages and sections (`plugin/tiParams.c`), so it grows a section at a time as the
 engine does. See `findings.md` for the first build's checks.
 
-**Kept common with Pulse2Alike (CT 2026-10-27).** The same pages by name and colour - OSCILLATORS, FILTER, AMP,
-ENVELOPES, LFOS, MOD, EFFECTS (TiAlike only), ARP, GLOBAL - each shown once something on it is built; the same patch
+**Kept common with Pulse2Alike (CT 2026-10-27).** The same pages by name, order and colour - OSC, TABLES, FILTER,
+AMP, ENV, LFO, MOD 1-3, MOD 4-6, DRIVE, MOD FX, EFFECTS, GLOBAL last (renamed and reordered 2026-11-06) - each shown once something on it is built; the same patch
 bar (Prev / Next / Load... / name), File menu and Presets menu. Presets are A001-D128, four banks of 128 as the
 instrument's RAM banks, in one file; Load... reads a Single from a `.syx` or a sound set `.mid`. Where TiAlike needs
 something Pulse2Alike lacks, it is added to both if it makes sense there. See code-notes/tiDraw.md §9-12 and

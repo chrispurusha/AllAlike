@@ -9,8 +9,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import p2rig
 from osc_analyse import read
 
-OUT = '/Volumes/ext-ssd/Captures/Pulse2/192k/p011'
-SYX = '/Volumes/ext-ssd/Captures/Pulse2/192k/patches/fixedlfo_011.syx'
+OUT = os.environ.get('P2_CAPTURES', '/Volumes/ext-ssd/Captures/Pulse2') + '/192k/p011'
+SYX = os.environ.get('P2_CAPTURES', '/Volumes/ext-ssd/Captures/Pulse2') + '/192k/patches/fixedlfo_011.syx'
 NOTE, F0 = 48, 130.8128 / 4
 HOLD = float(os.environ.get('P011_HOLD', '2.0'))
 CASES = {'A_nolfo': ({109: 64}, ['mod1amount=64']),

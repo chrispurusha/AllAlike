@@ -11,7 +11,7 @@ import p2rig
 import squash_session as sq
 from osc_analyse import read
 
-OUT = '/Volumes/ext-ssd/Captures/Pulse2/192k/polarity'
+OUT = os.environ.get('P2_CAPTURES', '/Volumes/ext-ssd/Captures/Pulse2') + '/192k/polarity'
 NOTE, HOLD, F0 = 48, 2.0, 130.8128
 SILENT = dict(osc1_level=0, osc2_level=0, osc3_level=0, noise=0, cutoff=127, resonance=0, volume=40)
 # (CC settings, engine overrides)

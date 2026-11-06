@@ -738,16 +738,16 @@ const tTiTableNames      gTiTableNames[2]               = {
 };
 const tTiPage            gTiPages[]                     = {
     {"OSC",     kOscillatorsPage, 6},
+    {"TABLES",  kTablesPage,      2},
     {"FILTER",  kFilterPage,      5},
     {"AMP",     kAmpPage,         2},
     {"ENV",     kEnvelopesPage,   4},
     {"LFO",     kLfoPage,         4},
     {"MOD 1-3", kModPage,         3},
     {"MOD 4-6", kModPage2,        3},
-    {"GLOBAL",  kGlobalPage,      4},
-    {"TABLES",  kTablesPage,      2},
     {"DRIVE",   kDistortionPage,  3},
     {"MOD FX",  kModulationPage,  3},
     {"EFFECTS", kDelayPage,       3},
+    {"GLOBAL",  kGlobalPage,      4},
 };
 const uint32_t           gTiPageCount                   = sizeof(gTiPages) / sizeof(gTiPages[0]);

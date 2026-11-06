@@ -10,6 +10,12 @@ replaces the edit buffer. Library files carry their slot number, so every send r
 recomputes the checksum (the sum of bytes 1-134, low seven bits) whatever it came with. Checked on the instrument
 2026-10-19: a dump carrying slot 05 0B arrived in the edit buffer byte for byte.
 
+The one exception is Store Sound to Pulse 2 Slot (p2_hardware_store_to_slot): the dump addressed to P*n* as bank
+(*n* - 1) / 128, program (*n* - 1) % 128, one flash write. Checked 2026-11-06 on P450, empty until then: it took the
+store and read back byte for byte, but for an out-of-range Osc 1 Shape (119) stored as 0 (findings 2026-11-06).
+P500 is the instrument's random sound generator (CT): it is never written, so the function refuses anything outside
+P001-P499 (P2_HARDWARE_LAST_STORE_SLOT) with eP2HardwareBadSlot and sends nothing; the panel never offers P500.
+
 ## 3. One owner
 An exclusive, non-blocking `flock()` on `hardware.lock` beside the presets file. Each instance opens the file itself,
 so the lock separates instances in one process as well as instances in different hosts, and the system drops it

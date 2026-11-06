@@ -11,7 +11,7 @@ import p2rig
 import squash_session as sq
 import polarity_session as ps
 
-OUT = '/Volumes/ext-ssd/Captures/Pulse2/192k/pulse_phase'
+OUT = os.environ.get('P2_CAPTURES', '/Volumes/ext-ssd/Captures/Pulse2') + '/192k/pulse_phase'
 
 if __name__ == '__main__':
     os.makedirs(OUT, exist_ok=True)

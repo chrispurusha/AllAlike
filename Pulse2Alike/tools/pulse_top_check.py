@@ -9,7 +9,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import squash_session as sq
 from osc_analyse import read
 
-D = '/Volumes/ext-ssd/Captures/Pulse2/192k/para_width'
+D = os.environ.get('P2_CAPTURES', '/Volumes/ext-ssd/Captures/Pulse2') + '/192k/para_width'
 OCT = (500, 1000, 2000, 4000, 8000, 16000)
 
 

@@ -111,19 +111,34 @@ tP2HardwareResult p2_hardware_send(const uint8_t * data, uint32_t length) {
     return synthlib_midi_send_to(data, length, dest) ? eP2HardwareSent : eP2HardwareNoMidi;
 }
 
-tP2HardwareResult p2_hardware_send_to_edit_buffer(uint8_t dump[P2_DUMP_LENGTH]) {
+// notes §2: bytes 5-6 are the address (bank, program; 7F 00 the edit buffer), the checksum the sum of bytes 1-134
+static tP2HardwareResult send_addressed(uint8_t dump[P2_DUMP_LENGTH], uint8_t bank, uint8_t program) {
     int sum = 0;
+    int i   = 0;
 
-    // notes §2: always the edit buffer, whatever slot the dump came from - a slot number would store it to flash
-    dump[5]                  = 0x7F;
-    dump[6]                  = 0x00;
+    dump[5]                  = bank;
+    dump[6]                  = program;
 
-    for (int i = 1; i < (P2_DUMP_LENGTH - 2); i++) {
+    for (i = 1; i < (P2_DUMP_LENGTH - 2); i++) {
         sum += dump[i];
     }
 
     dump[P2_DUMP_LENGTH - 2] = (uint8_t)(sum & 0x7F);
     return p2_hardware_send(dump, P2_DUMP_LENGTH);
+}
+
+tP2HardwareResult p2_hardware_send_to_edit_buffer(uint8_t dump[P2_DUMP_LENGTH]) {
+    // notes §2: always the edit buffer, whatever slot the dump came from - a slot number would store it to flash
+    return send_addressed(dump, 0x7F, 0x00);
+}
+
+tP2HardwareResult p2_hardware_store_to_slot(uint8_t dump[P2_DUMP_LENGTH], int number) {
+    int sound = number - 1;      // the display's P001 is sound 0, bank 0 program 0
+
+    if ((number < 1) || (number > P2_HARDWARE_LAST_STORE_SLOT)) {
+        return eP2HardwareBadSlot;
+    }
+    return send_addressed(dump, (uint8_t)(sound / 128), (uint8_t)(sound % 128));
 }
 
 // ---- Backup - notes §4 ---------------------------------------------------------------------------------------

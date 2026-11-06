@@ -1254,3 +1254,13 @@ open.
   residual is 55-58 dB under the signal (about -81 dBFS) for TUBE and FUZZ at Drive 0/64/127, and the same in absolute
   terms with NONE (-67 dB under a louder signal). The two sides carry one clipper's output, so the drive is mono and
   ahead of the left and right VCAs. Above one voice the plug-in now has one drive per instance (p2Plugin notes §60).
+
+## 2026-11-06 - a store to a slot is a flash write, and it reads back (P450)
+- P450 did not answer a request (as P407-P499). One dump addressed to it (bank 03, program 41; P500's INIT with the
+  name `STORE TEST`, checksum recomputed) and a request 1.5 s later: P450 answers `STORE TEST`, so an empty slot takes
+  a store and keeps it. Read back byte for byte, except sound byte 0 (Osc 1 Shape): sent 119 (P500's out-of-range
+  value), stored 0, checksum to match. The instrument sanitises an out-of-range value on a store, to 0, not to the
+  top of the range. P450 now holds STORE TEST. P500's INIT and P400 (UNI GUITAR IW) are untouched; their backups
+  were taken first.
+- P500's 119 in Osc 1 Shape is a candidate for the random sound CT hears from P500: no other sound read holds an
+  out-of-range Shape.

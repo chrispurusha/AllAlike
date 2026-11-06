@@ -11,7 +11,7 @@ import p2rig
 import squash_session as sq
 import selfosc_level_session as so
 
-OUT = '/Volumes/ext-ssd/Captures/Pulse2/192k/squash2'
+OUT = os.environ.get('P2_CAPTURES', '/Volumes/ext-ssd/Captures/Pulse2') + '/192k/squash2'
 TITLES = dict(osc1_shape='osc1shape', osc1_level='osc1level', osc2_shape='osc2shape', osc2_level='osc2level',
               osc3_shape='osc3shape', osc3_routing='osc3routing', osc3_level='osc3level', noise='noiselevel',
               cutoff='cutoff', resonance='resonance', volume='volume', vcf_type='filtertype')

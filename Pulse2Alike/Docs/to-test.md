@@ -2,6 +2,7 @@
 
 Built, not yet checked against the instrument or in a host. Confirmed → delete the line; failed → move it to `todo.md`.
 
+- Store Sound to Pulse 2 Slot (Pulse 2 menu): the browser lists P001-P499, the confirm names the slot's last-backed-up sound, the store reaches the instrument (read the slot back or recall it there); disabled during a backup; another instance's Link gives the busy alert
 - Pulse2Alike loads and plays in Live (VST3 and AU), last-note priority, no clicks at note on/off
 - Osc 2 semitone offset against the instrument's osc 2 semitone at the same setting
 - The panel opens in Live (VST3 and AU), dials turn by dragging up/down, Shape/Type buttons step, values follow host automation

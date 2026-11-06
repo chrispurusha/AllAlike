@@ -11,7 +11,7 @@ import p2rig
 import squash_session as sq
 from osc_analyse import read
 
-OUT = '/Volumes/ext-ssd/Captures/Pulse2/192k/osc_levels'
+OUT = os.environ.get('P2_CAPTURES', '/Volumes/ext-ssd/Captures/Pulse2') + '/192k/osc_levels'
 LEVELS = (20, 40, 64, 90, 127)
 # (name, rig settings, renderer settings) at a Level L
 OSCS = (('osc1 saw', lambda L: dict(osc1_shape=1, osc1_level=L), lambda L: ['osc1shape=1', 'osc1level=%d' % L]),

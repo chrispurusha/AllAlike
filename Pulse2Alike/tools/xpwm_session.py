@@ -7,7 +7,7 @@ import os, sys, time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import p2rig
 
-OUT = '/Volumes/ext-ssd/Captures/Pulse2/192k/xpwm'
+OUT = os.environ.get('P2_CAPTURES', '/Volumes/ext-ssd/Captures/Pulse2') + '/192k/xpwm'
 NOTE, HOLD = 48, 2.5
 BASE = dict(osc1_level=0, osc2_level=127, osc3_level=0, noise=0, cutoff=127, resonance=0, volume=40,
             osc1_semi=64 + 7, osc3_semi=64 + 7)
