@@ -18,7 +18,7 @@ done, change it there first, then here.
 Missing everywhere, or built in one and wanted in the others:
 
 - **Level meters at stages** (oscillators, filter, effects, output), to watch gain staging. G2Alike has them; none of the Alikes do.
-- **External audio into the voices.** Pulse2Alike's osc 3 EXT, Sn2Alike's Audio In oscillators (they play as a Saw); G2Alike's side-chain input is the model.
+- **External audio into the voices.** Pulse2Alike's osc 3 EXT is built (side-chain, 2026-11-06); Sn2Alike's Audio In oscillators (they play as a Saw); G2Alike's side-chain input is the model.
 - **Named drop-downs** for modulation sources and destinations, waves and other numbered choices (TiAlike, Sn2Alike).
 - **Value text in real units** (times, rates, semitones) where the laws are measured; the panels show raw values now.
 - **Writing sounds back to the instrument.** Pulse2Alike's Store to Slot is built (a test store to P450 read back), Restore Presets waits; TiAlike's bank write is built but untried; Sn2Alike only reads.
@@ -29,7 +29,6 @@ Missing everywhere, or built in one and wanted in the others:
 ## Pulse2Alike
 
 **Missing**
-- Osc 3's EXT source (no audio input to the plug-in yet).
 - Restore Presets to Pulse 2 (flash writes, waiting for a go-ahead). Store Sound to Pulse 2 Slot is built (2026-11-06, P001-P499; P500 is the random generator and is never written), not yet tried from a host.
 
 **Needs more work**

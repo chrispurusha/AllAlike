@@ -1343,3 +1343,17 @@ The 2026-10-17 shapes (1 kHz, a ~0.3 ms glide) stand for cutoff, and now for pit
   within 0.2 dB at every Level, bands within about 1 dB. The first run of this sweep caught someone playing (three
   takes at -10 dBFS, 32-64 Hz, before the note); the session now retakes any take not quiet before its note.
 
+## 2026-11-06 - the drive through EXT IN, two tones (`192k/drive_imd/`, `tools/drive_imd_session.py`, `drive_imd_analyse.py`)
+1000 + 1300 Hz, each -36..-12 dBFS, osc 3 EXT, filter open, Volume 40; the engine played the same signal through the
+side-chain (p2Plugin notes §65). NONE matches (products within 1-2 dB). Even products (300/2300 Hz, asymmetry) and odd
+(700/1600 Hz), dB under the tones:
+- FUZZ odd products match everywhere (about -10 dB). Its asymmetry does not: the instrument is lopsided at the
+  quietest input (even -7 to -14 dB at -36 dBFS, engine -30 to -33), near symmetric in the middle, lopsided again
+  loud (-18 at Drive 127, -12 dBFS; engine -26) - a fixed offset ahead of a clipper, which the engine's coupling loop
+  cancels (the §8 bias at its bound): it must sit where the loop cannot remove it.
+- TUBE's odd products dip and rise with level on the instrument (-16..-37 dB at Drive 64), flat -14/-15 in the engine:
+  a curve with an inflection. Its even products: the engine too lopsided at Drive 0 loud (-9 vs -15) and Drive 32 quiet
+  (-21 vs -33).
+- The probe takes (250 Hz + 7.3 kHz) are kept; reading them needs the same-signal engine render now possible, not the
+  phase-folded estimate tried (it did not line up).
+

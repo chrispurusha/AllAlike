@@ -3,6 +3,8 @@
 //        <note> may be a chord, "48,52,55", or a sequence of note:start:length in seconds, "48:0:0.4,60:0.6:0.15"
 //        (with a sequence, hold_s is the length before the tail)
 //        a title is the parameter's, matched without case or spaces: osc1level=127 drivecurve=1
+//        ext=<file.wav> plays a mono WAV (16/24/32-bit integer or 32-bit float, the render's rate) into the side-chain,
+//        osc 3 EXT's input, from the render's first sample (p2Plugin notes §65)
 // Build: tools/do-p2render
 #include <ctype.h>
 #include <stdio.h>
@@ -57,6 +59,76 @@ static bool apply_override(double values[kP2ParamCount], const char * arg) {
     }
 
     return false;
+}
+
+// A mono (or the first channel of a) WAV, as floats; NULL if it is not one this reads
+static float * read_wav(const char * path, size_t * count) {
+    FILE *        f      = fopen(path, "rb");
+    unsigned char h[12], ck[8];
+    uint16_t      fmt    = 0, channels = 0, bits = 0;
+    float *       x      = NULL;
+
+    *count = 0;
+
+    if ((f == NULL) || (fread(h, 1, 12, f) != 12) || (memcmp(h, "RIFF", 4) != 0) || (memcmp(h + 8, "WAVE", 4) != 0)) {
+        if (f != NULL) {
+            fclose(f);
+        }
+        return NULL;
+    }
+
+    while (fread(ck, 1, 8, f) == 8) {
+        uint32_t len = (uint32_t)ck[4] | ((uint32_t)ck[5] << 8) | ((uint32_t)ck[6] << 16) | ((uint32_t)ck[7] << 24);
+
+        if (memcmp(ck, "fmt ", 4) == 0) {
+            unsigned char b[16];
+
+            if (fread(b, 1, 16, f) != 16) {
+                break;
+            }
+            fmt      = (uint16_t)(b[0] | (b[1] << 8));
+            channels = (uint16_t)(b[2] | (b[3] << 8));
+            bits     = (uint16_t)(b[14] | (b[15] << 8));
+            fseek(f, (long)len - 16, SEEK_CUR);
+        } else if (memcmp(ck, "data", 4) == 0) {
+            size_t          bytes = (size_t)bits / 8;
+            size_t          n     = (channels > 0) && (bytes > 0) ? len / (bytes * channels) : 0;
+            unsigned char * raw   = malloc(len);
+            size_t          i     = 0;
+
+            x = calloc(n + 1, sizeof(float));
+
+            if ((raw == NULL) || (x == NULL) || (fread(raw, 1, len, f) != len)) {
+                free(raw);
+                free(x);
+                x = NULL;
+                break;
+            }
+
+            for (i = 0; i < n; i++) {
+                const unsigned char * s = raw + (i * bytes * channels);
+
+                if ((fmt == 3) && (bits == 32)) {
+                    memcpy(&x[i], s, 4);
+                } else if (bits == 32) {
+                    x[i] = (float)((int32_t)((uint32_t)s[0] | ((uint32_t)s[1] << 8) | ((uint32_t)s[2] << 16) | ((uint32_t)s[3] << 24)) / 2147483648.0);
+                } else if (bits == 24) {
+                    x[i] = (float)((int32_t)(((uint32_t)s[0] << 8) | ((uint32_t)s[1] << 16) | ((uint32_t)s[2] << 24)) / 2147483648.0);
+                } else if (bits == 16) {
+                    x[i] = (float)((int16_t)(s[0] | (s[1] << 8)) / 32768.0);
+                }
+            }
+
+            free(raw);
+            *count = n;
+            break;
+        } else {
+            fseek(f, (long)len + (long)(len & 1), SEEK_CUR);
+        }
+    }
+
+    fclose(f);
+    return x;
 }
 
 static void write_wav(const char * path, const float * x, size_t n, int rate) {
@@ -130,7 +202,20 @@ int main(int argc, char ** argv) {
         return 1;
     }
 
+    float *                     ext                            = NULL;
+    size_t                      extCount                       = 0;
+
     for (int a = 7; a < argc; a++) {
+        if (strncmp(argv[a], "ext=", 4) == 0) {             // the side-chain's signal
+            ext = read_wav(argv[a] + 4, &extCount);
+
+            if (ext == NULL) {
+                fprintf(stderr, "cannot read %s\n", argv[a] + 4);
+                return 3;
+            }
+            continue;
+        }
+
         if (strncmp(argv[a], "vel=", 4) == 0) {             // the notes' velocity, 1..127 (default 100)
             velocity = (float)atof(argv[a] + 4) / 127.0f;
             continue;
@@ -173,7 +258,13 @@ int main(int argc, char ** argv) {
             }
         }
 
-        d->cb.process(inst, NULL, 0, outs, 2, frames, NULL);
+        float         extBlock[256];
+        const float * ins[2] = {extBlock, extBlock};
+
+        for (uint32_t k = 0; k < frames; k++) {
+            extBlock[k] = ((ext != NULL) && ((at + k) < extCount)) ? ext[at + k] : 0.0f;
+        }
+        d->cb.process(inst, (ext != NULL) ? ins : NULL, (ext != NULL) ? 2 : 0, outs, 2, frames, NULL);
         memcpy(mono + at, left, frames * sizeof(float));
     }
 
@@ -181,5 +272,6 @@ int main(int argc, char ** argv) {
     printf("%s: \"%s\" note %d, %.2f s\n", argv[5], name, note, (double)total / rate);
     d->cb.destroy(inst);
     free(mono);
+    free(ext);
     return 0;
 }

@@ -106,6 +106,7 @@ static const uint8_t gControllerUid[16] = {0xC4, 0x71, 0x0E, 0x9B, 0x52, 0xF3, 0
 #define LEVEL2_KNEE                (3.94)    //   reached through a soft minimum this sharp
 #define SYNC_READ_OFFSET           (0.88)    // notes §22: synced, osc 2's wave read this far round its cycle
 #define OSC3_COUPLING_HZ           (14.0)
+#define EXT_IN_GAIN                (3.51)    // notes §65: the side-chain into osc 3's place, as EXT IN at INPUT GAIN 0, measured
 #define OUTPUT_GAIN                (3.926)   // notes §19: the instrument's own level
 #define FAULT_LEVEL                (16.0)    // notes §47: 24 dB over full scale, far past any sound
 
@@ -319,6 +320,7 @@ typedef struct tP2Plugin_ {
     double            noiseLp[4];      // notes §34: the band limit, two biquad states
     double            noiseColour;
     double            noiseDark;        // notes §64
+    double            extLast;          // notes §65: the side-chain's previous sample, for the oversampling
     double            levelTarget[5];  // notes §43: osc 1-3, noise, the feedthrough - set per control tick
     double            levelNow[5];     //   and glided per sample
     bool              levelsSet;
@@ -1478,8 +1480,6 @@ static void release_sustained(tP2Plugin * p) {
 
 // notes §43: the mixer's levels, with their modulation, as of this control tick
 static void level_targets(tP2Plugin * p) {
-    int32_t shape3 = plain_int(p, kP2ParamOsc3Shape);
-
     p->levelTarget[0] = level_gain(p, kP2ParamOsc1Level);
 
     // notes §8: in the unison and paraphonic modes osc 1's Level drives osc 3's mixer input, so osc 3's taper
@@ -1489,7 +1489,7 @@ static void level_targets(tP2Plugin * p) {
         p->levelTarget[0] = (cc <= LEVEL_SILENT_BELOW) ? 0.0 : pow((cc - LEVEL_SILENT_BELOW) / (127.0 - LEVEL_SILENT_BELOW), OSC3_LEVEL_EXPONENT);
     }
     p->levelTarget[1] = level_gain(p, kP2ParamOsc2Level);
-    p->levelTarget[2] = (shape3 != 3) ? level_gain(p, kP2ParamOsc3Level) : 0.0;   // EXT: no input in the plug-in yet
+    p->levelTarget[2] = level_gain(p, kP2ParamOsc3Level);   // notes §65: EXT plays the side-chain at osc 3's Level
     p->levelTarget[3] = level_gain(p, kP2ParamNoiseLevel);
     p->levelTarget[4] = LEVEL_FEEDTHROUGH * (p->levelTarget[0] + p->levelTarget[1] + p->levelTarget[2]);
     p->levelTarget[0] *= level_trim(p, kP2ParamOsc1Level, eModOsc1Level, 1.0);   // notes §63: the mix, not the feedthrough
@@ -1573,8 +1573,9 @@ static void render_engine(void * inst, const float *const * in, uint32_t numIn, 
     if ((curve == eP2DriveFx) && !steps) {
         curve = eP2DriveNone;      // notes §25: FX is silent on the instrument, a measured quirk
     }
-    (void)in;
-    (void)numIn;
+    // notes §65: EXT IN is the side-chain, one mono jack - the average of its channels
+    const float *  extL      = ((in != NULL) && (numIn > 0)) ? in[0] : NULL;
+    const float *  extR      = ((in != NULL) && (numIn > 1)) ? in[1] : NULL;
 
     tP2ArpSettings arp;
     bool           hostClock = (t != NULL) && t->playing && t->tempoValid && t->musicTimeValid && (t->tempo > 0.0);
@@ -1589,6 +1590,11 @@ static void render_engine(void * inst, const float *const * in, uint32_t numIn, 
     }
 
     for (uint32_t i = 0; i < frames; i++) {
+        double extNow  = (extL == NULL) ? 0.0 : (EXT_IN_GAIN * ((extR != NULL) ? (0.5 * ((double)extL[i] + (double)extR[i])) : (double)extL[i]));
+        double extPrev = p->extLast;
+
+        p->extLast = extNow;
+
         if (arp.active != eP2ArpOff || p->arp.running) {
             p2_arp_run(&p->arp, &arp, p->arpTicks, hostClock, arp_note, p);
         }
@@ -1621,6 +1627,11 @@ static void render_engine(void * inst, const float *const * in, uint32_t numIn, 
             // notes §8: X3-PWM gates osc 2 with osc 3's square, X1-PWM with one at half osc 1's rate
             double gate2   = (shape2 == SHAPE_X3PWM) ? -p2_dco_gate(&p->dco[2], false) : ((shape2 == SHAPE_X1PWM) ? -p2_dco_gate(&p->dco[0], true) : 1.0);
             double osc3    = p2_dco_next(&p->dco[2]);
+
+            // notes §65: osc 3 EXT is the side-chain (its DCO runs on for its sync and gates), interpolated to the rate
+            if (shape3 == 3) {
+                osc3 = extPrev + ((extNow - extPrev) * (double)(o + 1) / (double)p->oversample);
+            }
             bool   sync    = plain_int(p, kP2ParamOsc3Sync) != 0;
 
             // notes §22: osc 2 starts another cycle only if that cycle's first edge comes before osc 3's next one
@@ -1920,7 +1931,7 @@ static void bus_render(tP2Plugin * p, float ** out, uint32_t numOut, uint32_t at
 }
 
 // notes §60: above one voice with a drive curve on - every voice up to its VCA, then one drive for the instance
-static void process_shared_drive(tP2Plugin * p, float ** out, uint32_t numOut, uint32_t frames, const tSynthLibTransport * t, int voices) {
+static void process_shared_drive(tP2Plugin * p, const float *const * in, uint32_t numIn, float ** out, uint32_t numOut, uint32_t frames, const tSynthLibTransport * t, int voices) {
     tP2Bus * b        = p->busOwned;
     double   rate     = p->sampleRate * p->oversample;
     float    headroom = powf((float)voices, -0.25f);   // notes §57, on what each voice adds past the drive
@@ -1949,6 +1960,7 @@ static void process_shared_drive(tP2Plugin * p, float ** out, uint32_t numOut, u
     for (uint32_t done = 0; done < frames; done += POLY_CHUNK) {
         uint32_t n = ((frames - done) < POLY_CHUNK) ? (frames - done) : POLY_CHUNK;
         size_t   m = (size_t)n * (size_t)p->oversample;
+        const float * chunk[2] = {((in != NULL) && (numIn > 0)) ? (in[0] + done) : NULL, ((in != NULL) && (numIn > 1)) ? (in[1] + done) : NULL};
 
         memset(b->sum, 0, m * sizeof(double));
         memset(b->loudest, 0, m * sizeof(double));
@@ -1970,7 +1982,7 @@ static void process_shared_drive(tP2Plugin * p, float ** out, uint32_t numOut, u
             // a voice whose oversampling has not caught up keeps its own drive this block
             v->bus   = (v->oversample == p->oversample) ? b : NULL;
             v->busAt = 0;
-            render_engine(v, NULL, 0, mine, 2, n, t);
+            render_engine(v, chunk, (in != NULL) ? numIn : 0, mine, 2, n, t);   // notes §65: every voice hears EXT
             v->bus   = NULL;
 
             for (uint32_t ch = 0; ch < numOut; ch++) {
@@ -2005,7 +2017,7 @@ static void p2_process(void * inst, const float *const * in, uint32_t numIn, flo
 
     // notes §60
     if ((voices > 1) && (p->busOwned != NULL) && (out != NULL) && (shared_curve(p) != eP2DriveNone)) {
-        process_shared_drive(p, out, numOut, frames, t, voices);
+        process_shared_drive(p, in, numIn, out, numOut, frames, t, voices);
     } else {
         process_own_drives(p, in, numIn, out, numOut, frames, t, voices);
     }
@@ -2043,8 +2055,9 @@ static void process_own_drives(tP2Plugin * p, const float *const * in, uint32_t 
             float    l[POLY_CHUNK], r[POLY_CHUNK];
             float *  mine[2] = {l, r};
             float    peak    = 0.0f;
+            const float * chunk[2] = {((in != NULL) && (numIn > 0)) ? (in[0] + done) : NULL, ((in != NULL) && (numIn > 1)) ? (in[1] + done) : NULL};
 
-            render_engine(v, NULL, 0, mine, 2, n, t);
+            render_engine(v, chunk, (in != NULL) ? numIn : 0, mine, 2, n, t);   // notes §65: every voice hears EXT
 
             for (uint32_t ch = 0; (ch < numOut) && (out != NULL); ch++) {
                 if (out[ch] != NULL) {
@@ -2844,6 +2857,7 @@ static void * p2_create_view(const tSynthLibPluginDesc * desc, void * inst, doub
 #endif // P2_NO_EDITOR
 
 static const tSynthLibBus        gOutputs[1] = {{"Out", 2, false, true}};
+static const tSynthLibBus        gInputs[1]  = {{"Side-chain (EXT IN)", 2, true, false}};   // notes §65
 
 static const tSynthLibPluginDesc gDescriptor = {
     .name               = "Pulse2Alike",
@@ -2854,6 +2868,8 @@ static const tSynthLibPluginDesc gDescriptor = {
 
     .isInstrument       = true,
     .vst3SubCategory    = "Instrument|Synth",
+    .inputs             = gInputs,
+    .numInputs          = 1,
     .outputs            = gOutputs,
     .numOutputs         =                                             1,
     .wantsMidiIn        = true,

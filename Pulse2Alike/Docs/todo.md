@@ -19,6 +19,7 @@ One line per item. Measurements and reasoning go in `findings.md`, design in `de
 - The thump (VCA feedthrough, p2Plugin notes §43): Decay 0 too big (0.149 against 0.103), Attack 20's small positive bump
 
 ## Drive
+- Next (2026-11-06): use the two-tone results (findings, "the drive through EXT IN") - FUZZ: an offset ahead of the clipper the coupling loop cannot cancel; TUBE: a curve with an inflection - fit against drive_imd/ through p2render ext= plus the cycles
 - NOW (planned CT 2026-10-26): rebuild the drive model as an OTA-style gain stage plus a fixed per-curve clipper, every per-Drive value one smooth function of Drive - plan in p2Drive notes §9; the waveform refit (§8) is in and "sounding much better", not identical
 - The output gate is in (p2Plugin notes §55) and the fitted quiet-input loss is off (p2Drive notes §7); P003 gates off as the instrument's does
 - FUZZ overall (CT 2026-10-25): better but still not close by ear; after the §8 waveform refit (10-26) Drive 0/64 close, 127 slightly worse, even harmonics still not growing with Drive
@@ -42,7 +43,7 @@ One line per item. Measurements and reasoning go in `findings.md`, design in `de
 - Normal-mode pulses at full Level keep +2.4 dB at 16 kHz: the filter's saturation re-sharpens the softened edge (p2Dco notes §11)
 - Osc 3's square against a synced osc 2 (polarity audit, findings 2026-10-24): where its edges sit relative to the sync point
 - P014 3.6 -> 4.1 after APW's polarity fix (APW mixed with other sources) - check APW's own shape against its two-cycle period
-- Osc 3 EXT is not built: the plug-in has no audio input - a side-chain input, as G2Alike's
+- Osc 3 EXT is built as the side-chain (p2Plugin notes §65); INPUT GAIN not yet a parameter (calibrated at the CT unit's 0)
 - X3-PWM with sync (P053, bands 11-13 dB) and P052's attack: X1/X3 are built (p2Plugin notes §8); look at P053's filter (cutoff 28, env 127) and the sync's first-edge rule with X3
 - The saw's reset: each ramp ends in a ~0.3-0.5 ms flat stretch (seen synced, findings 2026-10-24) - measure it unsynced against pitch
 - Model the ramp's shape and reset spike against pitch (the pulse's duty is settled - design §2.2)

@@ -611,3 +611,11 @@ about linearly with Level over 40 (23, 16, 11 kHz at 64, 90, 127). Now: that pol
 kNoiseTrimDb on the noise's level, interpolated in Level: every Level within 0.2 dB, every octave band within about 1
 dB (125 Hz about 1 dB low at most Levels), the amplitude distribution as the instrument's (crest 3.2-3.3 on both).
 
+## 65. Osc 3 EXT: the side-chain (2026-11-06)
+The plug-in declares one aux input bus, "Side-chain (EXT IN)" (stereo, off by default); its channels averaged are
+the EXT IN jack. With osc 3's Shape on EXT its signal takes osc 3's place - Level, mix and routings (LEVEL2, VCF,
+DRIVE) as the oscillator's - interpolated up to the oversampled rate; osc 3's DCO keeps running for its sync and
+gates. Every extra voice hears it. EXT_IN_GAIN 3.51, measured against the instrument at INPUT GAIN 0 (the CT unit's):
+a 1 kHz sine at -60 / -20 dBFS gives -46.4 / -6.5 dB against the instrument's -46.1 / -6.4. INPUT GAIN itself is not
+a parameter yet. tools/p2render takes ext=<wav> to play a file into it.
+
