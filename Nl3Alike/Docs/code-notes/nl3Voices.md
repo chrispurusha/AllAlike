@@ -89,3 +89,10 @@ new note after all keys are up glides from whatever pitch was last sounding - No
 legato. So a glide starts from the pitch the voice had reached. In poly the instrument seems to glide each voice from
 that voice's own last pitch (hard to follow by ear); a voice that has never played starts from the last note.
 
+## 19. Arithmetic and the filter's level
+The Arithmetic parameter chooses, per instance, between the instrument's fixed-point arithmetic and floating point for
+the stages built both ways (so far the filter, `nl3Filter.md` §3). It is an instance setting, not part of a sound.
+The filter leaves a quarter of its input at DC on every mode, as the instrument's does, so the voice scales its output
+by 4 to keep the level it had. Where the oscillators stand on the instrument's full scale is not measured yet; the
+filter's non-linear damping depends on it.
+

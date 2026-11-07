@@ -288,8 +288,8 @@ static tNl3Sound make_sound(const tNl3Plugin * t) {
         .glideCurve  = (int)lround(t->values[kNl3ParamGlideCurve]),
         .glideType   = (int)lround(t->values[kNl3ParamGlideType] * 9.0),
         .ampVelocity = t->values[kNl3ParamAmpVelocity] * 127.0,
-        .filterType  = (uint32_t)lround(t->values[kNl3ParamFilterType] * 11.0),
-        .filterSlope = (uint32_t)lround(t->values[kNl3ParamFilterSlope] * 2.0),
+        .filterType  = (uint32_t)lround(t->values[kNl3ParamFilterType] * gNl3Params[kNl3ParamFilterType].stepCount),
+        .filterSlope = (uint32_t)lround(t->values[kNl3ParamFilterSlope] * gNl3Params[kNl3ParamFilterSlope].stepCount),
         .ampAttack   = t->values[kNl3ParamAmpAttack] * 127.0,
         .ampDecay    = t->values[kNl3ParamAmpDecay] * 127.0,
         .ampSustain  = t->values[kNl3ParamAmpSustain] * 127.0,
@@ -449,6 +449,8 @@ static void nl3_set_param(void * inst, uint32_t id, double normalized) {
         }
     } else if (id == kNl3ParamVoiceLimit) {
         nl3_voices_set_limit(&t->voices, voice_limit(t));
+    } else if (id == kNl3ParamArithmetic) {
+        nl3_voices_set_fixed(&t->voices, normalized >= 0.5);
     }
 }
 
@@ -458,8 +460,8 @@ static double nl3_get_param(void * inst, uint32_t id) {
 
 static bool nl3_param_text(const tSynthLibPluginDesc * desc, void * inst, uint32_t id, double value, char * out, size_t len) {
     static const char *const shapes[]  = {"Saw", "Square", "Double Saw"};
-    static const char *const filters[] = {"LPF", "BPF", "HPF", "Res LPF", "Res BPF", "Res HPF", "Notch", "LPF+LPF", "BPF+BPF", "HPF+HPF", "LPF+BPF", "BPF+HPF"};
-    static const char *const slopes[]  = {"12 dB", "18 dB", "24 dB"};
+    static const char *const filters[] = {"LP", "HP"};
+    static const char *const slopes[]  = {"12 dB", "24 dB"};
 
     (void)desc;
     (void)inst;
@@ -472,7 +474,7 @@ static bool nl3_param_text(const tSynthLibPluginDesc * desc, void * inst, uint32
     if ((id == kNl3ParamOscShape) || (id == kNl3ParamOsc2Shape) || (id == kNl3ParamOsc3Shape)) {
         snprintf(out, len, "%s", shapes[(step < 0) ? 0 : ((step > 2) ? 2 : step)]);
     } else if (id == kNl3ParamFilterType) {
-        snprintf(out, len, "%s", filters[(step < 0) ? 0 : ((step > 11) ? 11 : step)]);
+        snprintf(out, len, "%s", filters[(step < 0) ? 0 : ((step > 1) ? 1 : step)]);
     } else if (id == kNl3ParamChorusType) {
         static const char *const types[] = {"Quad Chorus", "Chorus/Flanger", "Phaser"};
 
@@ -528,7 +530,9 @@ static bool nl3_param_text(const tSynthLibPluginDesc * desc, void * inst, uint32
     } else if (id == kNl3ParamEnvTrigger) {
         snprintf(out, len, "%s", (step > 0) ? "Legato" : "Retrigger");
     } else if (id == kNl3ParamFilterSlope) {
-        snprintf(out, len, "%s", slopes[(step < 0) ? 0 : ((step > 2) ? 2 : step)]);
+        snprintf(out, len, "%s", slopes[(step < 0) ? 0 : ((step > 1) ? 1 : step)]);
+    } else if (id == kNl3ParamArithmetic) {
+        snprintf(out, len, "%s", (step > 0) ? "Fixed" : "Float");
     } else {
         snprintf(out, len, "%ld", lround(gNl3Params[id].plainMin) + step);
     }
@@ -541,7 +545,7 @@ static bool nl3_param_text(const tSynthLibPluginDesc * desc, void * inst, uint32
 
 // What a sound carries: everything but the plug-in's own settings
 static bool sound_param(uint32_t id) {
-    return (id != kNl3ParamVoiceLimit) && (id != kNl3ParamMaster) && (id != kNl3ParamEffectsBypass) && (id != kNl3ParamSustainPedal)
+    return (id != kNl3ParamVoiceLimit) && (id != kNl3ParamArithmetic) && (id != kNl3ParamMaster) && (id != kNl3ParamEffectsBypass) && (id != kNl3ParamSustainPedal)
            && (id != kNl3ParamHwLink) && (id != kNl3ParamHwChannel) && (id != kNl3ParamHwDevice) && (id != kNl3ParamProgram) && (id != kNl3ParamBank)
            && (id != kNl3ParamPitchBend) && (id != kNl3ParamModWheel);
 }

@@ -22,28 +22,40 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#define NL3_FILTER_TYPES     (12)
-#define NL3_FILTER_SLOPES    (3)
-#define NL3_ENGINE_HZ        (39062.0)  // notes §3: the rate the voices run at, whatever the host's
+#include "nl3Fixed.h"
 
+#define NL3_ENGINE_HZ    (44100.0)      // notes §7: the rate the voices run at, whatever the host's
+
+typedef enum {
+    eNl3FilterLp12,
+    eNl3FilterLp24,
+    eNl3FilterHp12,
+    eNl3FilterHp24,
+    eNl3FilterModes
+} tNl3FilterMode;
+
+#define NL3_FILTER_TYPES     (2)        // LP, HP
+#define NL3_FILTER_SLOPES    (2)        // 12, 24 dB
+
+// notes §3: the words the filter reads, a set per voice
 typedef struct {
-    double f, damp[2];  // damp: a section each
-    double gain;        // notes §6: ahead of the filter
-    double trim;        // notes §6: off the damping
-    bool   parallel;
-    double taps[2][4];
+    tNl3FilterMode mode;
+    double         f, k, n2, gain;
+    tNl3Word       fw, kw, n2w, gainw;
 } tNl3FilterCoeffs;
 
+// notes §2: two stages of state, in both arithmetics
 typedef struct {
-    double low[2], band[2];
+    double   low[2], band[2], in[2], mean[2];
+    tNl3Word lowW[2], bandW[2], inW[2], meanW[2];
 } tNl3Filter;
 
-// cutoff and resonance in the panel's 0..127 (fractions allowed)
-void nl3_filter_coeffs(uint32_t type, uint32_t slope, double cutoff, double resonance, double normalise, tNl3FilterCoeffs * c);
-// notes §5: Overdrive 0..127 as the drive word; the saturator on the filter's input
-double nl3_filter_drive_word(double overdrive);
-double nl3_filter_drive(double x, double word);
+tNl3FilterMode nl3_filter_mode(uint32_t type, uint32_t slope);
+// cutoff on the panel's 0..127, plus modulation in semitones; resonance 0..127
+void nl3_filter_coeffs(tNl3FilterMode mode, double cutoff, double resonance, tNl3FilterCoeffs * c);
 void nl3_filter_reset(tNl3Filter * f);
+// x and the result on the instrument's full scale
 double nl3_filter_process(tNl3Filter * f, const tNl3FilterCoeffs * c, double x);
+tNl3Word nl3_filter_process_fixed(tNl3Filter * f, const tNl3FilterCoeffs * c, tNl3Word x);
 
 #endif // __NL3_FILTER_H__

@@ -8,7 +8,7 @@ Reproductions of synthesizers as VST3 and Audio Unit plug-ins, each built on
 | [Pulse2Alike](Pulse2Alike/) | A reproduction inspired by the Waldorf Pulse 2 | Beta |
 | [TiAlike](TiAlike/) | A reproduction inspired by the Access Virus TI's single-patch engine | Work in progress |
 | [Sn2Alike](Sn2Alike/) | A reproduction inspired by the Novation Supernova II | Work in progress |
-| [Nl3Alike](Nl3Alike/) | A reproduction inspired by the Clavia Nord Lead 3 | Just started |
+| [Nl3Alike](Nl3Alike/) | A reproduction inspired by the Clavia Nord Lead 3 | Work in progress: the filter (LP/HP 12/24 dB) is done |
 
 What each one is missing, and what needs more work: [Docs/feature-status.md](Docs/feature-status.md).
 

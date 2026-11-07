@@ -22,7 +22,7 @@ Missing everywhere, or built in one and wanted in the others:
 - **Named drop-downs** for modulation sources and destinations, waves and other numbered choices (TiAlike, Sn2Alike).
 - **Value text in real units** (times, rates, semitones) where the laws are measured; the panels show raw values now.
 - **Writing sounds back to the instrument.** Pulse2Alike's Store to Slot is built (a test store to P450 read back), Restore Presets waits; TiAlike's bank write is built but untried; Sn2Alike only reads.
-- **Arithmetic option** (float or the instrument's fixed point, per instance): TiAlike has the filter's biquad; Sn2Alike to follow.
+- **Arithmetic option** (float or the instrument's fixed point, per instance): TiAlike has the filter's biquad, Nl3Alike the filter; Sn2Alike to follow.
 - **Panel pages, in common** (CT 2026-11-06): OSC, FILTER, AMP, ENV, LFO, MOD, then the instrument's own pages (ARP, TABLES beside OSC, the effects), GLOBAL always last. Short names as on the instruments' panels; a new Alike follows the same.
 - **The panel code** (`p2Draw.c`, copied as `tiDraw.c` and `sn2Draw.c`) is three near-copies: a fix in one probably belongs in all three until it moves into SynthLib.
 
@@ -90,7 +90,9 @@ Missing everywhere, or built in one and wanted in the others:
 ## Nl3Alike
 
 Started 2026-11-02 from Sn2Alike's skeleton, renamed: it builds, validates as an Audio Unit and opens, playing
-Sn2Alike's engine as a placeholder. **Everything Nord Lead 3 is missing**: the program format and parameters, the
-engine (oscillators with FM and sync, filter, envelopes, LFOs, morph), the panel's pages, the MIDI link's own messages,
-and reading the instrument's programs. See `Nl3Alike/Docs/todo.md`.
+Sn2Alike's engine as a placeholder. **The filter is the Nord Lead 3's** (2026-11-07): LP and HP at 12 and 24 dB, its
+coefficient laws and level compensation, at the instrument's 44.1 kHz, in its own fixed-point arithmetic (word for word
+against the instrument's) or floating point. **Missing**: the other filter modes, the program format and parameters,
+the rest of the engine (oscillators with FM and sync, envelopes, LFOs, morph), the panel's pages, the MIDI link's own
+messages, and reading the instrument's programs. See `Nl3Alike/Docs/todo.md`.
 
