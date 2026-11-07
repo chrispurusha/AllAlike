@@ -264,6 +264,7 @@ typedef struct tP2Plugin_ {
     tP2Arp            arp;                 // notes §32
     double            arpTicks;            // its own clock, when no host is playing
     int               arpActiveSeen;       // notes §45: Arp Active as the engine last followed it
+    int               voicesSeen;          // notes §57: Voices as the engine last followed it, -1 not yet
     bool              arpGlide;            // the arp step now starting glides
     double            source[25];          // the mod sources at the last control tick (the arp\'s accent)
     double            driveOut;            // notes §25: the last drive output, which osc 3\'s FB shape feeds back
@@ -1175,6 +1176,7 @@ static void p2_reset(void * inst) {
     p2_env_reset(&p->filterEnv);
     p2_arp_reset(&p->arp);
     p->arpActiveSeen = plain_int(p, kP2ParamArpActive);
+    p->voicesSeen    = -1;
     memset(p->sustained, 0, sizeof(p->sustained));
     p->vca           = p->vcaTarget = 0.0;
     p->pan[0]        = p->pan[1] = p->panTarget[0] = p->panTarget[1] = 1.0;
@@ -1260,21 +1262,25 @@ static void triggers(tP2Plugin * p, bool first, bool returning) {
     trigger(&p->ampEnv, plain_int(p, kP2ParamEnvATrigger), first, returning);
 }
 
+// notes §17: the sounding key let go with others held - back to the newest of them; NORM, FNGR and FNOFF glide there
+static void return_to_held(tP2Plugin * p) {
+    int mode = plain_int(p, kP2ParamGlideMode);
+
+    p->lastNote = p->notes[p->noteCount - 1];
+
+    if ((mode != 1) && (mode != 2) && (mode != 4)) {
+        p->glidePitch = (int64_t)p->lastNote * 256;
+    }
+    triggers(p, false, true);
+}
+
 static void release_note(tP2Plugin * p, uint8_t note) {
     bool sounding = (p->noteCount > 0) && (p->notes[p->noteCount - 1] == note);
 
     remove_note(p, note);
 
-    // notes §17: the sounding key let go with others held - back to the newest of them; NORM, FNGR and FNOFF glide there
     if (sounding && (p->noteCount > 0)) {
-        int mode = plain_int(p, kP2ParamGlideMode);
-
-        p->lastNote = p->notes[p->noteCount - 1];
-
-        if ((mode != 1) && (mode != 2) && (mode != 4)) {
-            p->glidePitch = (int64_t)p->lastNote * 256;
-        }
-        triggers(p, false, true);
+        return_to_held(p);
     }
     update_dcos(p);
     para_note_off(p, note);
@@ -1283,6 +1289,17 @@ static void release_note(tP2Plugin * p, uint8_t note) {
         p2_env_gate_off(&p->ampEnv);
         p2_env_gate_off(&p->filterEnv);
     }
+}
+
+// every note this engine holds let go at once, with no return to any of them (each in turn would retrigger the next)
+static void release_all(tP2Plugin * p) {
+    for (int i = 0; i < p->noteCount; i++) {
+        para_note_off(p, p->notes[i]);
+    }
+    p->noteCount = 0;
+    memset(p->sustained, 0, sizeof(p->sustained));
+    p2_env_gate_off(&p->ampEnv);
+    p2_env_gate_off(&p->filterEnv);
 }
 
 // notes §32: with the arpeggiator on, keys go to it and it plays the voice
@@ -1339,10 +1356,7 @@ static void arp_follow_active(tP2Plugin * p) {
     p->arpActiveSeen = active;
 
     if (was == eP2ArpOff) {
-        while (p->noteCount > 0) {
-            release_note(p, p->notes[p->noteCount - 1]);
-        }
-        memset(p->sustained, 0, sizeof(p->sustained));
+        release_all(p);
     }
 
     if ((active == eP2ArpOn) || ((active == eP2ArpHold) && (was == eP2ArpOff) && !anomalies_on(p))) {
@@ -1359,6 +1373,29 @@ static int poly_voices(const tP2Plugin * p) {
 
 static tP2Plugin * poly_engine(tP2Plugin * p, int i) {
     return (i == 0) ? p : p->poly[i].engine;
+}
+
+// notes §57: a change of voice count (a preset brings its own) - every voice lets go of what it holds. One voice keeps
+// every key in a list, the others one each; a key kept by the one way would never be released by the other, and was
+// played again when a later key went up
+static void voices_follow(tP2Plugin * p) {
+    int voices = poly_voices(p);
+
+    if (voices == p->voicesSeen) {
+        return;
+    }
+
+    if (p->voicesSeen >= 0) {
+        for (int i = 0; i < POLY_VOICES_MAX; i++) {
+            tP2Plugin * v = poly_engine(p, i);
+
+            if (v != NULL) {
+                release_all(v);
+            }
+            p->poly[i].held = false;
+        }
+    }
+    p->voicesSeen = voices;
 }
 
 // notes §57: the longest-free voice, else the oldest held
@@ -1429,6 +1466,7 @@ static void p2_note_on(void * inst, uint8_t channel, uint8_t note, float velocit
     (void)channel;
     (void)sampleOffset;
 
+    voices_follow(p);
     arp_follow_active(p);
     arp_settings(p, &s);
     p2_arp_key(&p->arp, &s, note, (int)lround(velocity * 127.0f), true);   // notes §45: the arp knows every key
@@ -1458,6 +1496,7 @@ static void p2_note_off(void * inst, uint8_t channel, uint8_t note, float veloci
     (void)sampleOffset;
 
     p->releaseVelocity = velocity;
+    voices_follow(p);
     arp_follow_active(p);
     tP2ArpSettings s;
 
@@ -1479,12 +1518,33 @@ static void p2_note_off(void * inst, uint8_t channel, uint8_t note, float veloci
     }
 }
 
+// notes §28: the pedal up - its notes go together; if the sounding one was among them, back to a key still down. One
+// at a time, each would have retriggered another the pedal still held, a moment before it went too
 static void release_sustained(tP2Plugin * p) {
+    int sounding = (p->noteCount > 0) ? p->notes[p->noteCount - 1] : -1;
+    bool any     = false;
+
     for (int n = 0; n < 128; n++) {
         if (p->sustained[n]) {
             p->sustained[n] = false;
-            release_note(p, (uint8_t)n);
+            remove_note(p, (uint8_t)n);
+            para_note_off(p, n);
+            any = true;
         }
+    }
+
+    if (!any) {
+        return;
+    }
+
+    if ((p->noteCount > 0) && (p->notes[p->noteCount - 1] != sounding)) {
+        return_to_held(p);
+    }
+    update_dcos(p);
+
+    if (p->noteCount == 0) {
+        p2_env_gate_off(&p->ampEnv);
+        p2_env_gate_off(&p->filterEnv);
     }
 }
 
@@ -2029,6 +2089,8 @@ static void p2_process(void * inst, const float *const * in, uint32_t numIn, flo
                        uint32_t frames, const tSynthLibTransport * t) {
     tP2Plugin * p      = (tP2Plugin *)inst;
     int         voices = poly_voices(p);
+
+    voices_follow(p);
 
     // notes §60
     if ((voices > 1) && (p->busOwned != NULL) && (out != NULL) && (shared_curve(p) != eP2DriveNone)) {
