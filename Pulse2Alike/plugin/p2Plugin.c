@@ -1466,9 +1466,16 @@ static void p2_note_off(void * inst, uint8_t channel, uint8_t note, float veloci
 
     if (poly_voices(p) > 1) {
         poly_note_off(p, poly_voices(p), note, velocity);
-    } else if (!arp_on(p)) {
-        p->poly[0].held = false;
-        play_note_off(p, note);
+    } else {
+        // the key is up whoever played it: with the arpeggiator on (switched on while it was held) the voice must
+        // not stay marked held
+        if (p->poly[0].note == note) {
+            p->poly[0].held = false;
+        }
+
+        if (!arp_on(p)) {
+            play_note_off(p, note);
+        }
     }
 }
 

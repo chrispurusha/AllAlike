@@ -39,10 +39,30 @@ static uint32_t rnd(uint32_t n) {
 
 static int gFailures = 0;
 
+// each kind of failure printed the first time it is seen (its text up to the first digit), then only counted
+static char gSeen[64][48];
+static int  gSeenCount = 0;
+
 static void fail(int event, const char * what, int preset, int voices, int arp) {
-    if (gFailures < 40) {
-        printf("event %d: %s (P%03d, Voices %d, arp %d)\n", event, what, preset, voices, arp);
+    char kind[48];
+    int  k = 0;
+
+    for (const char * c = what; (*c != '\0') && (k < 47); c++) {
+        kind[k++] = ((*c >= '0') && (*c <= '9')) ? '#' : *c;
     }
+    kind[k] = '\0';
+
+    for (int i = 0; i < gSeenCount; i++) {
+        if (strcmp(gSeen[i], kind) == 0) {
+            gFailures++;
+            return;
+        }
+    }
+
+    if (gSeenCount < 64) {
+        snprintf(gSeen[gSeenCount++], sizeof(gSeen[0]), "%s", kind);
+    }
+    printf("event %d: %s (P%03d, Voices %d, arp %d)\n", event, what, preset, voices, arp);
     gFailures++;
 }
 
@@ -95,7 +115,11 @@ int main(int argc, char ** argv) {
                     }
                 }
             }
-        } else if (choice < 90) {                            // the pedal
+        } else if (choice < 88) {                            // Voices, as a host or the panel sets it
+            int voices = 1 + (int)rnd(6);
+
+            d->cb.setParam(inst, kP2ParamVoices, (voices - gP2Params[kP2ParamVoices].plainMin) / (gP2Params[kP2ParamVoices].plainMax - gP2Params[kP2ParamVoices].plainMin));
+        } else if (choice < 92) {                            // the pedal
             pedal = !pedal;
             d->cb.setParam(inst, kP2ParamSustain, pedal ? 1.0 : 0.0);
         } else {                                             // Prev / Next or a program change
