@@ -37,7 +37,8 @@ static uint32_t rnd(uint32_t n) {
     return (gSeed >> 8) % n;
 }
 
-static int gFailures = 0;
+static int          gFailures = 0;
+static const char * gLast     = "";   // what the last event was
 
 // each kind of failure printed the first time it is seen (its text up to the first digit), then only counted
 static char gSeen[64][48];
@@ -62,7 +63,7 @@ static void fail(int event, const char * what, int preset, int voices, int arp) 
     if (gSeenCount < 64) {
         snprintf(gSeen[gSeenCount++], sizeof(gSeen[0]), "%s", kind);
     }
-    printf("event %d: %s (P%03d, Voices %d, arp %d)\n", event, what, preset, voices, arp);
+    printf("event %d (%s): %s (P%03d, Voices %d, arp %d)\n", event, gLast, what, preset, voices, arp);
     gFailures++;
 }
 
@@ -100,6 +101,7 @@ int main(int argc, char ** argv) {
 
             if (!held[note]) {
                 held[note] = true;
+                gLast      = "key down";
                 d->cb.noteOn(inst, 0, (uint8_t)note, 0.8f, 0);
             }
         } else if (choice < 85) {                            // a key up
@@ -110,6 +112,7 @@ int main(int argc, char ** argv) {
                     if (held[n] && (k-- == 0)) {
                         held[n]  = false;
                         released = true;
+                        gLast    = "key up";
                         d->cb.noteOff(inst, 0, (uint8_t)n, 0.0f, 0);
                         break;
                     }
@@ -121,9 +124,12 @@ int main(int argc, char ** argv) {
             d->cb.setParam(inst, kP2ParamVoices, (voices - gP2Params[kP2ParamVoices].plainMin) / (gP2Params[kP2ParamVoices].plainMax - gP2Params[kP2ParamVoices].plainMin));
         } else if (choice < 92) {                            // the pedal
             pedal = !pedal;
+            gLast = pedal ? "pedal down" : "pedal up";
             d->cb.setParam(inst, kP2ParamSustain, pedal ? 1.0 : 0.0);
         } else {                                             // Prev / Next or a program change
             int to = first + (int)rnd((uint32_t)(last - first + 1));
+
+            gLast = "program change";
 
             d->cb.setParam(inst, kP2ParamBank, (double)((to - 1) / 100) / 127.0);
             d->cb.setParam(inst, kP2ParamProgram, (double)((to - 1) % 100) / 127.0);

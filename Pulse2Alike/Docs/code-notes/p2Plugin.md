@@ -633,3 +633,17 @@ scaled the same, the depth then about 66. P021 (osc 3 SQR at 33 Hz on VCF, level
 instrument at 125-8k Hz: before -4.3 -17.8 -13.5 -2.6 +4.2 +11.1 +21.7 dB, after -4.3 -13.2 -6.6 +10.8 +7.2 +2.4
 -0.9 - the fizz CT heard was the top octaves 11-22 dB over. A low-pass on the control path was tried instead and
 made it worse. LEVEL2 and DRIVE keep the square's full size: their depths were measured with it.
+
+## 67. Held keys across sound changes and the pedal (2026-11-07)
+CT heard a stray note on lifting a key, perhaps after Prev/Next. `tools/notefuzz` (built by `tools/do-notefuzz`)
+plays random keys, releases, pedal moves and program changes through the engine and checks after each block that no
+voice lists a note, is marked held, or starts an envelope with no key down. It found three faults, now fixed:
+- With the arpeggiator on, a key's release went only to it, so voice 0 stayed marked held after a key pressed
+  before the arpeggiator came on (a sound changed under it). A release now always clears it.
+- A change of Voices (a preset brings its own, §57 and p2Patch notes §6): one voice keeps every key in a list, the
+  others one key each, and a key kept the one way was never released the other - it played again when a later key
+  went up. Every voice now lets go of what it holds when the count changes (`voices_follow`).
+- The pedal up released its notes one at a time, and each release fell back to another note the pedal still held,
+  retriggering it for a moment. They now go together, and only a key still down is returned to. Switching the
+  arpeggiator on lets go of the held keys the same way (`release_all`).
+After the fixes: no failures in 120 000 events over P001-P060, six seeds.

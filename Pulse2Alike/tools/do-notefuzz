@@ -1,0 +1,12 @@
+#!/bin/zsh
+# Builds tools/notefuzz: random keys, releases, pedal and program changes through the plug-in's engine, checking for
+# a stray note after every event (the engine compiled in, so it can look at its state). Run: tools/notefuzz [events] [seed] [first last]
+set -e
+HERE="$(cd "$(dirname "$0")/.." && pwd)"
+SL="${SYNTHLIB_DIR:-$HERE/../../SynthLib}"
+"$SL/do-build"
+clang -O1 -Wall -Wextra -DP2_NO_EDITOR -I"$HERE/src" -I"$HERE/plugin" -I"$SL/plugin" -I"$SL/src" \
+      -I"$SL/ThirdParty/glfw/include" -I"$SL/ThirdParty/freetype/include" \
+      "$HERE/tools/notefuzz.c" "$HERE/plugin/p2Params.c" "$HERE/plugin/p2Patch.c" \
+      "$HERE/src/p2Dco.c" "$HERE/src/p2Filter.c" "$HERE/src/p2Env.c" "$HERE/src/p2Lfo.c" "$HERE/src/p2Drive.c" "$HERE/src/p2Arp.c" \
+      "$SL/build/libSynthLib.a" -o "$HERE/tools/notefuzz"
