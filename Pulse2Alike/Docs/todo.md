@@ -20,6 +20,7 @@ One line per item. Measurements and reasoning go in `findings.md`, design in `de
 
 ## Drive
 - RESUME HERE (2026-11-07 eve): CT's listening, P016-P029 (findings 2026-11-07). Done: P021's fizz (p2Plugin §66), output 6 dB headroom (§19), TUBE for noise (p2Drive §14; §13 logged), envelope loops (p2Env §5, P022). Open: P016 (+15 dB fundamental, BP12 at resonance 103); P029's decay faster without the drive; the filter envelope's 1.08 time scale (p2Env §6 against the D-D loop, which wants 1.0); P021's attack still bright with osc 3 on VCF; the 33 Hz triangle's top step
+- Levels (CT 2026-11-07): some sounds do not match the instrument in level, hardware against plug-in, though all sound closer. Go through the library with patch_levels.py (fresh takes, the 6 dB output headroom compensated by p2render) and list which are off and by how much; single takes of detuned oscillators swing with their phases, so take several
 - Drive refitted (p2Drive notes §10, 2026-11-06): coupling held at the clipper's rest (FUZZ's bias now acts), a cubic for TUBE; P003's sustain -15 -> -6 dB. CT to listen: P003 and other drive sounds
 - FUZZ at the quietest inputs: even products -7 dB on the instrument at -36 dBFS, -26 in the model - a one-sided dead zone (diode-like) ahead of the clipper? fit against drive_imd/ and drive_sweep's low Levels
 - TUBE: odd products that dip with level (two-tone, -16..-37 dB at Drive 64) not reproduced; 3-5 dB quiet on noise; Drive 127's switch-like cycle (26 %)
