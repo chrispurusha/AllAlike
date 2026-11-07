@@ -12,6 +12,9 @@ Step Duration is the percentage the panel shows, as the note's length in 32nds o
 ## 2. A step's byte
 Event in bits 0-3 (OFF, SOFT, NORM, HARD, EVEN, ODD, OCT+, 1ST, RESET), Time in bits 4-5, Glide in bit 6. The
 initial pattern is 50 throughout: NORM, 100%, no glide (it is 50 in 6078 of the library's 6512 step bytes).
+Events 9-15 play as NORM (a random sound's steps hold any byte; P022 has six of them, which the plug-in had
+silenced - CT heard the instrument's arpeggio higher). Arp Pattern only chooses which stored pattern the panel
+copies in; playing reads the step bytes alone.
 
 ## 3. The note sequence
 UP, DOWN, ALT and RAND take the held keys in pitch order; #UP, #DWN and #ALT in the order they were played (at

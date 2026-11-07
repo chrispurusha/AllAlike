@@ -229,8 +229,13 @@ static void play_step(tP2Arp * a, const tP2ArpSettings * s, double at, double cl
         return;
     }
 
+    // notes §2: an event past RESET (9-15, as a random sound can hold) plays as NORM
+    if (event > eEvReset) {
+        event = eEvNorm;
+    }
+
     // notes §5: every step uses up its place in the sequence, even one that plays nothing (measured)
-    if ((event == eEvOff) || (event > eEvReset) || ((event == eEvEven) && (a->cycle & 1)) || ((event == eEvOdd) && !(a->cycle & 1))) {
+    if ((event == eEvOff) || ((event == eEvEven) && (a->cycle & 1)) || ((event == eEvOdd) && !(a->cycle & 1))) {
         a->index = next_index(a, s, count);
         return;
     }
