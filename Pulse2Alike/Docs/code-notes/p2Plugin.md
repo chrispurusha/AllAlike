@@ -136,6 +136,10 @@ same path the instrument is heard through). The same saw at Volume 40 measured �
 −22.0 from the engine at the previous 1.58 (which was itself +10 dB on the first version's 0.5), so +7.9 dB. Master Volume (default 127) is the plug-in's own
 volume after everything else, with a squared taper (−12 dB at 64, −6 dB at 90). The sound's Volume stays as the
 instrument's.
+Since 2026-11-07 the output is 6 dB under that (OUTPUT_HEADROOM 0.5, CT's choice): at the rig's level the loudest
+sounds passed full scale (P024 at +2.9 dBFS, as the instrument did on the Fireface). Only the output is scaled - the
+fault check and a voice's quiet test keep the old level - and tools/p2render doubles it back, so the comparisons are
+unchanged.
 
 ## 20. Program change
 Bank select (CC 32) and program change pick a sound as the instrument does, as measured: P(100 × (bank mod 5) +
@@ -621,3 +625,11 @@ a parameter yet. tools/p2render takes ext=<wav> to play a file into it.
 The EXT input rolls off, one pole at 4.8 kHz (EXT_IN_POLE_HZ), measured with white noise through NONE against the
 engine playing the same noise (`192k/drive_quiet2/`); EXT_IN_GAIN raised 0.2 dB to 3.59 to keep 1 kHz where it was.
 
+
+## 66. Osc 3's square on VCF is a pulse (2026-11-07)
+§25's depth (125 cutoff steps per unit at full level) was fitted to P002, whose osc 3 is a triangle; the 8 Hz square
+had read far less (28). On the instrument a pulse is 0.525 of a saw or triangle (§30), and on VCF the square is
+scaled the same, the depth then about 66. P021 (osc 3 SQR at 33 Hz on VCF, level 66, mods cleared), engine minus
+instrument at 125-8k Hz: before -4.3 -17.8 -13.5 -2.6 +4.2 +11.1 +21.7 dB, after -4.3 -13.2 -6.6 +10.8 +7.2 +2.4
+-0.9 - the fizz CT heard was the top octaves 11-22 dB over. A low-pass on the control path was tried instead and
+made it worse. LEVEL2 and DRIVE keep the square's full size: their depths were measured with it.

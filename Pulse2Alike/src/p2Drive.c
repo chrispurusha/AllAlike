@@ -41,13 +41,13 @@ typedef struct {
 
 static const double      kDriveAt[DRIVE_POINTS] = {0.0, 16.0, 32.0, 64.0, 96.0, 127.0};
 
-// notes §13: TUBE refitted 2026-11-07 with the top ceiling per Drive (drive_fit_ratio.py: the cycles, harmonics and
-// two-tone products); 96 between
+// notes §14: TUBE refitted 2026-11-07 for noise as well as tones (drive_fit_ratio.py with the noise bands, the shelf
+// held open); §13's tone-first version is logged there. 96 between
 static const tCurveShape kTube                  = {
-    0.03572, 0.02551, -0.00394, 88.43, 0.5072, 274.4, 2.617, 6.354, -0.00125, 0.0,
-    {-5.86, 1.24, 5.25, 9.85, 12.01, 14.10},
-    {9.09,  7.11, 6.30, 6.00, 6.02,  6.04},
-    {-4.01, 1.68, 2.72, 2.05, 1.95,  1.86}
+    0.03157, 0.02130, -0.00270, 71.05, 0.9952, 228.7, 2.672, 4.274, 0.03116, 0.0,
+    {-6.99, -0.18, 3.47, 7.38, 9.64, 11.83},
+    {9.53,  7.71,  6.74, 6.34, 6.20, 6.07},
+    {-4.71, 1.55,  2.65, 2.06, 1.92, 1.79}
 };
 // notes §11: FUZZ refitted 2026-11-06 with the dead zone (drive_fit2.py deadzone: the cycles, harmonics, two tones)
 static const tCurveShape kFuzz                  = {

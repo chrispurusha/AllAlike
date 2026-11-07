@@ -54,7 +54,7 @@ if [[ "$OUT_DIR" != "$DEFAULT_OUT_DIR" ]] && [[ $INSTALL -eq 1 ]]; then
 fi
 
 PLUGIN_NAME="Sn2Alike"
-SN2_VERSION="${SN2_VERSION:-0.1.0}"
+SN2_VERSION="${SN2_VERSION:-$(<$HERE/../VERSION)}"   # AllAlike's own version (../VERSION) unless given
 
 # The Audio Unit wants the same version as a number, 0xMMMMmmbb - worked out here and passed to the
 # compiler too, so the plist and the component's own answer cannot disagree.

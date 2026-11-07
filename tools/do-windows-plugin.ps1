@@ -40,7 +40,8 @@ function Build-Product([string]$product, $t, [string]$archName) {
     $name = [regex]::Match($script, '(?m)^PLUGIN_NAME="([^"]+)"').Groups[1].Value
     $verMatch = [regex]::Match($script, '(?m)^([A-Z0-9]+_VERSION)="\$\{\1:-([^}]*)\}"')
     $verVar = $verMatch.Groups[1].Value
-    $version = if ($env:ALIKE_WIN_VERSION) { $env:ALIKE_WIN_VERSION } else { $verMatch.Groups[2].Value }
+    # the default is AllAlike's own version, read from its VERSION file
+    $version = if ($env:ALIKE_WIN_VERSION) { $env:ALIKE_WIN_VERSION } elseif ($verMatch.Groups[2].Value -like '*VERSION*') { (Get-Content (Join-Path $AllAlike 'VERSION') -Raw).Trim() } else { $verMatch.Groups[2].Value }
     $core = ($version -split '-')[0] -split '\.'
     $auVersion = ([int]$core[0] -shl 16) -bor ([int]$core[1] -shl 8) -bor [int]$core[2]
 

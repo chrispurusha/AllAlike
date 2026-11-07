@@ -1368,3 +1368,31 @@ Through EXT IN, the engine playing the same files through its side-chain:
 - **TUBE's gain on noise is flat** across 125 Hz-8 kHz (within 0.5 dB) at Drive 0/64/127, the engine's fell 3.5-4 dB
   above about 500 Hz and 2 dB under: the fitted shelf (half straight, half through 287 Hz) is not the instrument's.
 
+
+## 2026-11-07 - CT's listening, P016-P029 (`192k/variants/`, `tools/patch_variant.py`, each sound taken apart by CC)
+- **P021 (fizzy):** osc 3's 33 Hz square on VCF pushed the engine's top octaves 11-22 dB over the instrument in the
+  sustain - the depth fitted with P002's triangle was too deep for a square, which is a pulse (p2Plugin notes §66,
+  fixed). The attack stays brighter with osc 3 (+15 dB at 1-2 kHz, 0.3-0.6 s) and darker without it. Its
+  level (engine 6-11 dB quiet) is osc 1 and osc 2 cancelling: each alone matches within 0.5 dB, their sum depends on
+  their phases (the instrument's own takes moved 5 dB). Osc 1 and osc 2 at one pitch, detune 64, five takes each:
+  their sum's level held within 0.8-2 dB to 92 Hz and moved 4-11 dB from 98 Hz up, the first take after each pitch
+  change the odd one out - free running, the relative phase kept between notes at one pitch, not a restart.
+- **The triangle at 33 Hz** (period 367 000 ticks) dwells flat at its top for about 1 % of the cycle and steps down;
+  its harmonics fall 6 dB/octave instead of 12 (the 240th 50 dB over the engine's). Not seen at 65 Hz or above. The
+  saw at 33 Hz resets over about 3 % of the cycle. Neither modelled.
+- **P024 (clipping):** with Volume 40 its attack matches within 2.5 dB. As stored (Volume 116) the engine peaks at
+  +2.9 dBFS and the instrument reaches full scale on the Fireface too: the plug-in is set to the instrument's level
+  through the rig (p2Plugin notes §19), which leaves the loudest sounds no headroom. Its sustain differences are the
+  capture's noise floor (the filter matches within 2 dB wherever the instrument is above it).
+- **P029 (noise gain):** all noise (the oscillators give nothing on either). TUBE at Drive 60 takes 5-6 dB off the
+  noise above 250 Hz (p2Drive notes §11, the shelf); without the drive the first 0.3 s match within 1.4 dB, then the
+  engine's decays faster (-3 dB at 0.5 s, -7 at 1 s). TUBE refitted without the shelf, with the noise bands: noise
+  1.4 dB rms (from 3.6), cycles 8.9 -> 10.7 % - not ported (fit6_1b).
+- **P016 (extra tone):** in the attack the fundamental -18 dB and the 2nd +10; in the sustain the fundamental +15.
+  Not osc 3 (on MIX: the same), not the drive (NONE: the same). BP12 at resonance 103, LFO 1 on cutoff. Open.
+- **P022 (LFOs fast):** a random sound stored (named RANDOM): arpeggiator on HOLD, Pattern 12 at 1/12, M-MIN, M-MAX
+  and M-DELAY in use; engine +11 dB under 500 Hz. Sound bytes 83-84 and 108-111, which the plug-in ignores, are
+  unused or for the FX curve only. Open.
+- **P022 (fast LFO), found:** not an LFO and not the arpeggiator - both envelopes loop (amp A-D, filter D-D), and
+  the engine's loops ran 33 % fast (8.64 Hz against 6.48). The loop's turn now follows a creep near the target (p2Env
+  notes §5); P022 with the arpeggiator off repeats at 6.48 Hz on both.

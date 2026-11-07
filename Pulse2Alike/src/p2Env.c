@@ -17,6 +17,7 @@
 // Notes: Docs/code-notes/p2Env.md - "// notes §k" refers there.
 
 #include <math.h>
+#include <stdlib.h>
 
 #include "p2Env.h"
 
@@ -39,7 +40,7 @@ static const double kSustainDb[17]        = {
 #define E_AT_MINUS_1_DB     (0.955)
 #define E_AT_MINUS_40_DB    (0.124)
 #define IDLE_BELOW          (1e-4)
-#define ARRIVED_WITHIN      (1.0 / 1024.0)     // notes §5: a loop turns when decay has got there
+#define DECAY_CREEP         (1000.0 / 65536.0) // notes §5: the least a decay moves, per second (one step per 1 ms tick)
 
 // Value 0..127 to a position in the tables: points every 8 steps, the last one at 127.
 static double table_position(double value, int * i) {
@@ -159,10 +160,15 @@ double p2_env_step(tP2Env * e, double dt, double attack, double decay, double su
             double target = e->rising ? 1.0 : s;
             double tau    = e->timeScale * p2_env_decay_seconds(decay) / -log(E_AT_MINUS_40_DB);
 
-            e->level = target + ((e->level - target) * exp(-dt / tau));
+            double gap    = e->level - target;
+            // notes §5: each step is the exponential's or the creep's, whichever is larger, so it gets there
+            double step   = fmax(fabs(gap) * (1.0 - exp(-dt / tau)), DECAY_CREEP * dt);
+            bool   there  = fabs(gap) <= step;
+
+            e->level = there ? target : (e->level - copysign(step, gap));
 
             // notes §5
-            if (fabs(e->level - target) < ARRIVED_WITHIN) {
+            if (there) {
                 if (loop == eP2LoopAttackDecay) {
                     e->stage = eP2EnvAttack;
                 } else if (loop == eP2LoopDecayDecay) {

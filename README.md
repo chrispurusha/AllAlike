@@ -27,8 +27,8 @@ Each plug-in builds and releases on its own, from its own folder. See
 
 ## Releases
 
-Each plug-in has its own versions, so tags carry its name: `Pulse2Alike-V0.1.0-beta.7`, `TiAlike-V0.0.1-beta.1`.
-`./do-release` in a plug-in's folder works out the next one and prints the `git tag` command.
+Every plug-in carries AllAlike's own version, from the `VERSION` file here: a build (`./do-plugin`, `./do-plugins`,
+the Windows scripts) reads it unless a version is given. Change it there, once, for a new version.
 
 `./do-release` here builds all of them into one `.dmg`, `AllAlike-<version>.dmg`, tagged `AllAlike-V<version>`, with the same arguments.
 

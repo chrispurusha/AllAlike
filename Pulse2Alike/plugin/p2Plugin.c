@@ -109,6 +109,7 @@ static const uint8_t gControllerUid[16] = {0xC4, 0x71, 0x0E, 0x9B, 0x52, 0xF3, 0
 #define EXT_IN_GAIN                (3.59)    // notes §65: the side-chain into osc 3's place, as EXT IN at INPUT GAIN 0, measured
 #define EXT_IN_POLE_HZ             (4800.0)  // notes §65: the EXT input rolls off, one pole, measured with noise
 #define OUTPUT_GAIN                (3.926)   // notes §19: the instrument's own level
+#define OUTPUT_HEADROOM            (0.5)     // notes §19: 6 dB under that at the output, so the loudest sounds stay under full scale
 #define FAULT_LEVEL                (16.0)    // notes §47: 24 dB over full scale, far past any sound
 
 // notes §13: the mod matrix's targets, in the instrument's list order
@@ -1673,7 +1674,10 @@ static void render_engine(void * inst, const float *const * in, uint32_t numIn, 
                 p->level2Coupled += coupling2 * l2;
                 amp2              = level2 * exp(-log(exp(-LEVEL2_KNEE * swing2 * l2) + exp(-LEVEL2_KNEE * ceiling2)) / LEVEL2_KNEE);
             } else if (routing == 2) {
-                p2_filter_set(&p->filter, fmin(127.0, fmax(0.0, p->cutoffNow + (level3 * cv3 * OSC3_TO_CUTOFF_STEPS))),
+                // notes §66: the depth was fitted with the triangle; a square is a pulse, smaller, as in the mix
+                double vcf3 = level3 * cv3 * ((shape3 == 0) ? PULSE_LEVEL : 1.0) * OSC3_TO_CUTOFF_STEPS;
+
+                p2_filter_set(&p->filter, fmin(127.0, fmax(0.0, p->cutoffNow + vcf3)),
                               fmin(127.0, fmax(0.0, p->resonance + p->mod[eModResonance])), (tP2FilterMode)plain_int(p, kP2ParamFilterType));
             }
 
@@ -1784,7 +1788,7 @@ static void render_engine(void * inst, const float *const * in, uint32_t numIn, 
             recover_signal_path(p, acc);
             acc = 0.0;
         }
-        float  sample = (float)(OUTPUT_GAIN * acc * master);
+        float  sample = (float)(OUTPUT_HEADROOM * OUTPUT_GAIN * acc * master);
 
         for (uint32_t ch = 0; ch < numOut; ch++) {
             if ((out != NULL) && (out[ch] != NULL)) {
@@ -1921,7 +1925,7 @@ static void bus_render(tP2Plugin * p, float ** out, uint32_t numOut, uint32_t at
             memset(b->history, 0, sizeof(b->history));
             acc = 0.0;
         }
-        double   sample = OUTPUT_GAIN * acc * master;
+        double   sample = OUTPUT_HEADROOM * OUTPUT_GAIN * acc * master;
         double   g      = b->gain[last];
 
         for (uint32_t ch = 0; ch < numOut; ch++) {

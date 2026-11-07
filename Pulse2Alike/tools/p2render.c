@@ -15,7 +15,7 @@
 #include "p2Params.h"
 #include "p2Patch.h"
 
-#define RENDER_GAIN    (0.1)
+#define RENDER_GAIN    (0.2)   // the plug-in's output 6 dB under the instrument's level (p2Plugin notes §19): x 2 back, then 20 dB down
 
 // The wrapper's half of the contract; the engine does not need it offline.
 static void offline_param_edited(void * inst, uint32_t id, double normalized) {

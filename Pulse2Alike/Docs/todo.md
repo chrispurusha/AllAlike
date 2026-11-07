@@ -19,7 +19,7 @@ One line per item. Measurements and reasoning go in `findings.md`, design in `de
 - The thump (VCA feedthrough, p2Plugin notes §43): Decay 0 too big (0.149 against 0.103), Attack 20's small positive bump
 
 ## Drive
-- RESUME HERE (2026-11-07): TUBE now has a per-Drive top ceiling (p2Drive notes §13): cycles 9.5 -> 8.9 %, TUBE 0's squashed top fixed. Hysteresis tried and not taken (§12). CT to listen: TUBE presets (most of the library's drive sounds sit at TUBE 18-30) and P003. Still open, by shape: TUBE 16-127 at 8-11 %; FUZZ Drive 0 (17.5 %, no library sound uses it); FUZZ's quiet lopsidedness; TUBE's odd products dipping with level
+- RESUME HERE (2026-11-07 eve): CT's listening, P016-P029 (findings 2026-11-07). Done: P021's fizz (p2Plugin §66), output 6 dB headroom (§19), TUBE for noise (p2Drive §14; §13 logged), envelope loops (p2Env §5, P022). Open: P016 (+15 dB fundamental, BP12 at resonance 103); P029's decay faster without the drive; the filter envelope's 1.08 time scale (p2Env §6 against the D-D loop, which wants 1.0); P021's attack still bright with osc 3 on VCF; the 33 Hz triangle's top step
 - Drive refitted (p2Drive notes §10, 2026-11-06): coupling held at the clipper's rest (FUZZ's bias now acts), a cubic for TUBE; P003's sustain -15 -> -6 dB. CT to listen: P003 and other drive sounds
 - FUZZ at the quietest inputs: even products -7 dB on the instrument at -36 dBFS, -26 in the model - a one-sided dead zone (diode-like) ahead of the clipper? fit against drive_imd/ and drive_sweep's low Levels
 - TUBE: odd products that dip with level (two-tone, -16..-37 dB at Drive 64) not reproduced; 3-5 dB quiet on noise; Drive 127's switch-like cycle (26 %)

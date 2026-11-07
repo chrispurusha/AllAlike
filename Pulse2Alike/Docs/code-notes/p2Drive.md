@@ -236,3 +236,16 @@ FUZZ's error is nearly all at Drive 0 (17.5 %, against 2-4 % from 16 up): there 
 -0.053 at every level while its top grows (0.033 -> 0.046), and the engine's cycle leans in time. Scans of bias,
 gain, coupling and either ceiling at Drive 0 reach 15.4 % at best. No library sound uses FUZZ below Drive 17, so this
 is left open. Fits and plots: `~/Captures/Pulse2/fits/` fit5_* (1r: TUBE as ported), tube_r.png, fuzz0.png.
+
+## 14. TUBE for noise as well as tones (2026-11-07, CT's choice)
+CT heard P029's noise (TUBE at Drive 60) quieter than the instrument's: §13's shelf took 5-6 dB off broadband sound.
+TUBE refitted from §13 with drive_quiet2's noise bands added (weight 1) and the shelf held open (`drive_fit_ratio.py`,
+`P2_EXTRA=1 P2_NO_SHELF=1`, fit6_1b): noise bands 3.59 -> 1.36 dB rms; cycles 8.9 -> 10.7 %, harmonics 6.76 -> 6.93
+dB (per Drive 0/16/32/64/127: 7.1/10.1/11.0/12.2/12.9 %). P029, noise alone, first 0.3 s: -3.0 to -7.0 dB against the
+instrument above 250 Hz -> -2.2 to -3.7. In the engine since 2026-11-07.
+§13's version, kept here (shape first; pos, neg, bias, couplingHz, shelfDirect, shelfHz, hardPos, hardNeg, expand,
+deadZone; then at Drive 0/16/32/64/96/127 gainDb, trimDb, topDb):
+    0.03572, 0.02551, -0.00394, 88.43, 0.5072, 274.4, 2.617, 6.354, -0.00125, 0.0
+    {-5.86, 1.24, 5.25, 9.85, 12.01, 14.10}  {9.09, 7.11, 6.30, 6.00, 6.02, 6.04}  {-4.01, 1.68, 2.72, 2.05, 1.95, 1.86}
+The shelf cannot be the instrument's: its gain on noise is flat. That tones want one and noise does not suggests
+the gain depends on level or crest rather than on frequency - still to find.

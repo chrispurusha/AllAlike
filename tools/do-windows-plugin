@@ -105,7 +105,7 @@ build_one() {
 
     # The product's name, version, SOURCES and DEFS, with HERE and SL pointing where its do-plugin expects
     local HERE=$dir PLUGIN_NAME SOURCES DEFS AU_VERSION VERSION_CORE VERSION_PARTS
-    # The version as do-plugin takes it (its own variable, else 0.1.0); ALIKE_WIN_VERSION overrides it.
+    # The version as do-plugin takes it (its own variable, else AllAlike's VERSION file); ALIKE_WIN_VERSION overrides it.
     local script=$(sed -n '/^PLUGIN_NAME=/,/^AU_VERSION=/p; /^SOURCES=(/,/^)/p; /^DEFS=/p' $dir/do-plugin)
 
     if [[ -n $ALIKE_WIN_VERSION ]]; then

@@ -31,9 +31,14 @@ Measured on the amp envelope (findings, "envelope loops"). **A-D:** once decay h
 attack again from there (not from zero); the cycle at A 40, D 50, S 64 was 1.05 s. **D-D:** decay to the sustain
 level, then back up to full at the same decay rate, and so on. Sustain sets the lower level; the period hardly
 changes with it (1.9 / 1.75 / 1.6 s at S 32 / 64 / 96). The manual's "full scale to zero ... Sustain controls the
-speed" is not what the instrument does. A loop turns when the decay has arrived within 1/1024 of its target, which is why it waits at the sustain level
-before A-D's next attack. The threshold is from the captures: the three waits (A-D S 64, D-D S 32 and 96) each
-give 1/1000 or so, given the decay's own time constant.
+speed" is not what the instrument does.
+A loop turns when the decay has got exactly there. Since 2026-11-07 the decay moves each step by the exponential's
+amount or by the creep (DECAY_CREEP, 1000/65536 of full scale per second), whichever is larger: an exponential until
+it is within creep × tau of its target, then a straight line in. So the wait before a turn grows with the decay's
+time, not as a fixed fraction (the 1/1024 threshold it replaced). A-D loops at Attack 5, Sustain 28, Decay
+10/26/40/56 (P022 taken apart, findings 2026-11-07): 41.2/155/454/1485 ms on the instrument, 37.5/155/466/1528 in the
+engine (with the threshold: 25/116/410/1613). P022's filter envelope D-D loop (Decay 24) is 7 % slow with §6's
+1.08, 1.5 % with 1.0.
 
 ## 6. The filter envelope is slower
 Measured on the self-oscillating filter's cutoff (amount full, Sustain 0) at Decay 48, 56, 63 and 72: the filter
