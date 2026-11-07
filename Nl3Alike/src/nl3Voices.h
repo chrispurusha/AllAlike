@@ -90,7 +90,7 @@ typedef struct {
     tNl3OscSound osc[NL3_OSCS];
     double       cutoff;                                      // 0..127
     double       resonance;                                   // 0..127
-    double       tracking;                                    // 0..1
+    double       tracking;                                    // 0 or 1: Keyboard Track off or on
     double       overdrive;                                   // 0..127
     double       normalise;                                   // 0..127, Q Normalise
     bool         oscsFree;                                    // Ensemble: phases run on between notes

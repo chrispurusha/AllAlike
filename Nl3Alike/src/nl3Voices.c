@@ -35,9 +35,10 @@
 #define GLIDE_CURVE              (0.41)
 #define GLIDE_LANDING            (2.5)
 #define ENV_TO_CUTOFF            (2.2146)
-#define DRIVE_IN                 (0.5) // voices notes §8
+#define DRIVE_IN                 (0.5)  // voices notes §8
 #define FILTER_IN                (0.5)
-#define FILTER_OUT               (4.0) // voices notes §19: the filter leaves a quarter of what it is given
+#define TRACK_PIVOT              (36.0) // voices notes §9: Keyboard Track pivots on C2
+#define FILTER_OUT               (4.0)  // voices notes §19: the filter leaves a quarter of what it is given
 #define LFO_FADE_HOLD            (0.0125)
 #define LFO_FADE_FALL            (5.7)
 #define SUB_BLOCK                (32u) // notes §4
@@ -475,7 +476,7 @@ static void render_sub_block(tNl3Voices * v, const tNl3Sound * sound, double cut
         tNl3FilterCoeffs coeffs;
 
         // voices notes §9
-        double           moved = (((double)vc->note - 60.0) * sound->tracking) + (sound->wheel * sound->wheelCutoff * ENV_TO_CUTOFF) + lfoCut;
+        double           moved = (((double)vc->note - TRACK_PIVOT) * sound->tracking) + (sound->wheel * sound->wheelCutoff * ENV_TO_CUTOFF) + lfoCut;
 
         for (int e = 0; e < NL3_MOD_ENVS; e++) {
             moved += vc->env[e].level * sound->env[e].amount * ENV_TO_CUTOFF * velocity_level(vc->velocity, sound->env[e].velocity);

@@ -74,7 +74,7 @@ int main(int argc, char ** argv) {
         },
         .cutoff      = values[kNl3ParamCutoff] * 127.0,
         .resonance   = values[kNl3ParamResonance] * 127.0,
-        .tracking    = values[kNl3ParamFilterTrack],
+        .tracking    = (values[kNl3ParamFilterTrack] >= 0.5) ? 1.0 : 0.0,
         .overdrive   = values[kNl3ParamFilterDrive] * 127.0,
         .normalise   = values[kNl3ParamFilterQ] * 127.0,
         .oscsFree    = values[kNl3ParamOscTrigger] > 0.5,

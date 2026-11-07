@@ -58,7 +58,9 @@ velocity 1 and 127. The patch's own velocity amounts come with the modulation.
 In Percussive trigger mode every oscillator starts each note at the same phase, so identical oscillators add. Ensemble lets them run on. The oscillator mix reaches the Overdrive saturator at a half, fitted from its gain at four settings, and the saturator's output reaches the filter at a half again, which sets where level-dependent damping starts. The filter's output is scaled so a wide-open Saw at Level 127 and Volume 127 matches the reference.
 
 ## 9. Tracking
-A voice's cutoff moves (note - 60) x Tracking dial steps, so Tracking 127 follows the keyboard one to one around middle C. The coefficients are worked out per voice for that reason.
+Keyboard Track is a switch. On, a voice's cutoff moves one semitone per note from C2 (note 36), so the Cutoff dial sets
+the cutoff C2 plays at: measured, notes 36, 48, 60, 72 and 84 at +0, +12, +24, +36 and +48 semitones exactly. Off,
+the note does not move the cutoff. The coefficients are worked out per voice for that reason.
 
 ## 10. Velocity
 Env Velocity 64 ignores velocity. Above it the level blends towards a curve of 0.016 + 0.98 v cubed, below it towards the inverse, in proportion to the distance from 64.

@@ -59,8 +59,8 @@ const tSynthLibParam     gNl3Params[kNl3ParamCount] = {
     {kNl3ParamOsc3Octave,     "Osc 3 Octave",            "Octave",   eSynthLibUnitGeneric,  -2.0,            2.0,                         0.5,                  4, SYNTHLIB_MIDI_NONE,                                                                             0},
     {kNl3ParamOsc3Semitone,   "Osc 3 Semitone",          "Semi",     eSynthLibUnitGeneric, -12.0,           12.0,                         0.5,                 24, SYNTHLIB_MIDI_NONE,                                                                             0},
     {kNl3ParamOsc3Fine,       "Osc 3 Fine Tune",         "Fine",     eSynthLibUnitGeneric, -64.0,           63.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamFilterTrack,    "Filter Tracking",         "Track",    eSynthLibUnitGeneric,   0.0,          127.0,                         1.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamFilterDrive,    "Filter Overdrive",        "Drive",    eSynthLibUnitGeneric,   0.0,          127.0,                         0.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamFilterTrack,    "Filter Keyboard Track",   "Track",    eSynthLibUnitIndexed,   0.0,            1.0,                         0.0,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kNl3ParamFilterDrive,    "Filter Distortion",       "Dist",     eSynthLibUnitGeneric,   0.0,          127.0,                         0.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
     {kNl3ParamAmpVelocity,    "Amp Velocity",            "Velocity", eSynthLibUnitGeneric,   0.0,          127.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
     {kNl3ParamEnv2Attack,     "Env 2 Attack",            "Attack",   eSynthLibUnitGeneric,   0.0,          127.0,                         0.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
     {kNl3ParamEnv2Decay,      "Env 2 Decay",             "Decay",    eSynthLibUnitGeneric,   0.0,          127.0,                         0.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
@@ -169,6 +169,7 @@ static const char *const kShapes[]          = {"SAW", "SQUARE", "DOUBLE"};
 static const char *const kFilters[]         = {"LP", "HP"};
 static const char *const kSlopes[]          = {"12", "24"};
 static const char *const kArithmetic[]      = {"FLOAT", "FIXED"};
+static const char *const kTrack[]           = {"OFF", "ON"};
 
 static const tNl3Control kOsc1[]            = {
     {kNl3ParamOscShape,     "Shape",  eTiControlChoice,   2,   0.0, kShapes},
@@ -202,8 +203,8 @@ static const tNl3Control kFilter[]          = {
     {kNl3ParamResonance,   "Reso",   eTiControlDial,   127, 0.0, NULL    },
     {kNl3ParamFilterType,  "Type",   eTiControlChoice,   1, 0.0, kFilters},
     {kNl3ParamFilterSlope, "Slope",  eTiControlChoice,   1, 0.0, kSlopes },
-    {kNl3ParamFilterTrack, "Track",  eTiControlDial,   127, 0.0, NULL    },
-    {kNl3ParamFilterDrive, "Drive",  eTiControlDial,   127, 0.0, NULL    },
+    {kNl3ParamFilterTrack, "Track",  eTiControlChoice,   1, 0.0, kTrack  },
+    {kNl3ParamFilterDrive, "Dist",   eTiControlDial,   127, 0.0, NULL    },
 };
 static const tNl3Control kAmpEnv[]          = {
     {kNl3ParamAmpAttack,      "Attack",  eTiControlDial, 127,   0.0, NULL},

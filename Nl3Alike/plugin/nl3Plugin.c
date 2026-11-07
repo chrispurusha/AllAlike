@@ -279,7 +279,7 @@ static tNl3Sound make_sound(const tNl3Plugin * t) {
         },
         .cutoff      = t->values[kNl3ParamCutoff] * 127.0,
         .resonance   = t->values[kNl3ParamResonance] * 127.0,
-        .tracking    = t->values[kNl3ParamFilterTrack],
+        .tracking    = (t->values[kNl3ParamFilterTrack] >= 0.5) ? 1.0 : 0.0,
         .overdrive   = t->values[kNl3ParamFilterDrive] * 127.0,
         .normalise   = t->values[kNl3ParamFilterQ] * 127.0,
         .oscsFree    = t->values[kNl3ParamOscTrigger] > 0.5,
@@ -533,6 +533,8 @@ static bool nl3_param_text(const tSynthLibPluginDesc * desc, void * inst, uint32
         snprintf(out, len, "%s", slopes[(step < 0) ? 0 : ((step > 1) ? 1 : step)]);
     } else if (id == kNl3ParamArithmetic) {
         snprintf(out, len, "%s", (step > 0) ? "Fixed" : "Float");
+    } else if (id == kNl3ParamFilterTrack) {
+        snprintf(out, len, "%s", (step > 0) ? "On" : "Off");
     } else {
         snprintf(out, len, "%ld", lround(gNl3Params[id].plainMin) + step);
     }
