@@ -37,6 +37,7 @@
 #define ENV_TO_CUTOFF            (2.2146)
 #define DRIVE_IN                 (0.5) // voices notes §8
 #define FILTER_IN                (0.5)
+#define FILTER_OUT               (4.0) // voices notes §19: the filter leaves a quarter of what it is given
 #define LFO_FADE_HOLD            (0.0125)
 #define LFO_FADE_FALL            (5.7)
 #define SUB_BLOCK                (32u) // notes §4
@@ -47,6 +48,11 @@ void nl3_voices_init(tNl3Voices * v) {
     v->rate     = NL3_ENGINE_HZ;
     v->lastNote = -1;
     nl3_edge_build(v->edge);
+}
+
+// voices notes §19
+void nl3_voices_set_fixed(tNl3Voices * v, bool fixed) {
+    v->fixedPoint = fixed;
 }
 
 void nl3_voices_set_limit(tNl3Voices * v, uint32_t limit) {
@@ -418,6 +424,20 @@ static double next_noise(tNl3Voice * vc, double soften, double corner) {
     return vc->noiseLow * noise_gain(soften);
 }
 
+// voices notes §8: Overdrive 0..127 as the drive word, and the saturator on the filter's input
+#define DRIVE_LEAST    (0.98447)
+#define DRIVE_TRIM     (0.012)
+
+static double drive_word(double overdrive) {
+    double v = overdrive / 128.0;
+
+    return 1.0 - (DRIVE_LEAST * (1.0 - v) * (1.0 - v)) - (DRIVE_TRIM * v * (1.0 - v));
+}
+
+static double drive(double x, double word) {
+    return x / (1.0 + (word * (fabs(x) - 1.0)));
+}
+
 // voices notes §10
 static double velocity_level(double velocity, double amount) {
     double curve = VELOCITY_FLOOR + (VELOCITY_RANGE * velocity * velocity * velocity);
@@ -432,7 +452,7 @@ static double velocity_level(double velocity, double amount) {
 
 static void render_sub_block(tNl3Voices * v, const tNl3Sound * sound, double cutoff, double res, const tNl3EnvShape * amp, const tNl3EnvShape * mods,
                              float * out, uint32_t frames, double gain) {
-    double drive  = nl3_filter_drive_word(sound->overdrive);
+    double driveW = drive_word(sound->overdrive);
     double corner = fmin(1.0, 2.0 * M_PI * NOISE_CORNER_HZ * pow(2.0, sound->noiseSoften / 15.0) / v->rate);
 
     for (uint32_t i = 0; i < NL3_MAX_VOICES; i++) {
@@ -461,7 +481,7 @@ static void render_sub_block(tNl3Voices * v, const tNl3Sound * sound, double cut
             moved += vc->env[e].level * sound->env[e].amount * ENV_TO_CUTOFF * velocity_level(vc->velocity, sound->env[e].velocity);
         }
 
-        nl3_filter_coeffs(sound->filterType, sound->filterSlope, cutoff + moved, fmin(127.0, fmax(0.0, res + (sound->wheel * sound->wheelResonance))), sound->normalise, &coeffs);
+        nl3_filter_coeffs(nl3_filter_mode(sound->filterType, sound->filterSlope), cutoff + moved, fmin(127.0, fmax(0.0, res + (sound->wheel * sound->wheelResonance))), &coeffs);
 
         double           oscLevel[NL3_OSCS];
 
@@ -494,7 +514,8 @@ static void render_sub_block(tNl3Voices * v, const tNl3Sound * sound, double cut
             mix    += RING_GAIN * wave[2] * ((wave[0] * sound->ring13) + (wave[1] * sound->ring23));
             mix    += next_noise(vc, sound->noiseSoften, corner) * sound->noiseLevel;
 
-            double y = nl3_filter_process(&vc->filter, &coeffs, nl3_filter_drive(mix * DRIVE_IN, drive) * FILTER_IN * coeffs.gain);
+            double x = drive(mix * DRIVE_IN, driveW) * FILTER_IN;
+            double y = FILTER_OUT * (v->fixedPoint ? nl3_word_value(nl3_filter_process_fixed(&vc->filter, &coeffs, nl3_word(x))) : nl3_filter_process(&vc->filter, &coeffs, x));
 
             out[f] += (float)(y * nl3_env_next(&vc->amp, amp) * level * gain);
         }

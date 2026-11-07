@@ -163,6 +163,7 @@ enum {
     kNl3ParamPanSpeed,
     kNl3ParamPanDepth,
     kNl3ParamPanEffects,
+    kNl3ParamArithmetic,
     kNl3ParamCount
 };
 

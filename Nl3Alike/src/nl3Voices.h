@@ -156,6 +156,7 @@ typedef struct {
     double     lfoFree[NL3_LFOS]; // the phase of a free running LFO
     bool       pedalled[128];     // keys up while the pedal held them
     double     edge[NL3_EDGE_POINTS];
+    bool       fixedPoint;        // notes §19: the arithmetic the instrument uses
 } tNl3Voices;
 
 // voices notes §14: from the normalised Volume
@@ -167,6 +168,7 @@ static inline double nl3_volume_gain(double normalized) {
 
 void nl3_voices_init(tNl3Voices * v);
 void nl3_voices_set_limit(tNl3Voices * v, uint32_t limit);
+void nl3_voices_set_fixed(tNl3Voices * v, bool fixed);
 void nl3_voices_note_on(tNl3Voices * v, const tNl3Sound * sound, uint8_t note, float velocity);
 void nl3_voices_note_off(tNl3Voices * v, const tNl3Sound * sound, uint8_t note);
 void nl3_voices_all_off(tNl3Voices * v);

@@ -28,6 +28,7 @@ PRODUCTS=(
     "Pulse2Alike|P2A|A reproduction inspired by the Waldorf Pulse 2."
     "TiAlike|TIA|A reproduction inspired by the Access Virus TI's single-patch engine. Work in progress."
     "Sn2Alike|SN2|A reproduction inspired by the Novation Supernova II. Work in progress."
+    "Nl3Alike|NL3|A reproduction inspired by the Clavia Nord Lead 3. Work in progress: the filter is the instrument's, the rest a placeholder."
 )
 
 WORK=$(mktemp -d)   # never on a host's VST3 search path, and never a working build/ directory

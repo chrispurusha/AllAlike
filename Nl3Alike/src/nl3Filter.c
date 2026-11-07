@@ -21,101 +21,218 @@
 
 #include "nl3Filter.h"
 
-#define PASSES                 (2)
-#define DRIVE_LEAST            (0.98447)
-#define DRIVE_TRIM             (0.012)
-#define NORMALISE_TRIM_FROM    (120.0)
-#define F_AT_64                (0.037465)
-#define F_MAX                  (0.99863)
-#define PLAIN_FIRST_D          (0.5)
-#define FIRST_RES_TYPE         (3u)
-#define LEVEL_DAMP_FROM        (0.25)
+#define CUTOFF_WORD_AT_0    (969.0 / NL3_Q23)   // notes §4
+#define CUTOFF_WORD_OPEN    (0.8125)            // notes §4: the dial's top
+#define G_PER_WORD          (8.0)
+#define NORM_STEPS          (8.0)               // notes §5
+#define NORM_LAST           (640)
+#define Q_FLOOR_24          (1.0 / 64.0)        // notes §6
+#define GAIN_TAKE_12        (0.75)
+#define GAIN_TAKE_24        (0.9)
+#define WORD_TOP            ((double)NL3_WORD_MAX / NL3_Q23)
 
-// notes §2: each type's tap gains, input, band, low and high, for section 1 then section 2
-typedef struct {
-    bool   parallel;
-    double taps[2][4];
-} tNl3FilterType;
+tNl3FilterMode nl3_filter_mode(uint32_t type, uint32_t slope) {
+    bool high  = (type == 1);
+    bool steep = (slope == 1);
 
-#define IN    {1, 0, 0, 0}
-#define BP    {0, 1, 0, 0}
-#define LP    {0, 0, 1, 0}
-#define HP    {0, 0, 0, 1}
-
-// notes §2: in panel order; the stored byte is this index + 3 (nl3Patch notes §7)
-static const tNl3FilterType kTypes[NL3_FILTER_TYPES][NL3_FILTER_SLOPES] = {
-    {{false, {IN, LP}}, {false, { {    0, -1, 1, 0}, LP}}, {false, {LP, LP}}}, // LPF
-    {{false, {IN, BP}}, {false, { {    1, -1, 1, 0}, BP}}, {false, {BP, BP}}}, // BPF
-    {{false, {IN, HP}}, {false, { {    0,  1, 0, 1}, HP}}, {false, {HP, HP}}}, // HPF
-    {{false, {LP, LP}}, {false, {LP, LP}},{false, {LP, LP}}},              // Res LPF
-    {{false, {HP, LP}}, {false, {HP, LP}},{false, {HP, LP}}},              // Res BPF
-    {{false, {HP, HP}}, {false, {HP, HP}},{false, {HP, HP}}},              // Res HPF
-    {{true,  {LP, HP}}, {true,  {LP, HP}},{true,  {LP,HP}}},               // Notch
-    {{true,  {LP, LP}}, {true,  {LP, LP}},{true,  {LP,LP}}},               // LPF+LPF
-    {{true,  {BP, BP}}, {true,  {BP, BP}},{true,  {BP,BP}}},               // BPF+BPF
-    {{true,  {HP, HP}}, {true,  {HP, HP}},{true,  {HP,HP}}},               // HPF+HPF
-    {{true,  {LP, BP}}, {true,  {LP, BP}},{true,  {LP,BP}}},               // LPF+BPF
-    {{true,  {BP, HP}}, {true,  {BP, HP}},{true,  {BP,HP}}},               // BPF+HPF
-};
-
-// notes §3: the dial is in semitones
-static double section_damp(double f, double d) {
-    return 2.0 * 0.7 * d * (1.0 - (f * d / 2.0));
+    return high ? (steep ? eNl3FilterHp24 : eNl3FilterHp12) : (steep ? eNl3FilterLp24 : eNl3FilterLp12);
 }
 
-void nl3_filter_coeffs(uint32_t type, uint32_t slope, double cutoff, double resonance, double normalise, tNl3FilterCoeffs * c) {
-    const tNl3FilterType * t     = &kTypes[(type < NL3_FILTER_TYPES) ? type : 0][(slope < NL3_FILTER_SLOPES) ? slope : 0];
-    double                 f     = fmin(F_AT_64 * pow(2.0, (cutoff - 64.0) / 12.0), F_MAX);
-    double                 d     = (127.0 - resonance) / 127.0;
-    bool                   plain = (type < FIRST_RES_TYPE);
-
-    c->f        = f;
-    c->damp[0]  = section_damp(f, plain ? fmax(d, PLAIN_FIRST_D) : d);  // notes §3
-    c->damp[1]  = section_damp(f, d);
-    c->gain     = 1.0 - ((normalise / 128.0) * (resonance / 127.0));
-    c->trim     = 2.0 * (fmax(normalise - NORMALISE_TRIM_FROM, 0.0) / 128.0) * (1.0 - f);
-    c->parallel = t->parallel;
-    memcpy(c->taps, t->taps, sizeof(c->taps));
+// notes §5: 1 / root s, read from a table of 1/8 steps with straight lines between
+static double norm_table(int i) {
+    return round(NL3_Q23 / sqrt(1.0 + (i / NORM_STEPS))) / NL3_Q23;
 }
 
-// notes §5
-double nl3_filter_drive_word(double overdrive) {
-    double v = overdrive / 128.0;
+static double norm(double s) {
+    double pos = fmax(0.0, (s - 1.0) * NORM_STEPS);
+    int    i   = (int)pos;
 
-    return 1.0 - (DRIVE_LEAST * (1.0 - v) * (1.0 - v)) - (DRIVE_TRIM * v * (1.0 - v));
+    if (i >= NORM_LAST) {
+        return norm_table(NORM_LAST);
+    }
+    double lo  = norm_table(i);
+
+    return lo + ((norm_table(i + 1) - lo) * (pos - i));
 }
 
-double nl3_filter_drive(double x, double word) {
-    return x / (1.0 + (word * (fabs(x) - 1.0)));
+void nl3_filter_coeffs(tNl3FilterMode mode, double cutoff, double resonance, tNl3FilterCoeffs * c) {
+    bool   steep = (mode == eNl3FilterLp24) || (mode == eNl3FilterHp24);
+    double w     = (cutoff >= 127.0) ? CUTOFF_WORD_OPEN : fmin(CUTOFF_WORD_OPEN, CUTOFF_WORD_AT_0 * pow(2.0, cutoff / 12.0));
+    double d     = (resonance >= 127.0) ? 0.0 : (1.0 - (fmax(0.0, resonance) / 128.0));
+    double d2    = d * d;
+    double q     = steep ? fmax(d2, Q_FLOOR_24) : (d2 * d2);                    // notes §6
+    double g     = G_PER_WORD * w;
+    double n     = norm(1.0 + (2.0 * q * g) + (g * g));
+    double take  = steep ? GAIN_TAKE_24 : GAIN_TAKE_12;
+
+    c->mode  = mode;
+    c->f     = fmin(WORD_TOP, g * n);
+    c->k     = fmin(WORD_TOP, q * n);
+    c->n2    = fmin(WORD_TOP, n * n);
+    c->gain  = fmin(WORD_TOP, 1.0 - (take * (1.0 - (steep ? fmax(d2, Q_FLOOR_24) : d2))));  // notes §8
+    c->fw    = nl3_word(c->f);
+    c->kw    = nl3_word(c->k);
+    c->n2w   = nl3_word(c->n2);
+    c->gainw = nl3_word(c->gain);
 }
 
 void nl3_filter_reset(tNl3Filter * f) {
     memset(f, 0, sizeof(*f));
 }
 
-// notes §4
-static double saturate(double x) {
-    return fmin(fmax(x, -1.0), 1.0);
+// ------------------------------------------------------------------------------------------------ float
+
+// notes §4: the float path takes the same steps, limiting where the chip moves a value out
+static double limit(double x) {
+    return fmin(WORD_TOP, fmax(-1.0, x));
 }
 
-// notes §1: two passes a sample, the output their average
-static double section(double * low, double * band, const tNl3FilterCoeffs * c, const double * tap, double damp, double x) {
-    double sum = 0.0;
+// notes §2: one stage; b holds u on entry and leaves u - low - damping; returns the high leg
+static double stage(double * low, double * band, double f, double k, double * b) {
+    double x0   = *band;
+    double a    = *low + (f * x0);
 
-    for (int pass = 0; pass < PASSES; pass++) {
-        *low  = saturate(*low + (c->f * *band));
-        double high = x - *low - ((fmax(damp, 2.0 * (fabs(*band) - LEVEL_DAMP_FROM)) - c->trim) * *band);  // notes §4
+    *b   -= a;
+    *low  = limit(a);
+    double b3   = limit(limit(x0 * x0) * x0);
 
-        sum  += (tap[0] * x) + (tap[1] * *band) + (tap[2] * *low) + (tap[3] * high);
-        *band = saturate(*band + (c->f * high));
-    }
+    a     = b3 - (k * b3);
+    double y1   = limit(a);
 
-    return sum / PASSES;
+    a    += k * x0;
+    a    -= y1 * f;
+    *b   -= a;
+    double high = limit(*b);
+
+    *band = limit((x0 / 4.0 + (f * high)) * 4.0);
+    return high;
+}
+
+// notes §1: the input averaged over the two stored samples
+static double smooth(double * in, double * mean, double b) {
+    double prev = *in;
+
+    *in   = limit(b);
+    b     = (b + prev) / 2.0;
+    double m    = *mean;
+
+    *mean = limit(b);
+    return (b + m) / 4.0;
+}
+
+static double out_float(double b, double gain) {
+    return limit((limit(b) * gain * 32.0) / 4.0);
 }
 
 double nl3_filter_process(tNl3Filter * f, const tNl3FilterCoeffs * c, double x) {
-    double first  = section(&f->low[0], &f->band[0], c, c->taps[0], c->damp[0], x);
-    double second = section(&f->low[1], &f->band[1], c, c->taps[1], c->damp[1], c->parallel ? x : first);
+    double b;
 
-    return c->parallel ? (first + second) : second;
+    switch (c->mode) {
+        case eNl3FilterLp24:
+            b = smooth(&f->in[0], &f->mean[0], x / 4.0);
+            (void)stage(&f->low[0], &f->band[0], c->f, c->k, &b);
+            b = smooth(&f->in[1], &f->mean[1], (2.0 * f->low[0]) / 8.0);
+            (void)stage(&f->low[1], &f->band[1], c->f, c->k, &b);
+            return out_float(2.0 * f->low[1], c->gain);
+
+        case eNl3FilterHp12:
+            b = (c->n2 * limit(x / 32.0)) / 2.0;
+            (void)stage(&f->low[0], &f->band[0], c->f, c->k, &b);
+            return out_float(2.0 * b, c->gain);
+
+        case eNl3FilterHp24:
+            b = (c->n2 * limit(x / 4.0)) / 2.0;
+            (void)stage(&f->low[0], &f->band[0], c->f, c->k, &b);
+            b = (c->n2 * limit((2.0 * b) / 8.0)) / 2.0;
+            (void)stage(&f->low[1], &f->band[1], c->f, c->k, &b);
+            return out_float(2.0 * b, c->gain);
+
+        case eNl3FilterLp12:
+        default:
+            b = smooth(&f->in[0], &f->mean[0], x / 32.0);
+            (void)stage(&f->low[0], &f->band[0], c->f, c->k, &b);
+            return out_float(2.0 * f->low[0], c->gain);
+    }
+}
+
+// ------------------------------------------------------------------------------------------------ fixed
+
+// notes §3: the stage as the chip runs it; b holds u on entry and leaves u - low - damping
+static tNl3Word stage_fixed(tNl3Word * low, tNl3Word * band, tNl3Word f, tNl3Word k, tNl3Acc * b) {
+    tNl3Word x0   = *band;
+    tNl3Acc  a    = nl3_acc(*low) + nl3_mul(f, x0);
+
+    *b   -= a;
+    *low  = nl3_move(a);
+    a     = nl3_mul(x0, x0);
+    tNl3Word y1   = nl3_move(a);
+
+    a     = nl3_mul(x0, y1);
+    tNl3Word b3   = nl3_move(a);
+
+    a    -= nl3_mul(k, b3);
+    y1    = nl3_move(a);
+    a    += nl3_mul(k, x0);
+    a    -= nl3_mul(y1, f);
+    *b   -= a;
+    a     = nl3_acc(x0) >> 2;
+    tNl3Word high = nl3_move(*b);
+
+    a    += nl3_mul(f, high);
+    a     = nl3_asl(a, 2);
+    *band = nl3_move(a);
+    return high;
+}
+
+// notes §1: the input averaged over the two stored words, from a pre-shifted accumulator
+static tNl3Acc smooth_fixed(tNl3Word * in, tNl3Word * mean, tNl3Acc b) {
+    tNl3Word prev = *in;
+
+    *in   = nl3_move(b);
+    b    += nl3_acc(prev);
+    b   >>= 1;
+    tNl3Word m    = *mean;
+
+    *mean = nl3_move(b);
+    b    += nl3_acc(m);
+    return b >> 2;
+}
+
+// notes §3: the output word: x1 = limit(b), times the gain rounded, up 32, down 4
+static tNl3Word out_fixed(tNl3Acc b, tNl3Word gain) {
+    tNl3Acc o = nl3_round(nl3_mul(nl3_move(b), gain));
+
+    o = nl3_asl(o, 5);
+    return nl3_move(o >> 2);
+}
+
+tNl3Word nl3_filter_process_fixed(tNl3Filter * f, const tNl3FilterCoeffs * c, tNl3Word x) {
+    tNl3Acc b;
+
+    switch (c->mode) {
+        case eNl3FilterLp24:
+            b = smooth_fixed(&f->inW[0], &f->meanW[0], nl3_acc(x) >> 2);
+            (void)stage_fixed(&f->lowW[0], &f->bandW[0], c->fw, c->kw, &b);
+            b = smooth_fixed(&f->inW[1], &f->meanW[1], nl3_asl(nl3_acc(f->lowW[0]), 1) >> 3);
+            (void)stage_fixed(&f->lowW[1], &f->bandW[1], c->fw, c->kw, &b);
+            return out_fixed(nl3_asl(nl3_acc(f->lowW[1]), 1), c->gainw);
+
+        case eNl3FilterHp12:
+            b = nl3_mul(c->n2w, nl3_move(nl3_acc(x) >> 5)) >> 1;
+            (void)stage_fixed(&f->lowW[0], &f->bandW[0], c->fw, c->kw, &b);
+            return out_fixed(nl3_asl(b, 1), c->gainw);
+
+        case eNl3FilterHp24:
+            b = nl3_mul(c->n2w, nl3_move(nl3_acc(x) >> 2)) >> 1;
+            (void)stage_fixed(&f->lowW[0], &f->bandW[0], c->fw, c->kw, &b);
+            b = nl3_mul(c->n2w, nl3_move(nl3_asl(b, 1) >> 3)) >> 1;
+            (void)stage_fixed(&f->lowW[1], &f->bandW[1], c->fw, c->kw, &b);
+            return out_fixed(nl3_asl(b, 1), c->gainw);
+
+        case eNl3FilterLp12:
+        default:
+            b = smooth_fixed(&f->inW[0], &f->meanW[0], nl3_acc(x) >> 5);
+            (void)stage_fixed(&f->lowW[0], &f->bandW[0], c->fw, c->kw, &b);
+            return out_fixed(nl3_asl(nl3_acc(f->lowW[0]), 1), c->gainw);
+    }
 }

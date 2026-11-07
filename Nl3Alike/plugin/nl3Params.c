@@ -31,8 +31,8 @@ const tSynthLibParam     gNl3Params[kNl3ParamCount] = {
     {kNl3ParamPulseWidth,     "Osc Pulse Width",         "PW",       eSynthLibUnitGeneric,   0.0,          127.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
     {kNl3ParamCutoff,         "Cutoff",                  "Cutoff",   eSynthLibUnitGeneric,   0.0,          127.0,                         1.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
     {kNl3ParamResonance,      "Resonance",               "Reso",     eSynthLibUnitGeneric,   0.0,          127.0,                         0.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamFilterType,     "Filter Type",             "Type",     eSynthLibUnitIndexed,   0.0,           11.0,                         0.0,                 11, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
-    {kNl3ParamFilterSlope,    "Filter Slope",            "Slope",    eSynthLibUnitIndexed,   0.0,            2.0,                         0.0,                  2, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kNl3ParamFilterType,     "Filter Type",             "Type",     eSynthLibUnitIndexed,   0.0,            1.0,                         0.0,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kNl3ParamFilterSlope,    "Filter Slope",            "Slope",    eSynthLibUnitIndexed,   0.0,            1.0,                         0.0,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
     {kNl3ParamAmpAttack,      "Amp Attack",              "Attack",   eSynthLibUnitGeneric,   0.0,          127.0,                         0.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
     {kNl3ParamAmpDecay,       "Amp Decay",               "Decay",    eSynthLibUnitGeneric,   0.0,          127.0,                         1.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
     {kNl3ParamAmpSustain,     "Amp Sustain",             "Sustain",  eSynthLibUnitGeneric,   0.0,          127.0,                         1.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
@@ -162,11 +162,13 @@ const tSynthLibParam     gNl3Params[kNl3ParamCount] = {
     {kNl3ParamPanSpeed,       "Pan Speed",               "Speed",    eSynthLibUnitGeneric,   0.0,          127.0,                34.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
     {kNl3ParamPanDepth,       "Pan Depth",               "Depth",    eSynthLibUnitGeneric,   0.0,          127.0,                         0.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
     {kNl3ParamPanEffects,     "Pan Effects",             "Effects",  eSynthLibUnitIndexed,   0.0,            1.0,                         1.0,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kNl3ParamArithmetic,     "Arithmetic",              "Maths",    eSynthLibUnitIndexed,   0.0,            1.0,                         0.0,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
 };
 
 static const char *const kShapes[]          = {"SAW", "SQUARE", "DOUBLE"};
-static const char *const kFilters[]         = {"LPF", "BPF", "HPF", "Res LPF", "Res BPF", "Res HPF", "Notch", "LPF+LPF", "BPF+BPF", "HPF+HPF", "LPF+BPF", "BPF+HPF"};
-static const char *const kSlopes[]          = {"12", "18", "24"};
+static const char *const kFilters[]         = {"LP", "HP"};
+static const char *const kSlopes[]          = {"12", "24"};
+static const char *const kArithmetic[]      = {"FLOAT", "FIXED"};
 
 static const tNl3Control kOsc1[]            = {
     {kNl3ParamOscShape,     "Shape",  eTiControlChoice,   2,   0.0, kShapes},
@@ -198,11 +200,10 @@ static const tNl3Control kOsc3[]            = {
 static const tNl3Control kFilter[]          = {
     {kNl3ParamCutoff,      "Cutoff", eTiControlDial,   127, 0.0, NULL    },
     {kNl3ParamResonance,   "Reso",   eTiControlDial,   127, 0.0, NULL    },
-    {kNl3ParamFilterType,  "Type",   eTiControlChoice,  11, 0.0, kFilters},
-    {kNl3ParamFilterSlope, "Slope",  eTiControlChoice,   2, 0.0, kSlopes },
+    {kNl3ParamFilterType,  "Type",   eTiControlChoice,   1, 0.0, kFilters},
+    {kNl3ParamFilterSlope, "Slope",  eTiControlChoice,   1, 0.0, kSlopes },
     {kNl3ParamFilterTrack, "Track",  eTiControlDial,   127, 0.0, NULL    },
     {kNl3ParamFilterDrive, "Drive",  eTiControlDial,   127, 0.0, NULL    },
-    {kNl3ParamFilterQ,     "Q Norm", eTiControlDial,   127, 0.0, NULL    },
 };
 static const tNl3Control kAmpEnv[]          = {
     {kNl3ParamAmpAttack,      "Attack",  eTiControlDial, 127,   0.0, NULL},
@@ -220,6 +221,7 @@ static const char *const kPolyModes[]       = {"Poly", "Mono"};
 static const char *const kEnvTriggers[]     = {"Retrigger", "Legato"};
 static const tNl3Control kVoices[]          = {
     {kNl3ParamVoiceLimit, "Limit",   eTiControlDial,   NL3_MAX_VOICES - 1, 1.0, NULL        },
+    {kNl3ParamArithmetic, "Maths",   eTiControlChoice,                  1, 0.0, kArithmetic },
     {kNl3ParamPolyMode,   "Mode",    eTiControlChoice,                  1, 0.0, kPolyModes  },
     {kNl3ParamEnvTrigger, "Trigger", eTiControlChoice,                  1, 0.0, kEnvTriggers},
 };
@@ -303,7 +305,7 @@ static const tNl3Section kOscillatorsPage[] = {
     {"OSC 3", {0.85, 0.55, 0.30}, kOsc3,  7},
 };
 static const tNl3Section kFilterPage[]      = {
-    {"FILTER", {0.90, 0.55, 0.20}, kFilter, 7},
+    {"FILTER", {0.90, 0.55, 0.20}, kFilter, 6},
 };
 static const tNl3Control kEnv2[]            = {
     {kNl3ParamEnv2Attack,   "Attack",  eTiControlDial, 127,   0.0, NULL},
@@ -361,20 +363,20 @@ static const tNl3Control kPan[]             = {
     {kNl3ParamPanEffects, "Effects", eTiControlChoice,   1, 0.0, kOffOn},
 };
 static const tNl3Section kGlobalPage[]      = {
-    {"PLUG-IN",  {0.65, 0.65, 0.65}, kVoices,   3},
+    {"PLUG-IN",  {0.65, 0.65, 0.65}, kVoices,   4},
     {"EFFECTS",  {0.65, 0.65, 0.65}, kGlobalFx, 3},
     {"HARDWARE", {0.65, 0.65, 0.65}, kHardware, 3},
     {"PAN",      {0.65, 0.65, 0.65}, kPan,      4},
 };
 
 const tNl3Page           gNl3Pages[]        = {
-    {"OSC",         kOscillatorsPage, 5},
-    {"FILTER",      kFilterPage,      1},
-    {"AMP",         kAmpPage,         1},
-    {"ENV",         kEnvelopesPage,   3},
-    {"LFO",         kLfoPage,         2},
-    {"EFFECTS",     kEffectsPage,     6},
-    {"GLOBAL",      kGlobalPage,      4},
+    {"OSC",     kOscillatorsPage, 5},
+    {"FILTER",  kFilterPage,      1},
+    {"AMP",     kAmpPage,         1},
+    {"ENV",     kEnvelopesPage,   3},
+    {"LFO",     kLfoPage,         2},
+    {"EFFECTS", kEffectsPage,     6},
+    {"GLOBAL",  kGlobalPage,      4},
 };
 const uint32_t           gNl3PageCount      = sizeof(gNl3Pages) / sizeof(gNl3Pages[0]);
 
