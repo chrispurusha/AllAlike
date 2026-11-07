@@ -142,3 +142,10 @@ references sit too close to read):
   120 bpm (125 ms, 500 ms, 2 s): the change waits for the next division of a clock that runs free of the note.
 - No mode glides. Built so (tiVoices notes §5); the offline render lands each mode at its division.
 
+
+## 2026-11-06 - EQ middle band, saturation level
+- The middle band's cut is narrower than its boost: half-gain widths at Q 0 / 64 / 127 of 2.25 / 0.87 / 0.29 octaves at -12 dB against 5.56 / 3.02 / 1.02 at +12, centre 633 Hz at Frequency 64 (reference renders, noise through the voice). A band pass added to the signal fits every case within 0.03 octaves; built so (tiEffects notes §1), now within 0.24 dB of the renders across Frequency, Q and Gain.
+- Saturation no longer costs level: 29 Singles using it against 29 not, median level error 1.81 dB against 2.11, signed -0.55 against -0.80. Curve 5 (Digital) reads +4.5 dB over five Singles, too few to act on.
+- Serial 6, noise through Filter 1 alone in each digital mode, Resonance 0/64/100/127, Cutoff 50 and 90 (32 cases): median 2.0 dB rms before, 0.46 now (tiVoices notes §6). The output gain follows the whole resonance while the poles take 5/8 of it.
+- Analog 4 Pole self-oscillation against reference renders, Cutoff 20-105 at Resonance 80-127: 0.8% flat at every cutoff up to 70, whatever the resonance, levels within 0.1 dB - a coefficient factor, not the saturation. With the coefficient raised 0.82% (tiFilter notes §5): within 0.05% from 30 to 70.
+- Saturation Low Pass / High Pass curves 11-14 against reference renders (saw, Osc Volume 72-120, notes 48 and 72): median harmonic error 2.9 dB before, 0.95 now; the key-follow forms were up to 3.5 dB out in level, now within 0.7 (tiVoices notes §17).

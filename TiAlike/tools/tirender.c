@@ -85,7 +85,7 @@ int main(int argc, char ** argv) {
     ti_voices_set_tempo(&gVoices, 120.0);
     ti_voices_set_effects(&gVoices, true, true);
     ti_voices_set_fixed(&gVoices, getenv("TI_FLOAT") == NULL);
-    gVoices.sound = sound;
+    ti_voices_new_sound(&gVoices, &sound);
     int      next   = 0;
 
     for (uint32_t done = 0; done < frames;) {
@@ -100,7 +100,7 @@ int main(int argc, char ** argv) {
                 ti_voices_note_off(&gVoices, (uint8_t)e->a, 0.0f);
             } else if (e->kind == 3) {
                 sound.a[e->a & 127] = (uint8_t)e->b;
-                gVoices.sound       = sound;
+                ti_voices_hear(&gVoices, &sound);
             } else {
                 ti_voices_control(&gVoices, (tTiControlId)e->a, e->b);
             }

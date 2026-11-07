@@ -18,17 +18,32 @@ cutoff yet. Every 32 rather than once a host block so that a glide (§5) is not 
 can be 1024 samples. Keyfollow and the filter envelope will make them per voice.
 
 ## 5. Smoothing a control change: none, or held to the tempo
-Parameter Smooth Mode never glides. Off, On, Auto and Note: a changed Cutoff, Resonance or Balance (both filters')
-takes effect at once. The seventeen Quantise values (1/64 .. 1/1, the triplet and dotted ones too): the change is held
-until the next division of the tempo, then lands as a step. Measured on the hardware TI (findings 2026-11-06: every
-mode a step within 2-15 ms; Quantise 1/16, 1/4, 1/1 held 28, 245-305, 590-1340 ms, each under one division at 120 bpm;
-the reference renders likewise jump). It used to glide in a straight line over 43.7 ms with Smooth On, read from an
-early comparison of the Init Single - wrong.
-The divisions run on the engine's own clock (`seconds` since the instance started) at the host's tempo, or the
-sound's Clock Tempo (63 + B16) with none - the instrument's clock runs free of the note too, so where its boundaries
-fall against a note differs take to take there as here. A held control waits in its smoother's target (smooth_hold)
-and takes it in the block the division passes, a block early at most. A short treble spike at some jumps comes with
-Off as well - the filter's own response to an instant change, not a smoothing.
+Parameter Smooth Mode never glides. Off, On, Auto and Note: a changed control takes effect at once. The seventeen
+Quantise values (1/64 .. 1/1, the triplet and dotted ones too): the change is held until the next division of the
+tempo, then lands as a step. Measured on the hardware TI with Cutoff (findings 2026-11-06: every mode a step within
+2-15 ms; Quantise 1/16, 1/4, 1/1 held 28, 245-305, 590-1340 ms, each under one division at 120 bpm; the reference
+renders likewise jump). It used to glide in a straight line over 43.7 ms with Smooth On, read from an early comparison
+of the Init Single - wrong.
+
+What is held: the continuous controls of page A (`kQuantiseHeld`) - the oscillators' shape, pulse width, semitone,
+detune, keyfollow and FM, the mixer levels, Noise Color, Cutoff, Resonance, Balance, envelope amounts and keyfollow,
+the LFO rates, symmetries, keyfollows and amounts, the amp and filter envelopes' Sustain and Sustain Time, Portamento,
+Patch Volume, Panorama and the chorus and delay dials. Switches, modes, shapes, the wavetable selects, Saturation Curve,
+the filter modes and routing, and the amp envelope's Attack, Decay and Release land at once. Only Cutoff has been
+measured held; the rest follow it as controls of the same kind.
+
+The voices play `v->sound`, not the Single they are handed: `hear()` copies the Single in, keeping a held byte's old
+value while a Quantise mode is on, and the block the division passes takes the whole Single. Everything that reaches
+the voices goes through it - the plug-in's host edits (`ti_voices_hear()`) as well as the render.
+
+The divisions are the clock's. While the host plays they are the host's own beats (`projectTimeMusic`, advanced
+through the block at the tempo), so a held change lands on the host's 1/4 or 1/16 grid, as on an instrument following
+MIDI clock; starting the transport restarts the clock and lands anything held at once. Stopped, they run on the
+engine's own clock (`seconds` since the instance started) at the host's tempo, or the sound's Clock Tempo (63 + B16)
+with none - the instrument's clock runs free of the note too, so where its boundaries fall against a note differs
+take to take there as here. A block early at most. Loading a Single is not a control change: all of it lands at once
+and a change held from the old sound is dropped (`ti_voices_new_sound()`). A short treble spike at some jumps comes
+with Off as well - the filter's own response to an instant change, not a smoothing.
 
 ## 6. The two filters: routing, Balance, Link
 Filter 2 has the digital modes only (low, high, band pass, band stop). Balance runs through a centre-detented curve,
@@ -41,8 +56,12 @@ bal = -1, -0.6875, -0.375, -0.125, 0, then the mirror up to +1, at dial 0, 16, 3
 - **Parallel 4.** Both filters on the oscillator: out = g2 F2(x) + m F1(x); bal < 0: m = 0.3535 + 0.1465 |bal|,
   g2 = 0.3535 (1 - |bal|); bal >= 0: m = 0.3535 (1 - bal), g2 = 0.3535 + 0.1465 bal. Each 0.3535 at the centre, 0.5
   alone at either end.
-- **Serial 6 and Split** are not yet their own: Serial 6 runs as Serial 4 (its Filter 1 should be four-pole), Split as
-  Parallel 4 with its own levels (0.707 at the centre) summed to mono.
+- **Serial 6.** Filter 1 is two identical sections in series (four poles in a digital mode). Their poles take 5/8 of
+  the resonance; the output gain is the mode's row gain at the WHOLE resonance, on the first section only, the second
+  at unity. Band pass has its own gains for this (5, 6, 8, 12, 16, 24, 32, 48, 64 of 64 by row, x 1/4 overall in unit-peak
+  terms). Against reference renders, noise through every digital mode at Resonance 0-127 and two cutoffs: all within
+  0.4-0.6 dB rms, as at Resonance 0. The analog modes run as before (the ladder, then a resonance-free section).
+- **Split** runs as Parallel 4 with its own levels (0.707 at the centre) summed to mono.
 - **Close cutoffs.** In the serial routings, when Filter 2's cutoff is within 2.13 dial steps of Filter 1's (4.27 in
   Serial 6), Filter 2's resonance is taken down: res2 x (1 - 0.375 (1 - apart/limit) res1/128) - to 0.625 x res2 at
   full Filter 1 resonance and the same cutoff. Its output gain stays that of the resonance before the cut (band pass
@@ -118,7 +137,11 @@ A low shelf at the output. Intensity sets the lift, up to about 6 dB; Tune moves
 ## 17. Saturation
 On Filter 1's output, before the mix, so Filter 2 on its own hears none of it. The analog modes have no saturation stage at all.
 
-Above Osc Volume 64 the drive sets two things across nine points: the gain into the curve, 0.125 up to 1 in equal ratios, and a make-up gain out of it, its own for each curve. Curves 1-4 are arctangents, a different one each side of zero. Digital is a hard limit well below full scale. Rectifier blends from the signal to a folded form of it. Shaper is a sine of the driven signal, its level falling by a quarter across the drive. Curves 8-14, Bit Reducer, Rate Reducer, Low Pass and High Pass, follow the laws of the Distortion curves of the same names (tiEffects §2), with drive as Intensity. Their key follow is not built.
+Above Osc Volume 64 the drive sets two things across nine points: the gain into the curve, 0.125 up to 1 in equal ratios, and a make-up gain out of it, its own for each curve. Curves 1-4 are arctangents, a different one each side of zero. Digital is a hard limit well below full scale. Rectifier blends from the signal to a folded form of it. Shaper is a sine of the driven signal, its level falling by a quarter across the drive. Rate Reducer (9, and 10 with key follow) follows the Distortion curve of that name (tiEffects §2), with drive as Intensity.
+
+Bit Reducer (8) rounds to a step set over nine points of drive: the step is 1 / (16384 n) in the instrument's units, n running 1/16, 1/32, 1/64, 1/128, 1/192, 1/256, 1/384, 1/512, 1/1024 and interpolated between. Its harmonics cannot be compared closely with reference renders (rounding a saw makes them depend on the exact level and phase), but its level is within 0.6 dB.
+
+Low Pass and High Pass (11 and 13, and 12 and 14 with key follow) are bilinear one-poles: low pass y = q (x + x[-1]) + (1 - 2q) y[-1], high pass y = (1 - q)(x - x[-1]) + (1 - 2q) y[-1]. The corner moves over the digital filters' 32 third-octave points (tiFilter notes §1), from 19.7 Hz to 22969 Hz, q = t / (1 + t) with t = tan(pi f / rate) at each point and interpolated between them. The point is 31 x control, the control 1 - drive for low pass and drive for high pass, so low pass closes and high pass opens as Osc Volume rises above 64; key follow adds (note - 60) x 0.535 / 128, about half an octave of corner per octave of note. Against reference renders, a saw at Osc Volume 72-120 and notes 48 and 72: levels within 0.7 dB and harmonics within 1 dB where the oscillator itself agrees (median error 0.95 dB, was 2.9).
 
 ## 18. The end of the chain
 It clips hard at full scale. There is no limiter: a quiet note under a loud chord is not turned down, and recovers the moment the chord stops.

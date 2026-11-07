@@ -25,6 +25,7 @@
 #define POINT_1KHZ          (17)        // notes §1: third-octave centres, 1 kHz at point 17
 #define TOP_POINT_HZ        (22968.75)
 #define NYQUIST_SHARE       (0.49)
+#define LADDER_G_LIFT       (1.00817)                      // notes §5: 2^((32/3) x 9/8192), the coefficient a shade above the exact resonance
 #define LADDER_SCALE        TI_FIXED_UNIT                  // notes §6: the oscillator's level inside the ladder
 #define LADDER_TAP1_GAIN    (0.70703125)                   // notes §5: the 1-pole tap's own scale
 #define LADDER_NOISE        (1.0 / 16384.0 / 2147483648.0) // the LCG word >> 14, as a fraction
@@ -94,7 +95,7 @@ static void ladder_coeffs(const tTiFilterTables * t, tTiFilterMode mode, double 
     double d    = fmin(fmax(drive, 0.0), 1.0);
 
     c->poles    = (uint32_t)(mode - eTiFilterAnalog1) + 1u;
-    c->g        = 1.0 - (tan(phi) / (sin(w) + (tan(phi) * cos(w))));   // notes §5: the loop resonates at hz
+    c->g        = (1.0 - (tan(phi) / (sin(w) + (tan(phi) * cos(w))))) * LADDER_G_LIFT;   // notes §5: the loop resonates at hz
     c->feedback = lerp(kLadderLoopGain[i], kLadderLoopGain[i + 1], step - i) / 32.0;
     c->inGain   = pow(2.0, (2.0 * d) - 4.0);
     c->preGain  = pow(2.0, d + 7.0);

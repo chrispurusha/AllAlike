@@ -26,7 +26,6 @@
 
 #define SHELF_SLOPE       (0.5)      // notes §1
 #define LOW_CORNER        (1.75)
-#define MID_CENTRE        (0.913)
 #define DIST_UNIT         (0.54)
 #define DIST_HIGH_PASS    (14.7)
 #define DIST_QUANTISED    (1.026)
@@ -61,7 +60,7 @@ static void set_coeffs(tTiBiquad * q, double b0, double b1, double b2, double a0
     q->a2 = a2 / a0;
 }
 
-// notes §1: the cookbook's shelves and peak
+// notes §1: the cookbook's shelves
 static void low_shelf(tTiBiquad * q, double hz, double dB, double rate) {
     double A  = pow(10.0, dB / 40.0);
     double w  = 2.0 * M_PI * hz / rate;
@@ -84,6 +83,7 @@ static void high_shelf(tTiBiquad * q, double hz, double dB, double rate) {
                (A + 1.0) - ((A - 1.0) * c) + s, 2.0 * ((A - 1.0) - ((A + 1.0) * c)), (A + 1.0) - ((A - 1.0) * c) - s);
 }
 
+// the cookbook's peak, for the Character types
 static void peak(tTiBiquad * q, double hz, double dB, double Q, double rate) {
     double A  = pow(10.0, dB / 40.0);
     double w  = 2.0 * M_PI * hz / rate;
@@ -91,6 +91,44 @@ static void peak(tTiBiquad * q, double hz, double dB, double Q, double rate) {
     double al = sin(w) / (2.0 * Q);
 
     set_coeffs(q, 1.0 + (al * A), -2.0 * c, 1.0 - (al * A), 1.0 + (al / A), -2.0 * c, 1.0 - (al / A));
+}
+
+// notes §1: the middle band's Q rows, in dB - the filters' rows with two broader ones below them
+static const double kMidRowQdB[6] = {-11.0, -7.0, -3.0103, -1.0, 4.0, 9.0};
+
+static double mid_point_hz(int p) {
+    return (p >= 31) ? 22968.8 : (1000.0 * pow(2.0, (p - 17) / 3.0));
+}
+
+static double mid_half_r2(int row, int p, double rate) {
+    double w     = 2.0 * M_PI * fmin(mid_point_hz(p), 0.49 * rate) / rate;
+    double alpha = sin(w) / (2.0 * pow(10.0, kMidRowQdB[row] / 20.0));
+
+    return 0.5 * (1.0 - alpha) / (1.0 + alpha);
+}
+
+static double mid_lerp(double a, double b, double f) {
+    return a + (f * (b - a));
+}
+
+// notes §1: a band pass of unit peak added to the signal, (G - 1) of it, on the filters' third-octave points and Q rows
+static void mid_band(tTiBiquad * q, uint8_t frequency, double dB, uint8_t width, double rate) {
+    double point = fmin(fmax((frequency / 4.0) - 1.0, 0.0), 30.999);
+    double row   = fmin((5.0 * width / 128.0), 4.999);
+    int    p = (int)point, r = (int)row;
+    double pf = point - p, rf = row - r;
+    double cs    = mid_lerp(cos(2.0 * M_PI * fmin(mid_point_hz(p), 0.49 * rate) / rate),
+                            cos(2.0 * M_PI * fmin(mid_point_hz(p + 1), 0.49 * rate) / rate), pf);
+    double half  = mid_lerp(mid_lerp(mid_half_r2(r, p, rate), mid_half_r2(r, p + 1, rate), pf),
+                            mid_lerp(mid_half_r2(r + 1, p, rate), mid_half_r2(r + 1, p + 1, rate), pf), rf);
+    double r2    = 2.0 * half;
+    double k     = (pow(10.0, dB / 20.0) - 1.0) * (1.0 - r2) / 2.0;
+
+    q->b0 = 1.0 + k;
+    q->b1 = -cs * (1.0 + r2);
+    q->b2 = r2 - k;
+    q->a1 = -cs * (1.0 + r2);
+    q->a2 = r2;
 }
 
 static void run(tTiBiquad * q, float * io, uint32_t frames, int ch) {
@@ -134,7 +172,7 @@ static void equalise(tTiEffects * e, const uint8_t * b, float * left, float * ri
     }
 
     if (!e->ready || (e->midKey[0] != b[92]) || (e->midKey[1] != b[93]) || (e->midKey[2] != b[94])) {
-        peak(&e->mid, fmin(MID_CENTRE * 19.0 * pow(1.0581, b[93]), nyquist), eq_db(b[92]), 0.142 * exp(0.0178 * b[94]), e->rate);
+        mid_band(&e->mid, b[93], eq_db(b[92]), b[94], e->rate);
         e->midKey[0] = b[92];
         e->midKey[1] = b[93];
         e->midKey[2] = b[94];

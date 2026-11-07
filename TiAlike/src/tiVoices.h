@@ -105,10 +105,14 @@ typedef struct {
     tTiVoice        voice[TI_MAX_VOICES];
     tTiSmooth       cutoff, resonance, cutoff2, resonance2, balance;
     tTiLfo          monoLfo[3];
-    uint32_t        limit;      // 1..TI_MAX_VOICES (design §1: the instance's voice limit)
+    uint32_t        limit;       // 1..TI_MAX_VOICES (design §1: the instance's voice limit)
     double          rate, tempo;
-    double          seconds;    // since the instance started, for the free LFOs
-    double          fxMod[128]; // the newest voice's modulation, for the effects
+    double          seconds;     // since the instance started, for the free LFOs
+    bool            hostPlaying; // notes §5: Quantise counts the host's beats while it plays
+    double          hostBeats;   // quarter notes, as of the next sample to render
+    bool            releaseHeld; // notes §5: the transport started - held controls land now
+    bool            heard;       // sound holds a Single
+    double          fxMod[128];  // the newest voice's modulation, for the effects
     double          control[eTiCtlCount];
     tTiFilterTables filterTables;
     uint64_t        clock;
@@ -119,14 +123,17 @@ typedef struct {
     bool            fixedPoint;  // notes §19: the arithmetic the instrument uses
     double          boostState[2];
     tTiEffects      effects;
-    tTiSound        sound;       // as of the last render
+    tTiSound        sound;       // as the voices play it: a Quantise-held byte keeps its old value (notes §5)
 } tTiVoices;
 
 void ti_voices_init(tTiVoices * v, double rate);
 void ti_voices_set_rate(tTiVoices * v, double rate);
 void ti_voices_set_limit(tTiVoices * v, uint32_t limit);
-void ti_voices_set_effects(tTiVoices * v, bool delay, bool reverb);   // notes tiEffects §8
+void ti_voices_set_effects(tTiVoices * v, bool delay, bool reverb);             // notes tiEffects §8
 void ti_voices_set_tempo(tTiVoices * v, double bpm);
+void ti_voices_set_transport(tTiVoices * v, bool playing, double quarterNotes); // notes §5
+void ti_voices_new_sound(tTiVoices * v, const tTiSound * s);                    // notes §5
+void ti_voices_hear(tTiVoices * v, const tTiSound * s);                         // notes §5
 void ti_voices_set_fixed(tTiVoices * v, bool fixed);
 void ti_voices_note_on(tTiVoices * v, uint8_t note, float velocity);
 void ti_voices_note_off(tTiVoices * v, uint8_t note, float velocity);

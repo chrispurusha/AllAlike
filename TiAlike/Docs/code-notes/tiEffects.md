@@ -1,7 +1,9 @@
 # tiEffects.c - the effects
 
 ## 1. EQ
-A low shelf, a parametric middle and a high shelf, 0.25 dB a step about 64. The shelves are gentle, the cookbook's with slope 0.5, their corners 1.75 times further in than the frequency shown. The middle's centre is 0.913 of the frequency shown, and its Q runs from 0.14 to 1.36 across its dial.
+A low shelf, a parametric middle and a high shelf, 0.25 dB a step about 64. The shelves are gentle, the cookbook's with slope 0.5, their corners 1.75 times further in than the frequency shown.
+
+The middle is not the cookbook's peak, whose cut is as wide as its boost: it is a band pass of unit peak added to the signal, (G - 1) of it, so a cut is much narrower than the boost of the same size (at Q 64, 0.87 octaves at -12 dB against 3.0 at +12, half-gain width). It is built as the digital filters are (tiFilter notes): on their third-octave points, the point Frequency / 4 - 1 (a semitone a step, 630 Hz at 64), and on their Q rows with two broader ones below them, Q -11 and -7 dB, then -3, -1, 4 and 9 dB; the row is 5 Q / 128, so the dial spans Q 0.28 to about 2.7. Point and row interpolate as the filter's do, the cosine linearly and r^2 / 2 between rows, which is why the Q does not climb smoothly. Against reference renders, every Frequency, Q and Gain tried within 0.24 dB (0.01-0.04 rms), Frequency 127 within 0.64.
 
 ## 2. Distortion
 After the voices and before Patch Volume and the EQ, on each side, so its character does not change with Patch Volume. A Single older than format 9 has no Distortion Mix, and is all distortion whatever that byte holds.

@@ -259,10 +259,10 @@ static void refresh_sound(tTiPlugin * t) {
     uint8_t single[TI_SINGLE_LENGTH];
 
     if (t->soundStale) {
-        t->soundStale   = false;
+        t->soundStale = false;
         ti_patch_to_single(t->values, t->haveBase ? t->base : NULL, t->soundName, single);
         ti_patch_sound(single, &t->sound);
-        t->voices.sound = t->sound;
+        ti_voices_hear(&t->voices, &t->sound);   // tiVoices notes §5
     }
 }
 
@@ -280,13 +280,16 @@ static void ti_process(void * inst, const float *const * in, uint32_t numIn, flo
     refresh_sound(t);
 
     if (atomic_exchange(&t->clearEffects, false)) {
-        ti_effects_reset(&t->voices.effects);   // notes §12
+        ti_effects_reset(&t->voices.effects);       // notes §12
+        ti_voices_new_sound(&t->voices, &t->sound); // tiVoices notes §5
     }
     ti_voices_set_effects(&t->voices, t->values[kTiParamDelayOn] >= 0.5, t->values[kTiParamReverbOn] >= 0.5);
 
     if ((transport != NULL) && transport->tempoValid) {
         ti_voices_set_tempo(&t->voices, transport->tempo);
     }
+    ti_voices_set_transport(&t->voices, (transport != NULL) && transport->playing && transport->musicTimeValid,
+                            (transport != NULL) ? transport->projectTimeMusic : 0.0);
 
     if ((out == NULL) || (numOut == 0) || (out[0] == NULL)) {
         for (uint32_t i = 0; i < t->eventCount; i++) {

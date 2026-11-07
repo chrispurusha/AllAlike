@@ -44,6 +44,10 @@ The 1-pole tap is t itself, scaled by post x 0.707.
 **Cutoff.** g is chosen so that the loop resonates at the digital filter's cutoff (§1): each stage turns the phase
 by (pi - w)/4 at w = 2 pi f / (2 x rate), the -w being the loop's one-pass delay. That has a closed form:
 1 - g = tan(phi) / (sin w + tan(phi) cos w), phi = (pi - w)/4.
+The instrument's coefficient sits a shade above that exact value, by a constant factor 2^((32/3) x 9/8192) = 1.00817
+(`LADDER_G_LIFT`), so its self-oscillation is 0.8% above the third-octave cutoff. With it, self-oscillation matches
+reference renders within 0.05% (under a cent) from Cutoff 30 to 70 at Resonance 100 and 127; 0.17% at 20, 0.33% at
+90 and 0.5% at 105 (without it, 0.8% flat throughout).
 
 **Resonance.** The loop gain k x pre x 2 x post (the saturator's slope at zero is 2) runs over 16 steps of the dial,
 interpolated: 0.5 at 0, rising evenly to 3.75 at 64, then 4 (where it starts to self-oscillate), 4.25, 4.5, 5, 6, 8,

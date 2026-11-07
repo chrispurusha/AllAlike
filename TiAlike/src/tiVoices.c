@@ -189,6 +189,21 @@ void ti_voices_set_effects(tTiVoices * v, bool delay, bool reverb) {
     v->effects.reverbAllowed = reverb;
 }
 
+// notes §5: the host's position at the start of this block; starting the transport lands held controls
+void ti_voices_set_transport(tTiVoices * v, bool playing, double quarterNotes) {
+    if (playing && !v->hostPlaying) {
+        v->releaseHeld = true;
+    }
+    v->hostPlaying = playing;
+    v->hostBeats   = quarterNotes;
+}
+
+// notes §5: a whole new Single takes its values at once, and a change held from the old one is dropped
+void ti_voices_new_sound(tTiVoices * v, const tTiSound * s) {
+    v->sound = *s;
+    v->heard = true;
+}
+
 void ti_voices_set_tempo(tTiVoices * v, double bpm) {
     v->tempo       = (bpm > 1.0) ? bpm : 0.0;
     v->effects.bpm = v->tempo;
@@ -462,19 +477,38 @@ void ti_voices_all_off(tTiVoices * v) {
 }
 
 // notes §5: Smooth Mode's Quantise values 4..20 hold a change to the next division, in whole notes
-static const double kQuantiseWhole[17] = {
+static const double  kQuantiseWhole[17] = {
     1.0 / 64.0, 1.0 / 32.0, 1.0 / 16.0, 1.0 / 8.0, 1.0 / 4.0, 1.0 / 2.0, 3.0 / 64.0, 3.0 / 32.0, 3.0 / 16.0, 3.0 / 8.0,
-    1.0 / 24.0, 1.0 / 12.0, 1.0 / 6.0, 1.0 / 3.0, 2.0 / 3.0, 3.0 / 4.0, 1.0
+    1.0 / 24.0, 1.0 / 12.0,  1.0 / 6.0, 1.0 / 3.0, 2.0 / 3.0, 3.0 / 4.0, 1.0
 };
 
-// notes §5: a quantised control waits here, its new value in target, until the division passes
-static void smooth_hold(tTiSmooth * s, double target) {
-    if (!s->started) {
-        s->started = true;
-        s->current = target;
+// notes §5: the page A bytes Quantise holds - the continuous controls; switches, modes, shapes, wave selects and the
+// amp envelope's Attack, Decay and Release land at once
+static const uint8_t kQuantiseHeld[]    = {
+    1,   2,  3,  4,  5,  6,  7,  8,   9,  10,  11,  12,  13,  14,  15,  16,  17,  18,  20,  21,  22, 23, 25, 26, 27, 29, 30, 31, 33, 34, 36,
+    37, 39, 40, 41, 42, 43, 44, 45,  46,  47,  48,  50,  56,  57,  58,  61,  62,  67,  71,  72,  73, 74, 75, 76, 77, 78, 79, 83,
+    84, 85, 86, 87, 88, 89, 90, 91, 104, 105, 106, 107, 108, 109, 111, 113, 114, 115, 116, 117, 119,
+};
+
+static bool quantise_mode(const tTiSound * s) {
+    return (s->b[25] >= 4) && (s->b[25] <= 20);
+}
+
+// notes §5: the sound the voices play - a held byte keeps its old value until the division (release_held)
+static void hear(tTiVoices * v, const tTiSound * s) {
+    tTiSound now = *s;
+
+    if (v->heard && quantise_mode(s)) {
+        for (size_t i = 0; i < sizeof(kQuantiseHeld); i++) {
+            now.a[kQuantiseHeld[i]] = v->sound.a[kQuantiseHeld[i]];
+        }
     }
-    s->target = target;
-    s->left   = 0.0;
+    v->sound = now;
+    v->heard = true;
+}
+
+void ti_voices_hear(tTiVoices * v, const tTiSound * s) {
+    hear(v, s);
 }
 
 static void smooth_toward(tTiSmooth * s, double target, double rate, bool instant) {
@@ -515,7 +549,7 @@ static double smooth_advance(tTiSmooth * s, uint32_t frames) {
     if (s->left > (double)frames) {
         s->current += s->step * frames;
         s->left    -= frames;
-    } else if (s->left > 0.0) {   // a glide ending; with none running the value stays (notes §5: a quantised hold)
+    } else {
         s->current = s->target;
         s->left    = 0.0;
     }
@@ -548,8 +582,7 @@ static double drive_table(const double * t, double drive) {
     return t[i] + ((p - i) * (t[i + 1] - t[i]));
 }
 
-#define SAT_REDUCER    (3.05)  // notes §17: the step in the voices' units
-#define SAT_SHAPER     (206.0)
+#define SAT_SHAPER    (206.0)
 
 // notes §17: 18 dB across the drive
 static double sat_input(double drive) {
@@ -586,7 +619,16 @@ double ti_saturate_curve(double x, uint8_t curve, double drive, double unit) {
     return 4.0 * drive_table(kSatMakeUp[4], drive) * u / unit;
 }
 
-#define HOLD_LONGEST    (131.0)   // notes §25
+#define HOLD_LONGEST      (131.0)         // notes §25
+#define SAT_KEY_FOLLOW    (0.535 / 128.0) // notes §17: a key-followed filter curve's control, per semitone
+
+// notes §17: a filter curve's corner point i, on the digital filters' third-octave points, as 1 - its bilinear pole, halved
+static double sat_corner_q(int i, double rate) {
+    double hz = (i >= 31) ? 22968.75 : (1000.0 * pow(2.0, (i - 17) / 3.0));
+    double t  = tan(M_PI * fmin(hz, 0.49 * rate) / rate);
+
+    return t / (1.0 + t);
+}
 
 static double saturate(double x, uint8_t curve, double drive, double * state, double rate, double pitch) {
     if ((curve >= 1) && (curve <= 5)) {   // Digital, 5: a hard limit far below full scale
@@ -606,9 +648,13 @@ static double saturate(double x, uint8_t curve, double drive, double * state, do
     }
 
     switch (curve) {
-        case 8:              // Bit Reducer
+        case 8:              // Bit Reducer: notes §17, the step over nine points of drive
         {
-            double step = SAT_REDUCER * ti_dist_step(127.0 * drive);
+            static const double kBits[9] = {16.0, 32.0, 64.0, 128.0, 192.0, 256.0, 384.0, 512.0, 1024.0};
+            double              at       = 8.0 * fmin(fmax(drive, 0.0), 1.0);
+            int                 i        = (at >= 8.0) ? 7 : (int)at;
+            double              inverse  = 1.0 / (kBits[i] + ((at - i) * (kBits[i + 1] - kBits[i])));   // interpolated as 1/step
+            double              step     = 1.0 / (16384.0 * inverse * SAT_UNIT);
 
             return floor((x / step) + 0.5) * step;
         }
@@ -627,19 +673,22 @@ static double saturate(double x, uint8_t curve, double drive, double * state, do
             return state[0];
         }
 
-        case 11:             // Low Pass, and with key follow
+        case 11:             // notes §17: Low Pass and High Pass, and each with key follow
         case 12:
-            state[0] += (1.0 - exp(-2.0 * M_PI * fmin(ti_dist_corner(true, 127.0 * drive), 0.45 * rate) / rate)) * (x - state[0]);
-            return state[0];
-
-        case 13:             // High Pass, and with key follow
+        case 13:
         case 14:
         {
-            double p = ti_dist_high_pass_pole(127.0 * drive, rate);
+            bool   low     = (curve <= 12);
+            double control = (low ? (1.0 - drive) : drive) + (((curve & 1) == 0) ? (SAT_KEY_FOLLOW * (pitch - KEY_CENTRE)) : 0.0);
+            double point   = 31.0 * fmin(fmax(control, 0.0), 1.0);
+            int    i       = (point >= 31.0) ? 30 : (int)point;
+            double q       = sat_corner_q(i, rate) + ((point - i) * (sat_corner_q(i + 1, rate) - sat_corner_q(i, rate)));
+            double c       = 1.0 - (2.0 * q);
+            double y       = (low ? (q * (x + state[1])) : ((1.0 - q) * (x - state[1]))) + (c * state[0]);
 
-            state[0] = (0.5 * (1.0 + p) * (x - state[1])) + (p * state[0]);
             state[1] = x;
-            return state[0];
+            state[0] = y;
+            return y;
         }
 
         default:
@@ -676,6 +725,16 @@ static void scale_numerator(tTiFilterCoeffs * c, double g) {
     c->b2 *= g;
 }
 
+// notes §6: Serial 6's band pass gain, by resonance row (of 64)
+static const double kSerial6BpGain[9] = {5.0, 6.0, 8.0, 12.0, 16.0, 24.0, 32.0, 48.0, 64.0};
+
+static double serial6_bp_gain(double resonance) {
+    double row = 8.0 * fmin(fmax(resonance, 0.0), 127.999) / 128.0;
+    int    r   = (row >= 8.0) ? 7 : (int)row;
+
+    return kSerial6BpGain[r] + ((row - r) * (kSerial6BpGain[r + 1] - kSerial6BpGain[r]));
+}
+
 static tTiFilterMode filter_mode(uint8_t byte, uint8_t last) {
     return (tTiFilterMode)((byte > last) ? last : byte);
 }
@@ -693,6 +752,8 @@ static void filter_set(const tTiVoices * v, const tTiSound * s, double c1, doubl
         res2 = fmin(res2, 100.0);
     }
     double        reduced = res2;
+    bool          six     = (routing == eTiRoutingSerial6) && (mode1 < eTiFilterAnalog1);
+    double        res1    = six ? (0.625 * fmax(res, 0.0)) : res;   // notes §6: Serial 6's two sections, at 5/8 resonance
 
     if (serial) {
         // notes §6: two cutoffs close together take Filter 2's resonance down
@@ -700,11 +761,24 @@ static void filter_set(const tTiVoices * v, const tTiSound * s, double c1, doubl
         double apart  = 60.0 * fabs(c2 - c1);
 
         if (apart < window) {
-            reduced *= 1.0 + ((3.0 * (apart - window) / 1024.0) * (res / 128.0));
+            reduced *= 1.0 + ((3.0 * (apart - window) / 1024.0) * (res1 / 128.0));
         }
     }
-    ti_filter_coeffs(&v->filterTables, mode1, c1, res, drive, &set->f1);
-    ti_filter_coeffs(&v->filterTables, mode1, c1, (routing == eTiRoutingSerial6) ? 0.0 : res, drive, &set->f1b);   // notes §6
+    ti_filter_coeffs(&v->filterTables, mode1, c1, res1, drive, &set->f1);
+    ti_filter_coeffs(&v->filterTables, mode1, c1, (routing == eTiRoutingSerial6) ? res1 : res, drive, &set->f1b);
+
+    // notes §6: in Serial 6 the poles take 5/8 of the resonance but the gain the whole of it, on the first section only
+    if (six && (mode1 == eTiFilterBandPass)) {
+        double unit = 1.0 / ti_filter_row_gain(mode1, res1);
+
+        scale_numerator(&set->f1, unit * serial6_bp_gain(res) / 16.0);
+        scale_numerator(&set->f1b, unit * 4.0);
+    } else if (six) {
+        scale_numerator(&set->f1, ti_filter_row_gain(mode1, res) / ti_filter_row_gain(mode1, res1));
+        scale_numerator(&set->f1b, 1.0 / ti_filter_row_gain(mode1, res1));
+    } else if (routing == eTiRoutingSerial6) {
+        ti_filter_coeffs(&v->filterTables, mode1, c1, 0.0, drive, &set->f1b);   // notes §6: the analog modes as before
+    }
     set->curve   = s->a[49];
     set->drive   = drive;
     ti_filter_coeffs(&v->filterTables, mode2, c2, reduced, 0.0, &set->f2);
@@ -1388,37 +1462,43 @@ static const struct {
     { 96, 2,  21}, { 78, 2,  25}, { 79, 2,  23}, {81, 2,  24},
 };
 
-void ti_voices_render(tTiVoices * v, const tTiSound * s, float * left, float * right, uint32_t frames) {
-    // notes §5: a Cutoff, Resonance or Balance change lands at once in Smooth Off, On, Auto and Note; the Quantise
-    // values hold it to the next division of the tempo, then step - measured on the hardware (findings 2026-11-06)
-    bool     instant   = true;
-    int      mode      = s->b[25];
-    bool     quantise  = (mode >= 4) && (mode <= 20);
-    double   bpm       = (v->tempo > 0.0) ? v->tempo : (63.0 + s->b[16]);
-    double   division  = quantise ? ((60.0 / bpm) * 4.0 * kQuantiseWhole[mode - 4]) : 0.0;
-    double   was       = v->seconds;
-    tTiSmooth * held[5] = {&v->cutoff, &v->resonance, &v->cutoff2, &v->resonance2, &v->balance};
-    double   to[5]     = {s->a[40], s->a[42], s->a[41], s->a[43], s->a[48]};
-    int      c         = 0;
+void ti_voices_render(tTiVoices * v, const tTiSound * given, float * left, float * right, uint32_t frames) {
+    // notes §5: no Smooth Mode glides; the Quantise values hold a change to the next division of the tempo, then step
+    const tTiSound * s         = &v->sound;
+    bool             quantise  = quantise_mode(given);
+    double           bpm       = (v->tempo > 0.0) ? v->tempo : (63.0 + given->b[16]);
+    double           wholes    = quantise ? kQuantiseWhole[given->b[25] - 4] : 1.0;
+    double           was       = v->seconds;
+    double           beatsWere = v->hostBeats;
+    bool             passed    = false;
 
-    v->seconds += (double)frames / v->rate;
+    v->seconds    += (double)frames / v->rate;
 
-    v->sound    = *s;
-
-    for (c = 0; c < 5; c++) {
-        if (quantise) {
-            smooth_hold(held[c], to[c]);
-        } else {
-            smooth_toward(held[c], to[c], v->rate, instant);
-        }
+    if (v->hostPlaying) {
+        v->hostBeats += ((double)frames / v->rate) * (bpm / 60.0);
     }
 
-    // notes §5: the division passed in this block - every held control takes its new value (a block early at most)
-    if (quantise && (floor(v->seconds / division) != floor(was / division))) {
-        for (c = 0; c < 5; c++) {
-            held[c]->current = held[c]->target;
-        }
+    // notes §5: the division passed in this block (a block early at most) - the host's beats while it plays, else the
+    // instance's own clock at the tempo; or the transport started
+    if (quantise && v->hostPlaying) {
+        passed = (floor(v->hostBeats / (4.0 * wholes)) != floor(beatsWere / (4.0 * wholes)));
+    } else if (quantise) {
+        passed = (floor(v->seconds / ((60.0 / bpm) * 4.0 * wholes)) != floor(was / ((60.0 / bpm) * 4.0 * wholes)));
     }
+
+    if (passed || v->releaseHeld) {
+        v->sound = *given;
+        v->heard = true;
+    } else {
+        hear(v, given);
+    }
+    v->releaseHeld = false;
+
+    smooth_toward(&v->cutoff, s->a[40], v->rate, true);
+    smooth_toward(&v->resonance, s->a[42], v->rate, true);
+    smooth_toward(&v->cutoff2, s->a[41], v->rate, true);
+    smooth_toward(&v->resonance2, s->a[43], v->rate, true);
+    smooth_toward(&v->balance, s->a[48], v->rate, true);
 
     // notes §4: per voice every sub-block, because every voice's keyfollow, envelopes and modulation differ
     for (uint32_t done = 0; done < frames; done += SUB_BLOCK) {
