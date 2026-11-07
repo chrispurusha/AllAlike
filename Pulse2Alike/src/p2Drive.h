@@ -32,6 +32,9 @@ typedef struct {
     double lowPass;   // the shelf after it
     double dcBlock;
     double dcIn;
+    double rest;      // notes §10: the clipper's output with no signal, which the coupling holds it at
+    double restDrive; //   the Drive (and restCurve the curve) rest was worked out for
+    int    restCurve;
 } tP2Drive;
 
 void p2_drive_init(tP2Drive * d, double rate);

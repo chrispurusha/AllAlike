@@ -28,27 +28,33 @@
 
 typedef struct {
     double positive, negative;   // the clipper's ceilings
+    double bias;                 // notes §10: a fixed offset ahead of the clipper, which the coupling no longer cancels
     double couplingHz;
     double shelfDirect, shelfHz; // how much passes straight, and the low-pass the rest goes through
     double hardPos, hardNeg;     // notes §6: each side's knee, 0 for tanh
+    double expand;               // notes §10: a cubic ahead of the clipper, x (pos^2): an inflection (TUBE)
+    double deadZone;             // notes §11: a one-sided dead zone's width (> 0 the negative side, < 0 the positive)
     double gainDb[DRIVE_POINTS]; // at kDriveAt
-    double bias[DRIVE_POINTS];   // notes §6: TUBE's moves with Drive
-    double trimDb[DRIVE_POINTS]; // notes §5, §7: the ceilings' trim; the quiet-input loss became the output gate
+    double trimDb[DRIVE_POINTS]; // notes §5, §7: the ceilings' trim
+    double topDb[DRIVE_POINTS];  // notes §13: the positive ceiling against the negative
 } tCurveShape;
 
 static const double      kDriveAt[DRIVE_POINTS] = {0.0, 16.0, 32.0, 64.0, 96.0, 127.0};
 
-// notes §8: TUBE fitted to the averaged cycle and the harmonics together (drive_wave.py), every take with the gate open
+// notes §13: TUBE refitted 2026-11-07 with the top ceiling per Drive (drive_fit_ratio.py: the cycles, harmonics and
+// two-tone products); 96 between
 static const tCurveShape kTube                  = {
-    0.0742, 0.0319,   98.8, 0.5242,  357.4, 1.821, 4.019, {-6.18, 1.52, 5.52, 10.55, 12.11, 13.62},
-    {0.6000,0.6000, 0.6000, 0.6000, 0.6000,0.6000},
-    {5.30,    3.78,   3.07,   2.13,   2.28, 2.43}
+    0.03572, 0.02551, -0.00394, 88.43, 0.5072, 274.4, 2.617, 6.354, -0.00125, 0.0,
+    {-5.86, 1.24, 5.25, 9.85, 12.01, 14.10},
+    {9.09,  7.11, 6.30, 6.00, 6.02,  6.04},
+    {-4.01, 1.68, 2.72, 2.05, 1.95,  1.86}
 };
-// notes §8: FUZZ fitted to the averaged cycle and the harmonics together (drive_wave.py), every take with the gate open
+// notes §11: FUZZ refitted 2026-11-06 with the dead zone (drive_fit2.py deadzone: the cycles, harmonics, two tones)
 static const tCurveShape kFuzz                  = {
-    0.0532,  0.0519,   627.1,  0.6738,   223.6, 0.976, 0.932, {15.60, 22.05, 24.48, 27.86, 32.71, 37.41},
-    {-0.6000,-0.6000, -0.6000, -0.6000, -0.6000, -0.6000},
-    {0.98,     1.18,    1.48,    1.78,    1.78, 1.78}
+    0.05421, 0.07687, -0.02002, 894.9, 0.7199, 178.2, 0.5656, 0.7650, 0.0, -0.06256,
+    {18.59, 30.08, 30.69, 32.98, 37.74, 42.35},
+    {0.58, -0.31, 0.22, 0.55, 0.36, 0.18},
+    {0.0,  0.0,   0.0,  0.0,  0.0,  0.0}
 };
 
 void p2_drive_init(tP2Drive * d, double rate) {
@@ -57,6 +63,9 @@ void p2_drive_init(tP2Drive * d, double rate) {
     d->lowPass = 0.0;
     d->dcBlock = 0.0;
     d->dcIn    = 0.0;
+    d->rest      = 0.0;
+    d->restDrive = -1.0;
+    d->restCurve = -1;
 }
 
 // a per-Drive value, between the measured settings
@@ -84,9 +93,19 @@ static double one_pole(double hz, double rate) {
     return 1.0 - exp(-2.0 * M_PI * hz / rate);
 }
 
+// notes §10: the cubic ahead of the clipper; e is shape->expand / pos^2. notes §11: then the one-sided dead zone, w wide
+static double expanded(double u, double e, double w) {
+    u = u + (e * u * u * u);
+
+    if (((w > 0.0) && (u < 0.0)) || ((w < 0.0) && (u > 0.0))) {
+        u = u * (1.0 - exp(u / w));
+    }
+    return u;
+}
+
 double p2_drive_process(tP2Drive * d, tP2DriveCurve curve, double drive, double x) {
     const tCurveShape * c;
-    double              u, clipped, shaped, out;
+    double              u, clipped, shaped, out, hw, ceiling, pos, neg, bias, e, w;
 
     if (curve == eP2DriveNone) {
         return x;
@@ -95,17 +114,29 @@ double p2_drive_process(tP2Drive * d, tP2DriveCurve curve, double drive, double 
     if (curve == eP2DriveFx) {
         return 0.0;
     }
-    c           = (curve == eP2DriveTube) ? &kTube : &kFuzz;
-    double              hw      = x * HARDWARE_UNITS_PER_ENGINE;
-    double              ceiling = pow(10.0, at_drive(c->trimDb, drive) / 20.0);
-    double              pos = c->positive * ceiling, neg = c->negative * ceiling;
+    c       = (curve == eP2DriveTube) ? &kTube : &kFuzz;
+    hw      = x * HARDWARE_UNITS_PER_ENGINE;
+    ceiling = pow(10.0, at_drive(c->trimDb, drive) / 20.0);
+    pos     = c->positive * ceiling * pow(10.0, at_drive(c->topDb, drive) / 20.0);
+    neg     = c->negative * ceiling;
+    bias    = c->bias * ceiling;
+    e       = c->expand / (pos * pos);
+    w       = c->deadZone * ceiling;
 
-    u           = (hw * pow(10.0, at_drive(c->gainDb, drive) / 20.0)) - d->coupled + (at_drive(c->bias, drive) * ceiling);
+    // notes §10: the coupling holds the clipper at what it gives the bias alone - worked out when Drive or curve change
+    if ((drive != d->restDrive) || ((int)curve != d->restCurve)) {
+        double ub = expanded(bias, e, w);
+
+        d->rest      = (ub >= 0.0) ? clip(ub, pos, c->hardPos) : clip(ub, neg, c->hardNeg);
+        d->restDrive = drive;
+        d->restCurve = (int)curve;
+    }
+    u           = expanded((hw * pow(10.0, at_drive(c->gainDb, drive) / 20.0)) - d->coupled + bias, e, w);
     clipped     = (u >= 0.0) ? clip(u, pos, c->hardPos) : clip(u, neg, c->hardNeg);
-    d->coupled += one_pole(c->couplingHz, d->rate) * clipped;
+    d->coupled += one_pole(c->couplingHz, d->rate) * (clipped - d->rest);
     d->lowPass += one_pole(c->shelfHz, d->rate) * (clipped - d->lowPass);
     shaped      = (c->shelfDirect * clipped) + ((1.0 - c->shelfDirect) * d->lowPass);
-    // the clipper's bias leaves a DC offset; the output stage is AC coupled
+    // the rest value leaves a DC offset; the output stage is AC coupled
     out         = shaped - d->dcBlock;
     d->dcBlock += one_pole(DC_BLOCK_HZ, d->rate) * out;
     return out / HARDWARE_UNITS_PER_ENGINE;

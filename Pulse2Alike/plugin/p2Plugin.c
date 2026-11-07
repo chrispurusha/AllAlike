@@ -106,7 +106,8 @@ static const uint8_t gControllerUid[16] = {0xC4, 0x71, 0x0E, 0x9B, 0x52, 0xF3, 0
 #define LEVEL2_KNEE                (3.94)    //   reached through a soft minimum this sharp
 #define SYNC_READ_OFFSET           (0.88)    // notes §22: synced, osc 2's wave read this far round its cycle
 #define OSC3_COUPLING_HZ           (14.0)
-#define EXT_IN_GAIN                (3.51)    // notes §65: the side-chain into osc 3's place, as EXT IN at INPUT GAIN 0, measured
+#define EXT_IN_GAIN                (3.59)    // notes §65: the side-chain into osc 3's place, as EXT IN at INPUT GAIN 0, measured
+#define EXT_IN_POLE_HZ             (4800.0)  // notes §65: the EXT input rolls off, one pole, measured with noise
 #define OUTPUT_GAIN                (3.926)   // notes §19: the instrument's own level
 #define FAULT_LEVEL                (16.0)    // notes §47: 24 dB over full scale, far past any sound
 
@@ -321,6 +322,7 @@ typedef struct tP2Plugin_ {
     double            noiseColour;
     double            noiseDark;        // notes §64
     double            extLast;          // notes §65: the side-chain's previous sample, for the oversampling
+    double            extLp;            // notes §65: the EXT input's pole
     double            levelTarget[5];  // notes §43: osc 1-3, noise, the feedthrough - set per control tick
     double            levelNow[5];     //   and glided per sample
     bool              levelsSet;
@@ -1576,6 +1578,7 @@ static void render_engine(void * inst, const float *const * in, uint32_t numIn, 
     // notes §65: EXT IN is the side-chain, one mono jack - the average of its channels
     const float *  extL      = ((in != NULL) && (numIn > 0)) ? in[0] : NULL;
     const float *  extR      = ((in != NULL) && (numIn > 1)) ? in[1] : NULL;
+    double         extPole   = 1.0 - exp(-2.0 * M_PI * EXT_IN_POLE_HZ / (p->sampleRate * p->oversample));
 
     tP2ArpSettings arp;
     bool           hostClock = (t != NULL) && t->playing && t->tempoValid && t->musicTimeValid && (t->tempo > 0.0);
@@ -1630,7 +1633,8 @@ static void render_engine(void * inst, const float *const * in, uint32_t numIn, 
 
             // notes §65: osc 3 EXT is the side-chain (its DCO runs on for its sync and gates), interpolated to the rate
             if (shape3 == 3) {
-                osc3 = extPrev + ((extNow - extPrev) * (double)(o + 1) / (double)p->oversample);
+                p->extLp += extPole * ((extPrev + ((extNow - extPrev) * (double)(o + 1) / (double)p->oversample)) - p->extLp);
+                osc3      = p->extLp;
             }
             bool   sync    = plain_int(p, kP2ParamOsc3Sync) != 0;
 

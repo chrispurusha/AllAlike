@@ -169,3 +169,70 @@ function of it - not a free value per measured Drive:
    comparison page again for CT to listen.
 5. If the fit cannot separate a moving bias from a moving gain: capture DC offsets and two tones through EXT IN at
    Drive 0/32/64/127 (the instrument's rig, design §5).
+
+## 10. The coupling held at the clipper's rest; a cubic for TUBE (2026-11-06)
+§9's OTA stage did not win (FUZZ mixed, TUBE worse). What the two-tone takes through EXT IN showed (findings
+2026-11-06) pointed elsewhere: FUZZ is lopsided at quiet inputs, near symmetric in the middle, lopsided again loud -
+an offset ahead of a clipper. The coupling loop used to pull the clipper's mean output to 0, which cancels any
+offset (why §8's bias sat at its bound). Now it pulls it to the clipper's REST value, what it gives the bias alone,
+so the bias acts: `coupled += k (clipped - rest)`, rest worked out when Drive or the curve change. TUBE also takes a
+cubic ahead of the clipper, u + e u^3 / pos^2 (e = expand), an inflection for its odd products that dip with level.
+Fitted (`tools/drive_fit2.py`, `drive_model.c` drive_run4/run5) to the 55 sweep takes' cycles and harmonics AND the
+two-tone products at Drive 0/32/64/127, gain and trim per Drive, 96 between 64 and 127:
+- FUZZ: cycles 6.8 -> 5.9 %, harmonics 3.77 -> 3.07 dB; bias -0.0125 (about a fifth of the knee).
+- TUBE: 10.1 -> 9.5 %, 7.61 -> 7.30 dB; e 0.165, bias near 0 (starts at +-0.01/0.02 all fitted worse: 12-20 %).
+Checked on what the fit did not see, against the §8 drive in the same engine:
+- P003 (FUZZ 17): sustain level -15.1 -> -5.9 dB against the instrument, release -11.8 -> -7.4, bands 3.1/9.0/7.8 ->
+  2.1/8.4/8.5, envelope 1.9 -> 1.7.
+- The init-triangle takes: FUZZ 0/64/127 4.3/9.0/13.2 -> 6.8/8.4/10.7 %; TUBE 11.2/8.7/26.3 -> 13.4/7.3/26.2 % -
+  better loud, worse at Drive 0.
+- The whole engine reproduces the fit's two-tone products (through the side-chain, p2Plugin notes §65).
+Still open: FUZZ's extreme lopsidedness at the quietest input (-7 dB even products at -36 dBFS; the model -26) -
+more like a one-sided dead zone than an offset; TUBE's odd-product dips (not reproduced); TUBE on noise 3-5 dB quiet;
+TUBE at Drive 127 (26 % on the triangle).
+
+## 11. FUZZ's one-sided dead zone; what the quiet takes and noise say (2026-11-06)
+FUZZ takes a one-sided dead zone ahead of the clipper, after §10's cubic: on one side (deadZone < 0: the positive one)
+u (1 - exp(u / w)) - flat at 0, its full slope beyond about |w|. Refitted (`drive_fit2.py deadzone`, from §10's FUZZ):
+cycles 5.9 -> 5.7 %, harmonics 3.07 -> 2.75 dB; w -0.0626, bias -0.020. P003: sustain -5.9 -> -5.3 dB against the
+instrument, release -7.4 -> -6.3, envelope 1.7 -> 1.6; the init triangle 6.8/8.4/10.7 -> 6.1/9.1/12.0 % at Drive
+0/64/127. In the engine since 2026-11-06.
+What `192k/drive_quiet2/` then showed (findings 2026-11-06), still open:
+- FUZZ at the quietest inputs is far more lopsided than any fit so far (single tone H2 -13/-8/-6 dB at -48 dBFS,
+  Drive 0/17/64, gone within ~12 dB; the engine about -24). Fits with these tones added (weight 0.5) did not move
+  them: the 55 sweep takes outweigh them about a hundred to one. Running overnight: weight 2, two starts.
+- TUBE's gain on noise is flat in the instrument and falls 3.5-4 dB above ~500 Hz in the engine: the shelf
+  (shelfDirect 0.49, 287 Hz) is wrong for broadband signals. Fits with the noise bands added did not move it either.
+  TUBE with the shelf removed (direct share held at 1, fit4_1): noise bands 3.94 -> 1.46 dB rms, but cycles
+  9.5 -> 11.3 % and harmonics 7.30 -> 7.65 dB - a trade, not yet ported.
+Fit states and logs: `~/Captures/Pulse2/fits/` (fit3_*: the extra data at weight 0.5; fit4_*: tonight's).
+
+
+## 12. Feedback around the clipper (hysteresis) for TUBE 127's switch: tried, not taken (2026-11-07)
+TUBE at Drive 127 rises almost vertically at a threshold on the instrument, which suggests a stage with positive
+feedback. Two forms were tried, from §10's TUBE (`tools/drive_model.c`):
+- `drive_run7`: + h (last - rest) after the gain, so the loop gain is h at every Drive. Refitted from h 0.5/1.0/1.5:
+  cycles 9.5 -> 9.7/9.8/31.6 %; the fit from 1.0 pushed h to 0.01. The two-tone products came out flat and too
+  strong at every level.
+- `drive_run8` (`P2_HYST_GAIN=1`): the feedback ahead of the gain (loop gain h x gain), so it latches only where the
+  gain is high. Added to §10's fit, per Drive (0/16/32/64/127):
+  h 0 8.8/8.8/9.1/10.2/10.8 %, h 0.1 8.8/8.7/9.2/10.5/10.5, h 0.2 9.1/9.4/10.4/12.0/11.8, h 0.4 10.8/13.1/14.7/14.8/12.8.
+  It hurts Drive 64 before it helps 127, and 127 gains at most 0.3 points.
+Neither form is taken. The switch at 127 is a small share of the error, which is spread over every Drive.
+The FUZZ fits with the quiet tones at weight 2 (fit4_2b/2c) gave cycles 5.7/5.8 % and harmonics 2.88 dB against
+§11's 5.7 % and 2.75. The quiet-input lopsidedness did not move (even products -24 dB in the model at -36 dBFS, -7 on
+the instrument), so §11 stays.
+
+## 13. The top ceiling per Drive (2026-11-07)
+`topDb[]` scales the positive ceiling at each kDriveAt, the negative one left as it is. TUBE refitted with it from
+§10 (`tools/drive_fit_ratio.py`: the cycles, harmonics and two-tone products, every value free): cycles 9.5 -> 8.9 %,
+harmonics 7.29 -> 6.76 dB; per Drive 0/16/32/64/127 cycles 8.8/8.8/9.1/10.2/10.8 -> 5.9/8.1/9.0/10.7/10.9 %. topDb
+-4.0 dB at Drive 0, +1.7..+2.7 above: the instrument's top half squashed at Drive 0 (§12's plot, a 0.07 dome where
+the engine peaked at 0.09) is now reproduced. The cubic fell to -0.001: §10's inflection is not needed with it.
+Through the whole engine (p2render ext=), the two-tone and noise checks are as they were. In the engine since
+2026-11-07. Values at 96 lie halfway between 64 and 127.
+FUZZ gains nothing from it (topDb within 0.35 dB, cycles 5.7 %), nor from a bias per Drive (the fit left it at 0), nor the coupling frequency per Drive (5.6 %).
+FUZZ's error is nearly all at Drive 0 (17.5 %, against 2-4 % from 16 up): there the instrument's bottom is flat at
+-0.053 at every level while its top grows (0.033 -> 0.046), and the engine's cycle leans in time. Scans of bias,
+gain, coupling and either ceiling at Drive 0 reach 15.4 % at best. No library sound uses FUZZ below Drive 17, so this
+is left open. Fits and plots: `~/Captures/Pulse2/fits/` fit5_* (1r: TUBE as ported), tube_r.png, fuzz0.png.

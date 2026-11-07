@@ -1357,3 +1357,14 @@ side-chain (p2Plugin notes §65). NONE matches (products within 1-2 dB). Even pr
 - The probe takes (250 Hz + 7.3 kHz) are kept; reading them needs the same-signal engine render now possible, not the
   phase-folded estimate tried (it did not line up).
 
+## 2026-11-06 - FUZZ's quiet end, TUBE and the EXT input on noise (`192k/drive_quiet2/`, `tools/drive_quiet2_session.py`, `drive_quiet2_analyse.py`)
+Through EXT IN, the engine playing the same files through its side-chain:
+- **FUZZ's quiet end is static lopsidedness.** A single 1 kHz tone at -48/-42/-36/-30 dBFS: H2 under H1 on the
+  instrument -13/-13/-19/-26 dB at Drive 0, -8/-21/-34/-44 at 17, -6/-24/-56/-48 at 64 - very lopsided when quiet,
+  gone within about 12 dB; the engine about -24 throughout. A smooth curve with an offset cannot (its H2 grows with
+  level); a narrow one-sided dead zone can. The two-tone f2-f1 follows the same pattern (-8..-6 dB at -48).
+- **The EXT input rolls off**: white noise through NONE, out against in, -1.6/-5.9/-10.4/-15.1/-19.8 dB at
+  4/8/12/16/20 kHz on the instrument against a flat engine - one pole at 4.8 kHz, now in (p2Plugin notes §65).
+- **TUBE's gain on noise is flat** across 125 Hz-8 kHz (within 0.5 dB) at Drive 0/64/127, the engine's fell 3.5-4 dB
+  above about 500 Hz and 2 dB under: the fitted shelf (half straight, half through 287 Hz) is not the instrument's.
+

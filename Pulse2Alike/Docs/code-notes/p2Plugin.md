@@ -618,4 +618,6 @@ DRIVE) as the oscillator's - interpolated up to the oversampled rate; osc 3's DC
 gates. Every extra voice hears it. EXT_IN_GAIN 3.51, measured against the instrument at INPUT GAIN 0 (the CT unit's):
 a 1 kHz sine at -60 / -20 dBFS gives -46.4 / -6.5 dB against the instrument's -46.1 / -6.4. INPUT GAIN itself is not
 a parameter yet. tools/p2render takes ext=<wav> to play a file into it.
+The EXT input rolls off, one pole at 4.8 kHz (EXT_IN_POLE_HZ), measured with white noise through NONE against the
+engine playing the same noise (`192k/drive_quiet2/`); EXT_IN_GAIN raised 0.2 dB to 3.59 to keep 1 kHz where it was.
 
