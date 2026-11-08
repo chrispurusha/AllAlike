@@ -46,4 +46,8 @@ void sn2_hardware_read_stop(void);
 // Any thread. channel 0..15
 void sn2_hardware_short(const char * port, uint8_t status, uint8_t data1, uint8_t data2);
 
+// notes §4: ask the instrument on this port who it is; its SysEx ID arrives through sn2_hardware_identified()
+tSn2HardwareResult sn2_hardware_identify_start(const char * port);
+int sn2_hardware_identified(void);   // the ID once it has come (then -1 again), -1 meanwhile
+
 #endif // __SN2_HARDWARE_H__

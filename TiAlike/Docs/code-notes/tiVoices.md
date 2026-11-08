@@ -106,7 +106,11 @@ Bend, pressure, the wheel and the other controllers the matrix can read. Hidden 
 Six slots with up to three destinations each, and each LFO's assign. Sources are 0..1, with an LFO's bipolar source -0.5..0.5, Key Follow (note - 60) / 63, Arp Input -0.5 with the arpeggiator off, and Velocity Off full until a key is released; amounts (byte - 64) / 64. Full amount is 128 dial units, or 128 semitones of pitch: the 10% constant source moves Cutoff by 12.8. Destinations the engine lacks (the effects, for now) are summed and ignored.
 
 ## 10. Keys
-Mono modes keep the keys held and fall back to the last still down. Hold keeps notes after release, as the pedal does. Portamento is an exponential approach: its time constant is 5.65 ms times 3 to the power dial / 32.
+Mono modes keep the keys held and fall back to the last still down. Hold keeps notes after release, as the pedal does. Portamento is an exponential approach: its time constant is 5.65 ms times 3 to the power dial / 32. Which notes glide
+depends on the key mode, as on the instrument: Poly, Mono 1 and Mono 3 glide every note from the last key pressed;
+Mono 2 and Mono 4 only a note played while another is still held (legato), either way; a mono voice falling back to a
+key still held glides back. A note that does not glide starts on its own pitch. (Checked on the hardware by ear,
+2026-11-08, with the instrument's MIDI not looped back.)
 
 
 Filter key follow takes a downward Transpose into account, and not an upward one.

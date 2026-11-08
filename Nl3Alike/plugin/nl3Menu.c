@@ -204,7 +204,7 @@ static void action_panel_help(int index) {
                "Patches: < Prev and Next > step through the presets, 1:001-8:128; Load... opens a .syx or .mid file of "
                "Singles, choosing one when it holds several. The name beside them edits on a click. A Single keeps "
                "every byte it came with, though only what is built so far plays.\n\n"
-               "Link (GLOBAL page): the Nord Lead 3 follows this sound and these notes. Choose its output in the MIDI menu; Channel and Device are the instrument's. Only its edit buffer is written, never a stored program.\n\n"
+               "Link (GLOBAL page): the Nord Lead 3 follows this sound. Play it from the host on the instrument's own MIDI channel: Link sends no notes, so a key sounds once. Choose its output in the MIDI menu; Device is the instrument's. Only its edit buffer is written, never a stored program.\n\n"
                "Dials: drag to turn, Shift to turn finely. Controls chooses how a drag turns them: Rotary follows the "
                "pointer round the dial, Vertical and Horizontal count its movement.\n\n"
                "Lists (the oscillator's shape, the filter's mode) open a menu of their values on a click.\n\n"

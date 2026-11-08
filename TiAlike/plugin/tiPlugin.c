@@ -65,6 +65,7 @@ static const uint8_t gControllerUid[16] = {0x30, 0x99, 0xDF, 0x1B, 0xE1, 0x40, 0
 #define LINK_SOUND_SECONDS     (1.0)   // what a whole Single takes on this port
 #define MAX_MONO_FRAMES        (8192)
 #define HOST_CHUNK             (256u)
+#define OUTPUT_HEADROOM        (0.5f)  // notes §14: 6 dB under the instrument's level, after its limit
 #define ENGINE_FRAMES          (1024u) // HOST_CHUNK at any host rate the voices fall back from
 
 typedef struct {
@@ -261,17 +262,11 @@ static void queue(tTiPlugin * t, tTiEvent e) {
 }
 
 static void ti_note_on(void * inst, uint8_t channel, uint8_t note, float velocity, uint32_t sampleOffset) {
-    if (((tTiPlugin *)inst)->values[kTiParamHwLink] >= 0.5) {
-        ti_hardware_note(note, (uint8_t)lroundf(velocity * 127.0f));   // notes §9
-    }
-    (void)channel;
+    (void)channel;   // notes §9: the instrument takes its notes from the host, not from Link
     queue((tTiPlugin *)inst, (tTiEvent){sampleOffset, note, true, velocity});
 }
 
 static void ti_note_off(void * inst, uint8_t channel, uint8_t note, float velocity, uint32_t sampleOffset) {
-    if (((tTiPlugin *)inst)->values[kTiParamHwLink] >= 0.5) {
-        ti_hardware_note(note, 0);   // notes §9
-    }
     (void)channel;
     queue((tTiPlugin *)inst, (tTiEvent){sampleOffset, note, false, velocity});
 }
@@ -379,8 +374,8 @@ static void ti_process(void * inst, const float *const * in, uint32_t numIn, flo
 
     // after the ceiling: it turns the output down and never saves the sound from it
     for (uint32_t f = 0; f < frames; f++) {
-        left[f]  *= (float)t->values[kTiParamMaster];
-        right[f] *= (float)t->values[kTiParamMaster];
+        left[f]  *= OUTPUT_HEADROOM * (float)t->values[kTiParamMaster];   // notes §14
+        right[f] *= OUTPUT_HEADROOM * (float)t->values[kTiParamMaster];
     }
 
     synthlib_swap_fade_apply(&t->fade, left, right, frames, t->hostRate);

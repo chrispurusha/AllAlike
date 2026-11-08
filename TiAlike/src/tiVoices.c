@@ -303,8 +303,13 @@ static void start_voice(tTiVoices * v, tTiVoice * vc, uint8_t note, float veloci
     const tTiSound * s      = &v->sound;
     bool             silent = !vc->active || (vc->amp.level <= 0.0);
 
-    if (silent) {
-        vc->pitch = ((s->a[5] > 0) && (v->lastNote >= 0)) ? (double)v->lastNote : (double)note;
+    bool             mono   = (s->a[94] >= 1) && (s->a[94] <= 4);
+
+    // notes §10: a gliding note comes from the last key (poly) or from where the voice is (mono); another starts on its own
+    if (!v->glideNow) {
+        vc->pitch = (double)note;
+    } else if (silent || !mono) {
+        vc->pitch = (double)v->lastNote;
     }
     vc->active          = true;
     vc->gate            = true;
@@ -442,12 +447,16 @@ static void trigger_note(tTiVoices * v, uint8_t note, float velocity, bool retri
 }
 
 void ti_voices_note_on(tTiVoices * v, uint8_t note, float velocity) {
-    bool mono   = (v->sound.a[94] >= 1) && (v->sound.a[94] <= 4);
-    bool legato = mono && (v->heldCount > 0u);
+    bool mono       = (v->sound.a[94] >= 1) && (v->sound.a[94] <= 4);
+    bool legato     = mono && (v->heldCount > 0u);
 
     if (v->heldCount < 128u) {
         v->held[v->heldCount++] = note;
     }
+    // notes §10: Mono 2 and Mono 4 glide only from a key still held; the other modes from the last key whenever there is one
+    bool legatoOnly = (v->sound.a[94] == 2) || (v->sound.a[94] == 4);
+
+    v->glideNow = (v->sound.a[5] > 0) && (v->lastNote >= 0) && (!legatoOnly || legato);
     trigger_note(v, note, velocity, !legato || (v->sound.a[94] == 1) || (v->sound.a[94] == 3));
     v->lastNote = note;
 }
@@ -465,6 +474,7 @@ void ti_voices_note_off(tTiVoices * v, uint8_t note, float velocity) {
 
     // notes §10: a mono voice falls back to the last key still down
     if (mono && (v->heldCount > 0u)) {
+        v->glideNow = (v->sound.a[5] > 0);   // notes §10: back to a key still held, so legato in every mono mode
         trigger_note(v, v->held[v->heldCount - 1u], (float)v->voice[0].velocity, false);
         return;
     }

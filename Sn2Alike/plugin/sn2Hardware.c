@@ -179,6 +179,32 @@ static void read_byte(uint8_t b) {
     }
 }
 
+#define IDENTIFY_WAIT_S    (2.0)
+
+static _Atomic bool gIdentifying;
+static _Atomic int  gIdentified = -1;
+static double       gIdentifyStarted;
+
+// notes §4: the universal identity reply, F0 7E <id> 06 02 then Novation's 00 20 29
+static void identify_byte(uint8_t b) {
+    static uint8_t m[8];
+    static int     n = 8;
+
+    if (b == 0xF0) {
+        n = 0;
+    }
+
+    if (n >= 8) {
+        return;
+    }
+    m[n++] = b;
+
+    if ((n == 8) && (m[1] == 0x7E) && (m[3] == 0x06) && (m[4] == 0x02) && (m[5] == 0x00) && (m[6] == 0x20) && (m[7] == 0x29)) {
+        atomic_store(&gIdentified, (int)m[2]);
+        atomic_store(&gIdentifying, false);
+    }
+}
+
 static void read_input(const MIDIPacketList * list, void * port, void * source) {
     const MIDIPacket * packet = &list->packet[0];
 
@@ -187,7 +213,11 @@ static void read_input(const MIDIPacketList * list, void * port, void * source) 
 
     for (UInt32 i = 0; i < list->numPackets; i++) {
         for (UInt16 k = 0; k < packet->length; k++) {
-            read_byte(packet->data[k]);
+            if (atomic_load(&gIdentifying)) {
+                identify_byte(packet->data[k]);
+            } else {
+                read_byte(packet->data[k]);
+            }
         }
 
         packet = MIDIPacketNext(packet);
@@ -242,6 +272,47 @@ tSn2HardwareResult sn2_hardware_read_start(const char * port, uint8_t device) {
     gReadStarted = now_s();
     atomic_store(&gReadActive, true);
     return send_bytes(port, request, sizeof(request));
+}
+
+tSn2HardwareResult sn2_hardware_identify_start(const char * port) {
+    static const uint8_t request[6] = {0xF0, 0x7E, 0x7F, 0x06, 0x01, 0xF7};   // identity request, to every device
+
+    if (atomic_load(&gReadActive) || (port == NULL) || (port[0] == '\0')) {
+        return eSn2HardwareNotFound;   // a read is listening already
+    }
+
+    if ((gClient == 0) && (MIDIClientCreate(CFSTR("Sn2Alike"), NULL, NULL, &gClient) != noErr)) {
+        return eSn2HardwareNoMidi;
+    }
+
+    if ((gReadPort == 0) && (MIDIInputPortCreate(gClient, CFSTR("In"), read_input, NULL, &gReadPort) != noErr)) {
+        gReadPort = 0;
+        return eSn2HardwareNoMidi;
+    }
+    gReadSource      = find_input(port);
+
+    if ((gReadSource == 0) || (MIDIPortConnectSource(gReadPort, gReadSource, NULL) != noErr)) {
+        gReadSource = 0;
+        return eSn2HardwareNotFound;
+    }
+    atomic_store(&gIdentified, -1);
+    gIdentifyStarted = now_s();
+    atomic_store(&gIdentifying, true);
+    return send_bytes(port, request, sizeof(request));
+}
+
+int sn2_hardware_identified(void) {
+    int id = atomic_exchange(&gIdentified, -1);
+
+    if ((id >= 0) || (atomic_load(&gIdentifying) && ((now_s() - gIdentifyStarted) > IDENTIFY_WAIT_S))) {
+        atomic_store(&gIdentifying, false);
+
+        if (!atomic_load(&gReadActive) && (gReadPort != 0) && (gReadSource != 0)) {
+            MIDIPortDisconnectSource(gReadPort, gReadSource);
+            gReadSource = 0;
+        }
+    }
+    return id;
 }
 
 tSn2ReadState sn2_hardware_read_state(void) {

@@ -1,6 +1,8 @@
 # Sn2Alike todo
 
 ## First
+- Envelope Delay (Env 2 and Env 3, program bytes 193 and 187) is not built: the instrument delays the envelope's start (Env 2 Delay 0 acts at once, 64 arrives between 0.1 and 1.2 s, 112 not within 1.2 s - hardware 2026-11-08); the reference emulator ignores it, so measure the law on the hardware (more values, longer notes, a pitch track that survives the jump)
+- LFO Delay Trigger (program bytes 169 and 179) is not read; find what it does (single or multi trigger of the delay?) on the hardware. And recheck the LFO Delay law itself there (it was measured on the emulator, which ignores envelope delay)
 - Aliasing setting (optional), per instance as in Nl3Alike: Instrument or Clean (`../Docs/feature-status.md`, anti-aliasing); first find why more Soften aliases more (-84 dB at Soften 0, -66 at 64, A4)
 - Oscillator: Sync, Hardness, Skew, Formant Width; audio inputs; tighten the stretch law (design: nulls stop near -31 dB)
 - Filter: Special Width
@@ -35,5 +37,5 @@
 - Distortion Compensation on a saw: its level law at extreme Levels
 - Filter Overdrive and Q Normalise: check both again against the reference (owner, 2026-11-01)
 - Panel dials for LFO routes to pitch and width
-- Link: detect the SysEx ID automatically - an identity request on the chosen MIDI port, and SysEx ID set from the reply (owner 2026-11-02: the ID is not visible on the instrument)
+- Link: the SysEx ID from the identity reply (hardware notes §4, built 2026-11-08): check on the instrument that choosing the port sets it
 - Outliers after the LFOs: Vanilla group -3 dB, TB1, BubbleArp, China Cymbal, Ride 2, A Syncy Feeling, RainPicks, Timpani

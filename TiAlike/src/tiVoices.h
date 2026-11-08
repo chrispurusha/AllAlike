@@ -114,6 +114,7 @@ typedef struct {
     double          hostBeats;   // quarter notes, as of the next sample to render
     bool            releaseHeld; // notes §5: the transport started - held controls land now
     bool            heard;       // sound holds a Single
+    bool            glideNow;    // notes §10: the note being started glides
     double          fxMod[128];  // the newest voice's modulation, for the effects
     double          control[eTiCtlCount];
     tTiFilterTables filterTables;

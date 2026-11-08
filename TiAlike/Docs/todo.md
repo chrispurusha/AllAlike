@@ -3,6 +3,9 @@
 One line per item. Measurements and reasoning go in `findings.md`, design in `design.md`.
 
 ## First
+- Portamento by key mode built 2026-11-08 (Poly/Mono 1/Mono 3 from the last key, Mono 2/Mono 4 legato only; voices notes §10) - every mode matches the reference separated and legato; the glide's tail is a little slow (192 Hz against 196 at 300 ms on C3 -> G3, Portamento 80): check the time law on the hardware
+- Smooth Mode On glides Shape (Wavetable Index) changes: a dial swept through a table is smoother on the instrument (5 dB less between the harmonics with On than Off, where ours matches Off). Find which controls it glides, and the rate per step (one-step changes did not resolve against noise; try a high note, On against Off)
+- Reference caveat: the reference emulator is buggy when stepping through presets - program changes and anything carried across a change of sound are checked on the hardware Virus TI, not the emulator
 - Phaser: Spread between 0 and 96, the LFO's depth and shape, and matrix routes to it
 - Chorus: the other types, and Feedback checked. 
 - Filter Bank: VariSlope in-between Shapes, Vowel at high resonance, Vowel and shifter Stereo Phase

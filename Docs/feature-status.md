@@ -30,6 +30,13 @@ Missing everywhere, or built in one and wanted in the others:
   keyboard like an oscillator can be found without reading numbers. Each Alike's 1:1 point comes from its own law
   (Nl3Alike's KBT is a switch whose On is 1:1; TiAlike's and Sn2Alike's from their measured key-follow curves).
 - **Writing sounds back to the instrument.** Pulse2Alike's Store to Slot is built (a test store to P450 read back), Restore Presets waits; TiAlike's bank write is built but untried; Sn2Alike only reads.
+- **Link sends the sound only** (CT 2026-11-08), in every Alike: notes, bend, wheel and pedal reach the instrument from
+  the host's own MIDI route, never from Link, so a key sounds once (forwarded both ways, every note played twice -
+  two voices beating in Poly on the Virus TI). Pulse2Alike never forwarded them; TiAlike, Sn2Alike and Nl3Alike did
+  until then.
+- **Output headroom, 6 dB** (CT 2026-11-07/08), in every Alike: the output is half the instrument's own level, applied
+  after the instrument's own ceiling or limit so its clipping is unchanged; each render tool keeps the instrument's
+  level for comparisons (Pulse2Alike's doubles it back, the others render the engine directly).
 - **Tempo is always the host's** (CT 2026-11-07), in every Alike, with no tempo setting: 120 BPM until the host gives
   one, then the last it gave, kept when it stops giving one (a stopped transport). A sound's own tempo or arp tempo is
   kept with the sound but not used. Built in all four. Sync itself stays the sound's choice where the instrument has

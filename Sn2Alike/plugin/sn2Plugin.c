@@ -66,6 +66,7 @@ static const uint8_t gControllerUid[16] = {0x2B, 0xE4, 0x1E, 0xF9, 0xA5, 0x0F, 0
 #define DEFAULT_TEMPO          (120.0) // notes §13: until the host gives one
 #define CLIP_HOLD_S            (1.5)
 #define HOST_CEILING           (0.97675f)
+#define OUTPUT_HEADROOM        (0.5f)  // notes §16: 6 dB under the instrument's level, after its ceiling
 #define HOST_CHUNK             (256u)
 #define ENGINE_FRAMES          (4096u) // notes §12: HOST_CHUNK at a host rate down to 2.5 kHz
 
@@ -104,7 +105,6 @@ typedef struct {
     bool               hwSent, hwExtensionDue;
     double             hwSentAt;
     uint8_t            hwLast[SN2_SINGLE_LENGTH];
-    int                hwBend, hwWheel, hwPedal;
     _Atomic bool       startPreset;  // notes: a new instance plays A000
     _Atomic int        wantPreset;   // a program change waiting for the fade
     _Atomic bool       clearEffects; // notes §15: a new sound starts with empty effects, the old one's echoes gone
@@ -128,7 +128,6 @@ static void * sn2_create(const tSynthLibPluginDesc * desc) {
     }
 
     t->hwLock      = -1;
-    t->hwBend      = t->hwWheel = t->hwPedal = -1;
     synthlib_swap_fade_init(&t->fade);
     sn2_presets_refresh();
     t->startPreset = true;
@@ -235,10 +234,10 @@ static void render_host(tSn2Plugin * t, const tSn2Sound * sound, float * outL, f
 
         // the resampler rounds the ceiling's corners a little past it
         for (uint32_t i = 0; i < chunk; i++) {
-            outL[i] = fminf(HOST_CEILING, fmaxf(-HOST_CEILING, outL[i]));
+            outL[i] = OUTPUT_HEADROOM * fminf(HOST_CEILING, fmaxf(-HOST_CEILING, outL[i]));
 
             if (outR != NULL) {
-                outR[i] = fminf(HOST_CEILING, fmaxf(-HOST_CEILING, outR[i]));
+                outR[i] = OUTPUT_HEADROOM * fminf(HOST_CEILING, fmaxf(-HOST_CEILING, outR[i]));
             }
         }
 
@@ -324,16 +323,10 @@ static void queue(tSn2Plugin * t, tSn2Event e) {
     }
 }
 
-static uint8_t hw_channel(const tSn2Plugin * t) {
-    return (uint8_t)lround(t->values[kSn2ParamHwChannel] * 15.0);
-}
-
 static void sn2_note_on(void * inst, uint8_t channel, uint8_t note, float velocity, uint32_t sampleOffset) {
     tSn2Plugin * t = (tSn2Plugin *)inst;
 
-    if (t->values[kSn2ParamHwLink] >= 0.5) {
-        sn2_hardware_short(sn2_hw_port(), (uint8_t)(0x90 | hw_channel(t)), note, (uint8_t)lroundf(velocity * 127.0f));
-    }
+    (void)t;   // notes §14: the instrument takes its notes from the host, not from Link
     (void)channel;
     queue((tSn2Plugin *)inst, (tSn2Event){sampleOffset, note, true, velocity});
 }
@@ -341,9 +334,7 @@ static void sn2_note_on(void * inst, uint8_t channel, uint8_t note, float veloci
 static void sn2_note_off(void * inst, uint8_t channel, uint8_t note, float velocity, uint32_t sampleOffset) {
     tSn2Plugin * t = (tSn2Plugin *)inst;
 
-    if (t->values[kSn2ParamHwLink] >= 0.5) {
-        sn2_hardware_short(sn2_hw_port(), (uint8_t)(0x90 | hw_channel(t)), note, 0);
-    }
+    (void)t;
     (void)channel;
     (void)velocity;
     queue((tSn2Plugin *)inst, (tSn2Event){sampleOffset, note, false, 0.0f});
@@ -695,12 +686,9 @@ static double now_seconds(void) {
     return (double)ts.tv_sec + (ts.tv_nsec * 1e-9);
 }
 
-// notes §14: the instrument follows the sound, whole, and the controllers
+// notes §14: the instrument follows the sound, whole; notes and controllers come from the host
 static void hardware_link(tSn2Plugin * t, void * user) {
     if (synthlib_plugin_param_value(user, kSn2ParamHwLink) < 0.5) {
-        if (t->hwLock >= 0) {
-            sn2_hardware_short(sn2_hw_port(), (uint8_t)(0xB0 | hw_channel(t)), 123, 0);
-        }
         sn2_hardware_release(&t->hwLock);
         t->hwSent         = false;
         t->hwExtensionDue = false;
@@ -736,25 +724,7 @@ static void hardware_link(tSn2Plugin * t, void * user) {
         t->hwExtensionDue = t->hwSent;
         synthlib_log_line("Link: sound sent to \"%s\" (result %d)", sn2_hw_port(), (int)r);
     }
-    uint8_t status = (uint8_t)(0xB0 | hw_channel(t));
-    int     bend   = (int)lround(synthlib_plugin_param_value(user, kSn2ParamPitchBend) * 16383.0);
-    int     wheel  = (int)lround(synthlib_plugin_param_value(user, kSn2ParamModWheel) * 127.0);
-    int     pedal  = (synthlib_plugin_param_value(user, kSn2ParamSustainPedal) >= 0.5) ? 127 : 0;
-
-    if (bend != t->hwBend) {
-        sn2_hardware_short(sn2_hw_port(), (uint8_t)(0xE0 | hw_channel(t)), (uint8_t)(bend & 0x7F), (uint8_t)(bend >> 7));
-        t->hwBend = bend;
-    }
-
-    if (wheel != t->hwWheel) {
-        sn2_hardware_short(sn2_hw_port(), status, 1, (uint8_t)wheel);
-        t->hwWheel = wheel;
-    }
-
-    if (pedal != t->hwPedal) {
-        sn2_hardware_short(sn2_hw_port(), status, 64, (uint8_t)pedal);
-        t->hwPedal = pedal;
-    }
+    // notes §14: bend, wheel and pedal reach the instrument from the host with the notes, not from Link
 }
 
 static const tSn2PatchHost gPatchHost = {
@@ -811,7 +781,7 @@ static const tSynthLibBackdoor gBackdoor = {
 
 static void sn2_panel_sync(void * user) {
     synthlib_backdoor_poll("sn2alike", &gBackdoor, user);
-    tSn2Plugin * t = (tSn2Plugin *)user;
+    tSn2Plugin * t  = (tSn2Plugin *)user;
 
     sn2_draw_set_user(user);
 
@@ -821,6 +791,12 @@ static void sn2_panel_sync(void * user) {
     sn2_draw_set_clip(now_seconds() < t->clipUntil);
     hardware_link(t, user);
     sn2_draw_read_tick();
+    int          id = sn2_hardware_identified(); // hardware notes §4
+
+    if (id >= 0) {
+        sn2_set_param(user, kSn2ParamHwDevice, (double)id / 127.0);
+        synthlib_plugin_param_edited(user, kSn2ParamHwDevice, (double)id / 127.0);
+    }
 
     // another instance's store shows within a second
     if ((now_seconds() - t->presetsChecked) >= 1.0) {
