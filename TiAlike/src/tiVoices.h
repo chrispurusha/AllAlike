@@ -81,6 +81,8 @@ typedef struct {
     uint32_t  noise;
     double    highPass[2];
     double    random;
+    double    drift, driftStep;             // notes §7a: Osc 2 Detune's triangle, -1..1, and its step per second
+    uint32_t  driftSeed;
     double    ringDc;
     double    satState[2];
     double    punchLeft;                    // samples

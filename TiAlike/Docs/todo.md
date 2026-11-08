@@ -3,6 +3,8 @@
 One line per item. Measurements and reasoning go in `findings.md`, design in `design.md`.
 
 ## First
+- Matrix push past a dial's end: the instrument caps it at the end too (voices notes §22) - DO NOT lift. Env Mode before Mono built 2026-11-08 (voices notes §12a; CuttaD6 gap 11.4/27.0 -> 3.3/10.0 dB). Next against the firmware probe, bank C: AnlogBD's tail (23.5 dB late), Acidica's LFOs (22.7 early), 3-Dumm's tail (15.0), Bombers' effects
+- Osc 2 Detune drift built 2026-11-08 (voices notes §7a: a per-voice triangle, ±27%, up to Detune 92): check by ear against the hardware with two oscillators at equal level
 - Portamento by key mode built 2026-11-08 (Poly/Mono 1/Mono 3 from the last key, Mono 2/Mono 4 legato only; voices notes §10) - every mode matches the reference separated and legato; the glide's tail is a little slow (192 Hz against 196 at 300 ms on C3 -> G3, Portamento 80): check the time law on the hardware
 - Smooth Mode On glides Shape (Wavetable Index) changes: a dial swept through a table is smoother on the instrument (5 dB less between the harmonics with On than Off, where ours matches Off). Find which controls it glides, and the rate per step (one-step changes did not resolve against noise; try a high note, On against Off)
 - Reference caveat: the reference emulator is buggy when stepping through presets - program changes and anything carried across a change of sound are checked on the hardware Virus TI, not the emulator

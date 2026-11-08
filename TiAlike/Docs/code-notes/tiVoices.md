@@ -88,7 +88,8 @@ Against a sine of 1, a triangle is 1, a saw 2/3 and a pulse 1/2. Measured with A
 - Sub, noise and ring share one mix curve, the sustain curve to the power 1.25.
 - Patch Volume: 0.2513 dB a step down to 48, then steeper (the table).
 - Panorama: two straight lines; a hard pan is 1.585 of the centre.
-- Osc 2 Detune is piecewise and shrinks with pitch, by 1.393 per two octaves.
+- Osc 2 Detune is piecewise and shrinks with pitch, by 1.393 per two octaves. The table is the centre of the drift
+  below (§7a); measured on single notes, it read low by whatever the drift happened to be.
 - Oscillator keyfollow: 96 tracks, 64 is fixed, centred on note 60.
 - Tuning: with Osc Init Phase at 0 the oscillators sit about a cent flat, by a little less as pitch rises; above 0 they sit 0.29 cents sharp.
 - A gentle high pass at about 15 Hz on the oscillators, before noise and ring, so two identical pulses multiplied keep their DC.
@@ -99,6 +100,14 @@ Against a sine of 1, a triangle is 1, a saw 2/3 and a pulse 1/2. Measured with A
 Init Phase sets Osc 2's phase against Osc 1, value/128 of a cycle, and above 0 every note starts its oscillators from there, so a run of notes is identical from one to the next. The oscillators' high pass starts clean on such a note: a voice left to keep its own would bring back whatever DC its last note ended on, and a run of notes would drift. At 0 the oscillators run free, so two at the same pitch sit at a different phase on every note, and their sum and ring product change from note to note.
 
 What cannot be heard is not computed: an oscillator with no level unless ring or FM needs it, the FM modulator with no FM, Osc 3 with no level, the second high pass outside Split, Filter 1 in Parallel with no share. Phases run on regardless, so the sound is byte for byte the same.
+
+## 7a. Osc 2 Detune drifts
+Up to Detune 92 Osc 2's detune is not fixed: it is the dial's cents times (1 + 0.273 d), where d is a triangle of
+the voice's own between -1 and 1. At each limit the triangle turns back at a new random speed, 1/2 + r/4 with r
+random in ±1, a whole ramp taking 0.743 s divided by that speed (0.99 to 2.97 s). Each voice has its own triangle,
+moving while the voice sounds, so two notes drift apart and a new note starts wherever its voice left off. From 93 the detune holds still. Measured at C4: Detune 64 wanders between 6.1 and 10.5 cents, 32 between 2.0
+and 3.5; the hardware gave 2.1-3.7 over four notes at 32 (2026-11-08).
+
 ## 8. The live controls
 Bend, pressure, the wheel and the other controllers the matrix can read. Hidden host parameters bound to their MIDI controls, so they arrive through the host's mapping.
 
@@ -125,6 +134,12 @@ Filter key follow takes a downward Transpose into account, and not an upward one
 
 ## 12. LFOs and pitch
 An LFO's pitch amount follows a steep curve, the same either side of zero, 2 semitones at half amount and 31 at full (`lfo_pitch_amount`). The filter envelope's route to Osc 2 is the same curve doubled. LFO 3 goes as the fourth power of its amount, 8 semitones at full. Trigger Phase 1..127 runs one cycle from the wave's minimum. Pulse Width, Shape and FM's fixed LFO routes are straight lines, 128, 64 and full travel at full amount. Cutoff, Resonance and Panorama's run through the 9-point curve of the linked Cutoff 2 offset, 64 dial units at full. An LFO in Env Mode always restarts with a note. A clocked LFO follows the host's tempo, always: 120 BPM until the host gives one, and the last it gave once it stops. The patch's own tempo byte is kept with the sound but not used.
+
+## 12a. Env Mode before Mono
+An LFO set to Mono and to Env Mode behaves as a per-voice LFO in Env Mode: it starts its single cycle with each note.
+On the instrument the two settings give the same sweep, within a hertz of brightness, on a held note (LFO 2 on Cutoff
+2 in bank C's CuttaD6, 2026-11-08). Before this a Mono LFO ignored Env Mode and ran free, which left that sound's
+filter sweep out. What a chord does with a Mono LFO in Env Mode was not checked.
 
 ## 13. Unison
 A stack is at most six voices. Each stands at a place from -1 to 1, not quite evenly (four are at -1, -0.5, 0.5, 1), which sets its detune and pan, and its level: 1 at the centre, 0.75 at the edges, with no gain on the stack as a whole. Detune is 24 cents at full, 10 at 96, 4.6 at 64. Unison LFO Phase moves every second voice by (byte - 64) x 2.8125 degrees, so 64 is no offset. With an LFO both clocked and in Env Mode, every second voice of a stack holds that LFO at its top instead of running it. A Single older than the TI format (byte 0 below 12) keeps Unison in page A 97-100.
@@ -160,7 +175,7 @@ An LFO with Keytrigger off runs from the moment the instance starts, whether clo
 With Osc 2 in the HyperSaw model the FM Amount, and whatever modulates it, sets a cross-oscillator sync frequency. The saws run at 2^(amount / 32) times their pitch, reaching 16 times at full, and all restart when Osc 1 does. At 0 nothing restarts. Restarting together the saws would add in step, so the stack is scaled back to the level of one. FM itself does not apply.
 
 ## 22. Where the matrix reaches
-Every destination that is a setting in the sound has a route. LFO amounts add to their own amount before its curve. A slot's amount can be moved by another slot, so those routes are summed in a first pass and added to the amount in the second. Effects are shared by the voices, so they take the newest voice's modulation, held when nothing sounds, added to their bytes for each block.
+Every destination that is a setting in the sound has a route. LFO amounts add to their own amount before its curve, and a push past the end of the dial stops there, as on the instrument: 127 plus any further push sweeps exactly as 127 does (checked on LFO 2 to Cutoff 1, 2026-11-08, with the curve within 7% of the instrument's from 72 to 127). A slot's amount can be moved by another slot, so those routes are summed in a first pass and added to the amount in the second. Effects are shared by the voices, so they take the newest voice's modulation, held when nothing sounds, added to their bytes for each block.
 
 ## 23. Pulse width under modulation
 The dial covers the upper half of the width, but modulation carries it on through the square to the narrow side, so the value is limited to -127 to 127 and not 0 to 127.

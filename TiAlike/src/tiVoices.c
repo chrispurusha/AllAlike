@@ -22,29 +22,32 @@
 #include "tiFixed.h"
 #include "tiVoices.h"
 
-#define SMOOTH_S             (2048.0 / 46875.0) // notes §5
-#define SUB_BLOCK            (32u)              // notes §4
-#define OUTPUT_GAIN          (-0.4155)          // notes §7: a sine at Patch Volume 127 and Filter 1 alone
-#define RING_GAIN            (3.0)              // notes §7
-#define NOISE_LEVEL          (0.719)            // notes §7
-#define SUB_SQUARE           (2.0 / 3.0)        // notes §7
-#define SUB_TRIANGLE         (2.62)             // notes §7
-#define SPLIT_GAIN           (1.28)             // notes §6
-#define OSC3_GAIN            (0.01332)          // notes §7: of a sine, per step: Volume is a straight line
-#define PAN_HARD             (0.585)            // notes §7
-#define DC_BLOCK_HZ          (15.0)             // notes §7
-#define KEY_CENTRE           (60.0)             // notes §7
-#define TUNE_CENTS           (-0.951)           // notes §7
-#define TUNE_SLOPE           (1.576)
-#define DETUNE_SLOPE         (1.393)
-#define MOD_DEPTH            (128.0)            // notes §9: full amount, in dial units
-#define KEY_DIAL_PER_SEMI    (1.08)             // notes §11
-#define PITCH_MOD_DEPTH      (128.0)            // notes §9: full amount, in semitones
-#define PITCH_MOD_LIMIT      (48.0)             // notes §24
-#define PUNCH_SECONDS        (0.03)
-#define PUNCH_TAU            (0.0004)
-#define PUNCH_LEVEL          (3.376)
-#define PUNCH_OCTAVE         (9.6)
+#define SMOOTH_S              (2048.0 / 46875.0) // notes §5
+#define SUB_BLOCK             (32u)              // notes §4
+#define OUTPUT_GAIN           (-0.4155)          // notes §7: a sine at Patch Volume 127 and Filter 1 alone
+#define RING_GAIN             (3.0)              // notes §7
+#define NOISE_LEVEL           (0.719)            // notes §7
+#define SUB_SQUARE            (2.0 / 3.0)        // notes §7
+#define SUB_TRIANGLE          (2.62)             // notes §7
+#define SPLIT_GAIN            (1.28)             // notes §6
+#define OSC3_GAIN             (0.01332)          // notes §7: of a sine, per step: Volume is a straight line
+#define PAN_HARD              (0.585)            // notes §7
+#define DC_BLOCK_HZ           (15.0)             // notes §7
+#define KEY_CENTRE            (60.0)             // notes §7
+#define TUNE_CENTS            (-0.951)           // notes §7
+#define TUNE_SLOPE            (1.576)
+#define DETUNE_SLOPE          (1.393)
+#define DRIFT_DEPTH           (0.273)           // notes §7a
+#define DRIFT_RAMP_SECONDS    (128.0 * 0.0058057)
+#define DRIFT_LAST_DIAL       (92.0)
+#define MOD_DEPTH             (128.0)           // notes §9: full amount, in dial units
+#define KEY_DIAL_PER_SEMI     (1.08)            // notes §11
+#define PITCH_MOD_DEPTH       (128.0)           // notes §9: full amount, in semitones
+#define PITCH_MOD_LIMIT       (48.0)            // notes §24
+#define PUNCH_SECONDS         (0.03)
+#define PUNCH_TAU             (0.0004)
+#define PUNCH_LEVEL           (3.376)
+#define PUNCH_OCTAVE          (9.6)
 
 // Matrix destinations (the instrument's numbering)
 enum {
@@ -187,7 +190,10 @@ void ti_voices_init(tTiVoices * v, double rate) {
     ti_voices_set_rate(v, rate);
 
     for (uint32_t i = 0; i < TI_MAX_VOICES; i++) {
-        v->voice[i].noise = (i * 2654435761u) + 1u;
+        v->voice[i].noise     = (i * 2654435761u) + 1u;
+        v->voice[i].driftSeed = (i * 2246822519u) + 7u;
+        v->voice[i].drift     = fmod(((double)i * 0.618034) + 0.3, 2.0) - 1.0;
+        v->voice[i].driftStep = ((i & 1u) ? 2.0 : -2.0) * 0.5 / DRIFT_RAMP_SECONDS;
     }
 
     for (int l = 0; l < 3; l++) {
@@ -298,6 +304,18 @@ static tTiVoice * pick_voice(tTiVoices * v) {
 
 static void lfo_shape(const tTiVoices * v, const tTiSound * s, int l, const double * mod, tTiLfoShape * out);
 
+// notes §12a: Env Mode takes precedence over Mono, so such an LFO runs per voice and restarts with each note
+static bool lfo_is_mono(const tTiSound * s, int l) {
+    if (l == 0) {
+        return (s->a[70] != 0) && (s->a[69] == 0);
+    }
+
+    if (l == 1) {
+        return (s->a[82] != 0) && (s->a[81] == 0);
+    }
+    return s->b[9] != 0;
+}
+
 static void start_voice(tTiVoices * v, tTiVoice * vc, uint8_t note, float velocity, double detune, double pan, double place, double lfoPhase, bool oddVoice, bool retrigger) {
     vc->indexSet        = false; // notes §31: a new note takes its Index at once
     const tTiSound * s      = &v->sound;
@@ -333,7 +351,7 @@ static void start_voice(tTiVoices * v, tTiVoice * vc, uint8_t note, float veloci
 
         for (int l = 0; l < 3; l++) {
             uint8_t trig = (l == 0) ? s->a[73] : ((l == 1) ? s->a[85] : 0);
-            bool    mono = (l == 0) ? (s->a[70] != 0) : ((l == 1) ? (s->a[82] != 0) : (s->b[9] != 0));
+            bool    mono = lfo_is_mono(s, l);
 
             if (!mono) {
                 double ph      = fmod(((trig > 0) ? ((trig - 1.0) / 126.0) : 0.0) + lfoPhase + 1.0, 1.0); // notes §12
@@ -917,20 +935,39 @@ static double balance_2(double b) {
     return (b <= 64.0) ? (0.798 * b / 64.0) : (0.798 + (0.2043 * (b - 64.0) / 63.0));
 }
 
-// notes §7: Osc 2 Detune in cents at note 60
+// notes §7: Osc 2 Detune in cents at note 60, the centre of the drift below
 static double detune_cents(double dial) {
-    static const double kAt[10] = {0, 8, 16, 32, 48, 64, 80, 96, 112, 127};
-    static const double kCt[10] = {0, 0.272, 0.568, 2.339, 4.699, 7.055, 9.409, 17.76, 27.28, 43.29};
+    static const double kAt[18] = {0, 8, 16, 24, 32, 40, 48, 56, 64, 72, 80, 84, 88, 92, 96, 100, 112, 127};
+    static const double kCt[18] = {0, 0.335, 0.665, 1.70, 2.71, 4.10, 5.45, 6.82, 8.19, 9.55, 10.91, 12.63, 14.32, 16.03, 17.76, 20.11, 27.29, 43.29};
 
     dial = clamp(dial, 0.0, 127.0);
 
-    for (int i = 1; i < 10; i++) {
+    for (int i = 1; i < 18; i++) {
         if (dial <= kAt[i]) {
             return kCt[i - 1] + ((kCt[i] - kCt[i - 1]) * (dial - kAt[i - 1]) / (kAt[i] - kAt[i - 1]));
         }
     }
 
-    return kCt[9];
+    return kCt[17];
+}
+
+// notes §7a: the voice's triangle; at each limit it turns back at a new random speed
+static void drift_advance(tTiVoice * vc, double seconds) {
+    vc->drift += vc->driftStep * seconds;
+
+    if (fabs(vc->drift) >= 1.0) {
+        vc->drift     = (vc->drift > 0.0) ? 1.0 : -1.0;
+        vc->driftSeed = (vc->driftSeed * 1664525u) + 1013904223u;
+        double speed = 0.5 + (0.25 * ((double)(int32_t)vc->driftSeed / 2147483648.0));
+        vc->driftStep = -vc->drift * 2.0 * speed / DRIFT_RAMP_SECONDS;
+    }
+}
+
+// notes §7a: Osc 2 Detune, drifting by a quarter either way up to 92
+static double detune2_cents(const tTiVoice * vc, double dial) {
+    double cents = detune_cents(dial);
+
+    return (dial <= DRIFT_LAST_DIAL) ? (cents * (1.0 + (DRIFT_DEPTH * vc->drift))) : cents;
 }
 
 // notes §14: FM's depth, of Osc 2's frequency, from an amount 0..1
@@ -1187,6 +1224,7 @@ static double noise_sample(tTiVoice * vc, double color, double rate) {
 
 static void render_voice(tTiVoices * v, const tTiSound * s, tTiVoice * vc, const tTiFilterSet * set, const tTiEnvShape * amp, const tTiEnvShape * fenv,
                          const tTiEnvShape * e3, const tTiEnvShape * e4, const double * mod, float * left, float * right, uint32_t frames, double levelL, double levelR) {
+    drift_advance(vc, (double)frames / v->rate);
     double   note1     = key_pitch(vc->pitch, s->a[21]) + ((double)s->a[93] - 64.0) + (mod[kDstTranspose] * 48.0);
     double   note2     = key_pitch(vc->pitch, s->a[31]) + ((double)s->a[93] - 64.0) + (mod[kDstTranspose] * 48.0);
     double   scale     = pow(DETUNE_SLOPE, -(vc->pitch - KEY_CENTRE) / 24.0);
@@ -1194,7 +1232,7 @@ static void render_voice(tTiVoices * v, const tTiSound * s, tTiVoice * vc, const
     double   bend      = fabs(v->control[eTiCtlBend]) * ((v->control[eTiCtlBend] >= 0.0) ? bipolar(s->b[26]) : bipolar(s->b[27])) * 64.0;
     double   env       = vc->filterEnv.level;
     double   semi1     = note1 + bend + unison + pitch_offset(s->a[20], mod[kDstPitch1]);
-    double   semi2     = note2 + bend + unison + pitch_offset(s->a[25], mod[kDstPitch2]) + ((detune_cents(s->a[26] + (127.0 * mod[kDstDetune])) * scale) / 100.0)
+    double   semi2     = note2 + bend + unison + pitch_offset(s->a[25], mod[kDstPitch2]) + ((detune2_cents(vc, s->a[26] + (127.0 * mod[kDstDetune])) * scale) / 100.0)
                          + (2.0 * lfo_pitch_amount(bipolar(s->a[29]) + mod[kDstEnvPitch]) * env);
     double   semi3     = key_pitch(vc->pitch, s->a[31]) + ((double)s->a[93] - 64.0) + (mod[kDstTranspose] * 48.0) + bend + unison + ((double)s->b[43] - 64.0) + ((detune_cents(s->b[44]) * scale) / 100.0) + (PITCH_MOD_DEPTH * mod[kDstOsc3Pitch]);
     double   inc1      = semitones_to_increment(v, semi1, semi1);
@@ -1555,7 +1593,7 @@ void ti_voices_render(tTiVoices * v, const tTiSound * given, float * left, float
         double   seconds   = n / v->rate;
         double   none[kDstCount];
         double   mono[3];
-        bool     isMono[3] = {s->a[70] != 0, s->a[82] != 0, s->b[9] != 0};
+        bool     isMono[3] = {lfo_is_mono(s, 0), lfo_is_mono(s, 1), lfo_is_mono(s, 2)};
 
         memset(none, 0, sizeof(none));
 
