@@ -246,8 +246,9 @@ P004 WITH DELAY holds osc 2 and feeds it the key through M-ACCU and M-DELAY, a s
 
 ## 32. The arpeggiator in the engine
 With Arp Active on, keys go to the arpeggiator (p2Arp) rather than the voice, and it plays the voice through the
-same note-on and note-off a key would, a step's Glide forcing a glide. Its clock is the host's position when the
-host is playing (the arp then follows the host's tempo), otherwise its own Tempo; the Global "clock" setting of the
+same note-on and note-off a key would, a step's Glide forcing a glide. It always runs at the host's tempo - 120 BPM until
+the host gives one, and the last it gave once it stops - and follows the host's position while the host plays; the
+sound's own Arp Tempo is kept with the sound but not used; the Global "clock" setting of the
 instrument has no equivalent. The accent reads the mod sources as the last control tick left them.
 
 ## 33. Oversampling

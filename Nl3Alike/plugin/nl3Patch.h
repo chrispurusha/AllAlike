@@ -16,8 +16,8 @@
  */
 // Notes: Docs/code-notes/nl3Patch.md - "// notes §k" refers there.
 
-#ifndef __TI_PATCH_H__
-#define __TI_PATCH_H__
+#ifndef __NL3_PATCH_H__
+#define __NL3_PATCH_H__
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -25,9 +25,9 @@
 
 #include "nl3Params.h"
 
-#define NL3_SINGLE_LENGTH         (396)    // notes §1: a program's two SysEx messages, one after the other
+#define NL3_SINGLE_LENGTH         (261)    // notes §1: a program dump, one SysEx message
 #define NL3_SINGLE_NAME_LENGTH    (16)
-#define NL3_MAX_SINGLES           (2048)   // in one file; a full backup holds 1424
+#define NL3_MAX_SINGLES           (2048)   // in one file; the instrument holds 1024
 #define NL3_BANK_SIZE             (128)
 
 // notes §2: every Single in a .syx or a .mid, in file order; the count, 0 if there are none
@@ -43,12 +43,12 @@ bool nl3_patch_save_file(const char * path, const uint8_t single[NL3_SINGLE_LENG
 
 const char * nl3_patch_sounds_folder(void);   // where Load... starts with no file loaded
 
-// notes §5: the presets - A001..L128 in one file, read when it changes, main thread only
-#define NL3_PRESETS    (12 * NL3_BANK_SIZE)
+// notes §5: the presets - 1:001..8:128 in one file, read when it changes, main thread only
+#define NL3_PRESETS    (8 * NL3_BANK_SIZE)
 
 void nl3_patch_init_single(uint8_t out[NL3_SINGLE_LENGTH]);                                    // every carried parameter at its default, "Init"
 void nl3_patch_address(uint8_t single[NL3_SINGLE_LENGTH], int number);                         // to preset number; 0 the edit buffer
-void nl3_preset_label(int number, char * out, size_t len);                                     // "A001"
+void nl3_preset_label(int number, char * out, size_t len);                                     // "1:001"
 const char * nl3_presets_path(void);
 bool nl3_presets_refresh(void);                                                                // re-read if the file changed; true if so
 const uint8_t * nl3_presets_single(int number);                                                // 1..NL3_PRESETS, as last refreshed

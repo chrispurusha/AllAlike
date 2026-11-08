@@ -1,10 +1,10 @@
 # Sn2Alike todo
 
 ## First
+- Aliasing setting (optional), per instance as in Nl3Alike: Instrument or Clean (`../Docs/feature-status.md`, anti-aliasing); first find why more Soften aliases more (-84 dB at Soften 0, -66 at 64, A4)
 - Oscillator: Sync, Hardness, Skew, Formant Width; audio inputs; tighten the stretch law (design: nulls stop near -31 dB)
 - Filter: Special Width
 - Filter: set the level into the filter against the reference (damping depends on it)
-- Keep the same voice limit as TiAlike (owner, 2026-10-30)
 - Performances not read
 - FM (6%); LFO routes to level, Soften, sync and resonance; LFO Speed from Env 3, wheel and pressure; wheel and pressure to LFO depth; LFO Sync to tempo; Env routes to pitch, width, level and resonance; Env 2 Delay
 - Noise: join Soften 112-127 properly
@@ -19,7 +19,7 @@
 - Reverb: the Gated types' gates; closer than the measured model if its network can be read
 - SuperStrings1 about 18 dB loud, sustain falling about 55 dB/s while held: cause not found (its Sustain Time and Rate are default)
 - Glide (2026-11-02): built from the owner's by-ear report (start from the pitch reached; in poly each voice from its own last pitch) - CONFIRM in the instrument's own code before relying on it: Normal vs Auto, mono and poly
-- Bend and wheel on the panel; wheel to LFO depth, Env 1, width, Soften and sync
+- Wheel to LFO depth, Env 1, width, Soften and sync (bend and wheel are on the panel's MOD page)
 - Voice pool (2026-11-02): with unison off, notes sum on the instrument as here (+3.1/+5.1/+9.3 dB for 2/4/8 against +3.3/+6.2/+8.7); with 16 unison voices it runs out of voices (2 notes -0.3, 4 +3.7, 8 +6.2 dB), and this plug-in has no pool. The unit has 24 voices (CT). Still to find, in the instrument's own code (owner 2026-11-02): how it shares and steals unison voices when they run out; then a pool of 24
 - Env Trigger values beyond Retrigger and Legato: 41 holds the sound open past note off; Env 2 and 3 are assumed to follow Env 1; Glissando and the fixed Glide types against reference curves in more cases
 - External audio input into the voices, as G2Alike's In 1/2: the Osc types Audio In 1 and 2 (they play as a Saw now), then the other Alikes

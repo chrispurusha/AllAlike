@@ -28,6 +28,7 @@
 
 #include "tiDraw.h"
 #include "tiHardware.h"
+#include "tiPrefs.h"
 #include "tiMenu.h"
 #include "tiPatch.h"
 #include "tiPrefs.h"
@@ -249,11 +250,47 @@ static void open_help_menu(tCoord anchor) {
     open_context_menu(anchor, items, 0, 0.0);
 }
 
+// ---- MIDI: where Link sends (tiHardware notes §1) ------------------------------------------------------------
+
+static char gPortNames[TI_HARDWARE_MAX_PORTS][256];
+static char gPortLabels[TI_HARDWARE_MAX_PORTS][260];
+static char gDefaultLabel[64];
+
+static void action_port(int index) {
+    int i = (int)gContextMenu.items[index].param;
+
+    ti_set_hw_port((i < 0) ? "" : gPortNames[i]);
+}
+
+static void open_midi_menu(tCoord anchor) {
+    static tMenuItem items[TI_HARDWARE_MAX_PORTS + 3];
+    int              count = 0, ports = 0;
+
+    snprintf(gDefaultLabel, sizeof(gDefaultLabel), "%sVirus TI (its own USB port)", (ti_hw_port()[0] == '\0') ? "* " : "");
+    items[count++] = (tMenuItem){
+        gDefaultLabel, ITEM, action_port, (uint32_t)-1, NULL, 0, 0.0, NULL
+    };
+
+    for (int i = 0; i < ti_hardware_port_count(); i++) {
+        if (ti_hardware_port_name(i, gPortNames[ports], sizeof(gPortNames[ports]))) {
+            snprintf(gPortLabels[ports], sizeof(gPortLabels[ports]), "%s%s", (strcmp(gPortNames[ports], ti_hw_port()) == 0) ? "* " : "", gPortNames[ports]);
+            items[count++] = (tMenuItem){
+                gPortLabels[ports], ITEM, action_port, (uint32_t)ports, NULL, 0, 0.0, NULL
+            };
+            ports++;
+        }
+    }
+
+    items[count]   = END_OF_MENU;
+    open_context_menu(anchor, items, 0, 0.0);
+}
+
 static const tMenuBarItem gMenuBar[] = {
     {"File",     open_file_menu    },
     {"Presets",  open_presets_menu },
     {"Virus TI", open_hardware_menu},
     {"Controls", open_controls_menu},
+    {"MIDI",     open_midi_menu    },
     {"Help",     open_help_menu    },
     {NULL,       NULL              },
 };

@@ -263,6 +263,7 @@ typedef struct tP2Plugin_ {
     tP2Drive          drive;
     tP2Arp            arp;                 // notes §32
     double            arpTicks;            // its own clock, when no host is playing
+    double            hostTempo;           // notes §32: the last the host gave, 120 before
     int               arpActiveSeen;       // notes §45: Arp Active as the engine last followed it
     int               voicesSeen;          // notes §57: Voices as the engine last followed it, -1 not yet
     bool              arpGlide;            // the arp step now starting glides
@@ -994,6 +995,7 @@ static void * p2_create(const tSynthLibPluginDesc * desc) {
     }
     synthlib_swap_fade_init(&p->fade);
     p->sampleRate          = 48000.0;
+    p->hostTempo           = 120.0;
     p->noise               = 0x9E3779B9u;
     p->oversample          = OVERSAMPLE_DEFAULT;
     free_running_phases(p);
@@ -1650,7 +1652,10 @@ static void render_engine(void * inst, const float *const * in, uint32_t numIn, 
 
     tP2ArpSettings arp;
     bool           hostClock = (t != NULL) && t->playing && t->tempoValid && t->musicTimeValid && (t->tempo > 0.0);
-    double         bpm       = hostClock ? t->tempo : (46.0 + (2.0 * plain(p, kP2ParamArpTempo)));   // notes §32
+    if ((t != NULL) && t->tempoValid && (t->tempo > 0.0)) {
+        p->hostTempo = t->tempo;
+    }
+    double         bpm       = p->hostTempo;    // notes §32
     double         tickStep  = bpm / 60.0 * P2_ARP_TICKS_PER_QUARTER / p->sampleRate;
 
     arp_follow_active(p);

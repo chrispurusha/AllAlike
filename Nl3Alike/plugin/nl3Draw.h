@@ -24,7 +24,7 @@
 #include <stdint.h>
 
 #define NL3_CANVAS_W    (780.0)
-#define NL3_CANVAS_H    (440.0)
+#define NL3_CANVAS_H    (560.0)   // four rows of controls under the tabs
 
 typedef enum {
     eTiControlDial = 0,

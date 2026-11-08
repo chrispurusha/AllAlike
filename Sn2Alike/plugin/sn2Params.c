@@ -25,7 +25,7 @@
 
 // notes §1: the panel's 0..127 is each dial's plain range, as on the instrument
 const tSynthLibParam     gSn2Params[kSn2ParamCount] = {
-    {kSn2ParamVoiceLimit,     "Voice Limit",             "Voices",   eSynthLibUnitGeneric,   1.0, SN2_MAX_VOICES, 23.0 / (SN2_MAX_VOICES - 1), SN2_MAX_VOICES - 1, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kSn2ParamVoiceLimit,     "Voice Limit",             "Voices",   eSynthLibUnitGeneric,   1.0, SN2_MAX_VOICES, 15.0 / (SN2_MAX_VOICES - 1), SN2_MAX_VOICES - 1, SYNTHLIB_MIDI_NONE,                                                                             0},
     {kSn2ParamVolume,         "Prog Level",              "Level",    eSynthLibUnitGeneric,   0.0,          127.0,               100.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
     {kSn2ParamOscShape,       "Osc Shape",               "Shape",    eSynthLibUnitIndexed,   0.0,            2.0,                         0.0,                  2, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
     {kSn2ParamPulseWidth,     "Osc Pulse Width",         "PW",       eSynthLibUnitGeneric,   0.0,          127.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
@@ -349,6 +349,36 @@ static const tSn2Section kLfoPage[]         = {
     {"LFO 1", {0.80, 0.55, 0.85}, kLfo1, 8},
     {"LFO 2", {0.55, 0.80, 0.85}, kLfo2, 8},
 };
+static const tSn2Control kBendWheel[]       = {
+    {kSn2ParamPitchBend, "Bend",  eTiControlDial, 16383, -8192.0, NULL},
+    {kSn2ParamModWheel,  "Wheel", eTiControlDial,   127,     0.0, NULL},
+};
+static const tSn2Control kBendRange[]       = {
+    {kSn2ParamOsc1BendRange, "Osc 1", eTiControlDial, 24, -12.0, NULL},
+    {kSn2ParamOsc2BendRange, "Osc 2", eTiControlDial, 24, -12.0, NULL},
+    {kSn2ParamOsc3BendRange, "Osc 3", eTiControlDial, 24, -12.0, NULL},
+};
+static const tSn2Control kWheelPitch[]      = {
+    {kSn2ParamOsc1WheelPitch, "Osc 1", eTiControlDial, 127, -64.0, NULL},
+    {kSn2ParamOsc2WheelPitch, "Osc 2", eTiControlDial, 127, -64.0, NULL},
+    {kSn2ParamOsc3WheelPitch, "Osc 3", eTiControlDial, 127, -64.0, NULL},
+};
+static const tSn2Control kWheelLevel[]      = {
+    {kSn2ParamOsc1WheelLevel, "Osc 1", eTiControlDial, 127, -64.0, NULL},
+    {kSn2ParamOsc2WheelLevel, "Osc 2", eTiControlDial, 127, -64.0, NULL},
+    {kSn2ParamOsc3WheelLevel, "Osc 3", eTiControlDial, 127, -64.0, NULL},
+};
+static const tSn2Control kWheelFilter[]     = {
+    {kSn2ParamWheelCutoff,    "Cutoff", eTiControlDial, 127, -64.0, NULL},
+    {kSn2ParamWheelResonance, "Res",    eTiControlDial, 127, -64.0, NULL},
+};
+static const tSn2Section kWheelPage[]       = {
+    {"BEND / WHEEL", {0.65, 0.65, 0.65}, kBendWheel,   2},
+    {"BEND RANGE",   {0.30, 0.55, 0.85}, kBendRange,   3},
+    {"WHEEL PITCH",  {0.30, 0.70, 0.60}, kWheelPitch,  3},
+    {"WHEEL LEVEL",  {0.85, 0.55, 0.30}, kWheelLevel,  3},
+    {"WHEEL FILTER", {0.90, 0.55, 0.20}, kWheelFilter, 2},
+};
 static const tSn2Control kHardware[]        = {
     {kSn2ParamHwLink,    "Link",     eTiControlChoice,   1, 0.0, kOffOn},
     {kSn2ParamHwChannel, "Channel",  eTiControlDial,    15, 1.0, NULL  },
@@ -368,13 +398,14 @@ static const tSn2Section kGlobalPage[]      = {
 };
 
 const tSn2Page           gSn2Pages[]        = {
-    {"OSC",         kOscillatorsPage, 5},
-    {"FILTER",      kFilterPage,      1},
-    {"AMP",         kAmpPage,         1},
-    {"ENV",         kEnvelopesPage,   3},
-    {"LFO",         kLfoPage,         2},
-    {"EFFECTS",     kEffectsPage,     6},
-    {"GLOBAL",      kGlobalPage,      4},
+    {"OSC",     kOscillatorsPage, 5},
+    {"FILTER",  kFilterPage,      1},
+    {"AMP",     kAmpPage,         1},
+    {"ENV",     kEnvelopesPage,   3},
+    {"LFO",     kLfoPage,         2},
+    {"MOD",     kWheelPage,       5},
+    {"EFFECTS", kEffectsPage,     6},
+    {"GLOBAL",  kGlobalPage,      4},
 };
 const uint32_t           gSn2PageCount      = sizeof(gSn2Pages) / sizeof(gSn2Pages[0]);
 

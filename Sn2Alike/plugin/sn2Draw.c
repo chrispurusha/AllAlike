@@ -198,6 +198,7 @@ void sn2_draw_set_mouse(double x, double y) {
     gMouse.x = x;
     gMouse.y = y;
     (void)handle_file_browser_mouse_move(gMouse);
+    (void)handle_bank_browser_mouse_move(gMouse);   // its scrollbar drags only while it hears the mouse move
 }
 
 bool sn2_draw_menu_active(void) {

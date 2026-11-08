@@ -13,10 +13,10 @@ One line per item. Measurements and reasoning go in `findings.md`, design in `de
 - Level indications at various stages of the voice (oscillators, filters, saturation, output), to help monitor gain staging
 - Fixed point, per the Arithmetic parameter (with only the biquad converted, fixed and float differ 60-110 dB below the signal on 15 of 20 Singles, 31-54 dB on Bumztik LD, RoachLead and Mushi BS - look at those first): the biquad is done. Next oscillators, envelopes, mix, saturation, the ladder. A null needs all of them, with the phases and timing
 - HyperSaw: cross-oscillator sync frequency (byte 27) and its filter-envelope routes
-- Oscillator models (11-02): Wave PWM, Grain and Formant built (tiOsc notes §6-§8). Open: their F-Shift / F-Spread matrix routes; Complex + Detune makes a half-frequency component 24 dB down; high Formant or Sync on rich tables keeps too many top partials (up to 2 dB)
-- Wavetables 7, 35, 77: about 0.5-1 dB of content above the 64th partial is missing
-- Velocity to Pulse Width and FM are built by analogy with Shape: check them
-- Worst Singles still to explain: Theory, RuffBelsBC, DRY DRUM
+- Oscillator models (11-02): Wave PWM, Grain and Formant built (tiOsc notes §6-§8). Open: their F-Shift / F-Spread matrix routes; high Formant or Sync on rich tables keeps too many top partials (up to 2 dB) (Complex + Detune's half-frequency energy matches the instrument within about 2 dB on models 5 and 7, Detune 0-127 - checked 2026-11-08)
+- Wavetables (osc notes §5, the instrument's frames, versions and read built 2026-11-08): still out - between frames the instrument mixes a little of the next frame where Smooth 127 should hold one alone (table 50 frame 2 carries about 6% of frame 3), which looks like the Index-to-frame weighting; table 34 off at C2 and C5 (-7.7 dB); 88 at C2 and 1 at C6 on a few partials; the 8-, 4- and 2-partial versions are not exact truncations on 11% of frames; table 0 still measured
+- Velocity to FM (B50): follows the instrument (spectral centroid with B50 96 within 4%), about 15% short at B50 127 - the FM depth near full. Velocity to Pulse Width (B49) matches within 0.1 dB (checked 2026-11-08). With Osc Balance 64 and FM 0, ours is about 4% darker than the instrument on a saw pair at C3
+- Worst Singles: Theory was mostly the LFO rate law below 48 (ours up to twice too fast; fixed 2026-11-08, lfo notes §1) and a free-running LFO's phase at note on (not knowable); error 18.5 -> 3.8 without it); RuffBelsBC the HyperSaw cross-oscillator sync (A27); DRY DRUM is the error measure, not the sound - a 46 Hz sine leaves the upper bands to the instrument's noise floor (about 78 dB down; ours about 102), which the band score counts
 - Oscillator start phases in a null: free-running ones are not known, and a fixed one is not yet aligned
 - Serial 6 with an analog Filter 1: still the ladder then a resonance-free section - check against renders
 - Saturation curves 6 and 7 are still blended measurements; Bit Reducer (8) checked by level only
@@ -43,8 +43,6 @@ One line per item. Measurements and reasoning go in `findings.md`, design in `de
 - Calculate rather than tabulate: tiWaves.c and tiWavetables.c ship only if no formula can be found
 - Clocked LFOs: their phase against the host timeline is unchecked
 - Saturation Rate Reducer at full drive, and Bit Reducer above drive 96, are still out
-- Panel: named drop-downs for matrix sources and destinations, waves and other numbered choices
-- Link to hardware: ROM banks cannot be written back; they can be edited locally, but any write to them must be greyed out or refused
 - Hardware: the USB link could go direct through libusb, bypassing the maker's driver
 - Delay: Color, modulation, Tape types, Pattern timing at other tempos, order against the EQ. Reverb. Chorus types Vintage, Hyper, Air, Vibrato, Rotary
 - Reverb: top octave 4-6 dB hot, tank modulation, Feedback 1 and 2 modes, Reverb Clock
@@ -55,10 +53,10 @@ One line per item. Measurements and reasoning go in `findings.md`, design in `de
 - Reverb Clock: acts as predelay, not built
 - Wave and wavetable images above their top partial (a stored cycle's mirror images, near -65 dB)
 - HyperSaw and oscillators sit 0.3 cents sharp of the reference
-- Oscillators at the very top: about 6 dB down at note 108 on every model
+- Oscillators at the very top: about 6 dB down at note 108 on every model - NOT REPRODUCED 2026-11-08: saw, pulse, wave 10 and sine at notes 60/96/102/108 (48 kHz, open filter, Osc 1 alone) match the reference in level within 0.2 dB; delete unless it shows again under other settings
 - Stored waves alias near -50 dB, by note range; ours are cleaner. Saw and pulse are 6 dB cleaner than PolyBLEP
 - Analog filter modes at high resonance; Osc 3 sine (blamed in real patches)
-- Aliasing setting, per instance and held by the host, not in the sound: Faithful (default) or Clean
+- Aliasing setting (optional), per instance and held by the host, not in the sound: Faithful (default) or Clean - its saw and square alias most of the Alikes (-32 dB at C7, 44.1 kHz); Clean from Nl3Alike's correction (`../Docs/feature-status.md`, anti-aliasing)
 - Matrix: LFO 1 to Filter Gain, Unison destinations, Osc 3 Detune; effect modulation is by block
 - Filterbank Frequency Shifter driven by the matrix swings too far
 - Chorus: types other than Classic, sample and hold LFO shapes, the first cycle about 0.1 s ahead

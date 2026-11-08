@@ -48,3 +48,8 @@ A new instance plays A001, whichever comes first of its first audio block and it
 
 ## 12. A new sound starts with empty effects
 The delay, reverb, chorus and the other effects kept running across a change of sound, so a long delay left by one Single went on echoing under the next (2026-11-02, as Sn2Alike before it). Loading a sound sets a flag, and the audio thread empties the effects (`ti_effects_reset`, tiEffects §15) before its next block - never the loading thread, which may be the main one. The swap is already faded to silence, so nothing audible is cut. Whether the instrument stops its echoes on a program change has not been checked.
+
+## 13. The rate
+The voices run at the host's rate when the instrument runs at it too - 32, 44.1, 48, 64, 88.2 or 96 kHz, the rates
+its audio interface offers - and write straight into the host's buffers. At any other rate (176.4 or 192 kHz, say)
+they run at the nearest of those in the same family (88.2 or 96 kHz), and SynthLib's resampler converts their output.

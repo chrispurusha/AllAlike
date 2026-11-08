@@ -147,7 +147,7 @@ const tSynthLibParam     gP2Params[kP2ParamCount] = {
     {kP2ParamMod8Target,      "Mod 8 Target",         "Target",    eSynthLibUnitIndexed,     0.0,  31.0, 0.000000,  31, SYNTHLIB_MIDI_NONE,       SYNTHLIB_PARAM_LIST                                                    },
     {kP2ParamArpActive,       "Arp Active",           "Arp",       eSynthLibUnitIndexed,     0.0,   2.0, 0.000000,   2, SYNTHLIB_MIDI_NONE,       SYNTHLIB_PARAM_LIST                                                    },
     {kP2ParamArpRange,        "Arp Range",            "Range",     eSynthLibUnitGeneric,     0.0,   9.0, 0.000000,   9, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kP2ParamArpTempo,        "Arp Tempo",            "Tempo",     eSynthLibUnitGeneric,     0.0, 127.0, 0.291339, 127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kP2ParamArpTempo,        "Arp Tempo",            "Tempo",     eSynthLibUnitGeneric,     0.0, 127.0, 0.291339, 127, SYNTHLIB_MIDI_NONE, SYNTHLIB_PARAM_HIDDEN                                                         },
     {kP2ParamArpClock,        "Arp Clock",            "Clock",     eSynthLibUnitIndexed,     0.0,  19.0, 0.631579,  19, SYNTHLIB_MIDI_NONE,       SYNTHLIB_PARAM_LIST                                                    },
     {kP2ParamArpPattern,      "Arp Pattern",          "Pattern",   eSynthLibUnitGeneric,     0.0,  14.0, 0.000000,  14, SYNTHLIB_MIDI_NONE,                                                                             0},
     {kP2ParamArpMode,         "Arp Mode",             "Mode",      eSynthLibUnitIndexed,     0.0,   6.0, 0.000000,   6, SYNTHLIB_MIDI_NONE,       SYNTHLIB_PARAM_LIST                                                    },
@@ -551,7 +551,6 @@ static const tP2Control kSection22[]     = {
     {kP2ParamArpMode,    "Mode",    eP2ControlChoice,   6, 0.0, kNamesArpMode  },
     {kP2ParamArpRange,   "Range",   eP2ControlDial,     9, 0.0, kNamesArpRange },
     {kP2ParamArpClock,   "Clock",   eP2ControlChoice,  19, 0.0, kNamesArpClock },
-    {kP2ParamArpTempo,   "Tempo",   eP2ControlDial,   127, 0.0, kNamesArpTempo },
     {kP2ParamArpPattern, "Pattern", eP2ControlDial,    14, 0.0, NULL           },
 };
 static const tP2Control kSection23[]     = {
@@ -612,7 +611,7 @@ static const tP2Section kPage5Sections[] = {
     {"MOD 8", {0.70, 0.45, 0.75}, kSection21, 3},
 };
 static const tP2Section kPage6Sections[] = {
-    {"ARPEGGIATOR", {0.65, 0.65, 0.65}, kSection22, 6},
+    {"ARPEGGIATOR", {0.65, 0.65, 0.65}, kSection22, 5},
     {"TIMING",      {0.65, 0.65, 0.65}, kSection23, 5},
 };
 static const tP2Section kPage7Sections[] = {

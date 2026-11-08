@@ -38,10 +38,12 @@ Accent Control names a mod source; when it is higher than the step's velocity it
 A bipolar source (the LFOs, keytrack, pitch follow, bend) is centred on 64, as the instrument scales them.
 
 ## 7. The clock
-On its own, the arp starts with the first key at Tempo (46 + 2 per step BPM, measured) and Delay can only make it
-later. Following a host that is playing, it takes the host's tempo and keeps to its grid: the first step on the
-next grid step, Delay moving the grid either way, and the pattern counted from the host's position so it keeps to
-its bars. A jump in the host's position realigns it.
+Its tempo is always the host's (120 BPM until the host gives one, then the last it gave): the instrument's Tempo is
+only a BPM (46 + 2 per step, measured), so the host's replaces it - it is kept with the sound, off the panel and
+hidden from the host; Clock still divides it. With the host stopped, the
+arp starts with the first key and Delay can only make it later. Following a host that is playing, it keeps to the
+host's grid: the first step on the next grid step, Delay moving the grid either way, and the pattern counted from
+the host's position so it keeps to its bars. A jump in the host's position realigns it.
 
 ## 8. Swing
 The first step of each pair takes Swing's share of the two (measured: (Swing − 14)%; 64 is straight, 80 the

@@ -20,6 +20,7 @@
 #define __TI_PREFS_H__
 
 #define TI_PREF_DIAL_MODE    "dialMode"
+#define TI_PREF_HW_PORT      "hardwarePort"
 
 #include "synthlibTypes.h"
 
@@ -28,5 +29,9 @@ void ti_prefs_init(void);    // once per process; restores the drag mode
 // the plug-in's own, since SynthLib's plug-in stubs keep no dial mode
 tDialMode ti_dial_mode(void);
 void ti_set_dial_mode(tDialMode mode);    // and saves it
+
+// notes §2: the MIDI output Link sends to, kept for the machine; "" is the Virus TI's own port
+const char * ti_hw_port(void);
+void ti_set_hw_port(const char * name);    // and saves it
 
 #endif // __TI_PREFS_H__

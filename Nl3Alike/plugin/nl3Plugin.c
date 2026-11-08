@@ -63,7 +63,7 @@ static const uint8_t gControllerUid[16] = {0xDB, 0xDA, 0x8B, 0x35, 0x1F, 0xAB, 0
 // notes §2: a block's notes, played at their own sample when the block renders
 #define MAX_EVENTS             (256)
 
-#define DEFAULT_TEMPO          (122.0) // notes §13
+#define DEFAULT_TEMPO          (120.0) // notes §13: until the host gives one
 #define CLIP_HOLD_S            (1.5)
 #define HOST_CEILING           (0.97675f)
 #define HOST_CHUNK             (256u)
@@ -105,7 +105,7 @@ typedef struct {
     double             hwSentAt;
     uint8_t            hwLast[NL3_SINGLE_LENGTH];
     int                hwBend, hwWheel, hwPedal;
-    _Atomic bool       startPreset;  // notes: a new instance plays A000
+    _Atomic bool       startPreset;  // notes: a new instance plays 1:001
     _Atomic int        wantPreset;   // a program change waiting for the fade
     _Atomic bool       clearEffects; // notes §15: a new sound starts with empty effects, the old one's echoes gone
 } tNl3Plugin;
@@ -187,7 +187,7 @@ static void nl3_set_state(void * inst, const void * data, size_t len) {
     if ((data == NULL) || (len < STATE_LENGTH) || (memcmp(d, STATE_MAGIC, 4) != 0)) {
         return;
     }
-    atomic_store(&t->startPreset, false);   // a project's sound, not A001
+    atomic_store(&t->startPreset, false);   // a project's sound, not 1:001
     d                                   += 4;
     memcpy(t->soundName, d, NL3_SINGLE_NAME_LENGTH + 1);
     t->soundName[NL3_SINGLE_NAME_LENGTH] = '\0';
@@ -205,8 +205,6 @@ static void nl3_set_state(void * inst, const void * data, size_t len) {
 
 // notes §12: voices at their own rate, converted to the host's
 static void render_host(tNl3Plugin * t, const tNl3Sound * sound, float * outL, float * outR, uint32_t frames, double gain) {
-    tNl3EffectsSound effects = nl3_effects_sound(t->values, t->tempo);
-
     if (atomic_exchange(&t->clearEffects, false)) {
         nl3_effects_reset(&t->effects);   // notes §15
     }
@@ -218,11 +216,7 @@ static void render_host(tNl3Plugin * t, const tNl3Sound * sound, float * outL, f
         memset(t->engine, 0, (size_t)need * sizeof(float));
         nl3_voices_render(&t->voices, sound, t->engine, need, gain);
 
-        if (t->values[kNl3ParamEffectsBypass] > 0.5) {
-            nl3_effects_bypass(&t->effects, t->engine, t->engineL, t->engineR, need);
-        } else {
-            nl3_effects_process(&t->effects, &effects, t->engine, t->engineL, t->engineR, need);
-        }
+        nl3_effects_bypass(&t->effects, t->engine, t->engineL, t->engineR, need);    // notes §15: the instrument has no effects
 
         if (t->effects.clipped) {
             t->effects.clipped = false;
@@ -271,37 +265,9 @@ static void nl3_set_active(void * inst, bool active) {
 }
 
 static tNl3Sound make_sound(const tNl3Plugin * t) {
-    tNl3Sound sound = (tNl3Sound){
-        .osc         = {
-            OSC_SOUND(t->values, kNl3ParamOscShape,  kNl3ParamPulseWidth, kNl3ParamOscSoften,  kNl3ParamOscLevel,  kNl3ParamOsc1Octave, kNl3ParamOsc1Semitone, kNl3ParamOsc1Fine),
-            OSC_SOUND(t->values, kNl3ParamOsc2Shape, kNl3ParamOsc2Width,  kNl3ParamOsc2Soften, kNl3ParamOsc2Level, kNl3ParamOsc2Octave, kNl3ParamOsc2Semitone, kNl3ParamOsc2Fine),
-            OSC_SOUND(t->values, kNl3ParamOsc3Shape, kNl3ParamOsc3Width,  kNl3ParamOsc3Soften, kNl3ParamOsc3Level, kNl3ParamOsc3Octave, kNl3ParamOsc3Semitone, kNl3ParamOsc3Fine),
-        },
-        .cutoff      = t->values[kNl3ParamCutoff] * 127.0,
-        .resonance   = t->values[kNl3ParamResonance] * 127.0,
-        .tracking    = (t->values[kNl3ParamFilterTrack] >= 0.5) ? 1.0 : 0.0,
-        .overdrive   = t->values[kNl3ParamFilterDrive] * 127.0,
-        .normalise   = t->values[kNl3ParamFilterQ] * 127.0,
-        .oscsFree    = t->values[kNl3ParamOscTrigger] > 0.5,
-        .glideTime   = t->values[kNl3ParamGlideTime] * 127.0,
-        .glideStyle  = (int)lround(t->values[kNl3ParamGlideStyle]),
-        .glideCurve  = (int)lround(t->values[kNl3ParamGlideCurve]),
-        .glideType   = (int)lround(t->values[kNl3ParamGlideType] * 9.0),
-        .ampVelocity = t->values[kNl3ParamAmpVelocity] * 127.0,
-        .filterType  = (uint32_t)lround(t->values[kNl3ParamFilterType] * gNl3Params[kNl3ParamFilterType].stepCount),
-        .filterSlope = (uint32_t)lround(t->values[kNl3ParamFilterSlope] * gNl3Params[kNl3ParamFilterSlope].stepCount),
-        .ampAttack   = t->values[kNl3ParamAmpAttack] * 127.0,
-        .ampDecay    = t->values[kNl3ParamAmpDecay] * 127.0,
-        .ampSustain  = t->values[kNl3ParamAmpSustain] * 127.0,
-        .ampRelease  = t->values[kNl3ParamAmpRelease] * 127.0,
-        .noiseLevel  = t->values[kNl3ParamNoiseLevel] * 127.0 / 128.0,
-        .noiseSoften = t->values[kNl3ParamNoiseSoften] * 127.0,
-        .ring13      = t->values[kNl3ParamRing13] * 127.0 / 128.0,
-        .ring23      = t->values[kNl3ParamRing23] * 127.0 / 128.0,
-        .env         = {MOD_ENV_SOUND(t->values, kNl3ParamEnv2Attack, kNl3ParamEnv2Decay, kNl3ParamEnv2Sustain, kNl3ParamEnv2Release, kNl3ParamEnv2Velocity, kNl3ParamEnv2Cutoff), MOD_ENV_SOUND(t->values, kNl3ParamEnv3Attack, kNl3ParamEnv3Decay, kNl3ParamEnv3Sustain, kNl3ParamEnv3Release, kNl3ParamEnv3Velocity, kNl3ParamEnv3Cutoff)},
-    };
+    tNl3Sound sound;
 
-    nl3_controls_sound(t->values, &sound);
+    nl3_sound_from_values(t->values, &sound);
     return sound;
 }
 
@@ -351,7 +317,7 @@ static void nl3_note_off(void * inst, uint8_t channel, uint8_t note, float veloc
 
 static void nl3_load_single(void * user, const uint8_t * single, const char * path, int index, int preset);
 
-// A new instance plays A000, first audio block or first editor frame; with no presets it stays on Init
+// A new instance plays 1:001, first audio block or first editor frame; with no presets it stays on Init
 static void take_start_preset(tNl3Plugin * t) {
     if (atomic_exchange(&t->startPreset, false) && (nl3_presets_single(1)[0] == 0xF0)) {
         nl3_load_single(t, nl3_presets_single(1), "", 0, 1);
@@ -374,13 +340,16 @@ static void nl3_process(void * inst, const float *const * in, uint32_t numIn, fl
 
     take_start_preset(t);
     take_program_change(t);
-    double       gain   = nl3_volume_gain(t->values[kNl3ParamVolume]);
+    double       gain   = nl3_volume_gain(t->values[kNl3ParamLevel]);
     double       master = t->values[kNl3ParamMaster];
     tNl3Sound    sound  = make_sound(t);
 
     (void)in;
     (void)numIn;
-    t->tempo = ((transport != NULL) && transport->tempoValid && (transport->tempo > 0.0)) ? transport->tempo : DEFAULT_TEMPO;
+
+    if ((transport != NULL) && transport->tempoValid && (transport->tempo > 0.0)) {
+        t->tempo = transport->tempo;    // notes §13: otherwise the last the host gave
+    }
 
     if ((out == NULL) || (numOut == 0) || (out[0] == NULL)) {
         for (uint32_t i = 0; i < t->eventCount; i++) {
@@ -451,6 +420,8 @@ static void nl3_set_param(void * inst, uint32_t id, double normalized) {
         nl3_voices_set_limit(&t->voices, voice_limit(t));
     } else if (id == kNl3ParamArithmetic) {
         nl3_voices_set_fixed(&t->voices, normalized >= 0.5);
+    } else if (id == kNl3ParamAliasing) {
+        nl3_voices_set_clean(&t->voices, normalized >= 0.5);
     }
 }
 
@@ -459,84 +430,22 @@ static double nl3_get_param(void * inst, uint32_t id) {
 }
 
 static bool nl3_param_text(const tSynthLibPluginDesc * desc, void * inst, uint32_t id, double value, char * out, size_t len) {
-    static const char *const shapes[]  = {"Saw", "Square", "Double Saw"};
-    static const char *const filters[] = {"LP", "HP"};
-    static const char *const slopes[]  = {"12 dB", "24 dB"};
-
     (void)desc;
     (void)inst;
 
     if (id >= kNl3ParamCount) {
         return false;
     }
-    long                     step      = lround(value * gNl3Params[id].stepCount);
+    const tSynthLibParam * p       = &gNl3Params[id];
+    long                   step    = lround(value * p->stepCount);
+    const char *const *    choices = nl3_param_choices(id);
 
-    if ((id == kNl3ParamOscShape) || (id == kNl3ParamOsc2Shape) || (id == kNl3ParamOsc3Shape)) {
-        snprintf(out, len, "%s", shapes[(step < 0) ? 0 : ((step > 2) ? 2 : step)]);
-    } else if (id == kNl3ParamFilterType) {
-        snprintf(out, len, "%s", filters[(step < 0) ? 0 : ((step > 1) ? 1 : step)]);
-    } else if (id == kNl3ParamChorusType) {
-        static const char *const types[] = {"Quad Chorus", "Chorus/Flanger", "Phaser"};
-
-        snprintf(out, len, "%s", types[(step < 0) ? 0 : ((step > 2) ? 2 : step)]);
-    } else if (id == kNl3ParamGlideType) {
-        static const char *const types[] = {"Normal", "Auto", "2 Semi Down", "2 Semi Up", "5 Semi Down", "5 Semi Up", "7 Semi Down", "7 Semi Up", "12 Semi Down", "12 Semi Up"};
-
-        snprintf(out, len, "%s", types[(step < 0) ? 0 : ((step > 9) ? 9 : step)]);
-    } else if (id == kNl3ParamGlideStyle) {
-        snprintf(out, len, "%s", (step > 0) ? "Glissando" : "Portamento");
-    } else if (id == kNl3ParamGlideCurve) {
-        snprintf(out, len, "%s", (step > 0) ? "Exponential" : "Linear");
-    } else if (id == kNl3ParamReverbType) {
-        static const char *const types[] = {"Gated Reverse", "Gated Rising", "Gated Gentle", "Gated Falling", "Dry Chamber", "Echo Chamber", "Small Room", "Big Room", "Medium 1", "Medium 2", "Medium Plate 1", "Medium Plate 2", "Large 1", "Large 2", "Large Plate 1", "Large Plate 2"};
-
-        snprintf(out, len, "%s", types[(step < 0) ? 0 : ((step > 15) ? 15 : step)]);
-    } else if (id == kNl3ParamEffectsOrder) {
-        static const char *const orders[] = {"D+R+C", "D>R>C", "D>C>R", "R>D>C", "R>C>D", "C>D>R", "C>R>D", "D+[R>C]", "D+[C>R]", "R+[D>C]", "R+[C>D]", "C+[D>R]", "C+[R>D]", "D>[R+C]", "R>[D+C]", "C>[D+R]", "[R+C]>D", "[D+C]>R", "[D+R]>C"};
-
-        snprintf(out, len, "%s", orders[(step < 0) ? 0 : ((step > 18) ? 18 : step)]);
-    } else if (id == kNl3ParamOscTrigger) {
-        snprintf(out, len, "%s", (step > 0) ? "Ensemble" : "Percussive");
-    } else if (id == kNl3ParamDelaySync) {
-        static const char *const syncs[] = {"Off", "32nd T", "32nd", "16th T", "16th", "8th T", "16th .", "8th", "4th T", "8th .", "4th", "2nd T", "4th .", "2nd", "1 Bar T", "2nd .", "1 Bar", "2 Bar T", "1 Bar .", "2 Bars", "4 Bar T", "3 Bars", "5 Bar T", "4 Bars", "3 Bar .", "7 Bar T", "5 Bars", "8 Bar T", "6 Bars", "7 Bars", "5 Bar .", "8 Bars", "6 Bar .", "7 Bar .", "8 Bar ."};
-
-        snprintf(out, len, "%s", syncs[(step < 0) ? 0 : ((step > 34) ? 34 : step)]);
-    } else if (id == kNl3ParamDelayRatio) {
-        static const char *const ratios[] = {"1:1", "1:0.75", "0.75:1", "1:0.66", "0.66:1", "1:0.5", "0.5:1", "1:0.33", "0.33:1", "1:0.25", "0.25:1", "1:Off", "Off:1"};
-
-        snprintf(out, len, "%s", ratios[(step < 0) ? 0 : ((step > 12) ? 12 : step)]);
-    } else if ((id == kNl3ParamDelayOn) || (id == kNl3ParamReverbOn)) {
-        snprintf(out, len, "%s", (step > 0) ? "On" : "Off");
-    } else if ((id == kNl3ParamLfo1Shape) || (id == kNl3ParamLfo2Shape)) {
-        static const char *const shapes[] = {"Square", "Saw", "Triangle", "S+H"};
-
-        snprintf(out, len, "%s", shapes[(step < 0) ? 0 : ((step > 3) ? 3 : step)]);
-    } else if ((id == kNl3ParamLfo1Range) || (id == kNl3ParamLfo2Range)) {
-        static const char *const ranges[] = {"x1", "x10", "x100"};
-
-        snprintf(out, len, "%s", ranges[(step < 0) ? 0 : ((step > 2) ? 2 : step)]);
-    } else if ((id == kNl3ParamLfo1Trigger) || (id == kNl3ParamLfo2Trigger)) {
-        snprintf(out, len, "%s", (step > 0) ? "Key" : "Free");
-    } else if ((id == kNl3ParamLfo1Fade) || (id == kNl3ParamLfo2Fade)) {
-        snprintf(out, len, "%s", (step > 0) ? "Out" : "In");
-    } else if ((id == kNl3ParamHwLink) || (id == kNl3ParamPanEffects)) {
-        snprintf(out, len, "%s", (step > 0) ? "On" : "Off");
+    if (choices != NULL) {
+        snprintf(out, len, "%s", choices[(step < 0) ? 0 : ((step > p->stepCount) ? p->stepCount : step)]);
     } else if (id == kNl3ParamHwChannel) {
         snprintf(out, len, "%ld", step + 1);
-    } else if (id == kNl3ParamEffectsBypass) {
-        snprintf(out, len, "%s", (step > 0) ? "Bypass" : "On");
-    } else if (id == kNl3ParamPolyMode) {
-        snprintf(out, len, "%s", (step > 0) ? "Mono" : "Poly");
-    } else if (id == kNl3ParamEnvTrigger) {
-        snprintf(out, len, "%s", (step > 0) ? "Legato" : "Retrigger");
-    } else if (id == kNl3ParamFilterSlope) {
-        snprintf(out, len, "%s", slopes[(step < 0) ? 0 : ((step > 1) ? 1 : step)]);
-    } else if (id == kNl3ParamArithmetic) {
-        snprintf(out, len, "%s", (step > 0) ? "Fixed" : "Float");
-    } else if (id == kNl3ParamFilterTrack) {
-        snprintf(out, len, "%s", (step > 0) ? "On" : "Off");
     } else {
-        snprintf(out, len, "%ld", lround(gNl3Params[id].plainMin) + step);
+        snprintf(out, len, "%ld", lround(p->plainMin) + step);
     }
     return true;
 }
@@ -547,9 +456,7 @@ static bool nl3_param_text(const tSynthLibPluginDesc * desc, void * inst, uint32
 
 // What a sound carries: everything but the plug-in's own settings
 static bool sound_param(uint32_t id) {
-    return (id != kNl3ParamVoiceLimit) && (id != kNl3ParamArithmetic) && (id != kNl3ParamMaster) && (id != kNl3ParamEffectsBypass) && (id != kNl3ParamSustainPedal)
-           && (id != kNl3ParamHwLink) && (id != kNl3ParamHwChannel) && (id != kNl3ParamHwDevice) && (id != kNl3ParamProgram) && (id != kNl3ParamBank)
-           && (id != kNl3ParamPitchBend) && (id != kNl3ParamModWheel);
+    return id >= NL3_FIRST_PROGRAM_PARAM;
 }
 
 static void current_values(void * user, double values[kNl3ParamCount]) {
@@ -762,7 +669,7 @@ static const tNl3PatchHost gPatchHost = {
 
 // In mono the voice limit means nothing: the dial says so
 static bool limit_display(uint32_t paramId, const double * values, int32_t * step, char * text, size_t len) {
-    if ((paramId != kNl3ParamVoiceLimit) || (values[kNl3ParamPolyMode] <= 0.5)) {
+    if ((paramId != kNl3ParamVoiceLimit) || (values[kNl3ParamMono] <= 0.5)) {
         return false;
     }
     *step = 0;

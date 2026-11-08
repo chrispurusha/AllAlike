@@ -30,6 +30,7 @@
 
 #include <CoreMIDI/CoreMIDI.h>
 
+#include "tiPrefs.h"
 #include "tiHardware.h"
 
 #define DEVICE_PORT    "Virus TI USB Plugin"   // notes §1
@@ -43,25 +44,46 @@
 static MIDIClientRef gClient = 0;
 static MIDIPortRef   gPort   = 0;
 
+static bool endpoint_name(MIDIEndpointRef endpoint, char * out, size_t len) {
+    CFStringRef name = NULL;
+
+    if ((MIDIObjectGetStringProperty(endpoint, kMIDIPropertyDisplayName, &name) != noErr) || (name == NULL)) {
+        return false;
+    }
+    bool        ok   = CFStringGetCString(name, out, (CFIndex)len, kCFStringEncodingUTF8);
+
+    CFRelease(name);
+    return ok;
+}
+
+// notes §1: the output chosen in the MIDI menu, or the instrument's own port when none is
 static MIDIEndpointRef find_instrument(void) {
+    const char * chosen = ti_hw_port();
+
     for (ItemCount i = 0; i < MIDIGetNumberOfDestinations(); i++) {
         MIDIEndpointRef endpoint = MIDIGetDestination(i);
-        CFStringRef     name     = NULL;
         char            text[256];
 
-        if ((MIDIObjectGetStringProperty(endpoint, kMIDIPropertyDisplayName, &name) != noErr) || (name == NULL)) {
+        if (!endpoint_name(endpoint, text, sizeof(text))) {
             continue;
         }
-        bool            found    = CFStringGetCString(name, text, sizeof(text), kCFStringEncodingUTF8) && (strcasestr(text, DEVICE_PORT) != NULL);
 
-        CFRelease(name);
-
-        if (found) {
+        if ((chosen[0] != '\0') ? (strcmp(text, chosen) == 0) : (strcasestr(text, DEVICE_PORT) != NULL)) {
             return endpoint;
         }
     }
 
     return 0;
+}
+
+int ti_hardware_port_count(void) {
+    ItemCount n = MIDIGetNumberOfDestinations();
+
+    return (n > TI_HARDWARE_MAX_PORTS) ? TI_HARDWARE_MAX_PORTS : (int)n;
+}
+
+bool ti_hardware_port_name(int index, char * out, size_t len) {
+    return endpoint_name(MIDIGetDestination((ItemCount)index), out, len);
 }
 
 // notes §2

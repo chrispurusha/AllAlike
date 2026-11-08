@@ -156,10 +156,31 @@ static double clamp(double x, double lo, double hi) {
     return (x < lo) ? lo : ((x > hi) ? hi : x);
 }
 
+double ti_voices_engine_rate(double hostRate) {
+    static const double kRates[6] = {32000.0, 44100.0, 48000.0, 64000.0, 88200.0, 96000.0};
+    bool                fortyFour = (fmod(hostRate, 11025.0) == 0.0);   // the 44.1 kHz family
+    double              best = 48000.0, gap = INFINITY;
+
+    for (int i = 0; i < 6; i++) {
+        if (kRates[i] == hostRate) {
+            return hostRate;
+        }
+        bool   same = (fmod(kRates[i], 11025.0) == 0.0) == fortyFour;
+        double d    = fabs(log(kRates[i] / hostRate)) + (same ? 0.0 : 10.0);   // the same family first, then the nearest
+
+        if (d < gap) {
+            gap  = d;
+            best = kRates[i];
+        }
+    }
+
+    return best;
+}
+
 void ti_voices_init(tTiVoices * v, double rate) {
     memset(v, 0, sizeof(*v));
     v->limit      = 16;
-    v->tempo      = 0.0;
+    v->tempo      = 120.0;    // notes §12: until the host gives one
     v->lastNote   = -1;
     v->fixedPoint = false;
     ti_osc_init();
@@ -205,8 +226,10 @@ void ti_voices_new_sound(tTiVoices * v, const tTiSound * s) {
 }
 
 void ti_voices_set_tempo(tTiVoices * v, double bpm) {
-    v->tempo       = (bpm > 1.0) ? bpm : 0.0;
-    v->effects.bpm = v->tempo;
+    if (bpm > 1.0) {               // notes §12: otherwise the last the host gave
+        v->tempo       = bpm;
+        v->effects.bpm = bpm;
+    }
 }
 
 static void gate_voice(tTiVoice * vc, bool on) {
@@ -276,6 +299,7 @@ static tTiVoice * pick_voice(tTiVoices * v) {
 static void lfo_shape(const tTiVoices * v, const tTiSound * s, int l, const double * mod, tTiLfoShape * out);
 
 static void start_voice(tTiVoices * v, tTiVoice * vc, uint8_t note, float velocity, double detune, double pan, double place, double lfoPhase, bool oddVoice, bool retrigger) {
+    vc->indexSet        = false; // notes §31: a new note takes its Index at once
     const tTiSound * s      = &v->sound;
     bool             silent = !vc->active || (vc->amp.level <= 0.0);
 
@@ -1032,7 +1056,7 @@ static void lfo_shape(const tTiVoices * v, const tTiSound * s, int l, const doub
     out->rateHz   = ti_lfo_rate_hz(clamp(rate + (MOD_DEPTH * mod[dstR]), 0.0, 127.0));
 
     if ((clock > 0) && (clock < 22)) {
-        out->rateHz = (((v->tempo > 0.0) ? v->tempo : (63.0 + s->b[16])) / 60.0) / (4.0 * kDivide[clock]);    // notes §12: the patch's own tempo with no host
+        out->rateHz = (v->tempo / 60.0) / (4.0 * kDivide[clock]);    // notes §12: the host's tempo
     }
     out->shape    = (shape > 67) ? 67 : shape;
     out->contour  = clamp(bipolar(cont) + ((l < 2) ? mod[(l == 0) ? kDstLfo1Contour : kDstLfo2Contour] : 0.0), -1.0, 1.0);
@@ -1253,21 +1277,27 @@ static void render_voice(tTiVoices * v, const tTiSound * s, tTiVoice * vc, const
     bool     useO1     = (g1 != 0.0) || (ring > 0.0) || (useFm && (fmode == 2));
     bool     useO3     = (mode3 != 0) && (lvl3 != 0.0);
 
+    double   from1     = vc->indexSet ? vc->index[0] : shape1;   // notes §31
+    double   from2     = vc->indexSet ? vc->index[1] : shape2;
+
     for (uint32_t f = 0; f < frames; f++) {
         double o1        = 0.0;
+        double step      = (double)(f + 1) / (double)frames;
+        double index1    = from1 + ((shape1 - from1) * step);
+        double index2    = from2 + ((shape2 - from2) * step);
 
         if (!useO1) {
             // silent
         } else if (hyper1) {
             o1 = ti_osc_hyper_sample(&stack1, vc->hyper[0], inc1);
         } else if (grain1 & 1) {
-            o1 = ti_osc_grain_pair(s->a[19], shape1, s->c[44], gk1, vc->grain[0], inc1);
+            o1 = ti_osc_grain_pair(s->a[19], index1, s->c[44], gk1, vc->grain[0], inc1);
         } else if (grain1) {
-            o1 = ti_osc_grain(s->a[19], shape1, s->c[44], gk1[0], vc->phase[0], inc1);
+            o1 = ti_osc_grain(s->a[19], index1, s->c[44], gk1[0], vc->phase[0], inc1);
         } else if (pwm1) {
-            o1 = ti_osc_wave_pwm(s->a[19], shape1, s->c[44], vc->twin[0], width1, inc1);
+            o1 = ti_osc_wave_pwm(s->a[19], index1, s->c[44], vc->twin[0], width1, inc1);
         } else if (table1) {
-            o1 = ti_osc_wavetable(s->a[19], shape1, s->c[44], vc->phase[0], inc1);
+            o1 = ti_osc_wavetable(s->a[19], index1, s->c[44], vc->phase[0], inc1);
         } else {
             o1 = ti_osc_classic(wave1, shape1, width1, vc->phase[0], inc1);
         }
@@ -1292,13 +1322,13 @@ static void render_voice(tTiVoices * v, const tTiSound * s, tTiVoice * vc, const
         } else if (hyper2) {
             o2 = syncLevel * ti_osc_hyper_sample(&stack2, vc->hyper[1], (syncUp > 0.0) ? (i2 * syncUp) : i2);
         } else if (grain2 & 1) {
-            o2 = ti_osc_grain_pair(s->a[24], shape2, s->c[64], gk2, vc->grain[1], i2);
+            o2 = ti_osc_grain_pair(s->a[24], index2, s->c[64], gk2, vc->grain[1], i2);
         } else if (grain2) {
-            o2 = ti_osc_grain(s->a[24], shape2, s->c[64], gk2[0], vc->phase[1], i2);
+            o2 = ti_osc_grain(s->a[24], index2, s->c[64], gk2[0], vc->phase[1], i2);
         } else if (pwm2) {
-            o2 = ti_osc_wave_pwm(s->a[24], shape2, s->c[64], vc->twin[1], width2, i2);
+            o2 = ti_osc_wave_pwm(s->a[24], index2, s->c[64], vc->twin[1], width2, i2);
         } else if (table2) {
-            o2 = ti_osc_wavetable(s->a[24], shape2, s->c[64], vc->phase[1], i2);
+            o2 = ti_osc_wavetable(s->a[24], index2, s->c[64], vc->phase[1], i2);
         } else {
             o2 = ti_osc_classic(wave2, shape2, width2, vc->phase[1], i2);
         }
@@ -1408,6 +1438,10 @@ static void render_voice(tTiVoices * v, const tTiSound * s, tTiVoice * vc, const
         vc->subPhase   = wrap1(vc->subPhase);
     }
 
+    vc->index[0] = shape1;
+    vc->index[1] = shape2;
+    vc->indexSet = true;
+
     if (ti_env_idle(&vc->amp)) {
         vc->active = false;
         vc->gate   = false;
@@ -1466,7 +1500,7 @@ void ti_voices_render(tTiVoices * v, const tTiSound * given, float * left, float
     // notes §5: no Smooth Mode glides; the Quantise values hold a change to the next division of the tempo, then step
     const tTiSound * s         = &v->sound;
     bool             quantise  = quantise_mode(given);
-    double           bpm       = (v->tempo > 0.0) ? v->tempo : (63.0 + given->b[16]);
+    double           bpm       = v->tempo;
     double           wholes    = quantise ? kQuantiseWhole[given->b[25] - 4] : 1.0;
     double           was       = v->seconds;
     double           beatsWere = v->hostBeats;

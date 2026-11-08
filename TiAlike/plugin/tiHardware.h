@@ -39,6 +39,10 @@ tTiHardwareResult ti_hardware_send_sound(uint8_t single[TI_SINGLE_LENGTH]);
 tTiHardwareResult ti_hardware_send_byte(int at, uint8_t value);   // at: its place in the Single message
 void ti_hardware_note(uint8_t note, uint8_t velocity);            // velocity 0 is note off; from any thread
 
+#define TI_HARDWARE_MAX_PORTS    (64)
+int ti_hardware_port_count(void);                                 // the machine's MIDI outputs, for the MIDI menu
+bool ti_hardware_port_name(int index, char * out, size_t len);
+
 // notes §4-§5: a transfer of whole banks, one at a time on the machine; main thread, driven by ti_hardware_tick()
 #define TI_HW_RAM_BANKS    (4)     // A-D; the rest are ROM and are never written
 

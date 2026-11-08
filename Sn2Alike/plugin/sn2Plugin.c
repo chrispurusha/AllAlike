@@ -63,7 +63,7 @@ static const uint8_t gControllerUid[16] = {0x2B, 0xE4, 0x1E, 0xF9, 0xA5, 0x0F, 0
 // notes §2: a block's notes, played at their own sample when the block renders
 #define MAX_EVENTS             (256)
 
-#define DEFAULT_TEMPO          (122.0) // notes §13
+#define DEFAULT_TEMPO          (120.0) // notes §13: until the host gives one
 #define CLIP_HOLD_S            (1.5)
 #define HOST_CEILING           (0.97675f)
 #define HOST_CHUNK             (256u)
@@ -380,7 +380,10 @@ static void sn2_process(void * inst, const float *const * in, uint32_t numIn, fl
 
     (void)in;
     (void)numIn;
-    t->tempo = ((transport != NULL) && transport->tempoValid && (transport->tempo > 0.0)) ? transport->tempo : DEFAULT_TEMPO;
+
+    if ((transport != NULL) && transport->tempoValid && (transport->tempo > 0.0)) {
+        t->tempo = transport->tempo;    // notes §13: otherwise the last the host gave
+    }
 
     if ((out == NULL) || (numOut == 0) || (out[0] == NULL)) {
         for (uint32_t i = 0; i < t->eventCount; i++) {

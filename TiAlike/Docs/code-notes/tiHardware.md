@@ -1,7 +1,9 @@
 # tiHardware.c - talking to the instrument
 
 ## 1. Ports
-The instrument offers two MIDI ports over USB. External I/O is its MIDI sockets; Plugin I/O reaches the synth itself, on any device number, and that is the one used here.
+The instrument offers two MIDI ports over USB. External I/O is its MIDI sockets; Plugin I/O reaches the synth itself, on any device number, and that is the one used here. The MIDI menu can send elsewhere instead - any of the
+machine's MIDI outputs, an IAC Driver bus into another instance or a sequencer, say - kept for the machine
+(`hardwarePort` in the preferences); its first entry returns to the Virus TI's own port.
 
 ## 2. One owner
 Only one instance on the machine talks to the instrument, by an exclusive flock() on `hardware.lock` beside the presets, which the system releases if the owner goes.

@@ -35,7 +35,7 @@ A preset shows as `A012*` once a parameter it carries or its name differs from w
 on each editor frame; the presets file itself at most once a second.
 
 ## 8. Starting up and changing sound
-A new instance plays A001, whichever comes first of its first audio block and its editor's first frame; a project's state cancels that, an offline render plays what it is given, and with no presets stored it stays on Init.
+A new instance plays 1:001, whichever comes first of its first audio block and its editor's first frame; a project's state cancels that, an offline render plays what it is given, and with no presets stored it stays on Init.
 
 A program change selects a stored sound, with Bank Select picking the bank. If that sound is already loaded nothing happens, so edits survive a sequencer resending it. Otherwise the output fades down (`synthlibSwapFade`), the sound changes at the top of a block once it is silent, and the output comes back. Loads from the panel use the same fade.
 
@@ -43,10 +43,15 @@ A program change selects a stored sound, with Bank Select picking the bank. If t
 The voices always run at NL3_ENGINE_HZ and SynthLib's resampler converts each host chunk to the host rate, so a sound does not change with the host and the plug-in reports the resampler's latency. A note starts at the nearest engine sample. ENGINE_FRAMES holds one HOST_CHUNK down to a host rate of about 2.5 kHz.
 
 ## 13. Tempo
-Delay Sync follows the host's tempo, or 122 BPM when the host gives none, as the reference does.
+The host's tempo, always - there is no tempo setting. 120 BPM until the host gives one; when it stops giving one
+(a stopped transport, say), the last it gave. Delay Sync uses it.
 
 ## 14. The link to the instrument
 Run from the panel's sync, so it needs the editor open. A changed sound goes whole, at most every 0.5 s, its extension 0.2 s later. Notes go from the audio thread, bend, wheel and pedal from the sync. Turning the link off sends All Notes Off. The output is chosen in the MIDI menu and kept for the machine.
 
 ## 15. A new sound starts with empty effects
 The delay, chorus and reverb kept running across a change of sound, so a long delay left by one preset went on echoing under the next, near-forever if the new sound's feedback was high (A003 to A004, 2026-11-02). Loading a sound sets a flag, and the audio thread clears the effects before its next block - never the loading thread, which may be the main one. The swap is already faded to silence, so nothing audible is cut. The instrument does the same: its echoes stop on a program change (checked by ear 2026-11-02).
+
+The Nord Lead 3 has no effects: the engine's output goes through the effects stage's bypass, which only spreads it
+to two channels (2026-11-07). The effects code stays until the outputs are rebuilt.
+

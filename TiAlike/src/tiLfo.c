@@ -23,7 +23,7 @@
 
 // notes §1: Hz at each sixteenth step of the dial, in between geometrically
 double ti_lfo_rate_hz(double dial) {
-    static const double kHz[9] = {0.058, 0.12, 0.25, 0.513, 1.075, 2.242, 4.93, 13.16, 60.0};
+    static const double kHz[9] = {0.0206, 0.0741, 0.2218, 0.5215, 1.075, 2.242, 4.93, 13.16, 60.0};
     double              p      = fmin(fmax(dial, 0.0), 127.0) / 16.0;
     int                 i      = (int)p;
 

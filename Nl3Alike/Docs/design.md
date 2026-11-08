@@ -14,9 +14,49 @@ voices run at 44.1 kHz, the instrument's rate. See `code-notes/nl3Filter.md`.
 
 ## The instrument
 
-A virtual-analogue synth: six slots of 24 voices in all (to check), each voice two oscillators with FM and sync, a
-multimode filter, three envelopes (mod, filter, amp), two LFOs, a morph group per knob, and the arpeggiator. Four
-stereo outputs.
+From its manual (v1.2x) and the program dumps, measured on the instrument. 24 voices, four slots (A-D) layered or
+split, each slot a Program; four outputs.
+
+**One voice:**
+
+    OSC 1 (+ hidden sync osc) --+                                   +-- Filter Env
+                                +-- Osc Mod -- MIXER -- FILTER ------+-- AMPLIFIER -- out
+    OSC 2 (+ hidden sync osc) --+   (Noise3)           (Osc 2 bypass)   +-- Amp Env
+
+- **Oscillators 1 and 2:** six waveforms each (Saw, Pulse, Triangle, Sine, Noise / synched noise, Dual Sine FM)
+  with a Shape knob whose meaning depends on the waveform; Sync uses a hidden third oscillator per group, so both
+  stay audible. Osc 2 adds Coarse (semitones or partials), Fine, KBT off, and noise type/frequency.
+- **Oscillator Modulation:** an amount and six types (DM, Dist, Filt FM, FM, DFM and the amplitude/ring type).
+- **Mixer:** Osc Mix (1 to 2), and Noise3 in place of Osc 2.
+- **Filter:** single modes LP, HP, BP (6, 12, 24 dB), BR (12), Classic (24), Dist LP; multi modes with a second
+  cutoff - LP-BP parallel, LP-HP parallel, HP-LP series, BP-BP parallel, Multi Peak, Multi Notch. Keyboard Track
+  (on/off), Osc 2 bypass. Filter Env (ADSR, amount, invert, velocity, exponential attack).
+- **Amplifier:** Amp Env (ADSR, exponential attack), output level.
+- **Modulation:** LFO 1 and 2 per voice (six waves, 12 destinations each, single-cycle or key sync, mono, invert,
+  clock sync), Mod Env (attack, decay or release, repeat, invert, 12 destinations).
+- **Play:** vibrato, glide, mono/legato/priority, unison, octave shift, arpeggiator, chord memory.
+- **Morph:** four sources (wheel, aftertouch or pedal, velocity, keyboard), each an offset for 26 parameters.
+
+**The Program** is the manual's dump format with corrections measured on the instrument (every CC sent and the
+program dumped; see `code-notes/nl3Patch.md` when it lands): the 7-bit knob block exactly as documented; each LFO's
+Env/KB Sync is 3 bits; one undocumented bit after each LFO's Mono and one before Mod Env Invert; spare 5 is 1 bit;
+18 bits before Legato.
+
+## The rebuild
+
+The engine and parameters came from Sn2Alike and do not fit (three oscillators, two mod envelopes, ring mods,
+chorus, delay and reverb, which the Nord Lead 3 does not have). The plan:
+
+1. **Parameters = the Program's fields**, one plug-in parameter per field, plus the four morph groups. **Done
+   (2026-11-07):** 199 program parameters; programs from the instrument read in and write back byte for byte, and
+   the instrument takes a program written from parameters. The voice still plays through an interim mapping
+   (`code-notes/nl3Params.md` §5).
+2. **Voice:** oscillators (each waveform, Shape, sync) - **the Saw is built (2026-11-07)**, word for word in
+   fixed point, with an Aliasing setting (Instrument / Clean) - Osc Mod types, mixer and Noise3, the filter's remaining
+   modes, envelopes, LFOs and Mod Env with their destinations, then morph.
+3. **Play:** glide, vibrato, mono/legato/unison, arpeggiator, chord memory, slots last if at all.
+
+Each law is measured on the instrument and kept in both arithmetics (Float and the instrument's Fixed).
 
 ## Validation
 

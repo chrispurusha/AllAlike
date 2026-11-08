@@ -22,7 +22,6 @@
 #include "nl3Voices.h"
 
 #define SMOOTH_S                 (2048.0 / 46875.0) // notes §5
-#define MIDDLE_C_HZ              (261.663)
 #define VELOCITY_FLOOR           (0.0157)
 #define VELOCITY_RANGE           (0.98)
 #define RING_GAIN                (2.0)
@@ -49,11 +48,16 @@ void nl3_voices_init(tNl3Voices * v) {
     v->rate     = NL3_ENGINE_HZ;
     v->lastNote = -1;
     nl3_edge_build(v->edge);
+    nl3_steps_build(&v->steps);
 }
 
 // voices notes §19
 void nl3_voices_set_fixed(tNl3Voices * v, bool fixed) {
     v->fixedPoint = fixed;
+}
+
+void nl3_voices_set_clean(tNl3Voices * v, bool clean) {
+    v->clean = clean;
 }
 
 void nl3_voices_set_limit(tNl3Voices * v, uint32_t limit) {
@@ -67,10 +71,11 @@ void nl3_voices_set_limit(tNl3Voices * v, uint32_t limit) {
     }
 }
 
-static double osc_increment(const tNl3OscSound * o, double note, double bend, double wheel, double moved, double rate) {
+// osc notes §8: the oscillator's pitch in notes
+static double osc_pitch(const tNl3OscSound * o, double note, double bend, double wheel, double moved) {
     double semitones = note - 60.0 + (12.0 * o->octaves) + o->semitones + (o->cents / 100.0) + (bend * o->bendRange) + (wheel * o->wheelPitch) + moved;
 
-    return 2.0 * MIDDLE_C_HZ * pow(2.0, semitones / 12.0) / rate;  // phase runs -1..1
+    return 60.0 + semitones;
 }
 
 // voices notes §12: seconds from one pitch to the next, whatever the interval
@@ -82,11 +87,12 @@ static double glide_heard(const tNl3Voice * vc, const tNl3Sound * sound) {
     return (sound->glideStyle == 1) ? round(vc->glide) : vc->glide;
 }
 
-static void set_pitch(tNl3Voice * vc, const tNl3Sound * sound, double rate) {
+static void set_pitch(tNl3Voice * vc, const tNl3Sound * sound) {
     double note = (double)vc->note + glide_heard(vc, sound);
 
     for (int o = 0; o < NL3_OSCS; o++) {
-        vc->increment[o] = osc_increment(&sound->osc[o], note, sound->bend, sound->wheel, vc->lfoSemis[o], rate);
+        vc->pitch[o]     = osc_pitch(&sound->osc[o], note, sound->bend, sound->wheel, vc->lfoSemis[o]);
+        vc->increment[o] = nl3_pitch_increment(vc->pitch[o]);
     }
 }
 
@@ -245,7 +251,7 @@ static void mono_play(tNl3Voices * v, const tNl3Sound * sound, uint8_t note, flo
             nl3_filter_reset(&vc->filter);
         }
     }
-    set_pitch(vc, sound, v->rate);
+    set_pitch(vc, sound);
 }
 
 void nl3_voices_note_on(tNl3Voices * v, const tNl3Sound * sound, uint8_t note, float velocity) {
@@ -295,7 +301,7 @@ void nl3_voices_note_on(tNl3Voices * v, const tNl3Sound * sound, uint8_t note, f
         memset(pick->phase, 0, sizeof(pick->phase));
     }
     start_glide(v, sound, pick, note, false);
-    set_pitch(pick, sound, v->rate);
+    set_pitch(pick, sound);
 
     pick->started   = ++v->clock;
     pick->noiseSeed = pick->noiseSeed ? pick->noiseSeed : (uint32_t)((v->clock * 2654435761u) | 1u);
@@ -470,7 +476,7 @@ static void render_sub_block(tNl3Voices * v, const tNl3Sound * sound, double cut
         if (vc->glide != 0.0) {
             advance_glide(vc, sound, (double)frames / v->rate);
         }
-        set_pitch(vc, sound, v->rate);
+        set_pitch(vc, sound);
         double           stretch[NL3_OSCS];
         double           level = velocity_level(vc->velocity, sound->ampVelocity);
         tNl3FilterCoeffs coeffs;
@@ -485,10 +491,12 @@ static void render_sub_block(tNl3Voices * v, const tNl3Sound * sound, double cut
         nl3_filter_coeffs(nl3_filter_mode(sound->filterType, sound->filterSlope), cutoff + moved, fmin(127.0, fmax(0.0, res + (sound->wheel * sound->wheelResonance))), &coeffs);
 
         double           oscLevel[NL3_OSCS];
+        tNl3Word         incrementWord[NL3_OSCS];
 
         for (int o = 0; o < NL3_OSCS; o++) {
-            stretch[o]  = nl3_osc_stretch(vc->increment[o], sound->osc[o].soften);
-            oscLevel[o] = fmin(1.0, fmax(0.0, sound->osc[o].level + (sound->wheel * sound->osc[o].wheelLevel)));
+            incrementWord[o] = nl3_pitch_increment_fixed(vc->pitch[o]);
+            stretch[o]       = nl3_osc_stretch(vc->increment[o], sound->osc[o].soften);
+            oscLevel[o]      = fmin(1.0, fmax(0.0, sound->osc[o].level + (sound->wheel * sound->osc[o].wheelLevel)));
         }
 
         for (uint32_t f = 0; f < frames; f++) {
@@ -503,13 +511,24 @@ static void render_sub_block(tNl3Voices * v, const tNl3Sound * sound, double cut
             for (int o = 0; o < NL3_OSCS; o++) {
                 const tNl3OscSound * os = &sound->osc[o];
 
-                wave[o]       = nl3_osc_sample(v->edge, os->shape, vc->phase[o], stretch[o], fmin(2.0, fmax(0.0, width[o])));
-                mix          += wave[o] * oscLevel[o];
-                vc->phase[o] += vc->increment[o];
+                if (os->shape == eNl3OscSaw) {
+                    // osc notes §5-7: the saw takes its phase advanced
+                    if (v->fixedPoint && !v->clean) {
+                        tNl3Word p = nl3_phase_advance((tNl3Word)llround(vc->phase[o] * NL3_Q23), incrementWord[o]);
 
-                if (vc->phase[o] >= 1.0) {
-                    vc->phase[o] -= 2.0;
+                        vc->phase[o] = nl3_word_value(p);
+                        wave[o]      = nl3_word_value(nl3_saw_fixed(&v->steps, p, incrementWord[o]));
+                    } else {
+                        vc->phase[o] += vc->increment[o];
+                        vc->phase[o] -= (vc->phase[o] >= 1.0) ? 2.0 : 0.0;
+                        wave[o]       = nl3_saw(&v->steps, vc->phase[o], vc->increment[o], v->clean);
+                    }
+                } else {
+                    wave[o]       = nl3_osc_sample(v->edge, os->shape, vc->phase[o], stretch[o], fmin(2.0, fmax(0.0, width[o])));
+                    vc->phase[o] += vc->increment[o];
+                    vc->phase[o] -= (vc->phase[o] >= 1.0) ? 2.0 : 0.0;
                 }
+                mix += wave[o] * oscLevel[o];
             }
 
             mix    += RING_GAIN * wave[2] * ((wave[0] * sound->ring13) + (wave[1] * sound->ring23));

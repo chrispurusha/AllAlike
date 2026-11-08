@@ -19,10 +19,32 @@ Missing everywhere, or built in one and wanted in the others:
 
 - **Level meters at stages** (oscillators, filter, effects, output), to watch gain staging. G2Alike has them; none of the Alikes do.
 - **External audio into the voices.** Pulse2Alike's osc 3 EXT is built (side-chain, 2026-11-06); Sn2Alike's Audio In oscillators (they play as a Saw); G2Alike's side-chain input is the model.
-- **Named drop-downs** for modulation sources and destinations, waves and other numbered choices (TiAlike, Sn2Alike).
+- **Named drop-downs** for modulation sources and destinations, waves and other numbered choices: TiAlike has them; Sn2Alike to follow.
 - **Value text in real units** (times, rates, semitones) where the laws are measured; the panels show raw values now.
+  Where a raw number means nothing to a player, a dial shows text or the converted value instead (CT 2026-11-08):
+  a time in ms or s, a rate in Hz, a division as 1/16, an amount in semitones, Off/On at a switch-like extreme.
+  A dial that moves between waves names them (CT 2026-11-08): TiAlike's Shape as the selected wave, Saw at 64 and
+  Pulse at 127 with the blend between, its wavetable Index as the frame (3 of 7); Nl3Alike's Shape by waveform.
+- **Keyboard tracking at 1:1, marked** (CT 2026-11-08): when a filter's key tracking is exactly one octave per
+  octave, its dial shows it - a colour change, the same in every Alike - so the setting where the filter follows the
+  keyboard like an oscillator can be found without reading numbers. Each Alike's 1:1 point comes from its own law
+  (Nl3Alike's KBT is a switch whose On is 1:1; TiAlike's and Sn2Alike's from their measured key-follow curves).
 - **Writing sounds back to the instrument.** Pulse2Alike's Store to Slot is built (a test store to P450 read back), Restore Presets waits; TiAlike's bank write is built but untried; Sn2Alike only reads.
-- **Arithmetic option** (float or the instrument's fixed point, per instance): TiAlike has the filter's biquad, Nl3Alike the filter; Sn2Alike to follow.
+- **Tempo is always the host's** (CT 2026-11-07), in every Alike, with no tempo setting: 120 BPM until the host gives
+  one, then the last it gave, kept when it stops giving one (a stopped transport). A sound's own tempo or arp tempo is
+  kept with the sound but not used. Built in all four. Sync itself stays the sound's choice where the instrument has
+  one: a delay or LFO with its clock off runs at its own manual time or rate (Sn2Alike's Delay Sync 0, TiAlike's Delay
+  Clock Off), and only a clocked one follows the tempo.
+- **Master Tune** (per instance, held by the host, not in the sound, on GLOBAL): Pulse2Alike has it (A4 420-460 Hz);
+  TiAlike, Sn2Alike and Nl3Alike are fixed (Nl3Alike at its instrument's 439.89 Hz). Each takes its instrument's own form
+  where it has one - the Nord Lead 3's is ±6 semitones and ±100 cents, applied to its tuning word (osc notes §8).
+- **Anti-aliasing setting, optional, for every Alike** (Pulse2Alike included; per instance, held by the host, not in the
+  sound): Instrument, the instrument's own band-limiting and its aliases, or Clean. Nl3Alike has it for the Saw (Clean about -90 dB at A4, -76 dB at C7). Measured on
+  the plug-ins' own oscillators (2026-11-07): TiAlike's saw and square alias at -44 dB at A4 and -32 dB at C7 (44.1 kHz), so it
+  would gain most; Sn2Alike's saw is at -57 to -84 dB, and more Soften aliases more - to check against the instrument;
+  Pulse2Alike not measured. Clean's correction (a longer step, summed over every jump in reach) belongs in SynthLib once a
+  second plug-in uses it.
+- **Arithmetic option** (float or the instrument's fixed point, per instance): TiAlike has the filter's biquad, Nl3Alike the filter and the Saw; Sn2Alike to follow.
 - **Panel pages, in common** (CT 2026-11-06): OSC, FILTER, AMP, ENV, LFO, MOD, then the instrument's own pages (ARP, TABLES beside OSC, the effects), GLOBAL always last. Short names as on the instruments' panels; a new Alike follows the same.
 - **The panel code** (`p2Draw.c`, copied as `tiDraw.c` and `sn2Draw.c`) is three near-copies: a fix in one probably belongs in all three until it moves into SynthLib.
 
@@ -92,7 +114,10 @@ Missing everywhere, or built in one and wanted in the others:
 Started 2026-11-02 from Sn2Alike's skeleton, renamed: it builds, validates as an Audio Unit and opens, playing
 Sn2Alike's engine as a placeholder. **The filter is the Nord Lead 3's** (2026-11-07): LP and HP at 12 and 24 dB, its
 coefficient laws and level compensation, at the instrument's 44.1 kHz, in its own fixed-point arithmetic (word for word
-against the instrument's) or floating point. **Missing**: the other filter modes, the program format and parameters,
-the rest of the engine (oscillators with FM and sync, envelopes, LFOs, morph), the panel's pages, the MIDI link's own
-messages, and reading the instrument's programs. See `Nl3Alike/Docs/todo.md`.
+against the instrument's) or floating point. **Parameters are the instrument's Program** (2026-11-07): one per field
+and the four morph groups; its programs read in and write back byte for byte. **The Saw is the instrument's**
+(2026-11-07), word for word in fixed point, with an Aliasing setting (Instrument, or Clean at about -90 dB).
+**Missing**: the other filter modes, the rest of the engine (the other waveforms, FM and sync, Osc Mod, envelopes, LFOs, morph; it plays through an interim
+mapping), single-parameter MIDI to the instrument, and reading its 1024 programs is built but untried. See
+`Nl3Alike/Docs/todo.md`.
 

@@ -68,8 +68,10 @@ typedef struct {
     bool      gate;
     uint8_t   note;
     float     velocity, releaseVelocity;
-    double    pitch;                        // semitones, gliding to note
+    double    pitch;          // semitones, gliding to note
     double    phase[3], subPhase;
+    double    index[2];       // notes §31: the wavetable Index each oscillator last played, ramped from
+    bool      indexSet;
     double    hyper[2][TI_HYPER_SAWS];
     double    twin[2][2];                   // notes §28: Wave PWM's two detuned copies of Osc 1 and Osc 2
     double    grain[2][3];                  // notes §29: the Complex models' half-rate phase and two drifts
@@ -126,6 +128,8 @@ typedef struct {
     tTiSound        sound;       // as the voices play it: a Quantise-held byte keeps its old value (notes §5)
 } tTiVoices;
 
+// notes §30: the rate the voices run at for a host rate - the host's own if the instrument has it
+double ti_voices_engine_rate(double hostRate);
 void ti_voices_init(tTiVoices * v, double rate);
 void ti_voices_set_rate(tTiVoices * v, double rate);
 void ti_voices_set_limit(tTiVoices * v, uint32_t limit);

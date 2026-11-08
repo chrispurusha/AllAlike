@@ -14,10 +14,22 @@ Up to nine saws. Density reaches 2, 3, 4, 5, 6, 7, 8 and 9 saws at 32, 64, 80, 9
 
 ## 5. The Wavetable oscillator
 A hundred tables, read with Wave Select choosing the table and Index moving through it. Each table has its own number
-of frames, from 2 to 44 (1016 in all), spread evenly over Index: frame k sits at Index k x 127 / (frames - 1). Each
-frame is 64 partials, amplitude and phase, measured at the middle of the Index range where Smooth 127 holds it alone;
-the phases share one origin, so the partials of neighbouring frames add as they should. A table's waves are built
-when first used, in five band-limited versions.
+of frames, from 2 to 44 (1016 in all), spread evenly over Index: frame k sits at Index k x 127 / (frames - 1).
+
+A frame is one cycle of 512, 256, 128 or 64 samples - its table's own size, the shortest that holds the table's
+partials (55 tables at 512, 20 at 256, 18 at 128, 7 at 64) - so up to 256 partials, each an amplitude and a phase
+(`tiWavetables.c`, only the partials a frame has). The instrument holds each frame in nine band-limited versions,
+256, 128, 64, 32, 16, 8, 4, 2 and 1 partials, in cycles of 512, 256, 128, 64, 64, 64, 32, 32 and 32 samples (none
+longer than the table's own). A note plays one version an octave: counting the increment in half-cycles a sample at
+the rate the voices run, version v takes over at 2^(v-1)/256 (so 1/256 for version 1).
+Each version is read with a straight line between samples whose step is steepened: the line covers the interval in
+1/m of its length and then holds, m = the next version's threshold over the increment, in 1/128ths (2.63 at C2 on
+a 256-sample table, 1.31 an octave up). The versions below the top up to the 16-partial one are read so, and the top
+one on 55 of the 100 tables (`gTiWavetableSharpTop`); the rest are plain straight lines. The phases share one origin, so neighbouring frames add as they should. All
+tables are built when the first instance starts (about 0.2 s, off the audio thread). Table 0's two frames are 64
+partials as measured. Against the instrument at C1-C6 (11 tables, 2026-11-08): the median partial within about 0.3 dB
+and 90% of the partials within about 1.7 dB in the median case, the total level within 1.5 dB in nearly all - see
+the todo for the cases still out.
 
 Between two frames the oscillator crossfades, by f, the place between them. **Smooth** (Interpolation) steepens that
 crossfade about its middle: the next frame's weight is clamp(1/2 + (f - 1/2) / (1 - Smooth/128)^2, 0, 1). Smooth 0 is

@@ -25,6 +25,17 @@
 
 #include "tiHardware.h"
 
+int ti_hardware_port_count(void) {
+    return 0;
+}
+
+bool ti_hardware_port_name(int index, char * out, size_t len) {
+    (void)index;
+    (void)out;
+    (void)len;
+    return false;
+}
+
 bool ti_hardware_claim(int * lock) {
     *lock = 0;
     return true;

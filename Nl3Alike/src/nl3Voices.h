@@ -40,9 +40,10 @@ typedef struct {
     float      velocity;
     double     phase[NL3_OSCS];
     double     increment[NL3_OSCS];
-    tNl3Env    amp;       // the amplifier envelope
-    double     glide;     // notes §12: semitones from the note
-    double     glideRate; // semitones a second, for a straight glide
+    double     pitch[NL3_OSCS]; // osc notes §8: in notes
+    tNl3Env    amp;             // the amplifier envelope
+    double     glide;           // notes §12: semitones from the note
+    double     glideRate;       // semitones a second, for a straight glide
     uint32_t   noiseSeed;
     double     noiseLow, noiseLast;
     tNl3Env    env[NL3_MOD_ENVS];
@@ -157,6 +158,8 @@ typedef struct {
     bool       pedalled[128];     // keys up while the pedal held them
     double     edge[NL3_EDGE_POINTS];
     bool       fixedPoint;        // notes §19: the arithmetic the instrument uses
+    bool       clean;             // notes §20: the Aliasing setting
+    tNl3Steps  steps;
 } tNl3Voices;
 
 // voices notes §14: from the normalised Volume
@@ -169,6 +172,7 @@ static inline double nl3_volume_gain(double normalized) {
 void nl3_voices_init(tNl3Voices * v);
 void nl3_voices_set_limit(tNl3Voices * v, uint32_t limit);
 void nl3_voices_set_fixed(tNl3Voices * v, bool fixed);
+void nl3_voices_set_clean(tNl3Voices * v, bool clean);
 void nl3_voices_note_on(tNl3Voices * v, const tNl3Sound * sound, uint8_t note, float velocity);
 void nl3_voices_note_off(tNl3Voices * v, const tNl3Sound * sound, uint8_t note);
 void nl3_voices_all_off(tNl3Voices * v);

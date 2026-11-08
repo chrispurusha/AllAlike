@@ -442,7 +442,7 @@ static void shaped(tTiEffects * e, int ch, uint8_t curve, double intensity, doub
     bool               useCut  = (c[71] != 0) && !reducer;
 
     if (od != NULL) {
-        double w  = 2.0 * M_PI * od->highCut / e->rate;
+        double w  = 2.0 * M_PI * fmin(od->highCut, 0.49 * e->rate) / e->rate;   // Curry's corner passes Nyquist at 44.1 kHz
         double al = sin(w) / (2.0 * od->q);
         double c  = cos(w);
         double n  = 1.0 + al;

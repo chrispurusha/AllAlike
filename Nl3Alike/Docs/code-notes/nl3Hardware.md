@@ -4,7 +4,13 @@
 One instance on the machine, by a file lock beside the presets, so two instances cannot fight over the edit buffer.
 
 ## 2. What is sent
-Only the edit buffer: command 00, then 1E for the extension, sent apart. The bank dump command 02 writes flash and is never sent. No single-parameter message is used, so every edit sends the whole sound. Device ID and channel are the instrument's own settings, on the GLOBAL page.
+Only Slot A: the whole program as one Program Dump from a Slot (command 20, Slot 0), which places it in the Slot and
+stores nothing. A dump to a memory location (21) would write flash and is never sent. Every edit sends the whole
+sound. Device ID and channel are the instrument's own settings, on the GLOBAL page.
 
-## 3. Reading a backup
-The All Programs request, the message the instrument itself transmits from its panel, asks only that it send. Done when the data stops for four seconds, or at the first performance if one comes. The answer needs MIDI from the instrument on the port of the same name. Nothing is stored until the import's confirm.
+## 3. Reading the programs
+The instrument has no request for all its programs, so the read asks for each memory location in turn (command 31,
+bank, program), each answer bringing the next request. An empty location does not answer, so after 0.6 s of
+silence the read moves on to the next. Done when every location has been asked for and the data has stopped.
+Tried 2026-11-07: 1010 programs in 100 seconds, the 14 empty locations skipped. The answers need MIDI from the instrument on the port of the same name. Nothing is stored until
+the import's confirm.

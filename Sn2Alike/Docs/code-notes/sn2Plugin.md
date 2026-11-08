@@ -43,7 +43,8 @@ A program change selects a stored sound, with Bank Select picking the bank. If t
 The voices always run at SN2_ENGINE_HZ and SynthLib's resampler converts each host chunk to the host rate, so a sound does not change with the host and the plug-in reports the resampler's latency. A note starts at the nearest engine sample. ENGINE_FRAMES holds one HOST_CHUNK down to a host rate of about 2.5 kHz.
 
 ## 13. Tempo
-Delay Sync follows the host's tempo, or 122 BPM when the host gives none, as the reference does.
+The host's tempo, always - there is no tempo setting. 120 BPM until the host gives one; when it stops giving one
+(a stopped transport, say), the last it gave. Delay Sync uses it.
 
 ## 14. The link to the instrument
 Run from the panel's sync, so it needs the editor open. A changed sound goes whole, at most every 0.5 s, its extension 0.2 s later. Notes go from the audio thread, bend, wheel and pedal from the sync. Turning the link off sends All Notes Off. The output is chosen in the MIDI menu and kept for the machine.

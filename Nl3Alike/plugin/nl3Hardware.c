@@ -14,18 +14,11 @@
 
 #include "nl3Hardware.h"
 
-#define MAIN_LENGTH       (297)
-#define MAIN_DATA         (286)
-#define EXT_DATA          (88)
-#define SOURCE_DATA_AT    (10)
-#define EDIT_MAIN         (0x00)
-#define EDIT_EXT          (0x1E)
-#define FORMAT            (0x09)
+#define REQUEST_FROM_MEMORY    (0x31)
+#define FROM_SLOT              (0x20)
 
-static const uint8_t kHeader[6] = {0xF0, 0x00, 0x20, 0x29, 0x01, 0x24};
-
-static MIDIClientRef gClient    = 0;
-static MIDIPortRef   gPort      = 0;
+static MIDIClientRef gClient = 0;
+static MIDIPortRef   gPort   = 0;
 
 static bool endpoint_name(MIDIEndpointRef endpoint, char * out, size_t len) {
     CFStringRef name = NULL;
@@ -109,25 +102,24 @@ static tNl3HardwareResult send_bytes(const char * port, const uint8_t * data, ui
     return ((packet != NULL) && (MIDISend(gPort, dest, list) == noErr)) ? eNl3HardwareSent : eNl3HardwareNoMidi;
 }
 
-// notes §2: header, device, command, format, the program's data, end
-static tNl3HardwareResult send_message(const char * port, uint8_t device, uint8_t command, const uint8_t * data, uint32_t length) {
-    uint8_t m[400];
-
-    memcpy(m, kHeader, sizeof(kHeader));
-    m[6]          = device;
-    m[7]          = command;
-    m[8]          = FORMAT;
-    memcpy(&m[9], data, length);
-    m[9 + length] = 0xF7;
-    return send_bytes(port, m, 10 + length);
-}
-
+// notes §2: the program into Slot A, as one message
 tNl3HardwareResult nl3_hardware_send_main(const uint8_t single[NL3_SINGLE_LENGTH], const char * port, uint8_t device) {
-    return send_message(port, device, EDIT_MAIN, &single[SOURCE_DATA_AT], MAIN_DATA);
+    uint8_t m[NL3_SINGLE_LENGTH];
+
+    memcpy(m, single, sizeof(m));
+    m[2] = device;
+    m[4] = FROM_SLOT;
+    m[5] = 0;
+    m[6] = 0;
+    return send_bytes(port, m, sizeof(m));
 }
 
+// The Nord Lead 3 takes a program whole; there is nothing more to send
 tNl3HardwareResult nl3_hardware_send_extension(const uint8_t single[NL3_SINGLE_LENGTH], const char * port, uint8_t device) {
-    return send_message(port, device, EDIT_EXT, &single[MAIN_LENGTH + SOURCE_DATA_AT], EXT_DATA);
+    (void)single;
+    (void)port;
+    (void)device;
+    return eNl3HardwareSent;
 }
 
 // ---- reading a backup - notes §3 ----------------------------------------------------------------------------
@@ -135,20 +127,32 @@ tNl3HardwareResult nl3_hardware_send_extension(const uint8_t single[NL3_SINGLE_L
 #define READ_LIMIT      (4 * 1024 * 1024)
 #define READ_WAIT_S     (15.0)
 #define READ_QUIET_S    (4.0)
-#define ALL_PROGRAMS    (0x04)    // notes §3
-#define PROGRAM_DUMP    (0x02)
-#define PROGRAM_EXT     (0x1F)
-#define PERFORMANCE     (0x07)
+#define READ_SKIP_S     (0.6)         // notes §3: an empty location does not answer
+#define ALL_PROGRAMS    (NL3_PRESETS) // notes §3: asked for one at a time
 
 static MIDIPortRef     gReadPort   = 0;
 static MIDIEndpointRef gReadSource = 0;
 static uint8_t *       gRead;
 static _Atomic size_t  gReadLength;
 static _Atomic int     gReadPrograms;
+static _Atomic int     gReadNext;     // the next location to ask for
+static _Atomic double  gReadAsked;    // when the last request went
 static _Atomic bool    gReadPast, gReadActive;
 static _Atomic double  gReadLast;
 static double          gReadStarted;
 static size_t          gReadMessage;  // where the message being received began
+static char            gReadPortName[256];
+static uint8_t         gReadDevice;
+
+static tNl3HardwareResult send_bytes(const char * port, const uint8_t * data, uint32_t length);
+static double now_s(void);
+
+static tNl3HardwareResult request_program(int index) {
+    atomic_store(&gReadAsked, now_s());
+    uint8_t request[8] = {0xF0, 0x33, gReadDevice, 0x09, REQUEST_FROM_MEMORY, (uint8_t)(index / NL3_BANK_SIZE), (uint8_t)(index % NL3_BANK_SIZE), 0xF7};
+
+    return send_bytes(gReadPortName, request, sizeof(request));
+}
 
 static double now_s(void) {
     return (double)clock_gettime_nsec_np(CLOCK_MONOTONIC) * 1e-9;
@@ -165,17 +169,19 @@ static void read_byte(uint8_t b) {
         gReadMessage = at;
     }
     gRead[at] = b;
-
-    // the programs come first; the first performance means they have all passed
-    if ((at == (gReadMessage + 7)) && (b == PERFORMANCE)) {
-        atomic_store(&gReadPast, true);
-        atomic_store(&gReadLength, gReadMessage);
-        return;
-    }
     atomic_store(&gReadLength, at + 1);
 
-    if ((b == 0xF7) && ((at - gReadMessage) > 7) && (gRead[gReadMessage + 7] == PROGRAM_EXT)) {
+    // notes §3: each program asks for the next
+    if ((b == 0xF7) && ((at + 1 - gReadMessage) == NL3_SINGLE_LENGTH)) {
+        int next = atomic_fetch_add(&gReadNext, 1) + 1;
+
         atomic_fetch_add(&gReadPrograms, 1);
+
+        if (next >= ALL_PROGRAMS) {
+            atomic_store(&gReadPast, true);
+        } else {
+            (void)request_program(next);
+        }
     }
 }
 
@@ -209,9 +215,9 @@ static MIDIEndpointRef find_input(const char * port) {
 }
 
 tNl3HardwareResult nl3_hardware_read_start(const char * port, uint8_t device) {
-    uint8_t request[9] = {0xF0, 0x00, 0x20, 0x29, 0x01, 0x24, device, ALL_PROGRAMS, 0xF7};
-
     nl3_hardware_read_stop();
+    snprintf(gReadPortName, sizeof(gReadPortName), "%s", (port != NULL) ? port : "");
+    gReadDevice  = device;
 
     if (gRead == NULL) {
         gRead = (uint8_t *)malloc(READ_LIMIT);
@@ -222,6 +228,7 @@ tNl3HardwareResult nl3_hardware_read_start(const char * port, uint8_t device) {
     }
     atomic_store(&gReadLength, 0);
     atomic_store(&gReadPrograms, 0);
+    atomic_store(&gReadNext, 0);
     atomic_store(&gReadPast, false);
     atomic_store(&gReadLast, 0.0);
     gReadMessage = 0;
@@ -241,7 +248,7 @@ tNl3HardwareResult nl3_hardware_read_start(const char * port, uint8_t device) {
     }
     gReadStarted = now_s();
     atomic_store(&gReadActive, true);
-    return send_bytes(port, request, sizeof(request));
+    return request_program(0);
 }
 
 tNl3ReadState nl3_hardware_read_state(void) {
@@ -253,11 +260,23 @@ tNl3ReadState nl3_hardware_read_state(void) {
     if (atomic_load(&gReadPast)) {
         return eNl3ReadDone;
     }
+    double now  = now_s();
+
+    // notes §3: nothing back for a while, and nothing arriving - an empty location; ask for the one after
+    if (((now - atomic_load(&gReadAsked)) > READ_SKIP_S) && ((last == 0.0) || ((now - last) > READ_SKIP_S))) {
+        int next = atomic_fetch_add(&gReadNext, 1) + 1;
+
+        if (next >= ALL_PROGRAMS) {
+            atomic_store(&gReadPast, true);
+            return eNl3ReadDone;
+        }
+        (void)request_program(next);
+    }
 
     if (last == 0.0) {
-        return ((now_s() - gReadStarted) > READ_WAIT_S) ? eNl3ReadTimedOut : eNl3ReadWaiting;
+        return ((now - gReadStarted) > READ_WAIT_S) ? eNl3ReadTimedOut : eNl3ReadWaiting;
     }
-    return ((now_s() - last) > READ_QUIET_S) ? eNl3ReadDone : eNl3ReadReceiving;
+    return (((now - last) > READ_QUIET_S) && (atomic_load(&gReadNext) >= ALL_PROGRAMS)) ? eNl3ReadDone : eNl3ReadReceiving;
 }
 
 int nl3_hardware_read_programs(void) {

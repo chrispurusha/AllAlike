@@ -17,451 +17,1002 @@
 // Notes: Docs/code-notes/nl3Params.md - "// notes §k" refers there.
 
 #include <math.h>
+#include <stddef.h>
+#include <string.h>
 
 #include "nl3Params.h"
 #include "nl3Voices.h"
 
 #define LIST    SYNTHLIB_PARAM_LIST
 
-// notes §1: the panel's 0..127 is each dial's plain range, as on the instrument
+// notes §1: the panel's 0..127 is each dial's plain range, as on the instrument; morph offsets -128..127
 const tSynthLibParam     gNl3Params[kNl3ParamCount] = {
-    {kNl3ParamVoiceLimit,     "Voice Limit",             "Voices",   eSynthLibUnitGeneric,   1.0, NL3_MAX_VOICES, 23.0 / (NL3_MAX_VOICES - 1), NL3_MAX_VOICES - 1, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamVolume,         "Prog Level",              "Level",    eSynthLibUnitGeneric,   0.0,          127.0,               100.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamOscShape,       "Osc Shape",               "Shape",    eSynthLibUnitIndexed,   0.0,            2.0,                         0.0,                  2, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
-    {kNl3ParamPulseWidth,     "Osc Pulse Width",         "PW",       eSynthLibUnitGeneric,   0.0,          127.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamCutoff,         "Cutoff",                  "Cutoff",   eSynthLibUnitGeneric,   0.0,          127.0,                         1.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamResonance,      "Resonance",               "Reso",     eSynthLibUnitGeneric,   0.0,          127.0,                         0.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamFilterType,     "Filter Type",             "Type",     eSynthLibUnitIndexed,   0.0,            1.0,                         0.0,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
-    {kNl3ParamFilterSlope,    "Filter Slope",            "Slope",    eSynthLibUnitIndexed,   0.0,            1.0,                         0.0,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
-    {kNl3ParamAmpAttack,      "Amp Attack",              "Attack",   eSynthLibUnitGeneric,   0.0,          127.0,                         0.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamAmpDecay,       "Amp Decay",               "Decay",    eSynthLibUnitGeneric,   0.0,          127.0,                         1.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamAmpSustain,     "Amp Sustain",             "Sustain",  eSynthLibUnitGeneric,   0.0,          127.0,                         1.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamAmpSustainTime, "Amp Sustain Time",        "Time",     eSynthLibUnitGeneric, -64.0,           63.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamAmpRelease,     "Amp Release",             "Release",  eSynthLibUnitGeneric,   0.0,          127.0,                 4.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamProgram,        "Program",                 "Program",  eSynthLibUnitGeneric,   0.0,          127.0,                    0.000000,                127, SYNTHLIB_MIDI_NONE,       SYNTHLIB_PARAM_PROGRAM | SYNTHLIB_PARAM_HIDDEN | SYNTHLIB_PARAM_NO_SAVE},
-    {kNl3ParamBank,           "Bank Select",             "Bank",     eSynthLibUnitGeneric,   0.0,          127.0,                    0.000000,                127,                       32, SYNTHLIB_PARAM_HIDDEN | SYNTHLIB_PARAM_NO_SAVE                         },
-    {kNl3ParamOscSoften,      "Osc Soften",              "Soften",   eSynthLibUnitGeneric,   0.0,          127.0,                         1.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamOscLevel,       "Osc Level",               "Level",    eSynthLibUnitGeneric,   0.0,          127.0,                         1.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamOsc2Shape,      "Osc 2 Shape",             "Shape",    eSynthLibUnitIndexed,   0.0,            2.0,                         0.0,                  2, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
-    {kNl3ParamOsc2Width,      "Osc 2 Pulse Width",       "PW",       eSynthLibUnitGeneric,   0.0,          127.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamOsc2Soften,     "Osc 2 Soften",            "Soften",   eSynthLibUnitGeneric,   0.0,          127.0,                         1.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamOsc2Level,      "Osc 2 Level",             "Level",    eSynthLibUnitGeneric,   0.0,          127.0,                         0.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamOsc3Shape,      "Osc 3 Shape",             "Shape",    eSynthLibUnitIndexed,   0.0,            2.0,                         0.0,                  2, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
-    {kNl3ParamOsc3Width,      "Osc 3 Pulse Width",       "PW",       eSynthLibUnitGeneric,   0.0,          127.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamOsc3Soften,     "Osc 3 Soften",            "Soften",   eSynthLibUnitGeneric,   0.0,          127.0,                         1.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamOsc3Level,      "Osc 3 Level",             "Level",    eSynthLibUnitGeneric,   0.0,          127.0,                         0.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamOsc1Octave,     "Osc 1 Octave",            "Octave",   eSynthLibUnitGeneric,  -2.0,            2.0,                         0.5,                  4, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamOsc1Semitone,   "Osc 1 Semitone",          "Semi",     eSynthLibUnitGeneric, -12.0,           12.0,                         0.5,                 24, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamOsc1Fine,       "Osc 1 Fine Tune",         "Fine",     eSynthLibUnitGeneric, -64.0,           63.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamOsc2Octave,     "Osc 2 Octave",            "Octave",   eSynthLibUnitGeneric,  -2.0,            2.0,                         0.5,                  4, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamOsc2Semitone,   "Osc 2 Semitone",          "Semi",     eSynthLibUnitGeneric, -12.0,           12.0,                         0.5,                 24, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamOsc2Fine,       "Osc 2 Fine Tune",         "Fine",     eSynthLibUnitGeneric, -64.0,           63.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamOsc3Octave,     "Osc 3 Octave",            "Octave",   eSynthLibUnitGeneric,  -2.0,            2.0,                         0.5,                  4, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamOsc3Semitone,   "Osc 3 Semitone",          "Semi",     eSynthLibUnitGeneric, -12.0,           12.0,                         0.5,                 24, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamOsc3Fine,       "Osc 3 Fine Tune",         "Fine",     eSynthLibUnitGeneric, -64.0,           63.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamFilterTrack,    "Filter Keyboard Track",   "Track",    eSynthLibUnitIndexed,   0.0,            1.0,                         0.0,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
-    {kNl3ParamFilterDrive,    "Filter Distortion",       "Dist",     eSynthLibUnitGeneric,   0.0,          127.0,                         0.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamAmpVelocity,    "Amp Velocity",            "Velocity", eSynthLibUnitGeneric,   0.0,          127.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamEnv2Attack,     "Env 2 Attack",            "Attack",   eSynthLibUnitGeneric,   0.0,          127.0,                         0.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamEnv2Decay,      "Env 2 Decay",             "Decay",    eSynthLibUnitGeneric,   0.0,          127.0,                         0.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamEnv2Sustain,    "Env 2 Sustain",           "Sustain",  eSynthLibUnitGeneric,   0.0,          127.0,                         1.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamEnv2Release,    "Env 2 Release",           "Release",  eSynthLibUnitGeneric,   0.0,          127.0,                         0.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamEnv2Velocity,   "Env 2 Velocity",          "Vel",      eSynthLibUnitGeneric,   0.0,          127.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamEnv2Cutoff,     "Env 2 to Cutoff",         "Cutoff",   eSynthLibUnitGeneric, -64.0,           63.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamEnv3Attack,     "Env 3 Attack",            "Attack",   eSynthLibUnitGeneric,   0.0,          127.0,                         0.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamEnv3Decay,      "Env 3 Decay",             "Decay",    eSynthLibUnitGeneric,   0.0,          127.0,                         0.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamEnv3Sustain,    "Env 3 Sustain",           "Sustain",  eSynthLibUnitGeneric,   0.0,          127.0,                         1.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamEnv3Release,    "Env 3 Release",           "Release",  eSynthLibUnitGeneric,   0.0,          127.0,                         0.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamEnv3Velocity,   "Env 3 Velocity",          "Vel",      eSynthLibUnitGeneric,   0.0,          127.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamEnv3Cutoff,     "Env 3 to Cutoff",         "Cutoff",   eSynthLibUnitGeneric, -64.0,           63.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamNoiseLevel,     "Noise Level",             "Noise",    eSynthLibUnitGeneric,   0.0,          127.0,                         0.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamNoiseSoften,    "Noise Soften",            "Soften",   eSynthLibUnitGeneric,   0.0,          127.0,                         1.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamRing13,         "Ring 1x3",                "1x3",      eSynthLibUnitGeneric,   0.0,          127.0,                         0.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamRing23,         "Ring 2x3",                "2x3",      eSynthLibUnitGeneric,   0.0,          127.0,                         0.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamFilterQ,        "Filter Q Normalise",      "Q Norm",   eSynthLibUnitGeneric,   0.0,          127.0,                         0.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamEffectsDry,     "Effects Dry",             "Dry",      eSynthLibUnitGeneric,   0.0,          127.0,                         1.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamChorusSend,     "Chorus Send",             "Send",     eSynthLibUnitGeneric,   0.0,          127.0,                         0.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamChorusSpeed,    "Chorus Speed",            "Speed",    eSynthLibUnitGeneric,   0.0,          127.0,                27.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamChorusDepth,    "Chorus Depth",            "Depth",    eSynthLibUnitGeneric,   0.0,          127.0,                33.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamChorusFeedback, "Chorus Feedback",         "Fback",    eSynthLibUnitGeneric,   0.0,          127.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamChorusType,     "Chorus Type",             "Type",     eSynthLibUnitIndexed,   0.0,            2.0,                         0.5,                  2, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
-    {kNl3ParamDelayOn,        "Global Delay",            "Delay",    eSynthLibUnitIndexed,   0.0,            1.0,                         1.0,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
-    {kNl3ParamReverbOn,       "Global Reverb",           "Reverb",   eSynthLibUnitIndexed,   0.0,            1.0,                         1.0,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
-    {kNl3ParamDelaySend,      "Delay Send",              "Send",     eSynthLibUnitGeneric,   0.0,          127.0,                         0.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamDelayTime,      "Delay Time",              "Time",     eSynthLibUnitGeneric,   0.0,          127.0,                75.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamDelayFeedback,  "Delay Feedback",          "Fback",    eSynthLibUnitGeneric,   0.0,          127.0,                50.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamDelayDamp,      "Delay HF Damp",           "Damp",     eSynthLibUnitGeneric,   0.0,          127.0,                20.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamDelayWidth,     "Delay Width",             "Width",    eSynthLibUnitGeneric,   0.0,          127.0,                         1.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamDelayRatio,     "Delay Ratio",             "Ratio",    eSynthLibUnitIndexed,   0.0,           12.0,                         0.0,                 12, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
-    {kNl3ParamDelaySync,      "Delay Sync",              "Sync",     eSynthLibUnitIndexed,   0.0,           34.0,                         0.0,                 34, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
-    {kNl3ParamGlideTime,      "Glide Time",              "Time",     eSynthLibUnitGeneric,   0.0,          127.0,                         0.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamGlideStyle,     "Glide Style",             "Style",    eSynthLibUnitIndexed,   0.0,            1.0,                         0.0,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
-    {kNl3ParamGlideCurve,     "Glide Curve",             "Curve",    eSynthLibUnitIndexed,   0.0,            1.0,                         1.0,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
-    {kNl3ParamGlideType,      "Glide Type",              "Type",     eSynthLibUnitIndexed,   0.0,            9.0,                   1.0 / 9.0,                  9, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
-    {kNl3ParamReverbSend,     "Reverb Send",             "Send",     eSynthLibUnitGeneric,   0.0,          127.0,                         0.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamReverbDecay,    "Reverb Decay",            "Decay",    eSynthLibUnitGeneric,   0.0,          127.0,                80.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamReverbDamp,     "Reverb HF Damp",          "Damp",     eSynthLibUnitGeneric,   0.0,          127.0,                18.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamReverbType,     "Reverb Type",             "Type",     eSynthLibUnitIndexed,   0.0,           15.0,                  9.0 / 15.0,                 15, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
-    {kNl3ParamEffectsOrder,   "Effects Order",           "Order",    eSynthLibUnitIndexed,   0.0,           18.0,                         0.0,                 18, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
-    {kNl3ParamOscTrigger,     "Osc Trigger",             "Trigger",  eSynthLibUnitIndexed,   0.0,            1.0,                         0.0,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
-    {kNl3ParamDistLevel,      "Distortion Level",        "Level",    eSynthLibUnitGeneric,   0.0,          127.0,                         0.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamDistComp,       "Distortion Compensation", "Comp",     eSynthLibUnitGeneric,   0.0,          127.0,               112.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamDistOutput,     "Distortion Output",       "Output",   eSynthLibUnitGeneric,   0.0,          127.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamEqBass,         "EQ Bass",                 "Bass",     eSynthLibUnitGeneric,   0.0,          127.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamEqTreble,       "EQ Treble",               "Treble",   eSynthLibUnitGeneric,   0.0,          127.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamPitchBend,      "Pitch Bend",              "Bend",     eSynthLibUnitGeneric,   0.0,            1.0,                         0.5,                  0, SYNTHLIB_MIDI_PITCH_BEND, SYNTHLIB_PARAM_HIDDEN | SYNTHLIB_PARAM_NO_SAVE                         },
-    {kNl3ParamModWheel,       "Mod Wheel",               "Wheel",    eSynthLibUnitGeneric,   0.0,            1.0,                         0.0,                  0, SYNTHLIB_MIDI_MOD_WHEEL,  SYNTHLIB_PARAM_HIDDEN | SYNTHLIB_PARAM_NO_SAVE                         },
-    {kNl3ParamOsc1BendRange,  "Osc 1 Bend Range",        "Bend",     eSynthLibUnitGeneric, -12.0,           12.0,                 14.0 / 24.0,                 24, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamOsc2BendRange,  "Osc 2 Bend Range",        "Bend",     eSynthLibUnitGeneric, -12.0,           12.0,                 14.0 / 24.0,                 24, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamOsc3BendRange,  "Osc 3 Bend Range",        "Bend",     eSynthLibUnitGeneric, -12.0,           12.0,                 14.0 / 24.0,                 24, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamOsc1WheelPitch, "Osc 1 Wheel Pitch",       "Wheel",    eSynthLibUnitGeneric, -64.0,           63.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamOsc2WheelPitch, "Osc 2 Wheel Pitch",       "Wheel",    eSynthLibUnitGeneric, -64.0,           63.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamOsc3WheelPitch, "Osc 3 Wheel Pitch",       "Wheel",    eSynthLibUnitGeneric, -64.0,           63.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamOsc1WheelLevel, "Osc 1 Wheel Level",       "Wheel",    eSynthLibUnitGeneric, -64.0,           63.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamOsc2WheelLevel, "Osc 2 Wheel Level",       "Wheel",    eSynthLibUnitGeneric, -64.0,           63.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamOsc3WheelLevel, "Osc 3 Wheel Level",       "Wheel",    eSynthLibUnitGeneric, -64.0,           63.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamWheelCutoff,    "Wheel Cutoff",            "Wheel",    eSynthLibUnitGeneric, -64.0,           63.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamWheelResonance, "Wheel Resonance",         "Wheel",    eSynthLibUnitGeneric, -64.0,           63.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamPolyMode,       "Poly Mode",               "Mode",     eSynthLibUnitIndexed,   0.0,            1.0,                         0.0,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
-    {kNl3ParamEnvTrigger,     "Env Trigger",             "Trigger",  eSynthLibUnitIndexed,   0.0,            1.0,                         0.0,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
-    {kNl3ParamMaster,         "Master Volume",           "Master",   eSynthLibUnitGeneric,   0.0,          127.0,                         1.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamEffectsBypass,  "Effects Bypass",          "Effects",  eSynthLibUnitIndexed,   0.0,            1.0,                         0.0,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
-    {kNl3ParamSustainPedal,   "Sustain Pedal",           "Pedal",    eSynthLibUnitGeneric,   0.0,            1.0,                         0.0,                  0, SYNTHLIB_MIDI_SUSTAIN,    SYNTHLIB_PARAM_HIDDEN | SYNTHLIB_PARAM_NO_SAVE                         },
-    {kNl3ParamLfo1Shape,      "LFO 1 Shape",             "Shape",    eSynthLibUnitIndexed,   0.0,            3.0,                   2.0 / 3.0,                  3, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
-    {kNl3ParamLfo1Speed,      "LFO 1 Speed",             "Speed",    eSynthLibUnitGeneric,   0.0,          127.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamLfo1Range,      "LFO 1 Range",             "Range",    eSynthLibUnitIndexed,   0.0,            2.0,                         0.0,                  2, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
-    {kNl3ParamLfo1Delay,      "LFO 1 Delay",             "Delay",    eSynthLibUnitGeneric,   0.0,          127.0,                         0.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamLfo1Offset,     "LFO 1 Offset",            "Offset",   eSynthLibUnitGeneric,   0.0,          127.0,                         0.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamLfo1Trigger,    "LFO 1 Trigger",           "Trigger",  eSynthLibUnitIndexed,   0.0,            1.0,                         1.0,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
-    {kNl3ParamLfo1Cutoff,     "LFO 1 to Cutoff",         "Cutoff",   eSynthLibUnitGeneric, -64.0,           63.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamOsc1Lfo1Pitch,  "Osc 1 LFO 1 Pitch",       "Pitch",    eSynthLibUnitGeneric, -64.0,           63.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamOsc1Lfo1Width,  "Osc 1 LFO 1 Width",       "Width",    eSynthLibUnitGeneric, -64.0,           63.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamOsc2Lfo1Pitch,  "Osc 2 LFO 1 Pitch",       "Pitch",    eSynthLibUnitGeneric, -64.0,           63.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamOsc2Lfo1Width,  "Osc 2 LFO 1 Width",       "Width",    eSynthLibUnitGeneric, -64.0,           63.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamOsc3Lfo1Pitch,  "Osc 3 LFO 1 Pitch",       "Pitch",    eSynthLibUnitGeneric, -64.0,           63.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamOsc3Lfo1Width,  "Osc 3 LFO 1 Width",       "Width",    eSynthLibUnitGeneric, -64.0,           63.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamLfo2Shape,      "LFO 2 Shape",             "Shape",    eSynthLibUnitIndexed,   0.0,            3.0,                   2.0 / 3.0,                  3, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
-    {kNl3ParamLfo2Speed,      "LFO 2 Speed",             "Speed",    eSynthLibUnitGeneric,   0.0,          127.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamLfo2Range,      "LFO 2 Range",             "Range",    eSynthLibUnitIndexed,   0.0,            2.0,                         0.0,                  2, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
-    {kNl3ParamLfo2Delay,      "LFO 2 Delay",             "Delay",    eSynthLibUnitGeneric,   0.0,          127.0,                         0.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamLfo2Offset,     "LFO 2 Offset",            "Offset",   eSynthLibUnitGeneric,   0.0,          127.0,                         0.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamLfo2Trigger,    "LFO 2 Trigger",           "Trigger",  eSynthLibUnitIndexed,   0.0,            1.0,                         1.0,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
-    {kNl3ParamLfo2Cutoff,     "LFO 2 to Cutoff",         "Cutoff",   eSynthLibUnitGeneric, -64.0,           63.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamOsc1Lfo2Pitch,  "Osc 1 LFO 2 Pitch",       "Pitch",    eSynthLibUnitGeneric, -64.0,           63.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamOsc1Lfo2Width,  "Osc 1 LFO 2 Width",       "Width",    eSynthLibUnitGeneric, -64.0,           63.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamOsc2Lfo2Pitch,  "Osc 2 LFO 2 Pitch",       "Pitch",    eSynthLibUnitGeneric, -64.0,           63.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamOsc2Lfo2Width,  "Osc 2 LFO 2 Width",       "Width",    eSynthLibUnitGeneric, -64.0,           63.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamOsc3Lfo2Pitch,  "Osc 3 LFO 2 Pitch",       "Pitch",    eSynthLibUnitGeneric, -64.0,           63.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamOsc3Lfo2Width,  "Osc 3 LFO 2 Width",       "Width",    eSynthLibUnitGeneric, -64.0,           63.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamLfo1Fade,       "LFO 1 Fade",              "Fade",     eSynthLibUnitIndexed,   0.0,            1.0,                         0.0,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
-    {kNl3ParamLfo2Fade,       "LFO 2 Fade",              "Fade",     eSynthLibUnitIndexed,   0.0,            1.0,                         0.0,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
-    {kNl3ParamHwLink,         "Link Hardware",           "Link",     eSynthLibUnitIndexed,   0.0,            1.0,                         0.0,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
-    {kNl3ParamHwChannel,      "Hardware MIDI Channel",   "Channel",  eSynthLibUnitGeneric,   1.0,           16.0,                  6.0 / 15.0,                 15, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamHwDevice,       "Hardware Device ID",      "Device",   eSynthLibUnitGeneric,   0.0,          127.0,                 6.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamPan,            "Pan",                     "Pan",      eSynthLibUnitGeneric,   0.0,          127.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamPanSpeed,       "Pan Speed",               "Speed",    eSynthLibUnitGeneric,   0.0,          127.0,                34.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamPanDepth,       "Pan Depth",               "Depth",    eSynthLibUnitGeneric,   0.0,          127.0,                         0.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamPanEffects,     "Pan Effects",             "Effects",  eSynthLibUnitIndexed,   0.0,            1.0,                         1.0,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
-    {kNl3ParamArithmetic,     "Arithmetic",              "Maths",    eSynthLibUnitIndexed,   0.0,            1.0,                         0.0,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kNl3ParamVoiceLimit,                       "Voice Limit",                            "Voices",   eSynthLibUnitGeneric,    1.0, NL3_MAX_VOICES, 23.0 / (NL3_MAX_VOICES - 1), NL3_MAX_VOICES - 1, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMaster,                           "Master Volume",                          "Master",   eSynthLibUnitGeneric,    0.0,          127.0,                         1.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamArithmetic,                       "Arithmetic",                             "Maths",    eSynthLibUnitIndexed,    0.0,            1.0,                         0.0,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kNl3ParamAliasing,                         "Aliasing",                               "Alias",    eSynthLibUnitIndexed,    0.0,            1.0,                         0.0,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kNl3ParamProgram,                          "Program",                                "Program",  eSynthLibUnitGeneric,    0.0,          127.0,                         0.0,                127, SYNTHLIB_MIDI_NONE,       SYNTHLIB_PARAM_PROGRAM | SYNTHLIB_PARAM_HIDDEN | SYNTHLIB_PARAM_NO_SAVE},
+    {kNl3ParamBank,                             "Bank Select",                            "Bank",     eSynthLibUnitGeneric,    0.0,          127.0,                         0.0,                127,                       32, SYNTHLIB_PARAM_HIDDEN | SYNTHLIB_PARAM_NO_SAVE                         },
+    {kNl3ParamPitchBend,                        "Pitch Bend",                             "Bend",     eSynthLibUnitGeneric,    0.0,            1.0,                         0.5,                  0, SYNTHLIB_MIDI_PITCH_BEND, SYNTHLIB_PARAM_HIDDEN | SYNTHLIB_PARAM_NO_SAVE                         },
+    {kNl3ParamModWheel,                         "Mod Wheel",                              "Wheel",    eSynthLibUnitGeneric,    0.0,            1.0,                         0.0,                  0, SYNTHLIB_MIDI_MOD_WHEEL,  SYNTHLIB_PARAM_HIDDEN | SYNTHLIB_PARAM_NO_SAVE                         },
+    {kNl3ParamSustainPedal,                     "Sustain Pedal",                          "Pedal",    eSynthLibUnitGeneric,    0.0,            1.0,                         0.0,                  0, SYNTHLIB_MIDI_SUSTAIN,    SYNTHLIB_PARAM_HIDDEN | SYNTHLIB_PARAM_NO_SAVE                         },
+    {kNl3ParamHwLink,                           "Link Hardware",                          "Link",     eSynthLibUnitIndexed,    0.0,            1.0,                         0.0,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kNl3ParamHwChannel,                        "Hardware MIDI Channel",                  "Channel",  eSynthLibUnitGeneric,    1.0,           16.0,                  1.0 / 15.0,                 15, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamHwDevice,                         "Hardware Device ID",                     "Device",   eSynthLibUnitGeneric,    0.0,          127.0,                         1.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamOsc1Waveform,                     "Osc 1 Waveform",                         "Wave",     eSynthLibUnitIndexed,    0.0,            5.0,                    0.000000,                  5, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kNl3ParamOsc1Shape,                        "Osc 1 Shape",                            "Shape",    eSynthLibUnitGeneric,    0.0,          127.0,                    0.000000,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamOsc1Sync,                         "Osc 1 Sync",                             "Sync",     eSynthLibUnitIndexed,    0.0,            1.0,                    0.000000,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kNl3ParamOsc1SyncTune,                     "Osc 1 Sync Detune",                      "Detune",   eSynthLibUnitGeneric,    0.0,          127.0,                    0.000000,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamOsc1NoiseSeed,                    "Osc 1 Sync Noise Timbre",                "Timbre",   eSynthLibUnitGeneric,    0.0,          127.0,                    0.000000,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamOsc1FmAmount,                     "Osc 1 FM Amount",                        "FM",       eSynthLibUnitGeneric,    0.0,          127.0,                    0.000000,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamOsc2Waveform,                     "Osc 2 Waveform",                         "Wave",     eSynthLibUnitIndexed,    0.0,            5.0,                    0.000000,                  5, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kNl3ParamOsc2Shape,                        "Osc 2 Shape",                            "Shape",    eSynthLibUnitGeneric,    0.0,          127.0,                    0.000000,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamOsc2Sync,                         "Osc 2 Sync",                             "Sync",     eSynthLibUnitIndexed,    0.0,            1.0,                    0.000000,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kNl3ParamOsc2Coarse,                       "Osc 2 Coarse Tune",                      "Coarse",   eSynthLibUnitGeneric,    0.0,          127.0,                    0.503937,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamOsc2Fine,                         "Osc 2 Fine Tune",                        "Fine",     eSynthLibUnitGeneric,    0.0,          127.0,                    0.503937,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamOsc2Kbt,                          "Osc 2 Keyboard Track Off",               "KBT Off",  eSynthLibUnitIndexed,    0.0,            1.0,                    0.000000,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kNl3ParamOsc2Partial,                      "Osc 2 Partial",                          "Partial",  eSynthLibUnitIndexed,    0.0,            1.0,                    0.000000,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kNl3ParamOsc2SyncTune,                     "Osc 2 Sync Detune",                      "Detune",   eSynthLibUnitGeneric,    0.0,          127.0,                    0.000000,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamOsc2NoiseSeed,                    "Osc 2 Sync Noise Timbre",                "Timbre",   eSynthLibUnitGeneric,    0.0,          127.0,                    0.000000,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamOsc2FmAmount,                     "Osc 2 FM Amount",                        "FM",       eSynthLibUnitGeneric,    0.0,          127.0,                    0.000000,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamOsc2Carrier,                      "Osc 2 Dual Sine Carrier",                "Carrier",  eSynthLibUnitGeneric,    0.0,          127.0,                    0.157480,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamOsc2Modulator,                    "Osc 2 Dual Sine Modulator",              "Mod",      eSynthLibUnitGeneric,    0.0,          127.0,                    0.165354,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamOsc2NoiseType,                    "Osc 2 Noise Type",                       "N Type",   eSynthLibUnitGeneric,    0.0,          127.0,                    0.503937,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamOsc2NoiseFreq,                    "Osc 2 Noise Frequency",                  "N Freq",   eSynthLibUnitGeneric,    0.0,          127.0,                    0.787402,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamOscModAmount,                     "Osc Mod Amount",                         "Amount",   eSynthLibUnitGeneric,    0.0,          127.0,                    0.000000,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamOscModType,                       "Osc Mod Type",                           "Type",     eSynthLibUnitIndexed,    0.0,            5.0,                    0.600000,                  5, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kNl3ParamOscMix,                           "Osc Mix",                                "Mix",      eSynthLibUnitGeneric,    0.0,          127.0,                    0.000000,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamOscMixNoise,                      "Osc Mix Noise 3",                        "Noise3",   eSynthLibUnitIndexed,    0.0,            1.0,                    0.000000,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kNl3ParamFilterMode,                       "Filter Mode",                            "Mode",     eSynthLibUnitIndexed,    0.0,            1.0,                    0.000000,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kNl3ParamFilterType,                       "Filter Type",                            "Type",     eSynthLibUnitIndexed,    0.0,            5.0,                    0.000000,                  5, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kNl3ParamFilterSlope,                      "Filter Slope",                           "Slope",    eSynthLibUnitIndexed,    0.0,            2.0,                    0.500000,                  2, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kNl3ParamFilter2Type,                      "Multi Filter Type",                      "Multi",    eSynthLibUnitIndexed,    0.0,            5.0,                    0.000000,                  5, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kNl3ParamCutoff,                           "Filter Frequency 1",                     "Freq 1",   eSynthLibUnitGeneric,    0.0,          127.0,                    1.000000,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamCutoff2,                          "Filter Frequency 2",                     "Freq 2",   eSynthLibUnitGeneric,    0.0,          127.0,                    0.787402,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamResonance,                        "Filter Resonance",                       "Res",      eSynthLibUnitGeneric,    0.0,          127.0,                    0.000000,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamFilterDist,                       "Filter Distortion",                      "Dist",     eSynthLibUnitGeneric,    0.0,          127.0,                    0.000000,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamFilterTrack,                      "Filter Keyboard Track",                  "KB Track", eSynthLibUnitIndexed,    0.0,            1.0,                    0.000000,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kNl3ParamFilterBypass,                     "Filter Osc 2 Bypass",                    "Osc2 Byp", eSynthLibUnitIndexed,    0.0,            1.0,                    0.000000,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kNl3ParamFilter2Env,                       "Filter 2 Envelope",                      "F2 Env",   eSynthLibUnitIndexed,    0.0,            1.0,                    0.000000,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kNl3ParamFEnvAttack,                       "Filter Env Attack",                      "Attack",   eSynthLibUnitGeneric,    0.0,          127.0,                    0.000000,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamFEnvDecay,                        "Filter Env Decay",                       "Decay",    eSynthLibUnitGeneric,    0.0,          127.0,                    0.503937,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamFEnvSustain,                      "Filter Env Sustain",                     "Sustain",  eSynthLibUnitGeneric,    0.0,          127.0,                    1.000000,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamFEnvRelease,                      "Filter Env Release",                     "Release",  eSynthLibUnitGeneric,    0.0,          127.0,                    0.078740,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamFEnvAmount,                       "Filter Env Amount",                      "Amount",   eSynthLibUnitGeneric,    0.0,          127.0,                    0.000000,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamFEnvVelocity,                     "Filter Env Velocity",                    "Vel",      eSynthLibUnitIndexed,    0.0,            1.0,                    0.000000,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kNl3ParamFEnvInvert,                       "Filter Env Invert",                      "Invert",   eSynthLibUnitIndexed,    0.0,            1.0,                    0.000000,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kNl3ParamFEnvExpAttack,                    "Filter Env Exp Attack",                  "Exp Att",  eSynthLibUnitIndexed,    0.0,            1.0,                    0.000000,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kNl3ParamAmpAttack,                        "Amp Env Attack",                         "Attack",   eSynthLibUnitGeneric,    0.0,          127.0,                    0.000000,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamAmpDecay,                         "Amp Env Decay",                          "Decay",    eSynthLibUnitGeneric,    0.0,          127.0,                    0.503937,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamAmpSustain,                       "Amp Env Sustain",                        "Sustain",  eSynthLibUnitGeneric,    0.0,          127.0,                    1.000000,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamAmpRelease,                       "Amp Env Release",                        "Release",  eSynthLibUnitGeneric,    0.0,          127.0,                    0.078740,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamAmpExpAttack,                     "Amp Env Exp Attack",                     "Exp Att",  eSynthLibUnitIndexed,    0.0,            1.0,                    0.000000,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kNl3ParamLevel,                            "Output Level",                           "Level",    eSynthLibUnitGeneric,    0.0,          127.0,                    0.787402,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamLfo1Rate,                         "LFO 1 Rate",                             "Rate",     eSynthLibUnitGeneric,    0.0,          127.0,                    0.393701,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamLfo1Amount,                       "LFO 1 Amount",                           "Amount",   eSynthLibUnitGeneric,    0.0,          127.0,                    0.000000,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamLfo1Waveform,                     "LFO 1 Waveform",                         "Wave",     eSynthLibUnitIndexed,    0.0,            5.0,                    0.200000,                  5, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kNl3ParamLfo1Dest,                         "LFO 1 Destination",                      "Dest",     eSynthLibUnitIndexed,    0.0,           11.0,                    0.545455,                 11, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kNl3ParamLfo1EnvKbs,                       "LFO 1 Env/KB Sync",                      "Env/KBS",  eSynthLibUnitIndexed,    0.0,            2.0,                    0.000000,                  2, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kNl3ParamLfo1Mono,                         "LFO 1 Mono",                             "Mono",     eSynthLibUnitIndexed,    0.0,            1.0,                    0.000000,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kNl3ParamLfo1Invert,                       "LFO 1 Invert",                           "Invert",   eSynthLibUnitIndexed,    0.0,            1.0,                    0.000000,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kNl3ParamLfo1ClockSync,                    "LFO 1 Clock Sync",                       "Clock",    eSynthLibUnitIndexed,    0.0,            1.0,                    0.000000,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kNl3ParamLfo1Divisor,                      "LFO 1 Clock Divisor",                    "Divisor",  eSynthLibUnitGeneric,    0.0,          127.0,                    0.543307,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamLfo2Rate,                         "LFO 2 Rate",                             "Rate",     eSynthLibUnitGeneric,    0.0,          127.0,                    0.393701,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamLfo2Amount,                       "LFO 2 Amount",                           "Amount",   eSynthLibUnitGeneric,    0.0,          127.0,                    0.000000,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamLfo2Waveform,                     "LFO 2 Waveform",                         "Wave",     eSynthLibUnitIndexed,    0.0,            5.0,                    0.000000,                  5, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kNl3ParamLfo2Dest,                         "LFO 2 Destination",                      "Dest",     eSynthLibUnitIndexed,    0.0,           11.0,                    0.636364,                 11, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kNl3ParamLfo2EnvKbs,                       "LFO 2 Env/KB Sync",                      "Env/KBS",  eSynthLibUnitIndexed,    0.0,            2.0,                    0.000000,                  2, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kNl3ParamLfo2Mono,                         "LFO 2 Mono",                             "Mono",     eSynthLibUnitIndexed,    0.0,            1.0,                    0.000000,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kNl3ParamLfo2Invert,                       "LFO 2 Invert",                           "Invert",   eSynthLibUnitIndexed,    0.0,            1.0,                    0.000000,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kNl3ParamLfo2ClockSync,                    "LFO 2 Clock Sync",                       "Clock",    eSynthLibUnitIndexed,    0.0,            1.0,                    0.000000,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kNl3ParamLfo2Divisor,                      "LFO 2 Clock Divisor",                    "Divisor",  eSynthLibUnitGeneric,    0.0,          127.0,                    0.543307,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMEnvAttack,                       "Mod Env Attack",                         "Attack",   eSynthLibUnitGeneric,    0.0,          127.0,                    0.000000,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMEnvDecay,                        "Mod Env Decay/Release",                  "Dec/Rel",  eSynthLibUnitGeneric,    0.0,          127.0,                    0.503937,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMEnvAmount,                       "Mod Env Amount",                         "Amount",   eSynthLibUnitGeneric,    0.0,          127.0,                    0.000000,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMEnvDest,                         "Mod Env Destination",                    "Dest",     eSynthLibUnitIndexed,    0.0,           11.0,                    0.818182,                 11, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kNl3ParamMEnvInvert,                       "Mod Env Invert",                         "Invert",   eSynthLibUnitIndexed,    0.0,            1.0,                    0.000000,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kNl3ParamMEnvRelease,                      "Mod Env Decay or Release",               "Mode",     eSynthLibUnitIndexed,    0.0,            1.0,                    0.000000,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kNl3ParamMEnvRepeat,                       "Mod Env Repeat",                         "Repeat",   eSynthLibUnitIndexed,    0.0,            1.0,                    0.000000,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kNl3ParamMEnvExpAttack,                    "Mod Env Exp Attack",                     "Exp Att",  eSynthLibUnitIndexed,    0.0,            1.0,                    0.000000,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kNl3ParamGlideRate,                        "Glide Rate",                             "Rate",     eSynthLibUnitGeneric,    0.0,          127.0,                    0.503937,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamGlideMode,                        "Glide Mode",                             "Glide",    eSynthLibUnitIndexed,    0.0,            2.0,                    0.000000,                  2, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kNl3ParamVibratoRate,                      "Vibrato Rate",                           "Rate",     eSynthLibUnitGeneric,    0.0,          127.0,                    0.503937,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamVibratoAmount,                    "Vibrato Amount",                         "Amount",   eSynthLibUnitGeneric,    0.0,          127.0,                    0.472441,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamVibratoSource,                    "Vibrato Source",                         "Source",   eSynthLibUnitIndexed,    0.0,            2.0,                    0.000000,                  2, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kNl3ParamMono,                             "Mono",                                   "Mono",     eSynthLibUnitIndexed,    0.0,            1.0,                    0.000000,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kNl3ParamLegato,                           "Legato",                                 "Legato",   eSynthLibUnitIndexed,    0.0,            1.0,                    0.000000,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kNl3ParamMonoPriority,                     "Mono Note Priority",                     "Priority", eSynthLibUnitIndexed,    0.0,            2.0,                    0.000000,                  2, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kNl3ParamUnison,                           "Unison",                                 "Unison",   eSynthLibUnitIndexed,    0.0,            1.0,                    0.000000,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kNl3ParamUnisonDetune,                     "Unison Detune",                          "Detune",   eSynthLibUnitGeneric,    0.0,          127.0,                    0.503937,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamOctaveShift,                      "Octave Shift",                           "Octave",   eSynthLibUnitIndexed,    0.0,            4.0,                    0.500000,                  4, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kNl3ParamTranspose,                        "Transpose",                              "Transp",   eSynthLibUnitGeneric,    0.0,          127.0,                    0.377953,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamChordMemory,                      "Chord Memory",                           "Chord",    eSynthLibUnitIndexed,    0.0,            1.0,                    0.000000,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kNl3ParamArpRun,                           "Arpeggio Run",                           "Run",      eSynthLibUnitIndexed,    0.0,            1.0,                    0.000000,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kNl3ParamArpRate,                          "Arpeggio Rate",                          "Rate",     eSynthLibUnitGeneric,    0.0,          127.0,                    0.503937,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamArpMode,                          "Arpeggio Mode",                          "Mode",     eSynthLibUnitIndexed,    0.0,            3.0,                    0.000000,                  3, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kNl3ParamArpRange,                         "Arpeggio Range",                         "Range",    eSynthLibUnitIndexed,    0.0,            3.0,                    0.000000,                  3, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kNl3ParamArpKbdSync,                       "Arpeggio Keyboard Sync",                 "KB Sync",  eSynthLibUnitIndexed,    0.0,            1.0,                    0.000000,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kNl3ParamArpClockSync,                     "Arpeggio Clock Sync",                    "Clock",    eSynthLibUnitIndexed,    0.0,            1.0,                    0.000000,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kNl3ParamArpDivisor,                       "Arpeggio Clock Divisor",                 "Divisor",  eSynthLibUnitGeneric,    0.0,          127.0,                    0.543307,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphWheel_Lfo1Rate,              "Wheel Morph Lfo1 Rate",                  "L1 Rate",  eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphWheel_Lfo1Amount,            "Wheel Morph Lfo1 Amount",                "L1 Amt",   eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphWheel_Lfo2Rate,              "Wheel Morph Lfo2 Rate",                  "L2 Rate",  eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphWheel_Lfo2Amount,            "Wheel Morph Lfo2 Amount",                "L2 Amt",   eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphWheel_ModEnvAttack,          "Wheel Morph Mod Env Attack",             "ME Att",   eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphWheel_ModEnvDecayRelease,    "Wheel Morph Mod Env Decay Release",      "ME Dec",   eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphWheel_ModEnvAmount,          "Wheel Morph Mod Env Amount",             "ME Amt",   eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphWheel_Osc2FinePitch,         "Wheel Morph Osc2 Fine Pitch",            "O2 Fine",  eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphWheel_Osc2CoarsePitch,       "Wheel Morph Osc2 Coarse Pitch",          "O2 Crs",   eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphWheel_Oscmod,                "Wheel Morph Oscmod",                     "OscMod",   eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphWheel_Oscmix,                "Wheel Morph Oscmix",                     "OscMix",   eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphWheel_Osc1Shape,             "Wheel Morph Osc1 Shape",                 "O1 Shp",   eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphWheel_Osc2Shape,             "Wheel Morph Osc2 Shape",                 "O2 Shp",   eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphWheel_AmpEnvAttack,          "Wheel Morph Amp Env Attack",             "A Att",    eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphWheel_AmpEnvDecay,           "Wheel Morph Amp Env Decay",              "A Dec",    eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphWheel_AmpEnvSustain,         "Wheel Morph Amp Env Sustain",            "A Sus",    eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphWheel_AmpEnvRelease,         "Wheel Morph Amp Env Release",            "A Rel",    eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphWheel_FiltEnvAttack,         "Wheel Morph Filt Env Attack",            "F Att",    eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphWheel_FiltEnvDecay,          "Wheel Morph Filt Env Decay",             "F Dec",    eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphWheel_FiltEnvSustain,        "Wheel Morph Filt Env Sustain",           "F Sus",    eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphWheel_FiltEnvRelease,        "Wheel Morph Filt Env Release",           "F Rel",    eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphWheel_FiltEnvAmount,         "Wheel Morph Filt Env Amount",            "F Amt",    eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphWheel_FiltFrequency1,        "Wheel Morph Filt Frequency1",            "Freq 1",   eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphWheel_FiltFrequency2,        "Wheel Morph Filt Frequency2",            "Freq 2",   eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphWheel_FiltResonance,         "Wheel Morph Filt Resonance",             "Res",      eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphWheel_OutputLevel,           "Wheel Morph Output Level",               "Level",    eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphTouch_Lfo1Rate,              "Aftertouch Morph Lfo1 Rate",             "L1 Rate",  eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphTouch_Lfo1Amount,            "Aftertouch Morph Lfo1 Amount",           "L1 Amt",   eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphTouch_Lfo2Rate,              "Aftertouch Morph Lfo2 Rate",             "L2 Rate",  eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphTouch_Lfo2Amount,            "Aftertouch Morph Lfo2 Amount",           "L2 Amt",   eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphTouch_ModEnvAttack,          "Aftertouch Morph Mod Env Attack",        "ME Att",   eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphTouch_ModEnvDecayRelease,    "Aftertouch Morph Mod Env Decay Release", "ME Dec",   eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphTouch_ModEnvAmount,          "Aftertouch Morph Mod Env Amount",        "ME Amt",   eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphTouch_Osc2FinePitch,         "Aftertouch Morph Osc2 Fine Pitch",       "O2 Fine",  eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphTouch_Osc2CoarsePitch,       "Aftertouch Morph Osc2 Coarse Pitch",     "O2 Crs",   eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphTouch_Oscmod,                "Aftertouch Morph Oscmod",                "OscMod",   eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphTouch_Oscmix,                "Aftertouch Morph Oscmix",                "OscMix",   eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphTouch_Osc1Shape,             "Aftertouch Morph Osc1 Shape",            "O1 Shp",   eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphTouch_Osc2Shape,             "Aftertouch Morph Osc2 Shape",            "O2 Shp",   eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphTouch_AmpEnvAttack,          "Aftertouch Morph Amp Env Attack",        "A Att",    eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphTouch_AmpEnvDecay,           "Aftertouch Morph Amp Env Decay",         "A Dec",    eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphTouch_AmpEnvSustain,         "Aftertouch Morph Amp Env Sustain",       "A Sus",    eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphTouch_AmpEnvRelease,         "Aftertouch Morph Amp Env Release",       "A Rel",    eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphTouch_FiltEnvAttack,         "Aftertouch Morph Filt Env Attack",       "F Att",    eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphTouch_FiltEnvDecay,          "Aftertouch Morph Filt Env Decay",        "F Dec",    eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphTouch_FiltEnvSustain,        "Aftertouch Morph Filt Env Sustain",      "F Sus",    eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphTouch_FiltEnvRelease,        "Aftertouch Morph Filt Env Release",      "F Rel",    eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphTouch_FiltEnvAmount,         "Aftertouch Morph Filt Env Amount",       "F Amt",    eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphTouch_FiltFrequency1,        "Aftertouch Morph Filt Frequency1",       "Freq 1",   eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphTouch_FiltFrequency2,        "Aftertouch Morph Filt Frequency2",       "Freq 2",   eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphTouch_FiltResonance,         "Aftertouch Morph Filt Resonance",        "Res",      eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphTouch_OutputLevel,           "Aftertouch Morph Output Level",          "Level",    eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphVelocity_Lfo1Rate,           "Velocity Morph Lfo1 Rate",               "L1 Rate",  eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphVelocity_Lfo1Amount,         "Velocity Morph Lfo1 Amount",             "L1 Amt",   eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphVelocity_Lfo2Rate,           "Velocity Morph Lfo2 Rate",               "L2 Rate",  eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphVelocity_Lfo2Amount,         "Velocity Morph Lfo2 Amount",             "L2 Amt",   eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphVelocity_ModEnvAttack,       "Velocity Morph Mod Env Attack",          "ME Att",   eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphVelocity_ModEnvDecayRelease, "Velocity Morph Mod Env Decay Release",   "ME Dec",   eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphVelocity_ModEnvAmount,       "Velocity Morph Mod Env Amount",          "ME Amt",   eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphVelocity_Osc2FinePitch,      "Velocity Morph Osc2 Fine Pitch",         "O2 Fine",  eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphVelocity_Osc2CoarsePitch,    "Velocity Morph Osc2 Coarse Pitch",       "O2 Crs",   eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphVelocity_Oscmod,             "Velocity Morph Oscmod",                  "OscMod",   eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphVelocity_Oscmix,             "Velocity Morph Oscmix",                  "OscMix",   eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphVelocity_Osc1Shape,          "Velocity Morph Osc1 Shape",              "O1 Shp",   eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphVelocity_Osc2Shape,          "Velocity Morph Osc2 Shape",              "O2 Shp",   eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphVelocity_AmpEnvAttack,       "Velocity Morph Amp Env Attack",          "A Att",    eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphVelocity_AmpEnvDecay,        "Velocity Morph Amp Env Decay",           "A Dec",    eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphVelocity_AmpEnvSustain,      "Velocity Morph Amp Env Sustain",         "A Sus",    eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphVelocity_AmpEnvRelease,      "Velocity Morph Amp Env Release",         "A Rel",    eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphVelocity_FiltEnvAttack,      "Velocity Morph Filt Env Attack",         "F Att",    eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphVelocity_FiltEnvDecay,       "Velocity Morph Filt Env Decay",          "F Dec",    eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphVelocity_FiltEnvSustain,     "Velocity Morph Filt Env Sustain",        "F Sus",    eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphVelocity_FiltEnvRelease,     "Velocity Morph Filt Env Release",        "F Rel",    eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphVelocity_FiltEnvAmount,      "Velocity Morph Filt Env Amount",         "F Amt",    eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphVelocity_FiltFrequency1,     "Velocity Morph Filt Frequency1",         "Freq 1",   eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphVelocity_FiltFrequency2,     "Velocity Morph Filt Frequency2",         "Freq 2",   eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphVelocity_FiltResonance,      "Velocity Morph Filt Resonance",          "Res",      eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphVelocity_OutputLevel,        "Velocity Morph Output Level",            "Level",    eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphKbd_Lfo1Rate,                "Keyboard Morph Lfo1 Rate",               "L1 Rate",  eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphKbd_Lfo1Amount,              "Keyboard Morph Lfo1 Amount",             "L1 Amt",   eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphKbd_Lfo2Rate,                "Keyboard Morph Lfo2 Rate",               "L2 Rate",  eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphKbd_Lfo2Amount,              "Keyboard Morph Lfo2 Amount",             "L2 Amt",   eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphKbd_ModEnvAttack,            "Keyboard Morph Mod Env Attack",          "ME Att",   eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphKbd_ModEnvDecayRelease,      "Keyboard Morph Mod Env Decay Release",   "ME Dec",   eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphKbd_ModEnvAmount,            "Keyboard Morph Mod Env Amount",          "ME Amt",   eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphKbd_Osc2FinePitch,           "Keyboard Morph Osc2 Fine Pitch",         "O2 Fine",  eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphKbd_Osc2CoarsePitch,         "Keyboard Morph Osc2 Coarse Pitch",       "O2 Crs",   eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphKbd_Oscmod,                  "Keyboard Morph Oscmod",                  "OscMod",   eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphKbd_Oscmix,                  "Keyboard Morph Oscmix",                  "OscMix",   eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphKbd_Osc1Shape,               "Keyboard Morph Osc1 Shape",              "O1 Shp",   eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphKbd_Osc2Shape,               "Keyboard Morph Osc2 Shape",              "O2 Shp",   eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphKbd_AmpEnvAttack,            "Keyboard Morph Amp Env Attack",          "A Att",    eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphKbd_AmpEnvDecay,             "Keyboard Morph Amp Env Decay",           "A Dec",    eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphKbd_AmpEnvSustain,           "Keyboard Morph Amp Env Sustain",         "A Sus",    eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphKbd_AmpEnvRelease,           "Keyboard Morph Amp Env Release",         "A Rel",    eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphKbd_FiltEnvAttack,           "Keyboard Morph Filt Env Attack",         "F Att",    eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphKbd_FiltEnvDecay,            "Keyboard Morph Filt Env Decay",          "F Dec",    eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphKbd_FiltEnvSustain,          "Keyboard Morph Filt Env Sustain",        "F Sus",    eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphKbd_FiltEnvRelease,          "Keyboard Morph Filt Env Release",        "F Rel",    eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphKbd_FiltEnvAmount,           "Keyboard Morph Filt Env Amount",         "F Amt",    eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphKbd_FiltFrequency1,          "Keyboard Morph Filt Frequency1",         "Freq 1",   eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphKbd_FiltFrequency2,          "Keyboard Morph Filt Frequency2",         "Freq 2",   eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphKbd_FiltResonance,           "Keyboard Morph Filt Resonance",          "Res",      eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamMorphKbd_OutputLevel,             "Keyboard Morph Output Level",            "Level",    eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
 };
 
-static const char *const kShapes[]          = {"SAW", "SQUARE", "DOUBLE"};
-static const char *const kFilters[]         = {"LP", "HP"};
-static const char *const kSlopes[]          = {"12", "24"};
-static const char *const kArithmetic[]      = {"FLOAT", "FIXED"};
-static const char *const kTrack[]           = {"OFF", "ON"};
+// notes §3: measured on the instrument
+const tNl3Field          gNl3Fields[] = {
+    {kNl3ParamOsc1Waveform,                      370, 3, false},
+    {kNl3ParamOsc1Shape,                          16, 7, false},
+    {kNl3ParamOsc1Sync,                          373, 1, false},
+    {kNl3ParamOsc1SyncTune,                      212, 7, false},
+    {kNl3ParamOsc1NoiseSeed,                     226, 7, false},
+    {kNl3ParamOsc1FmAmount,                      240, 7, false},
+    {kNl3ParamOsc2Waveform,                      374, 3, false},
+    {kNl3ParamOsc2Shape,                          37, 7, false},
+    {kNl3ParamOsc2Sync,                          377, 1, false},
+    {kNl3ParamOsc2Coarse,                         23, 7, false},
+    {kNl3ParamOsc2Fine,                           30, 7, false},
+    {kNl3ParamOsc2Kbt,                           378, 1, false},
+    {kNl3ParamOsc2Partial,                       379, 1, false},
+    {kNl3ParamOsc2SyncTune,                      219, 7, false},
+    {kNl3ParamOsc2NoiseSeed,                     233, 7, false},
+    {kNl3ParamOsc2FmAmount,                      247, 7, false},
+    {kNl3ParamOsc2Carrier,                       254, 7, false},
+    {kNl3ParamOsc2Modulator,                     268, 7, false},
+    {kNl3ParamOsc2NoiseType,                     261, 7, false},
+    {kNl3ParamOsc2NoiseFreq,                     275, 7, false},
+    {kNl3ParamOscModAmount,                       51, 7, false},
+    {kNl3ParamOscModType,                        380, 3, false},
+    {kNl3ParamOscMix,                             44, 7, false},
+    {kNl3ParamOscMixNoise,                       437, 1, false},
+    {kNl3ParamFilterMode,                        428, 1, false},
+    {kNl3ParamFilterType,                        417, 3, false},
+    {kNl3ParamFilterSlope,                       420, 2, false},
+    {kNl3ParamFilter2Type,                       430, 3, false},
+    {kNl3ParamCutoff,                            177, 7, false},
+    {kNl3ParamCutoff2,                           191, 7, false},
+    {kNl3ParamResonance,                         184, 7, false},
+    {kNl3ParamFilterDist,                        205, 7, false},
+    {kNl3ParamFilterTrack,                       423, 1, false},
+    {kNl3ParamFilterBypass,                      433, 1, false},
+    {kNl3ParamFilter2Env,                        429, 1, false},
+    {kNl3ParamFEnvAttack,                        121, 7, false},
+    {kNl3ParamFEnvDecay,                         128, 7, false},
+    {kNl3ParamFEnvSustain,                       135, 7, false},
+    {kNl3ParamFEnvRelease,                       142, 7, false},
+    {kNl3ParamFEnvAmount,                        170, 7, false},
+    {kNl3ParamFEnvVelocity,                      422, 1, false},
+    {kNl3ParamFEnvInvert,                        424, 1, false},
+    {kNl3ParamFEnvExpAttack,                     427, 1, false},
+    {kNl3ParamAmpAttack,                          86, 7, false},
+    {kNl3ParamAmpDecay,                           93, 7, false},
+    {kNl3ParamAmpSustain,                        100, 7, false},
+    {kNl3ParamAmpRelease,                        107, 7, false},
+    {kNl3ParamAmpExpAttack,                      425, 1, false},
+    {kNl3ParamLevel,                             114, 7, false},
+    {kNl3ParamLfo1Rate,                           58, 7, false},
+    {kNl3ParamLfo1Amount,                         65, 7, false},
+    {kNl3ParamLfo1Waveform,                      383, 3, false},
+    {kNl3ParamLfo1Dest,                          386, 4, false},
+    {kNl3ParamLfo1EnvKbs,                        390, 2, false},
+    {kNl3ParamLfo1Mono,                          393, 1, false},
+    {kNl3ParamLfo1Invert,                        395, 1, false},
+    {kNl3ParamLfo1ClockSync,                     434, 1, false},
+    {kNl3ParamLfo1Divisor,                       333, 7, false},
+    {kNl3ParamLfo2Rate,                           72, 7, false},
+    {kNl3ParamLfo2Amount,                         79, 7, false},
+    {kNl3ParamLfo2Waveform,                      396, 3, false},
+    {kNl3ParamLfo2Dest,                          399, 4, false},
+    {kNl3ParamLfo2EnvKbs,                        403, 2, false},
+    {kNl3ParamLfo2Mono,                          406, 1, false},
+    {kNl3ParamLfo2Invert,                        408, 1, false},
+    {kNl3ParamLfo2ClockSync,                     435, 1, false},
+    {kNl3ParamLfo2Divisor,                       340, 7, false},
+    {kNl3ParamMEnvAttack,                        149, 7, false},
+    {kNl3ParamMEnvDecay,                         156, 7, false},
+    {kNl3ParamMEnvAmount,                        163, 7, false},
+    {kNl3ParamMEnvDest,                          411, 4, false},
+    {kNl3ParamMEnvInvert,                        410, 1, false},
+    {kNl3ParamMEnvRelease,                       415, 1, false},
+    {kNl3ParamMEnvRepeat,                        416, 1, false},
+    {kNl3ParamMEnvExpAttack,                     426, 1, false},
+    {kNl3ParamGlideRate,                         298, 7, false},
+    {kNl3ParamGlideMode,                         438, 2, false},
+    {kNl3ParamVibratoRate,                       312, 7, false},
+    {kNl3ParamVibratoAmount,                     319, 7, false},
+    {kNl3ParamVibratoSource,                     440, 2, false},
+    {kNl3ParamMono,                              442, 1, false},
+    {kNl3ParamLegato,                            475, 1, false},
+    {kNl3ParamMonoPriority,                      476, 2, false},
+    {kNl3ParamUnison,                            445, 1, false},
+    {kNl3ParamUnisonDetune,                      198, 7, false},
+    {kNl3ParamOctaveShift,                       446, 3, false},
+    {kNl3ParamTranspose,                         347, 7, false},
+    {kNl3ParamChordMemory,                       449, 1, false},
+    {kNl3ParamArpRun,                            443, 1, false},
+    {kNl3ParamArpRate,                           305, 7, false},
+    {kNl3ParamArpMode,                           450, 3, false},
+    {kNl3ParamArpRange,                          453, 3, false},
+    {kNl3ParamArpKbdSync,                        456, 1, false},
+    {kNl3ParamArpClockSync,                      436, 1, false},
+    {kNl3ParamArpDivisor,                        326, 7, false},
+    {kNl3ParamMorphWheel_Lfo1Rate,               478, 8, true },
+    {kNl3ParamMorphWheel_Lfo1Amount,             486, 8, true },
+    {kNl3ParamMorphWheel_Lfo2Rate,               494, 8, true },
+    {kNl3ParamMorphWheel_Lfo2Amount,             502, 8, true },
+    {kNl3ParamMorphWheel_ModEnvAttack,           510, 8, true },
+    {kNl3ParamMorphWheel_ModEnvDecayRelease,     518, 8, true },
+    {kNl3ParamMorphWheel_ModEnvAmount,           526, 8, true },
+    {kNl3ParamMorphWheel_Osc2FinePitch,          534, 8, true },
+    {kNl3ParamMorphWheel_Osc2CoarsePitch,        542, 8, true },
+    {kNl3ParamMorphWheel_Oscmod,                 550, 8, true },
+    {kNl3ParamMorphWheel_Oscmix,                 558, 8, true },
+    {kNl3ParamMorphWheel_Osc1Shape,              566, 8, true },
+    {kNl3ParamMorphWheel_Osc2Shape,              574, 8, true },
+    {kNl3ParamMorphWheel_AmpEnvAttack,           582, 8, true },
+    {kNl3ParamMorphWheel_AmpEnvDecay,            590, 8, true },
+    {kNl3ParamMorphWheel_AmpEnvSustain,          598, 8, true },
+    {kNl3ParamMorphWheel_AmpEnvRelease,          606, 8, true },
+    {kNl3ParamMorphWheel_FiltEnvAttack,          614, 8, true },
+    {kNl3ParamMorphWheel_FiltEnvDecay,           622, 8, true },
+    {kNl3ParamMorphWheel_FiltEnvSustain,         630, 8, true },
+    {kNl3ParamMorphWheel_FiltEnvRelease,         638, 8, true },
+    {kNl3ParamMorphWheel_FiltEnvAmount,          646, 8, true },
+    {kNl3ParamMorphWheel_FiltFrequency1,         654, 8, true },
+    {kNl3ParamMorphWheel_FiltFrequency2,         662, 8, true },
+    {kNl3ParamMorphWheel_FiltResonance,          670, 8, true },
+    {kNl3ParamMorphWheel_OutputLevel,            678, 8, true },
+    {kNl3ParamMorphTouch_Lfo1Rate,               686, 8, true },
+    {kNl3ParamMorphTouch_Lfo1Amount,             694, 8, true },
+    {kNl3ParamMorphTouch_Lfo2Rate,               702, 8, true },
+    {kNl3ParamMorphTouch_Lfo2Amount,             710, 8, true },
+    {kNl3ParamMorphTouch_ModEnvAttack,           718, 8, true },
+    {kNl3ParamMorphTouch_ModEnvDecayRelease,     726, 8, true },
+    {kNl3ParamMorphTouch_ModEnvAmount,           734, 8, true },
+    {kNl3ParamMorphTouch_Osc2FinePitch,          742, 8, true },
+    {kNl3ParamMorphTouch_Osc2CoarsePitch,        750, 8, true },
+    {kNl3ParamMorphTouch_Oscmod,                 758, 8, true },
+    {kNl3ParamMorphTouch_Oscmix,                 766, 8, true },
+    {kNl3ParamMorphTouch_Osc1Shape,              774, 8, true },
+    {kNl3ParamMorphTouch_Osc2Shape,              782, 8, true },
+    {kNl3ParamMorphTouch_AmpEnvAttack,           790, 8, true },
+    {kNl3ParamMorphTouch_AmpEnvDecay,            798, 8, true },
+    {kNl3ParamMorphTouch_AmpEnvSustain,          806, 8, true },
+    {kNl3ParamMorphTouch_AmpEnvRelease,          814, 8, true },
+    {kNl3ParamMorphTouch_FiltEnvAttack,          822, 8, true },
+    {kNl3ParamMorphTouch_FiltEnvDecay,           830, 8, true },
+    {kNl3ParamMorphTouch_FiltEnvSustain,         838, 8, true },
+    {kNl3ParamMorphTouch_FiltEnvRelease,         846, 8, true },
+    {kNl3ParamMorphTouch_FiltEnvAmount,          854, 8, true },
+    {kNl3ParamMorphTouch_FiltFrequency1,         862, 8, true },
+    {kNl3ParamMorphTouch_FiltFrequency2,         870, 8, true },
+    {kNl3ParamMorphTouch_FiltResonance,          878, 8, true },
+    {kNl3ParamMorphTouch_OutputLevel,            886, 8, true },
+    {kNl3ParamMorphVelocity_Lfo1Rate,            894, 8, true },
+    {kNl3ParamMorphVelocity_Lfo1Amount,          902, 8, true },
+    {kNl3ParamMorphVelocity_Lfo2Rate,            910, 8, true },
+    {kNl3ParamMorphVelocity_Lfo2Amount,          918, 8, true },
+    {kNl3ParamMorphVelocity_ModEnvAttack,        926, 8, true },
+    {kNl3ParamMorphVelocity_ModEnvDecayRelease,  934, 8, true },
+    {kNl3ParamMorphVelocity_ModEnvAmount,        942, 8, true },
+    {kNl3ParamMorphVelocity_Osc2FinePitch,       950, 8, true },
+    {kNl3ParamMorphVelocity_Osc2CoarsePitch,     958, 8, true },
+    {kNl3ParamMorphVelocity_Oscmod,              966, 8, true },
+    {kNl3ParamMorphVelocity_Oscmix,              974, 8, true },
+    {kNl3ParamMorphVelocity_Osc1Shape,           982, 8, true },
+    {kNl3ParamMorphVelocity_Osc2Shape,           990, 8, true },
+    {kNl3ParamMorphVelocity_AmpEnvAttack,        998, 8, true },
+    {kNl3ParamMorphVelocity_AmpEnvDecay,        1006, 8, true },
+    {kNl3ParamMorphVelocity_AmpEnvSustain,      1014, 8, true },
+    {kNl3ParamMorphVelocity_AmpEnvRelease,      1022, 8, true },
+    {kNl3ParamMorphVelocity_FiltEnvAttack,      1030, 8, true },
+    {kNl3ParamMorphVelocity_FiltEnvDecay,       1038, 8, true },
+    {kNl3ParamMorphVelocity_FiltEnvSustain,     1046, 8, true },
+    {kNl3ParamMorphVelocity_FiltEnvRelease,     1054, 8, true },
+    {kNl3ParamMorphVelocity_FiltEnvAmount,      1062, 8, true },
+    {kNl3ParamMorphVelocity_FiltFrequency1,     1070, 8, true },
+    {kNl3ParamMorphVelocity_FiltFrequency2,     1078, 8, true },
+    {kNl3ParamMorphVelocity_FiltResonance,      1086, 8, true },
+    {kNl3ParamMorphVelocity_OutputLevel,        1094, 8, true },
+    {kNl3ParamMorphKbd_Lfo1Rate,                1102, 8, true },
+    {kNl3ParamMorphKbd_Lfo1Amount,              1110, 8, true },
+    {kNl3ParamMorphKbd_Lfo2Rate,                1118, 8, true },
+    {kNl3ParamMorphKbd_Lfo2Amount,              1126, 8, true },
+    {kNl3ParamMorphKbd_ModEnvAttack,            1134, 8, true },
+    {kNl3ParamMorphKbd_ModEnvDecayRelease,      1142, 8, true },
+    {kNl3ParamMorphKbd_ModEnvAmount,            1150, 8, true },
+    {kNl3ParamMorphKbd_Osc2FinePitch,           1158, 8, true },
+    {kNl3ParamMorphKbd_Osc2CoarsePitch,         1166, 8, true },
+    {kNl3ParamMorphKbd_Oscmod,                  1174, 8, true },
+    {kNl3ParamMorphKbd_Oscmix,                  1182, 8, true },
+    {kNl3ParamMorphKbd_Osc1Shape,               1190, 8, true },
+    {kNl3ParamMorphKbd_Osc2Shape,               1198, 8, true },
+    {kNl3ParamMorphKbd_AmpEnvAttack,            1206, 8, true },
+    {kNl3ParamMorphKbd_AmpEnvDecay,             1214, 8, true },
+    {kNl3ParamMorphKbd_AmpEnvSustain,           1222, 8, true },
+    {kNl3ParamMorphKbd_AmpEnvRelease,           1230, 8, true },
+    {kNl3ParamMorphKbd_FiltEnvAttack,           1238, 8, true },
+    {kNl3ParamMorphKbd_FiltEnvDecay,            1246, 8, true },
+    {kNl3ParamMorphKbd_FiltEnvSustain,          1254, 8, true },
+    {kNl3ParamMorphKbd_FiltEnvRelease,          1262, 8, true },
+    {kNl3ParamMorphKbd_FiltEnvAmount,           1270, 8, true },
+    {kNl3ParamMorphKbd_FiltFrequency1,          1278, 8, true },
+    {kNl3ParamMorphKbd_FiltFrequency2,          1286, 8, true },
+    {kNl3ParamMorphKbd_FiltResonance,           1294, 8, true },
+    {kNl3ParamMorphKbd_OutputLevel,             1302, 8, true },
+};
+const uint32_t           gNl3FieldCount      = sizeof(gNl3Fields) / sizeof(gNl3Fields[0]);
 
-static const tNl3Control kOsc1[]            = {
-    {kNl3ParamOscShape,     "Shape",  eTiControlChoice,   2,   0.0, kShapes},
-    {kNl3ParamOsc1Octave,   "Octave", eTiControlDial,     4,  -2.0, NULL   },
-    {kNl3ParamOsc1Semitone, "Semi",   eTiControlDial,    24, -12.0, NULL   },
-    {kNl3ParamOsc1Fine,     "Fine",   eTiControlDial,   127, -64.0, NULL   },
-    {kNl3ParamPulseWidth,   "Width",  eTiControlDial,   127,   0.0, NULL   },
-    {kNl3ParamOscSoften,    "Soften", eTiControlDial,   127,   0.0, NULL   },
-    {kNl3ParamOscLevel,     "Level",  eTiControlDial,   127,   0.0, NULL   },
-};
-static const tNl3Control kOsc2[]            = {
-    {kNl3ParamOsc2Shape,    "Shape",  eTiControlChoice,   2,   0.0, kShapes},
-    {kNl3ParamOsc2Octave,   "Octave", eTiControlDial,     4,  -2.0, NULL   },
-    {kNl3ParamOsc2Semitone, "Semi",   eTiControlDial,    24, -12.0, NULL   },
-    {kNl3ParamOsc2Fine,     "Fine",   eTiControlDial,   127, -64.0, NULL   },
-    {kNl3ParamOsc2Width,    "Width",  eTiControlDial,   127,   0.0, NULL   },
-    {kNl3ParamOsc2Soften,   "Soften", eTiControlDial,   127,   0.0, NULL   },
-    {kNl3ParamOsc2Level,    "Level",  eTiControlDial,   127,   0.0, NULL   },
-};
-static const tNl3Control kOsc3[]            = {
-    {kNl3ParamOsc3Shape,    "Shape",  eTiControlChoice,   2,   0.0, kShapes},
-    {kNl3ParamOsc3Octave,   "Octave", eTiControlDial,     4,  -2.0, NULL   },
-    {kNl3ParamOsc3Semitone, "Semi",   eTiControlDial,    24, -12.0, NULL   },
-    {kNl3ParamOsc3Fine,     "Fine",   eTiControlDial,   127, -64.0, NULL   },
-    {kNl3ParamOsc3Width,    "Width",  eTiControlDial,   127,   0.0, NULL   },
-    {kNl3ParamOsc3Soften,   "Soften", eTiControlDial,   127,   0.0, NULL   },
-    {kNl3ParamOsc3Level,    "Level",  eTiControlDial,   127,   0.0, NULL   },
-};
-static const tNl3Control kFilter[]          = {
-    {kNl3ParamCutoff,      "Cutoff", eTiControlDial,   127, 0.0, NULL    },
-    {kNl3ParamResonance,   "Reso",   eTiControlDial,   127, 0.0, NULL    },
-    {kNl3ParamFilterType,  "Type",   eTiControlChoice,   1, 0.0, kFilters},
-    {kNl3ParamFilterSlope, "Slope",  eTiControlChoice,   1, 0.0, kSlopes },
-    {kNl3ParamFilterTrack, "Track",  eTiControlChoice,   1, 0.0, kTrack  },
-    {kNl3ParamFilterDrive, "Dist",   eTiControlDial,   127, 0.0, NULL    },
-};
-static const tNl3Control kAmpEnv[]          = {
-    {kNl3ParamAmpAttack,      "Attack",  eTiControlDial, 127,   0.0, NULL},
-    {kNl3ParamAmpDecay,       "Decay",   eTiControlDial, 127,   0.0, NULL},
-    {kNl3ParamAmpSustain,     "Sustain", eTiControlDial, 127,   0.0, NULL},
-    {kNl3ParamAmpSustainTime, "Time",    eTiControlDial, 127, -64.0, NULL},
-    {kNl3ParamAmpRelease,     "Release", eTiControlDial, 127,   0.0, NULL},
-    {kNl3ParamAmpVelocity,    "Vel",     eTiControlDial, 127,   0.0, NULL},
-};
-static const tNl3Control kAmp[]             = {
-    {kNl3ParamVolume, "Prog Level", eTiControlDial, 127, 0.0, NULL},
-    {kNl3ParamMaster, "Master",     eTiControlDial, 127, 0.0, NULL},
-};
-static const char *const kPolyModes[]       = {"Poly", "Mono"};
-static const char *const kEnvTriggers[]     = {"Retrigger", "Legato"};
-static const tNl3Control kVoices[]          = {
-    {kNl3ParamVoiceLimit, "Limit",   eTiControlDial,   NL3_MAX_VOICES - 1, 1.0, NULL        },
-    {kNl3ParamArithmetic, "Maths",   eTiControlChoice,                  1, 0.0, kArithmetic },
-    {kNl3ParamPolyMode,   "Mode",    eTiControlChoice,                  1, 0.0, kPolyModes  },
-    {kNl3ParamEnvTrigger, "Trigger", eTiControlChoice,                  1, 0.0, kEnvTriggers},
-};
-static const tNl3Control kMixer[]           = {
-    {kNl3ParamNoiseLevel,  "Noise",  eTiControlDial, 127, 0.0, NULL},
-    {kNl3ParamNoiseSoften, "Soften", eTiControlDial, 127, 0.0, NULL},
-    {kNl3ParamRing13,      "1x3",    eTiControlDial, 127, 0.0, NULL},
-    {kNl3ParamRing23,      "2x3",    eTiControlDial, 127, 0.0, NULL},
-};
-static const char *const kChorusTypes[]     = {"QUAD", "CHORUS", "PHASER"};
-static const char *const kOffOn[]           = {"OFF", "ON"};
-static const tNl3Control kChorus[]          = {
-    {kNl3ParamChorusType,     "Type",  eTiControlChoice,   2,   0.0, kChorusTypes},
-    {kNl3ParamChorusSend,     "Send",  eTiControlDial,   127,   0.0, NULL        },
-    {kNl3ParamChorusSpeed,    "Speed", eTiControlDial,   127,   0.0, NULL        },
-    {kNl3ParamChorusDepth,    "Depth", eTiControlDial,   127,   0.0, NULL        },
-    {kNl3ParamChorusFeedback, "Fback", eTiControlDial,   127, -64.0, NULL        },
-};
-static const char *const kDelayRatios[]     = {"1:1", "1:.75", ".75:1", "1:.66", ".66:1", "1:.5", ".5:1", "1:.33", ".33:1", "1:.25", ".25:1", "1:OFF", "OFF:1"};
-static const char *const kDelaySyncs[]      = {"OFF", "32 T", "32", "16 T", "16", "8 T", "16 .", "8", "4 T", "8 .", "4", "2 T", "4 .", "2", "1B T", "2 .", "1B", "2B T", "1B .", "2B", "4B T", "3B", "5B T", "4B", "3B .", "7B T", "5B", "8B T", "6B", "7B", "5B .", "8B", "6B .", "7B .", "8B ."};
-static const tNl3Control kDelay[]           = {
-    {kNl3ParamDelaySync,     "Sync",  eTiControlChoice,  34, 0.0, kDelaySyncs },
-    {kNl3ParamDelayRatio,    "Ratio", eTiControlChoice,  12, 0.0, kDelayRatios},
-    {kNl3ParamDelaySend,     "Send",  eTiControlDial,   127, 0.0, NULL        },
-    {kNl3ParamDelayTime,     "Time",  eTiControlDial,   127, 0.0, NULL        },
-    {kNl3ParamDelayFeedback, "Fback", eTiControlDial,   127, 0.0, NULL        },
-    {kNl3ParamDelayDamp,     "Damp",  eTiControlDial,   127, 0.0, NULL        },
-    {kNl3ParamDelayWidth,    "Width", eTiControlDial,   127, 0.0, NULL        },
-};
-static const char *const kReverbTypes[]     = {"GATE REV", "GATE RISE", "GATE GENT", "GATE FALL", "DRY CHMB", "ECHO CHMB", "SMALL RM", "BIG RM", "MEDIUM 1", "MEDIUM 2", "M PLATE 1", "M PLATE 2", "LARGE 1", "LARGE 2", "L PLATE 1", "L PLATE 2"};
-static const tNl3Control kReverb[]          = {
-    {kNl3ParamReverbType,  "Type",  eTiControlChoice,  15, 0.0, kReverbTypes},
-    {kNl3ParamReverbSend,  "Send",  eTiControlDial,   127, 0.0, NULL        },
-    {kNl3ParamReverbDecay, "Decay", eTiControlDial,   127, 0.0, NULL        },
-    {kNl3ParamReverbDamp,  "Damp",  eTiControlDial,   127, 0.0, NULL        },
-};
-static const char *const kOrders[]          = {"D+R+C", "D>R>C", "D>C>R", "R>D>C", "R>C>D", "C>D>R", "C>R>D", "D+[R>C]", "D+[C>R]", "R+[D>C]", "R+[C>D]", "C+[D>R]", "C+[R>D]", "D>[R+C]", "R>[D+C]", "C>[D+R]", "[R+C]>D", "[D+C]>R", "[D+R]>C"};
-static const tNl3Control kDrive[]           = {
-    {kNl3ParamDistLevel,  "Level",  eTiControlDial, 127, 0.0, NULL},
-    {kNl3ParamDistComp,   "Comp",   eTiControlDial, 127, 0.0, NULL},
-    {kNl3ParamDistOutput, "Output", eTiControlDial, 127, 0.0, NULL},
-};
-static const tNl3Control kEq[]              = {
-    {kNl3ParamEqBass,   "Bass",   eTiControlDial, 127, -64.0, NULL},
-    {kNl3ParamEqTreble, "Treble", eTiControlDial, 127, -64.0, NULL},
-};
-static const tNl3Control kEffectsMain[]     = {
-    {kNl3ParamEffectsOrder, "Order", eTiControlChoice,  18, 0.0, kOrders},
-    {kNl3ParamEffectsDry,   "Dry",   eTiControlDial,   127, 0.0, NULL   },
-};
-static const tNl3Section kEffectsPage[]     = {
-    {"CHORUS", {0.30, 0.70, 0.85}, kChorus,      5},
-    {"DELAY",  {0.85, 0.65, 0.30}, kDelay,       7},
-    {"REVERB", {0.55, 0.45, 0.85}, kReverb,      4},
-    {"DRIVE",  {0.90, 0.40, 0.30}, kDrive,       3},
-    {"EQ",     {0.50, 0.75, 0.40}, kEq,          2},
-    {"OUTPUT", {0.60, 0.60, 0.65}, kEffectsMain, 2},
-};
-static const char *const kFxBypass[]        = {"On", "Bypass"};
-static const tNl3Control kGlobalFx[]        = {
-    {kNl3ParamEffectsBypass, "Effects", eTiControlChoice, 1, 0.0, kFxBypass},
-    {kNl3ParamDelayOn,       "Delay",   eTiControlChoice, 1, 0.0, kOffOn   },
-    {kNl3ParamReverbOn,      "Reverb",  eTiControlChoice, 1, 0.0, kOffOn   },
-};
-static const char *const kGlideStyles[]     = {"PORTA", "GLISS"};
-static const char *const kGlideCurves[]     = {"LINEAR", "EXP"};
-static const char *const kGlideTypes[]      = {"NORMAL", "AUTO", "2 DOWN", "2 UP", "5 DOWN", "5 UP", "7 DOWN", "7 UP", "12 DOWN", "12 UP"};
-static const char *const kTriggers[]        = {"PERCUSS", "ENSEMBLE"};
-static const tNl3Control kGlide[]           = {
-    {kNl3ParamGlideTime,  "Time",    eTiControlDial,   127, 0.0, NULL        },
-    {kNl3ParamGlideStyle, "Style",   eTiControlChoice,   1, 0.0, kGlideStyles},
-    {kNl3ParamGlideCurve, "Curve",   eTiControlChoice,   1, 0.0, kGlideCurves},
-    {kNl3ParamGlideType,  "Type",    eTiControlChoice,   9, 0.0, kGlideTypes },
-    {kNl3ParamOscTrigger, "Trigger", eTiControlChoice,   1, 0.0, kTriggers   },
-};
-static const tNl3Section kOscillatorsPage[] = {
-    {"OSC 1", {0.30, 0.55, 0.85}, kOsc1,  7},
-    {"MIXER", {0.60, 0.60, 0.65}, kMixer, 4},
-    {"OSC 2", {0.30, 0.70, 0.60}, kOsc2,  7},
-    {"GLIDE", {0.60, 0.60, 0.65}, kGlide, 5},
-    {"OSC 3", {0.85, 0.55, 0.30}, kOsc3,  7},
-};
-static const tNl3Section kFilterPage[]      = {
-    {"FILTER", {0.90, 0.55, 0.20}, kFilter, 6},
-};
-static const tNl3Control kEnv2[]            = {
-    {kNl3ParamEnv2Attack,   "Attack",  eTiControlDial, 127,   0.0, NULL},
-    {kNl3ParamEnv2Decay,    "Decay",   eTiControlDial, 127,   0.0, NULL},
-    {kNl3ParamEnv2Sustain,  "Sustain", eTiControlDial, 127,   0.0, NULL},
-    {kNl3ParamEnv2Release,  "Release", eTiControlDial, 127,   0.0, NULL},
-    {kNl3ParamEnv2Velocity, "Vel",     eTiControlDial, 127,   0.0, NULL},
-    {kNl3ParamEnv2Cutoff,   "Cutoff",  eTiControlDial, 127, -64.0, NULL},
-};
-static const tNl3Control kEnv3[]            = {
-    {kNl3ParamEnv3Attack,   "Attack",  eTiControlDial, 127,   0.0, NULL},
-    {kNl3ParamEnv3Decay,    "Decay",   eTiControlDial, 127,   0.0, NULL},
-    {kNl3ParamEnv3Sustain,  "Sustain", eTiControlDial, 127,   0.0, NULL},
-    {kNl3ParamEnv3Release,  "Release", eTiControlDial, 127,   0.0, NULL},
-    {kNl3ParamEnv3Velocity, "Vel",     eTiControlDial, 127,   0.0, NULL},
-    {kNl3ParamEnv3Cutoff,   "Cutoff",  eTiControlDial, 127, -64.0, NULL},
-};
-static const tNl3Section kAmpPage[]         = {
-    {"OUTPUT", {0.65, 0.65, 0.65}, kAmp, 2},
-};
-static const tNl3Section kEnvelopesPage[]   = {
-    {"AMP ENV", {0.85, 0.75, 0.25}, kAmpEnv, 6},
-    {"ENV 2",   {0.90, 0.55, 0.20}, kEnv2,   6},
-    {"ENV 3",   {0.70, 0.45, 0.80}, kEnv3,   6},
-};
-static const char *const kLfoShapes[]       = {"Square", "Saw", "Triangle", "S+H"};
-static const char *const kLfoRanges[]       = {"x1", "x10", "x100"};
-static const char *const kLfoTriggers[]     = {"Free", "Key"};
-static const char *const kLfoFades[]        = {"In", "Out"};
-#define LFO_CONTROLS(n)    {                                                              \
-       {kNl3ParamLfo ## n ## Shape, "Shape", eTiControlChoice, 3, 0.0, kLfoShapes},       \
-       {kNl3ParamLfo ## n ## Speed, "Speed", eTiControlDial, 127, 0.0, NULL},             \
-       {kNl3ParamLfo ## n ## Range, "Range", eTiControlChoice, 2, 0.0, kLfoRanges},       \
-       {kNl3ParamLfo ## n ## Delay, "Delay", eTiControlDial, 127, 0.0, NULL},             \
-       {kNl3ParamLfo ## n ## Fade, "Fade", eTiControlChoice, 1, 0.0, kLfoFades},          \
-       {kNl3ParamLfo ## n ## Offset, "Offset", eTiControlDial, 127, 0.0, NULL},           \
-       {kNl3ParamLfo ## n ## Trigger, "Trigger", eTiControlChoice, 1, 0.0, kLfoTriggers}, \
-       {kNl3ParamLfo ## n ## Cutoff, "Cutoff", eTiControlDial, 127, -64.0, NULL},         \
-}
-static const tNl3Control kLfo1[]            = LFO_CONTROLS(1);
-static const tNl3Control kLfo2[]            = LFO_CONTROLS(2);
-static const tNl3Section kLfoPage[]         = {
-    {"LFO 1", {0.80, 0.55, 0.85}, kLfo1, 8},
-    {"LFO 2", {0.55, 0.80, 0.85}, kLfo2, 8},
-};
-static const tNl3Control kHardware[]        = {
-    {kNl3ParamHwLink,    "Link",    eTiControlChoice,   1, 0.0, kOffOn},
-    {kNl3ParamHwChannel, "Channel", eTiControlDial,    15, 1.0, NULL  },
-    {kNl3ParamHwDevice,  "Device",  eTiControlDial,   127, 0.0, NULL  },
-};
-static const tNl3Control kPan[]             = {
-    {kNl3ParamPan,        "Pan",     eTiControlDial,   127, 0.0, NULL  },
-    {kNl3ParamPanSpeed,   "Speed",   eTiControlDial,   127, 0.0, NULL  },
-    {kNl3ParamPanDepth,   "Depth",   eTiControlDial,   127, 0.0, NULL  },
-    {kNl3ParamPanEffects, "Effects", eTiControlChoice,   1, 0.0, kOffOn},
-};
-static const tNl3Section kGlobalPage[]      = {
-    {"PLUG-IN",  {0.65, 0.65, 0.65}, kVoices,   4},
-    {"EFFECTS",  {0.65, 0.65, 0.65}, kGlobalFx, 3},
-    {"HARDWARE", {0.65, 0.65, 0.65}, kHardware, 3},
-    {"PAN",      {0.65, 0.65, 0.65}, kPan,      4},
-};
+// notes §4: the names of each switch's positions
+static const char *const kChoiceArithmetic[] = {"FLOAT", "FIXED"};
+static const char *const kChoiceAliasing[]   = {"INSTRUMENT", "CLEAN"};
+static const char *const kChoiceWave[]       = {"SAW", "PULSE", "TRI", "SINE", "NOISE", "DUAL SINE"};
+static const char *const kChoiceOffon[]      = {"OFF", "ON"};
+static const char *const kChoiceOscmod[]     = {"DM", "DIST", "FILT", "FM", "DFM", "RM"};
+static const char *const kChoiceLfowave[]    = {"TRI", "SAW", "SQUARE", "RANDOM", "SMOOTH", "SPECIAL"};
+static const char *const kChoiceLfo1dest[]   = {"OSC 1", "OSC 2", "OSC 1+2", "FILT 1", "FILT 2", "FILT 1+2", "SHAPE 1", "SHAPE 2", "SHAPE 1+2", "OSCMOD", "OSCMIX", "AMP"};
+static const char *const kChoiceLfo2dest[]   = {"OSC 1", "OSC 2", "OSC 1+2", "FILT 1", "FILT 2", "FILT 1+2", "SHAPE 1", "SHAPE 2", "SHAPE 1+2", "OSCMOD", "RES", "PAN"};
+static const char *const kChoiceModenvdest[] = {"OSC 1", "OSC 2", "OSC 1+2", "FILT 1", "FILT 2", "FILT 1+2", "SHAPE 1", "SHAPE 2", "SHAPE 1+2", "OSCMOD", "OSCMIX", "LFO 1"};
+static const char *const kChoiceEnvkbs[]     = {"OFF", "ENV", "KB SYNC"};
+static const char *const kChoiceDecrel[]     = {"DECAY", "RELEASE"};
+static const char *const kChoiceFtype[]      = {"LP", "HP", "BP", "BR", "CLASSIC", "DIST LP"};
+static const char *const kChoiceSlope[]      = {"6 dB", "12 dB", "24 dB"};
+static const char *const kChoiceFmode[]      = {"SINGLE", "MULTI"};
+static const char *const kChoiceF2type[]     = {"LP-BP", "LP-HP", "HP>LP", "BP-BP", "PEAK", "NOTCH"};
+static const char *const kChoiceGlide[]      = {"OFF", "ON", "AUTO"};
+static const char *const kChoiceVibsrc[]     = {"OFF", "WHEEL", "A.TOUCH"};
+static const char *const kChoicePrio[]       = {"OFF", "HI", "LO"};
+static const char *const kChoiceOctave[]     = {"-2", "-1", "0", "+1", "+2"};
+static const char *const kChoiceArpmode[]    = {"UP", "DOWN", "UP/DOWN", "RANDOM"};
+static const char *const kChoiceArprange[]   = {"1", "2", "3", "4"};
 
-const tNl3Page           gNl3Pages[]        = {
-    {"OSC",     kOscillatorsPage, 5},
-    {"FILTER",  kFilterPage,      1},
-    {"AMP",     kAmpPage,         1},
-    {"ENV",     kEnvelopesPage,   3},
-    {"LFO",     kLfoPage,         2},
-    {"EFFECTS", kEffectsPage,     6},
-    {"GLOBAL",  kGlobalPage,      4},
-};
-const uint32_t           gNl3PageCount      = sizeof(gNl3Pages) / sizeof(gNl3Pages[0]);
+const char * const * nl3_param_choices(uint32_t id) {
+    switch (id) {
+        case kNl3ParamArithmetic:
+            return kChoiceArithmetic;
 
-tNl3EffectsSound nl3_effects_sound(const double * v, double tempo) {
-    return (tNl3EffectsSound){
-        .dry            = v[kNl3ParamEffectsDry] * 127.0,
-        .chorusSend     = v[kNl3ParamChorusSend] * 127.0,
-        .chorusSpeed    = v[kNl3ParamChorusSpeed] * 127.0,
-        .chorusDepth    = v[kNl3ParamChorusDepth] * 127.0,
-        .chorusFeedback = v[kNl3ParamChorusFeedback] * 127.0,
-        .chorusType     = (int)lround(v[kNl3ParamChorusType] * 2.0),
-        .delayOn        = v[kNl3ParamDelayOn] > 0.5,
-        .delaySend      = v[kNl3ParamDelaySend] * 127.0,
-        .delayTime      = v[kNl3ParamDelayTime] * 127.0,
-        .delayFeedback  = v[kNl3ParamDelayFeedback] * 127.0,
-        .delayDamp      = v[kNl3ParamDelayDamp] * 127.0,
-        .delayWidth     = v[kNl3ParamDelayWidth] * 127.0,
-        .delayRatio     = (int)lround(v[kNl3ParamDelayRatio] * 12.0),
-        .delaySync      = (int)lround(v[kNl3ParamDelaySync] * 34.0),
-        .tempo          = tempo,
-        .reverbOn       = v[kNl3ParamReverbOn] > 0.5,
-        .order          = (int)lround(v[kNl3ParamEffectsOrder] * 18.0),
-        .reverbSend     = v[kNl3ParamReverbSend] * 127.0,
-        .reverbDecay    = v[kNl3ParamReverbDecay] * 127.0,
-        .reverbDamp     = v[kNl3ParamReverbDamp] * 127.0,
-        .reverbType     = (int)lround(v[kNl3ParamReverbType] * 15.0),
-        .distLevel      = v[kNl3ParamDistLevel] * 127.0,
-        .distComp       = v[kNl3ParamDistComp] * 127.0,
-        .distOutput     = v[kNl3ParamDistOutput] * 127.0,
-        .eqBass         = v[kNl3ParamEqBass] * 127.0,
-        .eqTreble       = v[kNl3ParamEqTreble] * 127.0,
-        .pan            = v[kNl3ParamPan] * 127.0,
-        .panSpeed       = v[kNl3ParamPanSpeed] * 127.0,
-        .panDepth       = v[kNl3ParamPanDepth] * 127.0,
-        .panEffects     = v[kNl3ParamPanEffects] > 0.5,
-    };
-}
+        case kNl3ParamAliasing:
+            return kChoiceAliasing;
 
-// voices notes §15: pitch and cutoff go as the square of the amount, width in step with it
-static double lfo_semis(double normalized) {
-    double d = (normalized * 127.0) - 64.0;
+        case kNl3ParamHwLink:
+            return kChoiceOffon;
 
-    return ((d < 0.0) ? -1.0 : 1.0) * d * d / 57.6;
-}
+        case kNl3ParamOsc1Waveform:
+        case kNl3ParamOsc2Waveform:
+            return kChoiceWave;
 
-static double lfo_delay(double dial) {
-    if (dial <= 0.0) {
-        return 0.0;
+        case kNl3ParamOsc1Sync:
+        case kNl3ParamOsc2Sync:
+        case kNl3ParamOsc2Kbt:
+        case kNl3ParamOsc2Partial:
+        case kNl3ParamOscMixNoise:
+        case kNl3ParamFilterTrack:
+        case kNl3ParamFilterBypass:
+        case kNl3ParamFilter2Env:
+        case kNl3ParamFEnvVelocity:
+        case kNl3ParamFEnvInvert:
+        case kNl3ParamFEnvExpAttack:
+        case kNl3ParamAmpExpAttack:
+        case kNl3ParamLfo1Mono:
+        case kNl3ParamLfo1Invert:
+        case kNl3ParamLfo1ClockSync:
+        case kNl3ParamLfo2Mono:
+        case kNl3ParamLfo2Invert:
+        case kNl3ParamLfo2ClockSync:
+        case kNl3ParamMEnvInvert:
+        case kNl3ParamMEnvRepeat:
+        case kNl3ParamMEnvExpAttack:
+        case kNl3ParamMono:
+        case kNl3ParamLegato:
+        case kNl3ParamUnison:
+        case kNl3ParamChordMemory:
+        case kNl3ParamArpRun:
+        case kNl3ParamArpKbdSync:
+        case kNl3ParamArpClockSync:
+            return kChoiceOffon;
+
+        case kNl3ParamOscModType:
+            return kChoiceOscmod;
+
+        case kNl3ParamFilterMode:
+            return kChoiceFmode;
+
+        case kNl3ParamFilterType:
+            return kChoiceFtype;
+
+        case kNl3ParamFilterSlope:
+            return kChoiceSlope;
+
+        case kNl3ParamFilter2Type:
+            return kChoiceF2type;
+
+        case kNl3ParamLfo1Waveform:
+        case kNl3ParamLfo2Waveform:
+            return kChoiceLfowave;
+
+        case kNl3ParamLfo1Dest:
+            return kChoiceLfo1dest;
+
+        case kNl3ParamLfo1EnvKbs:
+        case kNl3ParamLfo2EnvKbs:
+            return kChoiceEnvkbs;
+
+        case kNl3ParamLfo2Dest:
+            return kChoiceLfo2dest;
+
+        case kNl3ParamMEnvDest:
+            return kChoiceModenvdest;
+
+        case kNl3ParamMEnvRelease:
+            return kChoiceDecrel;
+
+        case kNl3ParamGlideMode:
+            return kChoiceGlide;
+
+        case kNl3ParamVibratoSource:
+            return kChoiceVibsrc;
+
+        case kNl3ParamMonoPriority:
+            return kChoicePrio;
+
+        case kNl3ParamOctaveShift:
+            return kChoiceOctave;
+
+        case kNl3ParamArpMode:
+            return kChoiceArpmode;
+
+        case kNl3ParamArpRange:
+            return kChoiceArprange;
+
+        default:
+            return NULL;
     }
-    return (dial < 64.0) ? exp(-1.08 + (0.0417 * (dial - 64.0))) : exp(-1.08 + (0.0525 * (dial - 64.0)));
 }
 
-void nl3_controls_sound(const double * v, tNl3Sound * sound) {
-    for (int l = 0; l < NL3_LFOS; l++) {
-        int    at    = l * (kNl3ParamLfo2Shape - kNl3ParamLfo1Shape);
-        double speed = v[kNl3ParamLfo1Speed + at] * 127.0;
+#define nl3_choices_Osc1Waveform     kChoiceWave
+#define nl3_choices_Osc2Waveform     kChoiceWave
+#define nl3_choices_Osc1Sync         kChoiceOffon
+#define nl3_choices_Osc2Sync         kChoiceOffon
+#define nl3_choices_Osc2Kbt          kChoiceOffon
+#define nl3_choices_Osc2Partial      kChoiceOffon
+#define nl3_choices_OscMixNoise      kChoiceOffon
+#define nl3_choices_FilterTrack      kChoiceOffon
+#define nl3_choices_FilterBypass     kChoiceOffon
+#define nl3_choices_Filter2Env       kChoiceOffon
+#define nl3_choices_FEnvVelocity     kChoiceOffon
+#define nl3_choices_FEnvInvert       kChoiceOffon
+#define nl3_choices_FEnvExpAttack    kChoiceOffon
+#define nl3_choices_AmpExpAttack     kChoiceOffon
+#define nl3_choices_Lfo1Mono         kChoiceOffon
+#define nl3_choices_Lfo1Invert       kChoiceOffon
+#define nl3_choices_Lfo1ClockSync    kChoiceOffon
+#define nl3_choices_Lfo2Mono         kChoiceOffon
+#define nl3_choices_Lfo2Invert       kChoiceOffon
+#define nl3_choices_Lfo2ClockSync    kChoiceOffon
+#define nl3_choices_MEnvInvert       kChoiceOffon
+#define nl3_choices_MEnvRepeat       kChoiceOffon
+#define nl3_choices_MEnvExpAttack    kChoiceOffon
+#define nl3_choices_Mono             kChoiceOffon
+#define nl3_choices_Legato           kChoiceOffon
+#define nl3_choices_Unison           kChoiceOffon
+#define nl3_choices_ChordMemory      kChoiceOffon
+#define nl3_choices_ArpRun           kChoiceOffon
+#define nl3_choices_ArpKbdSync       kChoiceOffon
+#define nl3_choices_ArpClockSync     kChoiceOffon
+#define nl3_choices_OscModType       kChoiceOscmod
+#define nl3_choices_FilterMode       kChoiceFmode
+#define nl3_choices_FilterType       kChoiceFtype
+#define nl3_choices_FilterSlope      kChoiceSlope
+#define nl3_choices_Filter2Type      kChoiceF2type
+#define nl3_choices_Lfo1Waveform     kChoiceLfowave
+#define nl3_choices_Lfo2Waveform     kChoiceLfowave
+#define nl3_choices_Lfo1Dest         kChoiceLfo1dest
+#define nl3_choices_Lfo1EnvKbs       kChoiceEnvkbs
+#define nl3_choices_Lfo2EnvKbs       kChoiceEnvkbs
+#define nl3_choices_Lfo2Dest         kChoiceLfo2dest
+#define nl3_choices_MEnvDest         kChoiceModenvdest
+#define nl3_choices_MEnvRelease      kChoiceDecrel
+#define nl3_choices_GlideMode        kChoiceGlide
+#define nl3_choices_VibratoSource    kChoiceVibsrc
+#define nl3_choices_MonoPriority     kChoicePrio
+#define nl3_choices_OctaveShift      kChoiceOctave
+#define nl3_choices_ArpMode          kChoiceArpmode
+#define nl3_choices_ArpRange         kChoiceArprange
+#define nl3_choices_Arithmetic       kChoiceArithmetic
+#define nl3_choices_Aliasing         kChoiceAliasing
+#define nl3_choices_HwLink           kChoiceOffon
 
-        sound->lfo[l]       = (tNl3LfoSound){
-            .shape   = (int)lround(v[kNl3ParamLfo1Shape + at] * 3.0),
-            .hz      = (speed * speed / 1638.4) * pow(10.0, lround(v[kNl3ParamLfo1Range + at] * 2.0)),
-            .delay   = lfo_delay(v[kNl3ParamLfo1Delay + at] * 127.0),
-            .fadeOut = v[kNl3ParamLfo1Fade + l] > 0.5,
-            .offset  = v[kNl3ParamLfo1Offset + at],
-            .keyed   = v[kNl3ParamLfo1Trigger + at] > 0.5,
-        };
-        sound->lfoCutoff[l] = lfo_semis(v[kNl3ParamLfo1Cutoff + at]);
+// ---- the panel - notes §2 ------------------------------------------------------------------------------------
+static const tNl3Control kOsc1[] = {
+    {kNl3ParamOsc1Waveform,  "Wave",   eTiControlChoice,   5, 0.0, nl3_choices_Osc1Waveform},
+    {kNl3ParamOsc1Shape,     "Shape",  eTiControlDial,   127, 0.0, NULL                    },
+    {kNl3ParamOsc1Sync,      "Sync",   eTiControlChoice,   1, 0.0, nl3_choices_Osc1Sync    },
+    {kNl3ParamOsc1SyncTune,  "Detune", eTiControlDial,   127, 0.0, NULL                    },
+    {kNl3ParamOsc1NoiseSeed, "Timbre", eTiControlDial,   127, 0.0, NULL                    },
+    {kNl3ParamOsc1FmAmount,  "FM",     eTiControlDial,   127, 0.0, NULL                    },
+};
+static const tNl3Control kOsc2[]                = {
+    {kNl3ParamOsc2Waveform, "Wave",    eTiControlChoice,   5, 0.0, nl3_choices_Osc2Waveform},
+    {kNl3ParamOsc2Shape,    "Shape",   eTiControlDial,   127, 0.0, NULL                    },
+    {kNl3ParamOsc2Sync,     "Sync",    eTiControlChoice,   1, 0.0, nl3_choices_Osc2Sync    },
+    {kNl3ParamOsc2Coarse,   "Coarse",  eTiControlDial,   127, 0.0, NULL                    },
+    {kNl3ParamOsc2Fine,     "Fine",    eTiControlDial,   127, 0.0, NULL                    },
+    {kNl3ParamOsc2Kbt,      "KBT Off", eTiControlChoice,   1, 0.0, nl3_choices_Osc2Kbt     },
+    {kNl3ParamOsc2Partial,  "Partial", eTiControlChoice,   1, 0.0, nl3_choices_Osc2Partial },
+};
+static const tNl3Control kOsc2More[]            = {
+    {kNl3ParamOsc2SyncTune,  "Detune",  eTiControlDial, 127, 0.0, NULL},
+    {kNl3ParamOsc2NoiseSeed, "Timbre",  eTiControlDial, 127, 0.0, NULL},
+    {kNl3ParamOsc2FmAmount,  "FM",      eTiControlDial, 127, 0.0, NULL},
+    {kNl3ParamOsc2Carrier,   "Carrier", eTiControlDial, 127, 0.0, NULL},
+    {kNl3ParamOsc2Modulator, "Mod",     eTiControlDial, 127, 0.0, NULL},
+    {kNl3ParamOsc2NoiseType, "N Type",  eTiControlDial, 127, 0.0, NULL},
+    {kNl3ParamOsc2NoiseFreq, "N Freq",  eTiControlDial, 127, 0.0, NULL},
+};
+static const tNl3Control kOscMod[]              = {
+    {kNl3ParamOscModAmount, "Amount", eTiControlDial,   127, 0.0, NULL                   },
+    {kNl3ParamOscModType,   "Type",   eTiControlChoice,   5, 0.0, nl3_choices_OscModType },
+    {kNl3ParamOscMix,       "Mix",    eTiControlDial,   127, 0.0, NULL                   },
+    {kNl3ParamOscMixNoise,  "Noise3", eTiControlChoice,   1, 0.0, nl3_choices_OscMixNoise},
+};
+static const tNl3Control kFilter[]              = {
+    {kNl3ParamFilterMode,   "Mode",     eTiControlChoice,   1, 0.0, nl3_choices_FilterMode  },
+    {kNl3ParamFilterType,   "Type",     eTiControlChoice,   5, 0.0, nl3_choices_FilterType  },
+    {kNl3ParamFilterSlope,  "Slope",    eTiControlChoice,   2, 0.0, nl3_choices_FilterSlope },
+    {kNl3ParamFilter2Type,  "Multi",    eTiControlChoice,   5, 0.0, nl3_choices_Filter2Type },
+    {kNl3ParamCutoff,       "Freq 1",   eTiControlDial,   127, 0.0, NULL                    },
+    {kNl3ParamCutoff2,      "Freq 2",   eTiControlDial,   127, 0.0, NULL                    },
+    {kNl3ParamResonance,    "Res",      eTiControlDial,   127, 0.0, NULL                    },
+    {kNl3ParamFilterDist,   "Dist",     eTiControlDial,   127, 0.0, NULL                    },
+    {kNl3ParamFilterTrack,  "KB Track", eTiControlChoice,   1, 0.0, nl3_choices_FilterTrack },
+    {kNl3ParamFilterBypass, "Osc2 Byp", eTiControlChoice,   1, 0.0, nl3_choices_FilterBypass},
+    {kNl3ParamFilter2Env,   "F2 Env",   eTiControlChoice,   1, 0.0, nl3_choices_Filter2Env  },
+};
+static const tNl3Control kFilterEnv[]           = {
+    {kNl3ParamFEnvAttack,    "Attack",  eTiControlDial,   127, 0.0, NULL                     },
+    {kNl3ParamFEnvDecay,     "Decay",   eTiControlDial,   127, 0.0, NULL                     },
+    {kNl3ParamFEnvSustain,   "Sustain", eTiControlDial,   127, 0.0, NULL                     },
+    {kNl3ParamFEnvRelease,   "Release", eTiControlDial,   127, 0.0, NULL                     },
+    {kNl3ParamFEnvAmount,    "Amount",  eTiControlDial,   127, 0.0, NULL                     },
+    {kNl3ParamFEnvVelocity,  "Vel",     eTiControlChoice,   1, 0.0, nl3_choices_FEnvVelocity },
+    {kNl3ParamFEnvInvert,    "Invert",  eTiControlChoice,   1, 0.0, nl3_choices_FEnvInvert   },
+    {kNl3ParamFEnvExpAttack, "Exp Att", eTiControlChoice,   1, 0.0, nl3_choices_FEnvExpAttack},
+};
+static const tNl3Control kAmpEnv[]              = {
+    {kNl3ParamAmpAttack,    "Attack",  eTiControlDial,   127, 0.0, NULL                    },
+    {kNl3ParamAmpDecay,     "Decay",   eTiControlDial,   127, 0.0, NULL                    },
+    {kNl3ParamAmpSustain,   "Sustain", eTiControlDial,   127, 0.0, NULL                    },
+    {kNl3ParamAmpRelease,   "Release", eTiControlDial,   127, 0.0, NULL                    },
+    {kNl3ParamAmpExpAttack, "Exp Att", eTiControlChoice,   1, 0.0, nl3_choices_AmpExpAttack},
+};
+static const tNl3Control kLfo1[]                = {
+    {kNl3ParamLfo1Rate,      "Rate",    eTiControlDial,   127, 0.0, NULL                     },
+    {kNl3ParamLfo1Amount,    "Amount",  eTiControlDial,   127, 0.0, NULL                     },
+    {kNl3ParamLfo1Waveform,  "Wave",    eTiControlChoice,   5, 0.0, nl3_choices_Lfo1Waveform },
+    {kNl3ParamLfo1Dest,      "Dest",    eTiControlChoice,  11, 0.0, nl3_choices_Lfo1Dest     },
+    {kNl3ParamLfo1EnvKbs,    "Env/KBS", eTiControlChoice,   2, 0.0, nl3_choices_Lfo1EnvKbs   },
+    {kNl3ParamLfo1Mono,      "Mono",    eTiControlChoice,   1, 0.0, nl3_choices_Lfo1Mono     },
+    {kNl3ParamLfo1Invert,    "Invert",  eTiControlChoice,   1, 0.0, nl3_choices_Lfo1Invert   },
+    {kNl3ParamLfo1ClockSync, "Clock",   eTiControlChoice,   1, 0.0, nl3_choices_Lfo1ClockSync},
+    {kNl3ParamLfo1Divisor,   "Divisor", eTiControlDial,   127, 0.0, NULL                     },
+};
+static const tNl3Control kLfo2[]                = {
+    {kNl3ParamLfo2Rate,      "Rate",    eTiControlDial,   127, 0.0, NULL                     },
+    {kNl3ParamLfo2Amount,    "Amount",  eTiControlDial,   127, 0.0, NULL                     },
+    {kNl3ParamLfo2Waveform,  "Wave",    eTiControlChoice,   5, 0.0, nl3_choices_Lfo2Waveform },
+    {kNl3ParamLfo2Dest,      "Dest",    eTiControlChoice,  11, 0.0, nl3_choices_Lfo2Dest     },
+    {kNl3ParamLfo2EnvKbs,    "Env/KBS", eTiControlChoice,   2, 0.0, nl3_choices_Lfo2EnvKbs   },
+    {kNl3ParamLfo2Mono,      "Mono",    eTiControlChoice,   1, 0.0, nl3_choices_Lfo2Mono     },
+    {kNl3ParamLfo2Invert,    "Invert",  eTiControlChoice,   1, 0.0, nl3_choices_Lfo2Invert   },
+    {kNl3ParamLfo2ClockSync, "Clock",   eTiControlChoice,   1, 0.0, nl3_choices_Lfo2ClockSync},
+    {kNl3ParamLfo2Divisor,   "Divisor", eTiControlDial,   127, 0.0, NULL                     },
+};
+static const tNl3Control kModEnv[]              = {
+    {kNl3ParamMEnvAttack,    "Attack",  eTiControlDial,   127, 0.0, NULL                     },
+    {kNl3ParamMEnvDecay,     "Dec/Rel", eTiControlDial,   127, 0.0, NULL                     },
+    {kNl3ParamMEnvAmount,    "Amount",  eTiControlDial,   127, 0.0, NULL                     },
+    {kNl3ParamMEnvDest,      "Dest",    eTiControlChoice,  11, 0.0, nl3_choices_MEnvDest     },
+    {kNl3ParamMEnvInvert,    "Invert",  eTiControlChoice,   1, 0.0, nl3_choices_MEnvInvert   },
+    {kNl3ParamMEnvRelease,   "Mode",    eTiControlChoice,   1, 0.0, nl3_choices_MEnvRelease  },
+    {kNl3ParamMEnvRepeat,    "Repeat",  eTiControlChoice,   1, 0.0, nl3_choices_MEnvRepeat   },
+    {kNl3ParamMEnvExpAttack, "Exp Att", eTiControlChoice,   1, 0.0, nl3_choices_MEnvExpAttack},
+};
+static const tNl3Control kGlide[]               = {
+    {kNl3ParamGlideRate, "Rate",  eTiControlDial,   127, 0.0, NULL                 },
+    {kNl3ParamGlideMode, "Glide", eTiControlChoice,   2, 0.0, nl3_choices_GlideMode},
+};
+static const tNl3Control kVibrato[]             = {
+    {kNl3ParamVibratoRate,   "Rate",   eTiControlDial,   127, 0.0, NULL                     },
+    {kNl3ParamVibratoAmount, "Amount", eTiControlDial,   127, 0.0, NULL                     },
+    {kNl3ParamVibratoSource, "Source", eTiControlChoice,   2, 0.0, nl3_choices_VibratoSource},
+};
+static const tNl3Control kVoice[]               = {
+    {kNl3ParamMono,         "Mono",     eTiControlChoice,   1, 0.0, nl3_choices_Mono        },
+    {kNl3ParamLegato,       "Legato",   eTiControlChoice,   1, 0.0, nl3_choices_Legato      },
+    {kNl3ParamMonoPriority, "Priority", eTiControlChoice,   2, 0.0, nl3_choices_MonoPriority},
+    {kNl3ParamUnison,       "Unison",   eTiControlChoice,   1, 0.0, nl3_choices_Unison      },
+    {kNl3ParamUnisonDetune, "Detune",   eTiControlDial,   127, 0.0, NULL                    },
+    {kNl3ParamOctaveShift,  "Octave",   eTiControlChoice,   4, 0.0, nl3_choices_OctaveShift },
+    {kNl3ParamTranspose,    "Transp",   eTiControlDial,   127, 0.0, NULL                    },
+    {kNl3ParamChordMemory,  "Chord",    eTiControlChoice,   1, 0.0, nl3_choices_ChordMemory },
+};
+static const tNl3Control kArp[]                 = {
+    {kNl3ParamArpRun,       "Run",     eTiControlChoice,   1, 0.0, nl3_choices_ArpRun      },
+    {kNl3ParamArpRate,      "Rate",    eTiControlDial,   127, 0.0, NULL                    },
+    {kNl3ParamArpMode,      "Mode",    eTiControlChoice,   3, 0.0, nl3_choices_ArpMode     },
+    {kNl3ParamArpRange,     "Range",   eTiControlChoice,   3, 0.0, nl3_choices_ArpRange    },
+    {kNl3ParamArpKbdSync,   "KB Sync", eTiControlChoice,   1, 0.0, nl3_choices_ArpKbdSync  },
+    {kNl3ParamArpClockSync, "Clock",   eTiControlChoice,   1, 0.0, nl3_choices_ArpClockSync},
+    {kNl3ParamArpDivisor,   "Divisor", eTiControlDial,   127, 0.0, NULL                    },
+};
+static const tNl3Control kMorphWheelOsc[]       = {
+    {kNl3ParamMorphWheel_Osc2FinePitch,   "O2 Fine", eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphWheel_Osc2CoarsePitch, "O2 Crs",  eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphWheel_Oscmod,          "OscMod",  eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphWheel_Oscmix,          "OscMix",  eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphWheel_Osc1Shape,       "O1 Shp",  eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphWheel_Osc2Shape,       "O2 Shp",  eTiControlDial, 255, -128.0, NULL},
+};
+static const tNl3Control kMorphWheelAmp[]       = {
+    {kNl3ParamMorphWheel_AmpEnvAttack,  "A Att", eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphWheel_AmpEnvDecay,   "A Dec", eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphWheel_AmpEnvSustain, "A Sus", eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphWheel_AmpEnvRelease, "A Rel", eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphWheel_OutputLevel,   "Level", eTiControlDial, 255, -128.0, NULL},
+};
+static const tNl3Control kMorphWheelLfo[]       = {
+    {kNl3ParamMorphWheel_Lfo1Rate,           "L1 Rate", eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphWheel_Lfo1Amount,         "L1 Amt",  eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphWheel_Lfo2Rate,           "L2 Rate", eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphWheel_Lfo2Amount,         "L2 Amt",  eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphWheel_ModEnvAttack,       "ME Att",  eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphWheel_ModEnvDecayRelease, "ME Dec",  eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphWheel_ModEnvAmount,       "ME Amt",  eTiControlDial, 255, -128.0, NULL},
+};
+static const tNl3Control kMorphWheelFilter[]    = {
+    {kNl3ParamMorphWheel_FiltEnvAttack,  "F Att",  eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphWheel_FiltEnvDecay,   "F Dec",  eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphWheel_FiltEnvSustain, "F Sus",  eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphWheel_FiltEnvRelease, "F Rel",  eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphWheel_FiltEnvAmount,  "F Amt",  eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphWheel_FiltFrequency1, "Freq 1", eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphWheel_FiltFrequency2, "Freq 2", eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphWheel_FiltResonance,  "Res",    eTiControlDial, 255, -128.0, NULL},
+};
+static const tNl3Control kMorphTouchOsc[]       = {
+    {kNl3ParamMorphTouch_Osc2FinePitch,   "O2 Fine", eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphTouch_Osc2CoarsePitch, "O2 Crs",  eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphTouch_Oscmod,          "OscMod",  eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphTouch_Oscmix,          "OscMix",  eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphTouch_Osc1Shape,       "O1 Shp",  eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphTouch_Osc2Shape,       "O2 Shp",  eTiControlDial, 255, -128.0, NULL},
+};
+static const tNl3Control kMorphTouchAmp[]       = {
+    {kNl3ParamMorphTouch_AmpEnvAttack,  "A Att", eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphTouch_AmpEnvDecay,   "A Dec", eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphTouch_AmpEnvSustain, "A Sus", eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphTouch_AmpEnvRelease, "A Rel", eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphTouch_OutputLevel,   "Level", eTiControlDial, 255, -128.0, NULL},
+};
+static const tNl3Control kMorphTouchLfo[]       = {
+    {kNl3ParamMorphTouch_Lfo1Rate,           "L1 Rate", eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphTouch_Lfo1Amount,         "L1 Amt",  eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphTouch_Lfo2Rate,           "L2 Rate", eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphTouch_Lfo2Amount,         "L2 Amt",  eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphTouch_ModEnvAttack,       "ME Att",  eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphTouch_ModEnvDecayRelease, "ME Dec",  eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphTouch_ModEnvAmount,       "ME Amt",  eTiControlDial, 255, -128.0, NULL},
+};
+static const tNl3Control kMorphTouchFilter[]    = {
+    {kNl3ParamMorphTouch_FiltEnvAttack,  "F Att",  eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphTouch_FiltEnvDecay,   "F Dec",  eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphTouch_FiltEnvSustain, "F Sus",  eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphTouch_FiltEnvRelease, "F Rel",  eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphTouch_FiltEnvAmount,  "F Amt",  eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphTouch_FiltFrequency1, "Freq 1", eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphTouch_FiltFrequency2, "Freq 2", eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphTouch_FiltResonance,  "Res",    eTiControlDial, 255, -128.0, NULL},
+};
+static const tNl3Control kMorphVelocityOsc[]    = {
+    {kNl3ParamMorphVelocity_Osc2FinePitch,   "O2 Fine", eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphVelocity_Osc2CoarsePitch, "O2 Crs",  eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphVelocity_Oscmod,          "OscMod",  eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphVelocity_Oscmix,          "OscMix",  eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphVelocity_Osc1Shape,       "O1 Shp",  eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphVelocity_Osc2Shape,       "O2 Shp",  eTiControlDial, 255, -128.0, NULL},
+};
+static const tNl3Control kMorphVelocityAmp[]    = {
+    {kNl3ParamMorphVelocity_AmpEnvAttack,  "A Att", eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphVelocity_AmpEnvDecay,   "A Dec", eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphVelocity_AmpEnvSustain, "A Sus", eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphVelocity_AmpEnvRelease, "A Rel", eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphVelocity_OutputLevel,   "Level", eTiControlDial, 255, -128.0, NULL},
+};
+static const tNl3Control kMorphVelocityLfo[]    = {
+    {kNl3ParamMorphVelocity_Lfo1Rate,           "L1 Rate", eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphVelocity_Lfo1Amount,         "L1 Amt",  eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphVelocity_Lfo2Rate,           "L2 Rate", eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphVelocity_Lfo2Amount,         "L2 Amt",  eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphVelocity_ModEnvAttack,       "ME Att",  eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphVelocity_ModEnvDecayRelease, "ME Dec",  eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphVelocity_ModEnvAmount,       "ME Amt",  eTiControlDial, 255, -128.0, NULL},
+};
+static const tNl3Control kMorphVelocityFilter[] = {
+    {kNl3ParamMorphVelocity_FiltEnvAttack,  "F Att",  eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphVelocity_FiltEnvDecay,   "F Dec",  eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphVelocity_FiltEnvSustain, "F Sus",  eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphVelocity_FiltEnvRelease, "F Rel",  eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphVelocity_FiltEnvAmount,  "F Amt",  eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphVelocity_FiltFrequency1, "Freq 1", eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphVelocity_FiltFrequency2, "Freq 2", eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphVelocity_FiltResonance,  "Res",    eTiControlDial, 255, -128.0, NULL},
+};
+static const tNl3Control kMorphKbdOsc[]         = {
+    {kNl3ParamMorphKbd_Osc2FinePitch,   "O2 Fine", eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphKbd_Osc2CoarsePitch, "O2 Crs",  eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphKbd_Oscmod,          "OscMod",  eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphKbd_Oscmix,          "OscMix",  eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphKbd_Osc1Shape,       "O1 Shp",  eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphKbd_Osc2Shape,       "O2 Shp",  eTiControlDial, 255, -128.0, NULL},
+};
+static const tNl3Control kMorphKbdAmp[]         = {
+    {kNl3ParamMorphKbd_AmpEnvAttack,  "A Att", eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphKbd_AmpEnvDecay,   "A Dec", eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphKbd_AmpEnvSustain, "A Sus", eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphKbd_AmpEnvRelease, "A Rel", eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphKbd_OutputLevel,   "Level", eTiControlDial, 255, -128.0, NULL},
+};
+static const tNl3Control kMorphKbdLfo[]         = {
+    {kNl3ParamMorphKbd_Lfo1Rate,           "L1 Rate", eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphKbd_Lfo1Amount,         "L1 Amt",  eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphKbd_Lfo2Rate,           "L2 Rate", eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphKbd_Lfo2Amount,         "L2 Amt",  eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphKbd_ModEnvAttack,       "ME Att",  eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphKbd_ModEnvDecayRelease, "ME Dec",  eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphKbd_ModEnvAmount,       "ME Amt",  eTiControlDial, 255, -128.0, NULL},
+};
+static const tNl3Control kMorphKbdFilter[]      = {
+    {kNl3ParamMorphKbd_FiltEnvAttack,  "F Att",  eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphKbd_FiltEnvDecay,   "F Dec",  eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphKbd_FiltEnvSustain, "F Sus",  eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphKbd_FiltEnvRelease, "F Rel",  eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphKbd_FiltEnvAmount,  "F Amt",  eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphKbd_FiltFrequency1, "Freq 1", eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphKbd_FiltFrequency2, "Freq 2", eTiControlDial, 255, -128.0, NULL},
+    {kNl3ParamMorphKbd_FiltResonance,  "Res",    eTiControlDial, 255, -128.0, NULL},
+};
+static const tNl3Control kOutput[]              = {
+    {kNl3ParamLevel,  "Level",  eTiControlDial, 127, 0.0, NULL},
+    {kNl3ParamMaster, "Master", eTiControlDial, 127, 0.0, NULL},
+};
+static const tNl3Control kPlugin[]              = {
+    {kNl3ParamVoiceLimit, "Limit", eTiControlDial,   NL3_MAX_VOICES - 1, 1.0, NULL                  },
+    {kNl3ParamArithmetic, "Maths", eTiControlChoice,                  1, 0.0, nl3_choices_Arithmetic},
+    {kNl3ParamAliasing,   "Alias", eTiControlChoice,                  1, 0.0, nl3_choices_Aliasing  },
+};
+static const tNl3Control kHardware[]            = {
+    {kNl3ParamHwLink,    "Link",    eTiControlChoice,   1, 0.0, nl3_choices_HwLink},
+    {kNl3ParamHwChannel, "Channel", eTiControlDial,    15, 1.0, NULL              },
+    {kNl3ParamHwDevice,  "Device",  eTiControlDial,   127, 0.0, NULL              },
+};
 
-        for (int o = 0; o < NL3_OSCS; o++) {
-            sound->osc[o].lfoPitch[l] = lfo_semis(v[kNl3ParamOsc1Lfo1Pitch + at + (2 * o)]);
-            sound->osc[o].lfoWidth[l] = ((v[kNl3ParamOsc1Lfo1Width + at + (2 * o)] * 127.0) - 64.0) / 64.0;
-        }
-    }
+#define SECTION(title, r, g, b, controls)    {title, {r, g, b}, controls, sizeof(controls) / sizeof(controls[0])}
+static const tNl3Section kOscPage[]             = {SECTION("OSC 1", 0.30, 0.55, 0.85, kOsc1), SECTION("MOD / MIX", 0.60, 0.60, 0.65, kOscMod), SECTION("OSC 2", 0.30, 0.70, 0.60, kOsc2), SECTION("OSC 2 SYNC / FM / NOISE", 0.30, 0.70, 0.60, kOsc2More)};
+static const tNl3Section kFilterPage[]          = {SECTION("FILTER", 0.90, 0.55, 0.20, kFilter), SECTION("FILTER ENV", 0.90, 0.70, 0.30, kFilterEnv)};
+static const tNl3Section kAmpPage[]             = {SECTION("AMP ENV", 0.85, 0.75, 0.25, kAmpEnv), SECTION("OUTPUT", 0.65, 0.65, 0.65, kOutput)};
+static const tNl3Section kLfoPage[]             = {SECTION("LFO 1", 0.80, 0.55, 0.85, kLfo1), SECTION("LFO 2", 0.55, 0.80, 0.85, kLfo2)};
+static const tNl3Section kModPage[]             = {SECTION("MOD ENV", 0.70, 0.45, 0.80, kModEnv)};
+static const tNl3Section kPlayPage[]            = {SECTION("GLIDE", 0.60, 0.60, 0.65, kGlide), SECTION("VIBRATO", 0.60, 0.60, 0.65, kVibrato), SECTION("VOICE", 0.60, 0.60, 0.65, kVoice), SECTION("ARP", 0.60, 0.60, 0.65, kArp)};
+static const tNl3Section kMorphWheelPage[]      = {SECTION("WHEEL: LFO / MOD ENV", 0.85, 0.55, 0.30, kMorphWheelLfo), SECTION("WHEEL: AMP", 0.85, 0.55, 0.30, kMorphWheelAmp), SECTION("WHEEL: OSC", 0.85, 0.55, 0.30, kMorphWheelOsc), SECTION("WHEEL: FILTER", 0.85, 0.55, 0.30, kMorphWheelFilter)};
+static const tNl3Section kMorphTouchPage[]      = {SECTION("AFTERTOUCH: LFO / MOD ENV", 0.85, 0.55, 0.30, kMorphTouchLfo), SECTION("AFTERTOUCH: AMP", 0.85, 0.55, 0.30, kMorphTouchAmp), SECTION("AFTERTOUCH: OSC", 0.85, 0.55, 0.30, kMorphTouchOsc), SECTION("AFTERTOUCH: FILTER", 0.85, 0.55, 0.30, kMorphTouchFilter)};
+static const tNl3Section kMorphVelocityPage[]   = {SECTION("VELOCITY: LFO / MOD ENV", 0.85, 0.55, 0.30, kMorphVelocityLfo), SECTION("VELOCITY: AMP", 0.85, 0.55, 0.30, kMorphVelocityAmp), SECTION("VELOCITY: OSC", 0.85, 0.55, 0.30, kMorphVelocityOsc), SECTION("VELOCITY: FILTER", 0.85, 0.55, 0.30, kMorphVelocityFilter)};
+static const tNl3Section kMorphKbdPage[]        = {SECTION("KEYBOARD: LFO / MOD ENV", 0.85, 0.55, 0.30, kMorphKbdLfo), SECTION("KEYBOARD: AMP", 0.85, 0.55, 0.30, kMorphKbdAmp), SECTION("KEYBOARD: OSC", 0.85, 0.55, 0.30, kMorphKbdOsc), SECTION("KEYBOARD: FILTER", 0.85, 0.55, 0.30, kMorphKbdFilter)};
+static const tNl3Section kGlobalPage[]          = {SECTION("PLUG-IN", 0.65, 0.65, 0.65, kPlugin), SECTION("HARDWARE", 0.65, 0.65, 0.65, kHardware)};
 
-    sound->bend           = (2.0 * v[kNl3ParamPitchBend]) - 1.0;
-    sound->wheel          = v[kNl3ParamModWheel];
-    sound->pedal          = v[kNl3ParamSustainPedal] >= 0.5;
-    sound->mono           = v[kNl3ParamPolyMode] > 0.5;
-    sound->legato         = v[kNl3ParamEnvTrigger] > 0.5;
-    sound->wheelCutoff    = (v[kNl3ParamWheelCutoff] * 127.0) - 64.0;
-    sound->wheelResonance = (v[kNl3ParamWheelResonance] * 127.0) - 64.0;
+#define PAGE(title, sections)    {title, sections, sizeof(sections) / sizeof(sections[0])}
+const tNl3Page           gNl3Pages[]            = {
+    PAGE("OSC",  kOscPage),  PAGE("FILTER", kFilterPage),     PAGE("AMP",   kAmpPage),        PAGE("LFO", kLfoPage),           PAGE("MOD", kModPage),
+    PAGE("PLAY", kPlayPage), PAGE("WHEEL",  kMorphWheelPage), PAGE("TOUCH", kMorphTouchPage), PAGE("VEL", kMorphVelocityPage), PAGE("KBD", kMorphKbdPage),PAGE("GLOBAL", kGlobalPage),
+};
+const uint32_t           gNl3PageCount          = sizeof(gNl3Pages) / sizeof(gNl3Pages[0]);
+
+// ---- the sound - notes §5: an interim mapping onto the engine as it stands, until each block is rebuilt -------
+
+#define LFO_SLOWEST_HZ      (1.0 / 33.8)    // the manual's range
+#define LFO_FASTEST_HZ      (523.0)
+#define LFO_PITCH_SEMIS     (12.0)          // interim scales: a full Amount
+#define LFO_CUTOFF_SEMIS    (48.0)
+#define ENV_CUTOFF_SCALE    (0.5)
+#define BEND_SEMIS          (2.0)
+
+static double plain(const double * v, uint32_t id) {
+    return v[id] * gNl3Params[id].stepCount;
+}
+
+static int choice(const double * v, uint32_t id) {
+    return (int)lround(plain(v, id));
+}
+
+static bool on(const double * v, uint32_t id) {
+    return v[id] >= 0.5;
+}
+
+static tNl3OscShape osc_shape(int waveform) {
+    return (waveform == 1) ? eNl3OscSquare : eNl3OscSaw;    // Saw is the instrument's; Pulse is close; the rest play as Saw for now
+}
+
+void nl3_sound_from_values(const double * v, tNl3Sound * s) {
+    static const int kLfoShape[6] = {2, 1, 0, 3, 3, 2};    // the engine's Square, Saw, Triangle, S+H
+    double           mix          = plain(v, kNl3ParamOscMix) / 127.0;
+    bool             noise3       = on(v, kNl3ParamOscMixNoise);
+    int              slope        = choice(v, kNl3ParamFilterSlope);
+
+    memset(s, 0, sizeof(*s));
+    s->osc[0].shape     = osc_shape(choice(v, kNl3ParamOsc1Waveform));
+    s->osc[0].width     = 1.0 - (0.9 * plain(v, kNl3ParamOsc1Shape) / 127.0);
+    s->osc[0].level     = 1.0 - mix;
+    s->osc[1].shape     = osc_shape(choice(v, kNl3ParamOsc2Waveform));
+    s->osc[1].width     = 1.0 - (0.9 * plain(v, kNl3ParamOsc2Shape) / 127.0);
+    s->osc[1].semitones = fmin(60.0, fmax(-60.0, plain(v, kNl3ParamOsc2Coarse) - 64.0));
+    s->osc[1].cents     = (plain(v, kNl3ParamOsc2Fine) - 64.0) * 50.0 / 64.0;
+    s->osc[1].level     = noise3 ? 0.0 : mix;
+    s->osc[2].width     = 1.0;
+    s->noiseLevel       = noise3 ? mix : 0.0;
 
     for (int o = 0; o < NL3_OSCS; o++) {
-        sound->osc[o].bendRange  = (v[kNl3ParamOsc1BendRange + o] * 24.0) - 12.0;
-        sound->osc[o].wheelPitch = (v[kNl3ParamOsc1WheelPitch + o] * 127.0) - 64.0;
-        sound->osc[o].wheelLevel = ((v[kNl3ParamOsc1WheelLevel + o] * 127.0) - 64.0) / 64.0;
+        s->osc[o].bendRange = BEND_SEMIS;
     }
+
+    s->cutoff           = plain(v, kNl3ParamCutoff);
+    s->resonance        = plain(v, kNl3ParamResonance);
+    s->tracking         = on(v, kNl3ParamFilterTrack) ? 1.0 : 0.0;
+    s->filterType       = (choice(v, kNl3ParamFilterType) == 1) ? 1u : 0u; // LP and HP are built; the rest play as LP
+    s->filterSlope      = (slope == 2) ? 1u : 0u;                          // 6 dB plays as 12 for now
+
+    s->ampAttack        = plain(v, kNl3ParamAmpAttack);
+    s->ampDecay         = plain(v, kNl3ParamAmpDecay);
+    s->ampSustain       = plain(v, kNl3ParamAmpSustain);
+    s->ampRelease       = plain(v, kNl3ParamAmpRelease);
+    s->ampVelocity      = 64.0;
+
+    s->env[0]           = (tNl3ModEnv){
+        .attack   = plain(v, kNl3ParamFEnvAttack), .decay = plain(v, kNl3ParamFEnvDecay),
+        .sustain  = plain(v, kNl3ParamFEnvSustain), .release = plain(v, kNl3ParamFEnvRelease),
+        .velocity = on(v, kNl3ParamFEnvVelocity) ? 127.0 : 64.0,
+        .amount   = (on(v, kNl3ParamFEnvInvert) ? -1.0 : 1.0) * plain(v, kNl3ParamFEnvAmount) * ENV_CUTOFF_SCALE,
+    };
+    int dest = choice(v, kNl3ParamMEnvDest);
+
+    s->env[1]           = (tNl3ModEnv){
+        .attack  = plain(v, kNl3ParamMEnvAttack), .decay = plain(v, kNl3ParamMEnvDecay), .sustain = 0.0,
+        .release = plain(v, kNl3ParamMEnvDecay), .velocity = 64.0,
+        .amount  = ((dest == 3) || (dest == 5)) ? ((on(v, kNl3ParamMEnvInvert) ? -1.0 : 1.0) * plain(v, kNl3ParamMEnvAmount) * ENV_CUTOFF_SCALE) : 0.0,
+    };
+
+    for (int l = 0; l < NL3_LFOS; l++) {
+        uint32_t at     = (uint32_t)l * (kNl3ParamLfo2Rate - kNl3ParamLfo1Rate);
+        double   amount = (on(v, kNl3ParamLfo1Invert + at) ? -1.0 : 1.0) * plain(v, kNl3ParamLfo1Amount + at) / 127.0;
+        int      to     = choice(v, kNl3ParamLfo1Dest + at);
+
+        s->lfo[l]             = (tNl3LfoSound){
+            .shape = kLfoShape[choice(v, kNl3ParamLfo1Waveform + at) % 6],
+            .hz    = LFO_SLOWEST_HZ * pow(LFO_FASTEST_HZ / LFO_SLOWEST_HZ, plain(v, kNl3ParamLfo1Rate + at) / 127.0),
+            .keyed = choice(v, kNl3ParamLfo1EnvKbs + at) == 2,
+        };
+        s->lfoCutoff[l]       = ((to == 3) || (to == 5)) ? (amount * LFO_CUTOFF_SEMIS) : 0.0;
+        s->osc[0].lfoPitch[l] = ((to == 0) || (to == 2)) ? (amount * LFO_PITCH_SEMIS) : 0.0;
+        s->osc[1].lfoPitch[l] = ((to == 1) || (to == 2)) ? (amount * LFO_PITCH_SEMIS) : 0.0;
+        s->osc[0].lfoWidth[l] = ((to == 6) || (to == 8)) ? amount : 0.0;
+        s->osc[1].lfoWidth[l] = ((to == 7) || (to == 8)) ? amount : 0.0;
+    }
+
+    s->glideTime  = (choice(v, kNl3ParamGlideMode) == 0) ? 0.0 : plain(v, kNl3ParamGlideRate);
+    s->glideType  = (choice(v, kNl3ParamGlideMode) == 2) ? 1 : 0;
+    s->glideCurve = 1;
+    s->mono       = on(v, kNl3ParamMono);
+    s->legato     = on(v, kNl3ParamLegato);
+    s->bend       = (2.0 * v[kNl3ParamPitchBend]) - 1.0;
+    s->wheel      = v[kNl3ParamModWheel];
+    s->pedal      = on(v, kNl3ParamSustainPedal);
 }

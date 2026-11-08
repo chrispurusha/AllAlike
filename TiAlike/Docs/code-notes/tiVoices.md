@@ -120,7 +120,7 @@ Filter key follow takes a downward Transpose into account, and not an upward one
 - Velocity to Volume runs through the mix curve. Velocity to Resonance adds to it, through the 9-point curve of the linked Cutoff 2 offset, up to 128 dial units.
 
 ## 12. LFOs and pitch
-An LFO's pitch amount follows a steep curve, the same either side of zero, 2 semitones at half amount and 31 at full (`lfo_pitch_amount`). The filter envelope's route to Osc 2 is the same curve doubled. LFO 3 goes as the fourth power of its amount, 8 semitones at full. Trigger Phase 1..127 runs one cycle from the wave's minimum. Pulse Width, Shape and FM's fixed LFO routes are straight lines, 128, 64 and full travel at full amount. Cutoff, Resonance and Panorama's run through the 9-point curve of the linked Cutoff 2 offset, 64 dial units at full. An LFO in Env Mode always restarts with a note. A clocked LFO follows the host's tempo, or the patch's own (byte + 63 bpm) with none.
+An LFO's pitch amount follows a steep curve, the same either side of zero, 2 semitones at half amount and 31 at full (`lfo_pitch_amount`). The filter envelope's route to Osc 2 is the same curve doubled. LFO 3 goes as the fourth power of its amount, 8 semitones at full. Trigger Phase 1..127 runs one cycle from the wave's minimum. Pulse Width, Shape and FM's fixed LFO routes are straight lines, 128, 64 and full travel at full amount. Cutoff, Resonance and Panorama's run through the 9-point curve of the linked Cutoff 2 offset, 64 dial units at full. An LFO in Env Mode always restarts with a note. A clocked LFO follows the host's tempo, always: 120 BPM until the host gives one, and the last it gave once it stops. The patch's own tempo byte is kept with the sound but not used.
 
 ## 13. Unison
 A stack is at most six voices. Each stands at a place from -1 to 1, not quite evenly (four are at -1, -0.5, 0.5, 1), which sets its detune and pan, and its level: 1 at the centre, 0.75 at the edges, with no gain on the stack as a whole. Detune is 24 cents at full, 10 at 96, 4.6 at 64. Unison LFO Phase moves every second voice by (byte - 64) x 2.8125 degrees, so 64 is no offset. With an LFO both clocked and in Env Mode, every second voice of a stack holds that LFO at its top instead of running it. A Single older than the TI format (byte 0 below 12) keeps Unison in page A 97-100.
@@ -181,3 +181,13 @@ oscillator's phase and are reset with it by a hard sync.
 The models' k per stream comes from Formant, Sync and the oscillator's own pitch (tiOsc notes §7-§8). The Complex
 ones keep a phase at half the note's rate and the two streams' Detune drift. Formant's and Sync's matrix destinations
 (F-Shift, F-Spread) are not routed yet.
+
+## 30. The rate
+The instrument computes everything - voices, filters, effects - at its audio interface's rate, one of 32, 44.1, 48,
+64, 88.2 and 96 kHz, and so do the voices here. `ti_voices_engine_rate()` picks it for a host rate: the host's own
+if it is one of those, else the nearest of the same family (44.1 kHz or 48 kHz multiples), else the nearest at all.
+
+## 31. The wavetable Index, ramped
+The Index (Shape, with its modulation) is worked out once a block, but the wavetable models read it ramped sample by
+sample from where the last block left it, as the instrument's crossfade of two frames is: a dial moving through the
+frames slides instead of stepping each block. A new note starts at its own Index.

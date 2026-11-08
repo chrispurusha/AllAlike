@@ -65,8 +65,8 @@ Drawn as a button, grey with black text like the tabs, wide enough for ten W's (
 name a Single holds; it lightens while being edited.
 
 ## 11. Presets
-A001-L128 through SynthLib's bank browser, banks A-L of 128 (nl3Patch notes §5). Prev/Next wrap through all 512; from
-no preset, Next is A001. Store always confirms, naming what the slot holds; Revert loads the stored preset again.
+1:001-8:128 through SynthLib's bank browser, the instrument's eight banks of 128 (nl3Patch notes §5). Prev/Next wrap through all 1024; from
+no preset, Next is 1:001. Store always confirms, naming what the slot holds; Revert loads the stored preset again.
 
 ## 12. Import and export
 Import replaces all 1536 after a confirm naming how many were found (nl3Patch notes §6). Export writes the 512 as one

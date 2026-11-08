@@ -49,39 +49,39 @@
 #include <GLFW/glfw3.h>           // the key constants SynthLib's popups speak
 
 #if defined (_WIN32)
-#define FONT_PATH                 alike_font_path()   // tools/windows/alikeWin.c: Arial from the Windows fonts folder
+#define FONT_PATH               alike_font_path()     // tools/windows/alikeWin.c: Arial from the Windows fonts folder
 #else
-#define FONT_PATH                 "/System/Library/Fonts/Supplemental/Arial.ttf"
+#define FONT_PATH               "/System/Library/Fonts/Supplemental/Arial.ttf"
 #endif
-#define FONT_PRELOAD_SIZE         (16.0)
+#define FONT_PRELOAD_SIZE       (16.0)
 
-#define MAX_PARAMS                (200)
-#define MAX_PLACED                (64)
-#define MAX_PAGES                 (16)
-#define MARGIN_X                  (16.0)
-#define TITLE_Y                   (30.0)     // below the menu bar
-#define TAB_Y                     (58.0)
-#define TAB_H                     (14.0)
-#define TAB_GAP                   (6.0)
-#define TAB_PAD                   (4.0)      // either side of a tab's title
-#define PAGE_Y                    (90.0)
-#define ROW_H                     (112.0)
-#define SECTION_GAP               (16.0)
-#define CONTROL_W                 (58.0)
-#define DIAL_SIZE                 (40.0)
-#define LABEL_H                   (11.0)
-#define HEADING_TO_DIAL           (34.0)
-#define BUTTON_H                  (12.0)
-#define PATCH_BAR_X               (300.0)
-#define PATCH_BUTTON_H            (14.0)
-#define PATCH_BUTTON_GAP          (6.0)
-#define NAME_FIELD_SIZING         "WWWWWWWWWW"   // NL3_SINGLE_NAME_LENGTH of the widest capital
-#define PRESET_COUNT_TEXT         "1536"
-#define MENU_BG                   {0.22, 0.22, 0.25}
-#define MENU_MAX                  (32)
-#define MENU_CELL_W               (96.0)
-#define MENU_ROWS_PER_COLUMN      (8)
-#define OPENING_RELEASE_SLOP      (4.0)   // notes §3: how far the pointer may move and still be the opening click
+#define MAX_PARAMS              (200)
+#define MAX_PLACED              (64)
+#define MAX_PAGES               (16)
+#define MARGIN_X                (16.0)
+#define TITLE_Y                 (30.0)       // below the menu bar
+#define TAB_Y                   (58.0)
+#define TAB_H                   (14.0)
+#define TAB_GAP                 (6.0)
+#define TAB_PAD                 (4.0)        // either side of a tab's title
+#define PAGE_Y                  (90.0)
+#define ROW_H                   (112.0)
+#define SECTION_GAP             (16.0)
+#define CONTROL_W               (58.0)
+#define DIAL_SIZE               (40.0)
+#define LABEL_H                 (11.0)
+#define HEADING_TO_DIAL         (34.0)
+#define BUTTON_H                (12.0)
+#define PATCH_BAR_X             (300.0)
+#define PATCH_BUTTON_H          (14.0)
+#define PATCH_BUTTON_GAP        (6.0)
+#define NAME_FIELD_SIZING       "WWWWWWWWWW"     // NL3_SINGLE_NAME_LENGTH of the widest capital
+#define PRESET_COUNT_TEXT       "1024"
+#define MENU_BG                 {0.22, 0.22, 0.25}
+#define MENU_MAX                (32)
+#define MENU_CELL_W             (96.0)
+#define MENU_ROWS_PER_COLUMN    (8)
+#define OPENING_RELEASE_SLOP    (4.0)     // notes §3: how far the pointer may move and still be the opening click
 
 typedef struct {
     const tNl3Control * control;
@@ -193,6 +193,7 @@ void nl3_draw_set_mouse(double x, double y) {
     gMouse.x = x;
     gMouse.y = y;
     (void)handle_file_browser_mouse_move(gMouse);
+    (void)handle_bank_browser_mouse_move(gMouse);   // its scrollbar drags only while it hears the mouse move
 }
 
 bool nl3_draw_menu_active(void) {
@@ -385,7 +386,7 @@ static void load_preset(int number) {
     }
 }
 
-// notes §11: Prev/Next step through A000-L127 and wrap; from no preset, Next is A000
+// notes §11: Prev/Next step through 1:001-8:128 and wrap; from no preset, Next is 1:001
 static void step_patch(int direction) {
     int from = (gPreset != 0) ? gPreset : ((direction > 0) ? 0 : 1);
 
@@ -462,7 +463,7 @@ static void on_store_slot(bool confirmed, uint32_t bank1Indexed, uint32_t locati
 
 void nl3_draw_load_preset_browser(void) {
     fill_slot_items();
-    open_bank_browser("Load Preset", "A000-L127, as banks A-L of 128.", "Load", gSlotItems, NL3_PRESETS, NULL, 0, on_load_slot);
+    open_bank_browser("Load Preset", "1:001-8:128, as the instrument's eight banks of 128.", "Load", gSlotItems, NL3_PRESETS, NULL, 0, on_load_slot);
 }
 
 void nl3_draw_store_preset_browser(void) {
@@ -511,7 +512,7 @@ static void confirm_import(int count, const char * from) {
         show_alert("Import Presets", message);
         return;
     }
-    snprintf(message, sizeof(message), "Replace all " PRESET_COUNT_TEXT " presets with the %d Single%s in %s, from A001? Slots it has no Single for "
+    snprintf(message, sizeof(message), "Replace all " PRESET_COUNT_TEXT " presets with the %d Single%s in %s, at their own locations? Slots it has no Single for "
              "become Init.", count, (count == 1) ? "" : "s", from);
     show_confirm("Import Presets", message, "Replace", on_import_confirmed);
 }
@@ -865,11 +866,11 @@ static void value_text(const tNl3Control * c, char * out, size_t len) {
 // Each title is measured at the height draw_button draws it (TAB_H), centred with TAB_PAD each side; if the tabs
 // would run past the panel, the padding shrinks so they fit (TiAlike has twelve)
 static void draw_tabs(void) {
-    double   x       = MARGIN_X;
+    double   x     = MARGIN_X;
     double   textW[MAX_PAGES];
-    double   total   = 0.0;
-    double   pad     = TAB_PAD;
-    uint32_t p       = 0;
+    double   total = 0.0;
+    double   pad   = TAB_PAD;
+    uint32_t p     = 0;
 
     for (p = 0; (p < gPageCount) && (p < MAX_PAGES); p++) {
         textW[p] = get_text_width(gPages[p].title, TAB_H, eNoCache);

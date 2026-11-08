@@ -23,6 +23,7 @@
 #include <string.h>
 #include <time.h>
 
+#include "synthlibResample.h"
 #include "synthlibPlugin.h"
 #include "synthlibBackdoor.h"
 #include "synthlibLog.h"
@@ -63,6 +64,8 @@ static const uint8_t gControllerUid[16] = {0x30, 0x99, 0xDF, 0x1B, 0xE1, 0x40, 0
 #define LINK_MAX_BYTES         (8)
 #define LINK_SOUND_SECONDS     (1.0)   // what a whole Single takes on this port
 #define MAX_MONO_FRAMES        (8192)
+#define HOST_CHUNK             (256u)
+#define ENGINE_FRAMES          (1024u) // HOST_CHUNK at any host rate the voices fall back from
 
 typedef struct {
     uint32_t offset;
@@ -72,32 +75,37 @@ typedef struct {
 } tTiEvent;
 
 typedef struct {
-    tTiVoices         voices;
-    tTiEvent          events[MAX_EVENTS];
-    float             mono[MAX_MONO_FRAMES]; // notes §8: the right side, when the host gives one output
-    uint32_t          eventCount;
-    double            values[kTiParamCount]; // normalized
-    tTiSound          sound;                 // notes §8: the Single as the voices read it
-    bool              soundStale;
+    tTiVoices          voices;
+    tTiEvent           events[MAX_EVENTS];
+    float              mono[MAX_MONO_FRAMES]; // notes §8: the right side, when the host gives one output
+    uint32_t           eventCount;
+    double             values[kTiParamCount]; // normalized
+    tTiSound           sound;                 // notes §8: the Single as the voices read it
+    bool               soundStale;
     // notes §5: the sound, beyond its parameters - main thread, and the host's state calls
-    char              soundName[TI_SINGLE_NAME_LENGTH + 1];
-    bool              haveBase;
-    uint8_t           base[TI_SINGLE_LENGTH]; // the Single it came from, whose bytes a save keeps
-    char              patchPath[1024];
-    int               patchIndex;             // its place in that file
-    int               preset;                 // 1..TI_PRESETS, 0 none
-    double            presetsChecked;
+    char               soundName[TI_SINGLE_NAME_LENGTH + 1];
+    bool               haveBase;
+    uint8_t            base[TI_SINGLE_LENGTH]; // the Single it came from, whose bytes a save keeps
+    char               patchPath[1024];
+    int                patchIndex;             // its place in that file
+    int                preset;                 // 1..TI_PRESETS, 0 none
+    double             presetsChecked;
     // notes §9: Link, on the editor's frame
-    int               hwLock;
-    bool              hwSent;
-    double            hwSentAt;
-    uint8_t           hwLast[TI_SINGLE_LENGTH];
-    tSynthLibSwapFade fade;
-    _Atomic bool      clipped;      // the audio thread saw full scale; the panel holds the lamp
-    double            clipUntil;
-    _Atomic bool      startPreset;  // notes §11
-    _Atomic int       wantPreset;   // a program change waiting for the fade
-    _Atomic bool      clearEffects; // notes §12: a new sound starts with empty effects, the old one's echoes gone
+    int                hwLock;
+    bool               hwSent;
+    double             hwSentAt;
+    uint8_t            hwLast[TI_SINGLE_LENGTH];
+    tSynthLibSwapFade  fade;
+    _Atomic bool       clipped;      // the audio thread saw full scale; the panel holds the lamp
+    double             clipUntil;
+    _Atomic bool       startPreset;  // notes §11
+    _Atomic int        wantPreset;   // a program change waiting for the fade
+    _Atomic bool       clearEffects; // notes §12: a new sound starts with empty effects, the old one's echoes gone
+    tSynthLibResampler resampler;    // notes §13: only when the host runs at a rate the instrument does not
+    tSynthLibResampler resamplerR;
+    double             hostRate;
+    bool               resampling;
+    float              engineL[ENGINE_FRAMES], engineR[ENGINE_FRAMES];
 } tTiPlugin;
 
 static uint32_t voice_limit(const tTiPlugin * t) {
@@ -125,6 +133,7 @@ static void * ti_create(const tSynthLibPluginDesc * desc) {
     t->hwLock      = -1;
     t->soundStale  = true;
     ti_voices_init(&t->voices, 48000.0);
+    t->hostRate    = 48000.0;
     ti_voices_set_limit(&t->voices, voice_limit(t));
     ti_prefs_init();
     synthlib_log_line("created - TiAlike %s", TIA_VERSION_STRING);
@@ -133,6 +142,8 @@ static void * ti_create(const tSynthLibPluginDesc * desc) {
 
 static void ti_destroy(void * inst) {
     ti_hardware_release(&((tTiPlugin *)inst)->hwLock);
+    synthlib_resample_free(&((tTiPlugin *)inst)->resampler);
+    synthlib_resample_free(&((tTiPlugin *)inst)->resamplerR);
     free(inst);
 }
 
@@ -205,9 +216,20 @@ static void ti_set_state(void * inst, const void * data, size_t len) {
 }
 
 static void ti_prepare(void * inst, const tSynthLibSetup * setup) {
-    tTiPlugin * t = (tTiPlugin *)inst;
+    tTiPlugin * t      = (tTiPlugin *)inst;
 
-    ti_voices_set_rate(&t->voices, setup->sampleRate);
+    double      engine = ti_voices_engine_rate(setup->sampleRate); // notes §13
+
+    t->hostRate   = setup->sampleRate;
+    t->resampling = (engine != setup->sampleRate);
+    ti_voices_set_rate(&t->voices, engine);
+    synthlib_resample_free(&t->resampler);
+    synthlib_resample_free(&t->resamplerR);
+
+    if (t->resampling) {
+        synthlib_resample_init(&t->resampler, engine, t->hostRate);
+        synthlib_resample_init(&t->resamplerR, engine, t->hostRate);
+    }
 
     if (setup->offline) {
         atomic_store(&t->startPreset, false);   // an offline render plays what it is given
@@ -269,6 +291,29 @@ static void refresh_sound(tTiPlugin * t) {
 static void take_start_preset(tTiPlugin * t);
 static void take_program_change(tTiPlugin * t);
 
+// notes §13: the voices straight into the host's buffers, or at their own rate and converted
+static void render_host(tTiPlugin * t, float * left, float * right, uint32_t frames) {
+    if (!t->resampling) {
+        ti_voices_render(&t->voices, &t->sound, left, right, frames);
+        return;
+    }
+
+    while (frames > 0) {
+        uint32_t chunk = (frames < HOST_CHUNK) ? frames : HOST_CHUNK;
+        uint32_t need  = synthlib_resample_needed(&t->resampler, chunk);
+
+        need    = (need > ENGINE_FRAMES) ? ENGINE_FRAMES : need;
+        memset(t->engineL, 0, (size_t)need * sizeof(float));
+        memset(t->engineR, 0, (size_t)need * sizeof(float));
+        ti_voices_render(&t->voices, &t->sound, t->engineL, t->engineR, need);
+        synthlib_resample_process(&t->resampler, t->engineL, left, chunk);
+        synthlib_resample_process(&t->resamplerR, t->engineR, right, chunk);
+        left   += chunk;
+        right  += chunk;
+        frames -= chunk;
+    }
+}
+
 static void ti_process(void * inst, const float *const * in, uint32_t numIn, float ** out, uint32_t numOut,
                        uint32_t frames, const tSynthLibTransport * transport) {
     tTiPlugin * t = (tTiPlugin *)inst;
@@ -315,7 +360,7 @@ static void ti_process(void * inst, const float *const * in, uint32_t numIn, flo
         uint32_t at = (t->events[i].offset < frames) ? t->events[i].offset : frames;
 
         if (at > done) {
-            ti_voices_render(&t->voices, &t->sound, left + done, right + done, at - done);
+            render_host(t, left + done, right + done, at - done);
             done = at;
         }
         play(t, &t->events[i]);
@@ -324,7 +369,7 @@ static void ti_process(void * inst, const float *const * in, uint32_t numIn, flo
     t->eventCount = 0;
 
     if (done < frames) {
-        ti_voices_render(&t->voices, &t->sound, left + done, right + done, frames - done);
+        render_host(t, left + done, right + done, frames - done);
     }
 
     if (t->voices.clipped) {
@@ -338,7 +383,7 @@ static void ti_process(void * inst, const float *const * in, uint32_t numIn, flo
         right[f] *= (float)t->values[kTiParamMaster];
     }
 
-    synthlib_swap_fade_apply(&t->fade, left, right, frames, t->voices.rate);
+    synthlib_swap_fade_apply(&t->fade, left, right, frames, t->hostRate);
 
     // notes §8: a mono output hears both sides
     if (right == t->mono) {

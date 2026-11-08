@@ -27,183 +27,42 @@
 
 #include <sys/stat.h>
 
-#define SOUNDS_FOLDER       "Library/Mobile Documents/com~apple~CloudDocs/Patches/Nord Lead 32"  // under $HOME
-#define PRESETS_FOLDER      "Library/Application Support/Nl3Alike"                               // beside prefs.txt
+#define SOUNDS_FOLDER       "Library/Mobile Documents/com~apple~CloudDocs/Patches/Nord Lead 3"  // under $HOME
+#define PRESETS_FOLDER      "Library/Application Support/Nl3Alike"                              // beside prefs.txt
 #define PRESETS_FILE        "Presets.syx"
 
-// notes §1: where things sit in the two messages
-#define MAIN_LENGTH         (297)
-#define EXT_LENGTH          (99)
-#define EXT                 (MAIN_LENGTH)
-#define DEVICE_AT           (6)
-#define COMMAND_AT          (7)
-#define BANK_AT             (8)
-#define PROGRAM_AT          (9)
-#define FIELDS_AT           (10)
-#define NAME_AT             (FIELDS_AT)
-#define MAIN(field)     (FIELDS_AT + (field))
-#define EXTRA(field)    (EXT + FIELDS_AT + (field))
-#define FADE_AT             EXTRA(3)
+// notes §1: one message
+#define DEVICE_AT           (2)
+#define MODEL_AT            (3)
+#define COMMAND_AT          (4)
+#define BANK_AT             (5)     // the Slot for a dump from a Slot
+#define PROGRAM_AT          (6)
+#define NAME_AT             (7)
+#define CATEGORY_AT         (23)
+#define VERSION_AT          (39)
+#define PACKED_AT           (41)
+#define PACKED_LENGTH       (NL3_SINGLE_LENGTH - PACKED_AT - 1)
 
-#define MAIN_DUMP           (0x02)
-#define EXT_DUMP            (0x1F)
-#define DEVICE              (0x01)
-#define OSC_SQUARE          (0)
-#define OSC_SAW             (1)
-#define OSC_DOUBLE_SAW      (4)
+#define CLAVIA              (0x33)
+#define MODEL               (0x09)
+#define FROM_SLOT           (0x20)
+#define FROM_MEMORY         (0x21)
+#define ALL_DEVICES         (0x7F)
+#define VERSION             (120)
+#define BODY_LENGTH         (191)
+#define CHECKSUM_AT         (BODY_LENGTH - 1)
 
 #define MAX_FILE_BYTES      (16 * 1024 * 1024)
 #define MAX_FOLDER_FILES    (4096)
 
-static const uint8_t kHeader[6] = {0xF0, 0x00, 0x20, 0x29, 0x01, 0x24};
-
-// notes §3: the bits of a byte a parameter takes; the rest of the byte is kept when it is written back
-static const struct {
-    uint32_t paramId;
-    uint16_t at;
-    uint8_t  mask;
-    int8_t   stored;  // notes §7: the byte's value at parameter value 0
-}                    kCarried[] = {
-    {kNl3ParamCutoff,         MAIN(211), 0x7F,   0},
-    {kNl3ParamResonance,      MAIN(221), 0x7F,   0},
-    {kNl3ParamFilterType,     MAIN(207), 0x7F,   3},
-    {kNl3ParamFilterSlope,    MAIN(208), 0x7F,   0},
-    {kNl3ParamOscSoften,      MAIN(35),  0x7F,   0},
-    {kNl3ParamOscLevel,       MAIN(124), 0x7F,   0},
-    {kNl3ParamVolume,         MAIN(236), 0x7F,   0},
-    {kNl3ParamOsc2Soften,     MAIN(69),  0x7F,   0},
-    {kNl3ParamOsc2Width,      MAIN(75),  0x7F,   0},
-    {kNl3ParamOsc2Level,      MAIN(130), 0x7F,   0},
-    {kNl3ParamOsc3Soften,     MAIN(103), 0x7F,   0},
-    {kNl3ParamOsc3Width,      MAIN(109), 0x7F,   0},
-    {kNl3ParamOsc3Level,      MAIN(136), 0x7F,   0},
-    {kNl3ParamOsc1Octave,     MAIN(23),  0x7F,  30},
-    {kNl3ParamOsc1Semitone,   MAIN(24),  0x7F,  45},
-    {kNl3ParamOsc1Fine,       MAIN(25),  0x7F,   0},
-    {kNl3ParamOsc2Octave,     MAIN(57),  0x7F,  35},
-    {kNl3ParamOsc2Semitone,   MAIN(58),  0x7F,  70},
-    {kNl3ParamOsc2Fine,       MAIN(59),  0x7F,   0},
-    {kNl3ParamOsc3Octave,     MAIN(91),  0x7F,  40},
-    {kNl3ParamOsc3Semitone,   MAIN(92),  0x7F,  95},
-    {kNl3ParamOsc3Fine,       MAIN(93),  0x7F,   0},
-    {kNl3ParamFilterTrack,    MAIN(220), 0x7F,   0},
-    {kNl3ParamFilterDrive,    MAIN(210), 0x7F,   0},
-    {kNl3ParamAmpVelocity,    MAIN(198), 0x7F,   0},
-    {kNl3ParamEnv2Attack,     MAIN(188), 0x7F,   0},
-    {kNl3ParamEnv2Decay,      MAIN(189), 0x7F,   0},
-    {kNl3ParamEnv2Sustain,    MAIN(190), 0x7F,   0},
-    {kNl3ParamEnv2Release,    MAIN(191), 0x7F,   0},
-    {kNl3ParamEnv2Velocity,   MAIN(192), 0x7F,   0},
-    {kNl3ParamEnv2Cutoff,     MAIN(214), 0x7F,   0},
-    {kNl3ParamEnv3Attack,     MAIN(182), 0x7F,   0},
-    {kNl3ParamEnv3Decay,      MAIN(183), 0x7F,   0},
-    {kNl3ParamEnv3Sustain,    MAIN(184), 0x7F,   0},
-    {kNl3ParamEnv3Release,    MAIN(185), 0x7F,   0},
-    {kNl3ParamEnv3Velocity,   MAIN(186), 0x7F,   0},
-    {kNl3ParamEnv3Cutoff,     MAIN(215), 0x7F,   0},
-    {kNl3ParamNoiseLevel,     MAIN(154), 0x7F,   0},
-    {kNl3ParamNoiseSoften,    MAIN(201), 0x7F,   0},
-    {kNl3ParamRing13,         MAIN(142), 0x7F,   0},
-    {kNl3ParamRing23,         MAIN(148), 0x7F,   0},
-    {kNl3ParamFilterQ,        MAIN(230), 0x7F,   0},
-    {kNl3ParamEffectsDry,     MAIN(260), 0x7F,   0},
-    {kNl3ParamChorusSend,     MAIN(270), 0x7F,   0},
-    {kNl3ParamChorusSpeed,    MAIN(272), 0x7F,   0},
-    {kNl3ParamChorusDepth,    MAIN(273), 0x7F,   0},
-    {kNl3ParamChorusFeedback, MAIN(274), 0x7F,   0},
-    {kNl3ParamChorusType,     MAIN(275), 0x03,   0},
-    {kNl3ParamDelaySend,      MAIN(276), 0x7F,   0},
-    {kNl3ParamDelayTime,      MAIN(278), 0x7F,   0},
-    {kNl3ParamDelayFeedback,  MAIN(279), 0x7F,   0},
-    {kNl3ParamDelayDamp,      MAIN(280), 0x7F,   0},
-    {kNl3ParamDelayRatio,     MAIN(281), 0x7F,  96},
-    {kNl3ParamDelayWidth,     MAIN(282), 0x7F,   0},
-    {kNl3ParamDelaySync,      MAIN(283), 0x7F,   0},
-    {kNl3ParamGlideTime,      MAIN(231), 0x7F,   0},
-    {kNl3ParamGlideType,      MAIN(232), 0x7F,  42},
-    {kNl3ParamGlideStyle,     MAIN(233), 0x7F, 120},
-    {kNl3ParamGlideCurve,     MAIN(234), 0x7F, 122},
-    {kNl3ParamReverbSend,     MAIN(265), 0x7F,   0},
-    {kNl3ParamReverbDecay,    MAIN(267), 0x7F,   0},
-    {kNl3ParamReverbDamp,     MAIN(268), 0x7F,   0},
-    {kNl3ParamOscTrigger,     MAIN(237), 0x01,   0},
-    {kNl3ParamDistLevel,      MAIN(254), 0x7F,   0},
-    {kNl3ParamDistComp,       EXTRA(59), 0x7F,   0},
-    {kNl3ParamDistOutput,     EXTRA(58), 0x7F,   0},
-    {kNl3ParamEqBass,         MAIN(256), 0x7F,   0},
-    {kNl3ParamEqTreble,       MAIN(257), 0x7F,   0},
-    {kNl3ParamPulseWidth,     MAIN(41),  0x7F,   0},
-    {kNl3ParamAmpAttack,      MAIN(194), 0x7F,   0},
-    {kNl3ParamAmpDecay,       MAIN(195), 0x7F,   0},
-    {kNl3ParamAmpSustain,     MAIN(196), 0x7F,   0},
-    {kNl3ParamAmpRelease,     MAIN(197), 0x7F,   0},
-    {kNl3ParamAmpSustainTime, EXTRA(16), 0x7F,   0},
-    {kNl3ParamOsc1BendRange,  MAIN(26),  0x7F,  52},
-    {kNl3ParamOsc2BendRange,  MAIN(60),  0x7F,  52},
-    {kNl3ParamOsc3BendRange,  MAIN(94),  0x7F,  52},
-    {kNl3ParamOsc1WheelPitch, MAIN(28),  0x7F,   0},
-    {kNl3ParamOsc2WheelPitch, MAIN(62),  0x7F,   0},
-    {kNl3ParamOsc3WheelPitch, MAIN(96),  0x7F,   0},
-    {kNl3ParamOsc1WheelLevel, MAIN(125), 0x7F,   0},
-    {kNl3ParamOsc2WheelLevel, MAIN(131), 0x7F,   0},
-    {kNl3ParamOsc3WheelLevel, MAIN(137), 0x7F,   0},
-    {kNl3ParamWheelCutoff,    MAIN(212), 0x7F,   0},
-    {kNl3ParamWheelResonance, MAIN(222), 0x7F,   0},
-    {kNl3ParamPan,            MAIN(261), 0x7F,   0},
-    {kNl3ParamPanSpeed,       MAIN(262), 0x7F,   0},
-    {kNl3ParamPanDepth,       MAIN(263), 0x7F,   0},
-    {kNl3ParamLfo1Shape,      MAIN(161), 0x7F,  16},
-    {kNl3ParamLfo1Speed,      MAIN(163), 0x7F,   0},
-    {kNl3ParamLfo1Range,      MAIN(180), 0x7F,  28},
-    {kNl3ParamLfo1Delay,      MAIN(160), 0x7F,   0},
-    {kNl3ParamLfo1Offset,     MAIN(162), 0x7F,   0},
-    {kNl3ParamLfo1Trigger,    MAIN(168), 0x7F,  24},
-    {kNl3ParamLfo1Cutoff,     MAIN(216), 0x7F,   0},
-    {kNl3ParamLfo2Shape,      MAIN(171), 0x7F,  20},
-    {kNl3ParamLfo2Speed,      MAIN(173), 0x7F,   0},
-    {kNl3ParamLfo2Range,      MAIN(181), 0x7F,  31},
-    {kNl3ParamLfo2Delay,      MAIN(170), 0x7F,   0},
-    {kNl3ParamLfo2Offset,     MAIN(172), 0x7F,   0},
-    {kNl3ParamLfo2Trigger,    MAIN(178), 0x7F,  26},
-    {kNl3ParamLfo2Cutoff,     MAIN(217), 0x7F,   0},
-    {kNl3ParamOsc1Lfo1Pitch,  MAIN(31),  0x7F,   0},
-    {kNl3ParamOsc1Lfo1Width,  MAIN(45),  0x7F,   0},
-    {kNl3ParamOsc1Lfo2Pitch,  MAIN(32),  0x7F,   0},
-    {kNl3ParamOsc1Lfo2Width,  MAIN(46),  0x7F,   0},
-    {kNl3ParamOsc2Lfo1Pitch,  MAIN(65),  0x7F,   0},
-    {kNl3ParamOsc2Lfo1Width,  MAIN(79),  0x7F,   0},
-    {kNl3ParamOsc2Lfo2Pitch,  MAIN(66),  0x7F,   0},
-    {kNl3ParamOsc2Lfo2Width,  MAIN(80),  0x7F,   0},
-    {kNl3ParamOsc3Lfo1Pitch,  MAIN(99),  0x7F,   0},
-    {kNl3ParamOsc3Lfo1Width,  MAIN(113), 0x7F,   0},
-    {kNl3ParamOsc3Lfo2Pitch,  MAIN(100), 0x7F,   0},
-    {kNl3ParamOsc3Lfo2Width,  MAIN(114), 0x7F,   0},
-};
-
-static bool is_message(const uint8_t * m, size_t len, size_t want, uint8_t command) {
-    return (len == want) && (memcmp(m, kHeader, sizeof(kHeader)) == 0) && (m[COMMAND_AT] == command) && (m[want - 1] == 0xF7);
+static bool is_program(const uint8_t * m, size_t len) {
+    return (len == NL3_SINGLE_LENGTH) && (m[0] == 0xF0) && (m[1] == CLAVIA) && (m[MODEL_AT] == MODEL)
+           && ((m[COMMAND_AT] == FROM_SLOT) || (m[COMMAND_AT] == FROM_MEMORY)) && (m[len - 1] == 0xF7);
 }
 
-static void fresh_header(uint8_t * m, size_t len, uint8_t command) {
-    memcpy(m, kHeader, sizeof(kHeader));
-    m[DEVICE_AT]  = DEVICE;
-    m[COMMAND_AT] = command;
-    m[len - 1]    = 0xF7;
-}
-
-// notes §1: a main dump starts a program, and the extension with its address completes it
 static int add_if_single(const uint8_t * m, size_t len, uint8_t(*singles)[NL3_SINGLE_LENGTH], int count, int capacity) {
-    if ((count < capacity) && is_message(m, len, MAIN_LENGTH, MAIN_DUMP)) {
-        uint8_t * out = singles[count++];
-
-        memset(out, 0, NL3_SINGLE_LENGTH);
-        memcpy(out, m, MAIN_LENGTH);
-        fresh_header(out + EXT, EXT_LENGTH, EXT_DUMP);
-        out[EXT + BANK_AT]    = m[BANK_AT];
-        out[EXT + PROGRAM_AT] = m[PROGRAM_AT];
-    } else if (  (count > 0) && is_message(m, len, EXT_LENGTH, EXT_DUMP)
-              && (singles[count - 1][BANK_AT] == m[BANK_AT]) && (singles[count - 1][PROGRAM_AT] == m[PROGRAM_AT])) {
-        memcpy(singles[count - 1] + EXT, m, EXT_LENGTH);
+    if ((count < capacity) && is_program(m, len)) {
+        memcpy(singles[count++], m, NL3_SINGLE_LENGTH);
     }
     return count;
 }
@@ -348,38 +207,111 @@ int nl3_patch_read_file(const char * path, uint8_t(*singles)[NL3_SINGLE_LENGTH],
     return count;
 }
 
-// notes §8: audio inputs are not built, and play as a Saw
-static double shape_from_type(int type) {
-    return (type == OSC_SQUARE) ? 0.5 : ((type == OSC_DOUBLE_SAW) ? 1.0 : 0.0);
+// notes §1: the body is a stream of 7-bit bytes read as one run of bits, eight at a time
+static void unpack(const uint8_t * single, uint8_t body[BODY_LENGTH]) {
+    uint32_t acc = 0, have = 0, n = 0;
+
+    for (uint32_t i = 0; (i < PACKED_LENGTH) && (n < BODY_LENGTH); i++) {
+        acc   = (acc << 7) | (single[PACKED_AT + i] & 0x7Fu);
+        have += 7;
+
+        if (have >= 8) {
+            have     -= 8;
+            body[n++] = (uint8_t)(acc >> have);
+            acc      &= (1u << have) - 1u;
+        }
+    }
+
+    while (n < BODY_LENGTH) {
+        body[n++] = 0;
+    }
+}
+
+static void pack(const uint8_t body[BODY_LENGTH], uint8_t * single) {
+    uint32_t acc = 0, have = 0, n = 0;
+
+    for (uint32_t i = 0; (i < BODY_LENGTH) && (n < PACKED_LENGTH); i++) {
+        acc   = (acc << 8) | body[i];
+        have += 8;
+
+        while ((have >= 7) && (n < PACKED_LENGTH)) {
+            have                   -= 7;
+            single[PACKED_AT + n++] = (uint8_t)((acc >> have) & 0x7Fu);
+            acc                    &= (1u << have) - 1u;
+        }
+    }
+
+    if ((have > 0) && (n < PACKED_LENGTH)) {
+        single[PACKED_AT + n++] = (uint8_t)((acc << (7 - have)) & 0x7Fu);
+    }
+
+    while (n < PACKED_LENGTH) {
+        single[PACKED_AT + n++] = 0;
+    }
+}
+
+static uint32_t get_bits(const uint8_t * body, uint32_t at, uint32_t bits) {
+    uint32_t v = 0;
+
+    for (uint32_t i = 0; i < bits; i++) {
+        v = (v << 1) | ((body[(at + i) / 8] >> (7 - ((at + i) % 8))) & 1u);
+    }
+
+    return v;
+}
+
+static void set_bits(uint8_t * body, uint32_t at, uint32_t bits, uint32_t v) {
+    for (uint32_t i = 0; i < bits; i++) {
+        uint32_t bit  = at + i;
+        uint8_t  mask = (uint8_t)(1u << (7 - (bit % 8)));
+        bool     one  = ((v >> (bits - 1 - i)) & 1u) != 0;
+
+        body[bit / 8] = (uint8_t)(one ? (body[bit / 8] | mask) : (body[bit / 8] & ~mask));
+    }
+}
+
+// notes §1: the byte sum of the body before it
+static uint8_t checksum(const uint8_t body[BODY_LENGTH]) {
+    uint8_t sum = 0;
+
+    for (uint32_t i = 0; i < CHECKSUM_AT; i++) {
+        sum = (uint8_t)(sum + body[i]);
+    }
+
+    return sum;
+}
+
+// notes §3: a field's stored value as the parameter's plain value
+static int32_t field_plain(const uint8_t body[BODY_LENGTH], const tNl3Field * f) {
+    int32_t v = (int32_t)get_bits(body, f->at, f->bits);
+
+    if (f->isSigned && (v >= (1 << (f->bits - 1)))) {
+        v -= 1 << f->bits;
+    }
+    return v;
 }
 
 void nl3_patch_from_single(const uint8_t single[NL3_SINGLE_LENGTH], double normalized[kNl3ParamCount]) {
-    for (size_t k = 0; k < sizeof(kCarried) / sizeof(kCarried[0]); k++) {
-        int32_t steps = gNl3Params[kCarried[k].paramId].stepCount;
-        int32_t value = (single[kCarried[k].at] & kCarried[k].mask) - kCarried[k].stored;
+    uint8_t body[BODY_LENGTH];
 
-        value                           = (value < 0) ? 0 : ((value > steps) ? steps : value);
-        normalized[kCarried[k].paramId] = (double)value / steps;
+    unpack(single, body);
+
+    for (uint32_t k = 0; k < gNl3FieldCount; k++) {
+        const tNl3Field *      f     = &gNl3Fields[k];
+        const tSynthLibParam * p     = &gNl3Params[f->paramId];
+        double                 value = fmin(p->plainMax, fmax(p->plainMin, (double)field_plain(body, f)));
+
+        normalized[f->paramId] = (value - p->plainMin) / (p->plainMax - p->plainMin);
     }
-
-    normalized[kNl3ParamPanEffects] = ((single[MAIN(275)] >> 4) & 1) ? 1.0 : 0.0;
-    normalized[kNl3ParamLfo1Fade]   = ((single[FADE_AT] >> 3) & 1) ? 1.0 : 0.0;
-    normalized[kNl3ParamLfo2Fade]   = ((single[FADE_AT] >> 4) & 1) ? 1.0 : 0.0;
-    normalized[kNl3ParamPolyMode]   = ((single[MAIN(238)] & 0x03) == 1) ? 1.0 : 0.0;    // above these bits, the Unison voices
-    normalized[kNl3ParamEnvTrigger] = ((single[MAIN(235)] <= 33) || (single[MAIN(235)] == 38)) ? 1.0 : 0.0;
-    normalized[kNl3ParamReverbType] = (double)((single[MAIN(269)] >> 3) & 0x0F) / 15.0; // shares its byte with Early Reflections
-    normalized[kNl3ParamOscShape]   = shape_from_type(single[MAIN(22)]);
-    normalized[kNl3ParamOsc2Shape]  = shape_from_type(single[MAIN(56)] - 10);
-    normalized[kNl3ParamOsc3Shape]  = shape_from_type(single[MAIN(90)] - 20);
 }
 
 void nl3_patch_name(const uint8_t single[NL3_SINGLE_LENGTH], char name[NL3_SINGLE_NAME_LENGTH + 1]) {
-    int n = NL3_SINGLE_NAME_LENGTH;
+    int n = 0;
 
-    for (int i = 0; i < NL3_SINGLE_NAME_LENGTH; i++) {
+    for (int i = 0; (i < NL3_SINGLE_NAME_LENGTH) && (single[NAME_AT + i] != 0); i++) {
         uint8_t c = single[NAME_AT + i];
 
-        name[i] = ((c >= 32) && (c < 127)) ? (char)c : ' ';
+        name[n++] = ((c >= 32) && (c < 127)) ? (char)c : ' ';
     }
 
     while ((n > 0) && (name[n - 1] == ' ')) {
@@ -388,68 +320,58 @@ void nl3_patch_name(const uint8_t single[NL3_SINGLE_LENGTH], char name[NL3_SINGL
     name[n] = '\0';
 }
 
-void nl3_patch_to_single(const double normalized[kNl3ParamCount], const uint8_t * base, const char * name, uint8_t out[NL3_SINGLE_LENGTH]) {
-    size_t len                                 = (name != NULL) ? strlen(name) : 0;
-    double was[kNl3ParamCount];
-    char   wasName[NL3_SINGLE_NAME_LENGTH + 1] = "";
+static void fresh_header(uint8_t * single) {
+    single[0]                     = 0xF0;
+    single[1]                     = CLAVIA;
+    single[DEVICE_AT]             = ALL_DEVICES;
+    single[MODEL_AT]              = MODEL;
+    single[NL3_SINGLE_LENGTH - 1] = 0xF7;
+}
 
-    if (base != NULL) {
-        nl3_patch_from_single(base, was);
-        nl3_patch_name(base, wasName);
-    }
+void nl3_patch_to_single(const double normalized[kNl3ParamCount], const uint8_t * base, const char * name, uint8_t out[NL3_SINGLE_LENGTH]) {
+    uint8_t body[BODY_LENGTH];
 
     if (base != NULL) {
         memcpy(out, base, NL3_SINGLE_LENGTH);
+        unpack(base, body);
     } else {
         memset(out, 0, NL3_SINGLE_LENGTH);
+        memset(body, 0, sizeof(body));
+        set_bits(body, 0, 16, VERSION);
+        out[VERSION_AT]     = (uint8_t)(VERSION >> 7);    // notes §4: a program keeps the version it came with
+        out[VERSION_AT + 1] = (uint8_t)(VERSION & 0x7F);
     }
-    fresh_header(out, MAIN_LENGTH, MAIN_DUMP);
-    fresh_header(out + EXT, EXT_LENGTH, EXT_DUMP);
+    fresh_header(out);
 
-    for (size_t k = 0; k < sizeof(kCarried) / sizeof(kCarried[0]); k++) {
-        int32_t steps = gNl3Params[kCarried[k].paramId].stepCount;
-        long    value = lround(fmin(1.0, fmax(0.0, normalized[kCarried[k].paramId])) * steps);
+    // notes §4: every field is written; the bits no parameter covers stay as they came
+    for (uint32_t k = 0; k < gNl3FieldCount; k++) {
+        const tNl3Field *      f     = &gNl3Fields[k];
+        const tSynthLibParam * p     = &gNl3Params[f->paramId];
+        long                   value = lround(p->plainMin + (fmin(1.0, fmax(0.0, normalized[f->paramId])) * (p->plainMax - p->plainMin)));
 
-        // notes §4: a byte is kept as it came unless its parameter changed - it may hold more than the panel shows
-        if ((base != NULL) && (value == lround(was[kCarried[k].paramId] * steps))) {
-            continue;
+        set_bits(body, f->at, f->bits, (uint32_t)value & ((1u << f->bits) - 1u));
+    }
+
+    body[CHECKSUM_AT] = checksum(body);
+    pack(body, out);
+
+    if ((name != NULL) || (base == NULL)) {
+        size_t len = (name != NULL) ? strlen(name) : 0;
+
+        for (size_t i = 0; i < NL3_SINGLE_NAME_LENGTH; i++) {
+            char c = (i < len) ? name[i] : '\0';
+
+            out[NAME_AT + i] = ((c >= 32) && (c < 127)) ? (uint8_t)c : 0;
         }
-        out[kCarried[k].at] = (uint8_t)((out[kCarried[k].at] & ~kCarried[k].mask) | ((uint8_t)(value + kCarried[k].stored) & kCarried[k].mask));
     }
-
-    long reverbType = lround(fmin(1.0, fmax(0.0, normalized[kNl3ParamReverbType])) * 15.0);
-
-    if ((base == NULL) || (reverbType != lround(was[kNl3ParamReverbType] * 15.0))) {
-        out[MAIN(269)] = (uint8_t)((out[MAIN(269)] & 0x07) | ((uint8_t)reverbType << 3));
-    }
-    out[MAIN(275)] = (uint8_t)((out[MAIN(275)] & ~0x10) | ((normalized[kNl3ParamPanEffects] > 0.5) ? 0x10 : 0));
-    out[FADE_AT]   = (uint8_t)((out[FADE_AT] & ~0x18) | ((normalized[kNl3ParamLfo1Fade] > 0.5) ? 0x08 : 0) | ((normalized[kNl3ParamLfo2Fade] > 0.5) ? 0x10 : 0));
-
-    if ((base == NULL) || ((normalized[kNl3ParamPolyMode] > 0.5) != (was[kNl3ParamPolyMode] > 0.5))) {
-        out[MAIN(238)] = (uint8_t)(((base != NULL) ? (out[MAIN(238)] & 0x7C) : 0x40) | ((normalized[kNl3ParamPolyMode] > 0.5) ? 1 : 2));
-    }
-
-    if ((base == NULL) || ((normalized[kNl3ParamEnvTrigger] > 0.5) != (was[kNl3ParamEnvTrigger] > 0.5))) {
-        out[MAIN(235)] = (normalized[kNl3ParamEnvTrigger] > 0.5) ? 32 : 34;
-    }
-
-    for (size_t i = 0; (base == NULL || strcmp(wasName, (name != NULL) ? name : "") != 0) && (i < NL3_SINGLE_NAME_LENGTH); i++) {
-        char c = (i < len) ? name[i] : ' ';
-
-        out[NAME_AT + i] = ((c >= 32) && (c < 127)) ? (uint8_t)c : ' ';
-    }
-
     nl3_patch_address(out, 0);
 }
 
+// notes §5: 0 is Slot A's edit buffer; a preset is bank and program
 void nl3_patch_address(uint8_t single[NL3_SINGLE_LENGTH], int number) {
-    uint8_t bank    = (number > 0) ? (uint8_t)((number - 1) / NL3_BANK_SIZE) : 0;
-    uint8_t program = (number > 0) ? (uint8_t)((number - 1) % NL3_BANK_SIZE) : 0;
-
-    single[BANK_AT]          = bank;
-    single[PROGRAM_AT]       = program;
-    single[EXT + BANK_AT]    = bank;
-    single[EXT + PROGRAM_AT] = program;
+    single[COMMAND_AT] = (number > 0) ? FROM_MEMORY : FROM_SLOT;
+    single[BANK_AT]    = (number > 0) ? (uint8_t)((number - 1) / NL3_BANK_SIZE) : 0;
+    single[PROGRAM_AT] = (number > 0) ? (uint8_t)((number - 1) % NL3_BANK_SIZE) : 0;
 }
 
 void nl3_patch_init_single(uint8_t out[NL3_SINGLE_LENGTH]) {
@@ -460,9 +382,6 @@ void nl3_patch_init_single(uint8_t out[NL3_SINGLE_LENGTH]) {
     }
 
     nl3_patch_to_single(values, NULL, "Init", out);
-    out[MAIN(22)] = OSC_SAW;
-    out[MAIN(56)] = OSC_SAW + 10;
-    out[MAIN(90)] = OSC_SAW + 20;
 }
 
 bool nl3_patch_save_file(const char * path, const uint8_t single[NL3_SINGLE_LENGTH]) {
@@ -501,7 +420,7 @@ static bool    gPresetsRead;
 static time_t  gPresetsModified;
 
 void nl3_preset_label(int number, char * out, size_t len) {
-    snprintf(out, len, "%c%03d", 'A' + ((number - 1) / NL3_BANK_SIZE), (number - 1) % NL3_BANK_SIZE);   // the instrument counts from 000
+    snprintf(out, len, "%d:%03d", 1 + ((number - 1) / NL3_BANK_SIZE), 1 + ((number - 1) % NL3_BANK_SIZE));   // as the instrument shows them
 }
 
 const char * nl3_presets_path(void) {
@@ -612,11 +531,67 @@ bool nl3_presets_store_all(const uint8_t singles[NL3_PRESETS][NL3_SINGLE_LENGTH]
     return write_presets();
 }
 
-// notes §6: in file order from A000; what is left over is Init
+// notes §6: at their own bank and number where they carry one; what is left over is Init
 int nl3_presets_read_file(const char * path, uint8_t singles[NL3_PRESETS][NL3_SINGLE_LENGTH]) {
-    int count = nl3_patch_read_file(path, singles, NL3_PRESETS);
+    static uint8_t found[NL3_PRESETS][NL3_SINGLE_LENGTH];
+    static bool    taken[NL3_PRESETS];
+    int            count    = nl3_patch_read_file(path, found, NL3_PRESETS);
+    int            next     = 0;
 
-    fill_and_address(singles, count);
+    static int     where[NL3_PRESETS];
+    bool           distinct = true;
+    int            bank = 0, last = NL3_BANK_SIZE;
+
+    memset(taken, 0, sizeof(taken));
+
+    // notes §6: by bank and number when every program has its own; a bank file's bank is the one selected when it
+    // is received, so otherwise a bank starts wherever the program number goes back down
+    for (int i = 0; i < count; i++) {
+        where[i] = (found[i][COMMAND_AT] == FROM_MEMORY) ? ((found[i][BANK_AT] * NL3_BANK_SIZE) + found[i][PROGRAM_AT]) : -1;
+
+        for (int j = 0; distinct && (where[i] >= 0) && (j < i); j++) {
+            distinct = (where[j] != where[i]);
+        }
+    }
+
+    for (int i = 0; i < count; i++) {
+        if (where[i] < 0) {
+            continue;
+        }
+
+        if (!distinct) {
+            bank    += (i > 0) && (found[i][PROGRAM_AT] <= last) ? 1 : 0;
+            last     = found[i][PROGRAM_AT];
+            where[i] = (bank * NL3_BANK_SIZE) + found[i][PROGRAM_AT];
+        }
+        int at = where[i];
+
+        if ((at < NL3_PRESETS) && !taken[at]) {
+            memcpy(singles[at], found[i], NL3_SINGLE_LENGTH);
+            taken[at] = true;
+        }
+    }
+
+    for (int i = 0; i < count; i++) {
+        if (found[i][COMMAND_AT] != FROM_MEMORY) {
+            while ((next < NL3_PRESETS) && taken[next]) {
+                next++;
+            }
+
+            if (next < NL3_PRESETS) {
+                memcpy(singles[next], found[i], NL3_SINGLE_LENGTH);
+                taken[next] = true;
+            }
+        }
+    }
+
+    for (int i = 0; i < NL3_PRESETS; i++) {
+        if (!taken[i]) {
+            nl3_patch_init_single(singles[i]);
+        }
+        nl3_patch_address(singles[i], i + 1);
+    }
+
     return count;
 }
 

@@ -98,3 +98,8 @@ The filter leaves a quarter of its input at DC on every mode, as the instrument'
 by 4 to keep the level it had. Where the oscillators stand on the instrument's full scale is not measured yet; the
 filter's non-linear damping depends on it.
 
+## 20. Aliasing
+The Aliasing parameter, per instance like Arithmetic: Instrument plays the oscillators band-limited as the instrument
+does, its aliases included; Clean uses the longer correction of `nl3Osc.md` §7. The Saw takes its phase advanced
+before it is read, as the instrument's does; the placeholder shapes still read before advancing.
+

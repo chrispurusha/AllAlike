@@ -44,6 +44,7 @@ One line per item. Measurements and reasoning go in `findings.md`, design in `de
 - INPUT GAIN is 0 (CT 2026-11-06); record it with every EXT capture, and sweep the EXT level per step
 
 ## Oscillators
+- Aliasing (optional): measure the oscillators' aliases, then an Instrument / Clean setting as in Nl3Alike (`../Docs/feature-status.md`, anti-aliasing)
 - The toggle flip (p2Dco notes §12): built for the plain pulse under Anomalies, at 0.68 per crossing from the long-period range; still to do: APW, osc 3's square and its stepped triangle, and the odds' dependence on the note it came from (the timer's phase)
 - Amplitude against pitch and Level: corrected (p2Plugin notes §63, 2026-11-06); left: the high-Level squeeze is a saturation whose wave shape is not modelled, only its level; unison/para/X-PWM levels against pitch unmeasured
 - The triangle (findings 2026-10-25): at Level 127 the filter's open-cutoff saturation rounds it (h41-61 15-22 dB under its own Level-40 shape; the instrument keeps 12 dB/oct to h61), and the instrument's own shape has weaker low odd harmonics (h3 -25, ideal -19) and even ones at 6-10 dB/oct (h16 -57, h32 -67: an asymmetry or a small step at the reset) - rework the open filter's saturation with the pulses' top end
