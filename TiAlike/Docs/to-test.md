@@ -19,3 +19,5 @@ Built but not yet checked by ear or in a host. Confirmed: delete the line. Faile
 - Load/Store Preset browsers sort by category (2026-11-09): the presets fall under their own categories
 - LFO sine Symmetry (2026-11-09): sounds with a sine LFO away from Symmetry 64, by ear against the instrument
 - A053's zipper gone with the chorus's delay and depth glided (2026-11-09)
+- Delay Patterns 2+5 to 5+5 (2026-11-09): A006 (5+3) against the instrument
+- Modulated phaser, delay and reverb glide (2026-11-09): sounds that move them, no zipper and nothing else changed

@@ -51,6 +51,10 @@ A step of Delay Time is 256 samples at 48 kHz. Send leaves the dry signal alone 
 
 The plug-in has global Delay and Reverb switches, outside the sound, so a DAW's effects can take over. Off means the dry signal, untouched, whatever Send says.
 
+All seventeen patterns (2026-11-09): Pattern x+y is x sixteenths on the left and y on the right, modes 6-22 in the
+instrument's list order. Only the first six (1+1 to 2+3) had been built; the eleven after them (2+5 to 5+5) played 1+1,
+which is why A006 (Pattern 5+3) sounded nothing like the instrument.
+
 ## 9. Reverb
 A tank of tapped delays and allpasses in one ring of 16382 words, run at half the sample rate, each Type its own list of read offsets. These lists are the one table here: their entries must sum exactly for the read points to keep their places, so scaling them does not work. Two values drive it: one from Time, scaled by the room, and one from Damping; the other coefficients follow them with simple limits. Send follows Delay's law, and Predelay is 1.875 ms a step. Color is a one-pole tilt on the way in, low pass one way and high pass the other. The tank's slow modulation and the Feedback modes are not built.
 
@@ -78,3 +82,12 @@ The sweep is a triangle, straight in octaves, starting at the top. It rises from
 
 ## 15. Reset
 `ti_effects_reset` empties every line and filter, as a new instance has them, and keeps the rate, the tempo and the plug-in's Delay and Reverb switches. The plug-in calls it on the audio thread when a sound loads (tiPlugin §12).
+
+## 25. Modulated effects glide
+Modulation reaches the effects by rewriting their bytes once per block (tiVoices notes §22). The phaser (mix, depth,
+frequency, feedback, spread), the delay (send, feedback, both taps) and the reverb (send, pre-delay, the colour's
+filters, the tank's coefficients) glide toward those values over 10 ms, every sample, as the chorus does (§13); the
+delay's taps and the reverb's pre-delay are read between samples, so a moving time slides. A value starts on its
+target, and again whenever its effect is switched off, so a sound that does not modulate them is unchanged; 13 of 20
+Bank A Singles render identically, the rest differ only where a clocked delay time falls between samples, which had
+been rounded down (2026-11-09).

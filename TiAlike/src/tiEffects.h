@@ -86,6 +86,11 @@ typedef struct {
     uint32_t  chorusAt;
     double    chorusDelay, chorusSwing;   // notes §13: glided toward the bytes' values, so a modulated step does not zipper
     bool      chorusGliding;
+    // notes §25: the other modulated effects' settings, glided per sample from their per-block bytes
+    double    phaserNow[5];    // mix, depth, frequency, feedback, spread - as bytes
+    double    delayNow[5];     // wet, dry, feedback, left and right taps in samples
+    double    verbNow[12];     // wet, dry, pre-delay, low pass, high pass, then the tank's seven coefficients
+    bool      phaserGliding, delayGliding, verbGliding;
 } tTiEffects;
 
 #define TI_DIST_CURVES    (25)

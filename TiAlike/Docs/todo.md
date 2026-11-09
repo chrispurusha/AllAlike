@@ -44,7 +44,7 @@ One line per item. Measurements and reasoning go in `findings.md`, design in `de
 - Start with those that use no distortion: A012 A016 A019 A021 A048 A053 A063 A067 A071 A086, and C007
 - A076 and A064 (Rectifier) are not the distortion: with it off on both, the TI and the engine differ as much (A076 octave shape 3.8 -> 4.1 dB rms, the same pattern)
 - C007 very different (FM?)
-- A006 delays very different
+- A006 delays very different: it uses Pattern 5+3, one of the eleven patterns (2+5 to 5+5) not built until 2026-11-09 (tiEffects notes §8) - confirm by ear
 - A012 brighter on the hardware
 - A014 distortion tonally different
 - A016 more tones on the hardware
@@ -58,7 +58,7 @@ One line per item. Measurements and reasoning go in `findings.md`, design in `de
 - A032 flat on one tone
 - A048 an extra tone here
 - A049 much weaker here
-- A053 zipper: the chorus (found by CT, 2026-11-09) - modulated effect bytes step once per block, and a step of Chorus Delay is 8 samples; the chorus now glides its delay and depth (tiEffects notes §13) - confirm by ear. The other effects reached by kFxDst (phaser, delay, reverb) still take their modulation in per-block byte steps
+- A053 zipper: the chorus - fixed 2026-11-09 (tiEffects notes §13), confirmed by CT; the phaser, delay and reverb glide their modulated settings too (§25)
 - Delay modulation (A116 rate, A117 depth) is not built: `delay_times()` takes neither, and the tap is a whole sample set once per block - when it is built, read the line interpolated and move the tap per sample, or it will zipper
 - Delay Colour (A119): check it is applied (A053's bright feedback)
 - A060 wildly different
