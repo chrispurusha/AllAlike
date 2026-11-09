@@ -68,8 +68,13 @@ double ti_lfo_tick(tTiLfo * l, const tTiLfoShape * s, double seconds) {
 
     switch (s->shape) {
         case 0:
-            v      = -cos(2.0 * M_PI * p); // notes §4: from the minimum
+        {
+            // notes §3: the sine is not bent - above the middle Contour drives it into a limit, below it does nothing
+            double drive = (s->contour > 0.0) ? pow(1.0 - fmin(s->contour, 0.999), -0.8) : 1.0;
+
+            v = fmax(-1.0, fmin(1.0, -drive * cos(2.0 * M_PI * l->phase)));   // notes §4: from the minimum
             break;
+        }
         case 1:
             v      = (p < 0.5) ? ((4.0 * p) - 1.0) : (3.0 - (4.0 * p));
             break;

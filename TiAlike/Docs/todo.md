@@ -38,6 +38,44 @@ One line per item. Measurements and reasoning go in `findings.md`, design in `de
 - Smooth Mode On/Auto/Note: the hardware's Cutoff step takes 2-15 ms (10-90%) - measure Off against On on a clean sound to see whether On has a glide of a few ms
 - Smooth Mode Quantise: measure one held control besides Cutoff (Osc Balance or an LFO amount) and one that lands at once (Filter Mode) on the hardware
 
+
+## Bank A against the hardware (CT, 2026-11-09)
+
+- Start with those that use no distortion: A012 A016 A019 A021 A048 A053 A063 A067 A071 A086, and C007
+- A076 and A064 (Rectifier) are not the distortion: with it off on both, the TI and the engine differ as much (A076 octave shape 3.8 -> 4.1 dB rms, the same pattern)
+- C007 very different (FM?)
+- A006 delays very different
+- A012 brighter on the hardware
+- A014 distortion tonally different
+- A016 more tones on the hardware
+- A019 crackles here; the filter modulation may differ
+- A021 very different: the LFO 1 -> osc 2 route and its depth are right; look at its LFO assigns (dest 124, 43) and Assign 1's dest 126 acting on that route (findings 2026-11-09)
+- LFO sine Symmetry: fitted from captures 2026-11-09 (tiLfo notes §3) - check the law against the firmware next session; the other shapes' Symmetry (saw, square, S&H) against the instrument
+- A024 tonally very different
+- A027 much brighter on the hardware
+- A028 very different
+- A031 very different
+- A032 flat on one tone
+- A048 an extra tone here
+- A049 much weaker here
+- A053 ticking here
+- A060 wildly different
+- A062 distortion tonally different
+- A063 sounds like another patch altogether
+- A064 a saturation or distortion mode missing?
+- A066 an extra tone here, not at the same tuning
+- A067 tonally different
+- A069 ring modulation on the hardware
+- A070 very different
+- A071 an octave out?
+- A076 hugely different (distortion mode?)
+- A083 hugely different
+- A084 the hardware much brighter
+- A086 very different
+- A092 very different
+- A094 something here not following pitch
+- A100 the hardware much brighter
+
 ## Later
 - Effects (next to last), then the arpeggiator (last, if at all) - design §4
 - A Virus TI over USB (design §6): the instrument follows the instance's sound, a Single read back from it, and the instrument as a second reference through the audio interface

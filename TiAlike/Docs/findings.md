@@ -149,3 +149,30 @@ references sit too close to read):
 - Serial 6, noise through Filter 1 alone in each digital mode, Resonance 0/64/100/127, Cutoff 50 and 90 (32 cases): median 2.0 dB rms before, 0.46 now (tiVoices notes §6). The output gain follows the whole resonance while the poles take 5/8 of it.
 - Analog 4 Pole self-oscillation against reference renders, Cutoff 20-105 at Resonance 80-127: 0.8% flat at every cutoff up to 70, whatever the resonance, levels within 0.1 dB - a coefficient factor, not the saturation. With the coefficient raised 0.82% (tiFilter notes §5): within 0.05% from 30 to 70.
 - Saturation Low Pass / High Pass curves 11-14 against reference renders (saw, Osc Volume 72-120, notes 48 and 72): median harmonic error 2.9 dB before, 0.95 now; the key-follow forms were up to 3.5 dB out in level, now within 0.7 (tiVoices notes §17).
+
+## 2026-11-09 - Bank A by ear, and A021 taken apart
+
+CT played Bank A against the instrument; the list is in todo.md. Ten of the 30 flagged use no distortion (A012 A016
+A019 A021 A048 A053 A063 A067 A071 A086), and C007 none either. Note 48, velocity 100, 2 s held, octave bands over
+0.3-1.8 s, engine minus instrument after the median level offset (QU-24 inputs 23/24).
+- **A076 and A064 (Rectifier) are not the distortion:** A076 3.8 dB rms as it is, 4.1 with Distortion Curve Off on
+  both; A064 2.5 against 3.7. The Rectifier is still unchecked (to-test).
+- **A021 is LFO 1 on osc 2's pitch** (A75 at 127, Symmetry A71 at 127). As it is 5.0 dB rms (-10.3 and -6.0 at 250
+  and 500 Hz); delay send off 5.0, LFO 2's FM off 5.8, both assign slots off 8.4, LFO 1 -> osc 2 off 2.2. Symmetry 64
+  7.8, amount 96 3.7, both 1.4. So the engine's pitch swing differs from the instrument's near full depth and at the
+  extreme Symmetry: `lfo_pitch_amount()` at the top of its range and the Symmetry shaping, to measure by tracking
+  osc 2's pitch on the instrument (osc 1 silent) at amounts 96-127 and Symmetry 0/64/127.
+- **The route itself is right.** Init with osc 2 alone (Osc Balance 127), LFO 1 rate 48, osc 2's pitch tracked at
+  note 60: the swing at Symmetry 64 matches at amounts 80 / 96 / 112 / 127 (+-0.3 / +-2.0 / +-8 / to +35 st), and
+  LFO shape 1 (A021's) matches at Symmetry 64, 96 and 127, cycle for cycle. So A021's difference is something acting
+  on that route - its LFO assigns (B79 dest 124, B81 dest 43, both at 127) and Assign 1's second destination (126):
+  find what 124 and 126 are, and whether one moves the LFO 1 -> osc 2 amount, which at 127 sits on the steepest
+  part of `lfo_pitch_amount()`.
+- **The sine's Symmetry is wrong** (a separate fault, not A021's): on the instrument, Symmetry above 64 flattens the
+  sine towards a square - held at the top and bottom for about half the cycle at 96, most of it at 112, a square at
+  127, the edges still sine-shaped - and below 64 changes it little (0: a sine, slightly skewed). The engine bends
+  the phase both ways (tiLfo notes §3), so at 127 it plays a slow ramp and at 0 the ramp reversed.
+- Built as a sine driven into a limit above the middle, gain (1 - contour)^-0.8, plain below (tiLfo notes §3):
+  osc 2's pitch track against the instrument 0.15 / 0.18 / 0.28 / 0.29 semitones rms at Symmetry 96 / 112 / 127 / 0
+  (amount 96, a +-2 st swing); the phase-bent sine had gone to -11 st at 127 where the instrument stays at the top.
+

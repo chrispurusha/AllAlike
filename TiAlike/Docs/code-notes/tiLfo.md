@@ -13,5 +13,11 @@ One cycle, lifted to sit on zero (so it swings 0..2), and then nothing until the
 ## 3. Contour
 Bends the phase, so a shape's ends stay where they are.
 
+The sine is the exception (2026-11-09, osc 2's pitch tracked on the instrument, LFO 1 at rate 48): its phase is not
+bent. Above the middle, Contour drives it into a limit - gain (1 - contour)^-0.8, so it holds at the top and bottom for
+about half the cycle at Symmetry 96, most of it at 112, and is a square with sine-shaped edges at 127. Below the
+middle it stays a sine (at 0 the instrument's is slightly skewed; not modelled). The triangle's bend was checked
+against the instrument at 64, 96 and 127 and matches.
+
 ## 4. Where a cycle starts
 Sine and triangle start at their minimum, saw and square at their top.
