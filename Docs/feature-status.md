@@ -1,11 +1,11 @@
 # Feature status
 
 Where each plug-in stands: what is **missing**, what is **built but needs more work**, and what is **built but not
-yet checked** in a host or against the instrument. Updated 2026-11-06 (Pulse2Alike P001-P015 close by ear except P003, the drive; a dedicated Pulse 2 capture rig).
+yet checked** in a host or against the instrument. Updated 2026-11-09 (Pulse2Alike's unison, PARA-8 and thump refitted through the QU-24; TiAlike's Bank A heard against the instrument; preset browsers by category).
 
 This is a summary for planning. The working lists stay in each plug-in's `Docs/todo.md` (one line per item) and
-`Docs/to-test.md`; the reasoning and measurements in `Docs/findings.md` and `Docs/code-notes/`. When an item here is
-done, change it there first, then here.
+`Docs/to-test.md`; the reasoning and measurements in `Docs/findings.md` and `Docs/code-notes/`. Work spanning the
+plug-ins is listed in `Docs/todo.md` beside this file. When an item here is done, change it there first, then here.
 
 | | Pulse2Alike | TiAlike | Sn2Alike |
 |---|---|---|---|
@@ -52,6 +52,10 @@ Missing everywhere, or built in one and wanted in the others:
   Pulse2Alike not measured. Clean's correction (a longer step, summed over every jump in reach) belongs in SynthLib once a
   second plug-in uses it.
 - **Arithmetic option** (float or the instrument's fixed point, per instance): TiAlike has the filter's biquad, Nl3Alike the filter and the Saw; Sn2Alike to follow.
+- **Preset browsers by category** (2026-11-09): Pulse2Alike (by each sound's CLASS), TiAlike and Nl3Alike sort Load/Store
+  Preset by category - built, not yet tried in a host; Sn2Alike to follow. Planned for all (`Docs/todo.md`): a browse
+  folder listing every single under one root, Store to the next empty slot, and import becoming a confirmed Replace
+  All Presets.
 - **Panel pages, in common** (CT 2026-11-06): OSC, FILTER, AMP, ENV, LFO, MOD, then the instrument's own pages (ARP, TABLES beside OSC, the effects), GLOBAL always last. Short names as on the instruments' panels; a new Alike follows the same.
 - **The panel code** (`p2Draw.c`, copied as `tiDraw.c` and `sn2Draw.c`) is three near-copies: a fix in one probably belongs in all three until it moves into SynthLib.
 
@@ -65,18 +69,23 @@ Missing everywhere, or built in one and wanted in the others:
 - **Filter.** LP12's stopband 2.5 dB high at 1-2.5 kHz at cutoff 0; level sweeps for its nonlinearity and lower-level resonance sweeps still to take.
 - **Oscillators.** Levels against pitch and Level now within 0.4 dB (2026-11-06); the toggle flip (an anomaly) built for the pulse. The triangle at full Level (too rounded at the top, low odd harmonics too strong); pulses at full Level 2.4 dB bright at 16 kHz; the noise now matches at every Level (2026-11-06); the saw's reset and ramp shape against pitch; APW mixed with other sources; X3-PWM with sync.
 - **Osc 3 routings.** LEVEL2 1.5-4 dB loud below osc 2 Level 101; the VCF, DRIVE and FB depths are guesses beyond what was measured; FB alone does not sing as the instrument's does.
-- **Envelopes and VCA.** Short filter-envelope attacks; the first ~4 ms of a note over a release; the release tail 3-4 dB low at low volume; the VCA thump at Decay 0 too big.
+- **Envelopes and VCA.** Short filter-envelope attacks; the first ~4 ms of a note over a release; the release tail 3-4 dB low at low volume. The thump was refitted through the QU-24 (2026-11-09: P017's start, notch and
+  tail now the instrument's shape), scaled by filter type, and has a Thump setting to switch it off; its filter-envelope
+  part (0-1 dB) is not modelled, and other near-DC constants fitted through the Fireface want the same recheck.
+- **Voice modes.** Unison and PARA-8 levels refitted (2026-11-09): every unison case within 0.4 dB of the instrument,
+  PARA-8 within 0.1 dB, which settles P017-P019's levels; PARA-4's voice gain unchecked.
 - **Modulation.** The source and target lists match the instrument's; CONTROL-X is built (2026-11-06). The math sources (M-DELAY, M-SMOOTH, M-PRODUCT/MIN/MAX) want captures; the less-used targets want spot checks; Amp Velocity's law away from 64 and 127.
 - **Arpeggiator.** What Arp Pattern selects; the SOFT and HARD velocity offsets.
 - **Sounds by ear:** P001-P015 close (CT 2026-11-06) apart from P003, the only one with drive on; P016 onwards still to
   hear. The measured residues of the close ones are parked in `todo.md`.
 
-**Built, not yet checked** - the full list is `to-test.md`. The big ones: the plug-in in a real host end to end (load, panel, menus, presets, program changes, project reopen); Drive by ear; the arpeggiator against the instrument; Link and the backup in Live; extra voices through one shared drive.
+**Built, not yet checked** - the full list is `to-test.md`. The big ones: the plug-in in a real host end to end (load, panel, menus, presets, program changes, project reopen); Drive by ear; the arpeggiator against the instrument; Link and the backup in Live; extra voices through one shared drive; the refitted thump by ear and by filter type.
 
 ## TiAlike
 
 **Missing**
-- **Effects:** Chorus types other than Classic; Delay Color, Tape types and modulation; Reverb's Feedback modes and Clock; the Distortion Wave Shaper; Character types other than Analog Boost.
+- **Effects:** Chorus types other than Classic; Delay modulation (rate and depth), Tape types, and the pattern delays'
+  routing (patterns 2+5 to 5+5 built 2026-11-09, but on the instrument the right is a single tap fed into the left's loop); Reverb's Feedback modes and Clock; the Distortion Wave Shaper; Character types other than Analog Boost.
 - **Arpeggiator, vocoder, input follower, soft knobs:** not offered (the arpeggiator last, if at all).
 - **Matrix routes:** LFO 1 to Filter Gain, the Unison destinations, Osc 3 Detune, and the oscillator models' F-Shift and F-Spread.
 - **Loading custom wavetables** from common file formats.
@@ -85,14 +94,21 @@ Missing everywhere, or built in one and wanted in the others:
 **Needs more work**
 - **Smooth Mode settled on the hardware (2026-11-06):** no mode glides; Off/On/Auto/Note act at once, the Quantise values hold a change to the next tempo division - built.
 - **Oscillator models** (Wave PWM, Grain, Formant, built 2026-11-02): with Detune on, the Complex models make a half-frequency component 24 dB down that the reference does not; high Formant or Sync on rich tables keeps up to 2 dB too much at the top. Wavetables 7, 35 and 77 are missing content above the 64th partial.
-- **Oscillators generally:** start phases (free-running and fixed) do not yet line up for a null; a cent flat when free-running and 0.3 cents sharp otherwise; about 6 dB down at note 108; Ring at the same pitch; HyperSaw's cross-sync frequency.
+- **Bank A by ear** (CT 2026-11-09): about 30 Singles differ from the instrument, listed in `todo.md`; the ten without
+  distortion first. Traced so far: A006 to the pattern delay's routing, A021 to its LFO assigns acting on LFO 1 -> osc 2;
+  A053's zipper fixed (the chorus's delay and depth now glide, and the phaser, delay and reverb glide their modulated
+  settings too). Delay Colour to check is applied.
+- **LFOs:** the sine's Symmetry refitted from captures (2026-11-09), to check against the reference; Symmetry on the saw,
+  square and S&H against the instrument.
+- **Oscillators generally:** Osc 2 Detune drift built (2026-11-08), to hear against the hardware; start phases (free-running and fixed) do not yet line up for a null; a cent flat when free-running and 0.3 cents sharp otherwise; about 6 dB down at note 108; Ring at the same pitch; HyperSaw's cross-sync frequency.
 - **Filters:** Serial 6's second section carries no resonance (close but not exact above 64); the analog modes' self-oscillation pitch (0.9% low) and high-frequency floor; Osc Volume's upper half into the analog filter.
 - **Saturation:** curves 6-14 approximate or blended, their key follow missing; the Rate and Bit Reducers at high drive.
 - **Effects built but approximate:** Distortion Mint, Treble Booster, High Cut, Tone; the Phaser's Spread and feedback extremes; the Filter Bank's in-between shapes, Vowel at high resonance, Stereo Phase; EQ's mid cut too wide; the Reverb's top octave 4-6 dB hot; Delay Clock's times wander with tempo.
 - **Punch and note starts:** Punch's decay law and sign cases; the first millisecond of a note; late release.
 - **Worst library Singles** still unexplained: Theory, RuffBelsBC, DRY DRUM.
 
-**Built, not yet checked** - `to-test.md`: the first build in a host end to end; Link and Filter Link; patch loading and presets; the envelopes and Overdrives by ear; the Virus TI menu's bank backup and restore with the instrument connected.
+**Built, not yet checked** - `to-test.md`: the first build in a host end to end; Link and Filter Link; patch loading and presets; the envelopes and Overdrives by ear; the Virus TI menu's bank backup and restore with the instrument connected; the chorus and effect glides, the pattern
+delays, the sine LFO's Symmetry.
 
 ## Sn2Alike
 
