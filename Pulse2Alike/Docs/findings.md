@@ -1424,3 +1424,19 @@ CT heard P017 (PARA-8) 1 dB quiet, better with osc 1 on SAW.
   note. What differs is the thump: the instrument holds -38 to -40 dBFS 80-200 ms after it where the engine dips to
   -63, and from 0.6 s the instrument comes back up to about -66 where the engine goes on falling.
 
+## 2026-11-09 - the thump through the QU-24 (`48k-qu/thump/`, `48k-qu/p017/`)
+
+CT: the plug-in misses some of P017's thump, and on some sounds it lingers.
+- **P017 at note 48 is all thump**, on the instrument and in the engine: the same with osc 1 on PARA-8, PULSE or SAW,
+  at Level 0, and with its PW mod off.
+- **The rig shaped the fit.** The 10-25 oscillators-off take (Volume 127, Attack 0, Decay 34) again through the
+  QU-24: normalised to the first peak it crosses zero at ~45 ms and undershoots -0.13 until ~550 ms; the Fireface take
+  crossed at ~20 ms and was gone by ~150 ms after -0.27. The engine, fitted to the Fireface, dipped to -63 dBFS at
+  160 ms on P017 where the instrument holds -39, and missed its tail.
+- Nine cases again through the QU (level by the saw test sound, +6.9 dB) and refitted over 1 s, each case weighted
+  by its size: k 0.0425, power 0.95, couplings 0.58 / 0.59 Hz (from 0.040, 1.2, 2.3, 2.8). P017's envelope now has
+  the instrument's shape, its notch at ~0.56 s and its tail at about -65 dBFS.
+- **Volume:** the engine against the instrument -0.3 / +1.2 / +1.7 / +2.0 / +2.9 dB at Volume 127 / 100 / 80 / 64 / 30.
+- **Still short on P017, ~4.5 dB:** Resonance 27 -> 0 lowers the instrument's thump ~3 dB, its filter envelope off
+  (amount and velocity at 64) 0-1 dB; both off bring it to the test thump's level. The engine moves with neither.
+

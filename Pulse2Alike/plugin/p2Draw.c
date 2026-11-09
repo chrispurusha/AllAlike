@@ -306,13 +306,23 @@ void p2_draw_store_preset(int number) {
 static tBankBrowserItem gSlotItems[P2_PATCH_SLOTS];
 static char             gSlotNames[P2_PATCH_SLOTS][P2_SOUND_NAME_LENGTH + 1];
 
+// notes §4: a sound's CLASS (its last sound byte), as the instrument names it
+static const char *const kClassNames[] = {"ARP", "ATMO", "BASS", "DRUM", "FX", "KEYS", "LEAD", "MONO", "PAD", "PERC",
+                                          "POLY", "SEQ", "DUB", "LUSH", "STRG", "PLUK", "WIND", "NOIS", "EXFX", "INIT"};
+#define CLASS_COUNT    ((uint32_t)(sizeof(kClassNames) / sizeof(kClassNames[0])))
+#define CLASS_BYTE     (7 + 127)   // the dump's header, then sound byte 127
+
 static void fill_slot_items(void) {
     p2_presets_refresh();
 
     for (int n = 1; n <= P2_PATCH_SLOTS; n++) {
+        uint8_t dump[P2_DUMP_LENGTH];
+
+        p2_presets_dump(n, dump);
         snprintf(gSlotNames[n - 1], sizeof(gSlotNames[0]), "%s", p2_presets_name(n));
         gSlotItems[n - 1] = (tBankBrowserItem){
-            gSlotNames[n - 1], 0, 0, (uint32_t)n            // bank 0: one list numbered 1-500 (SynthLib bankBrowser notes §9)
+            gSlotNames[n - 1], (uint8_t)((dump[CLASS_BYTE] < CLASS_COUNT) ? dump[CLASS_BYTE] : (CLASS_COUNT - 1)),
+            0, (uint32_t)n                                  // bank 0: one list numbered 1-500 (SynthLib bankBrowser notes §9)
         };
     }
 }
@@ -336,12 +346,12 @@ static void on_store_slot(bool confirmed, uint32_t bank1Indexed, uint32_t locati
 
 void p2_draw_load_preset_browser(void) {
     fill_slot_items();
-    open_bank_browser("Load Preset", "Presets 1-500.", "Load", gSlotItems, P2_PATCH_SLOTS, NULL, 0, on_load_slot);
+    open_bank_browser("Load Preset", "Presets 1-500.", "Load", gSlotItems, P2_PATCH_SLOTS, kClassNames, CLASS_COUNT, on_load_slot);
 }
 
 void p2_draw_store_preset_browser(void) {
     fill_slot_items();
-    open_bank_browser("Store Preset", "The slot to store the sound as it is now into.", "Store...", gSlotItems, P2_PATCH_SLOTS, NULL, 0,
+    open_bank_browser("Store Preset", "The slot to store the sound as it is now into.", "Store...", gSlotItems, P2_PATCH_SLOTS, kClassNames, CLASS_COUNT,
                       on_store_slot);
 }
 

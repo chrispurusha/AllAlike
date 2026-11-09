@@ -67,6 +67,7 @@ static const char *const kNamesOversample[]       = {"1x", "2x", "4x"};
 static const char *const kNamesAnomalies[]        = {"OFF", "ON"};
 static const char *const kNamesArpAccent[]        = {"OFF", "LFO1", "LFO1*MODW", "LFO1*PRS", "LFO2", "LFO2*ENVA", "ENVF", "ENVA", "VELOCITY", "KEYTRACK", "PITCH FLW", "PITCHBEND", "MODWHEEL", "PRESSURE", "BREATH CT", "CONTROL-X", "V.RELEASE", "M-ACCU", "M-PRODUCT", "M-DELAY", "M-SMOOTH", "M-MIN", "M-MAX", "K-HIGHEST", "K-LOWEST"};
 static const char *const kNamesHiss[]             = {"OFF", "ON"};
+static const char *const kNamesThump[]            = {"OFF", "ON"};
 static const char *const kNamesHwLink[]           = {"OFF", "ON"};
 
 const tSynthLibParam     gP2Params[kP2ParamCount] = {
@@ -194,6 +195,7 @@ const tSynthLibParam     gP2Params[kP2ParamCount] = {
     {kP2ParamVoices,          "Voices",               "Voices",    eSynthLibUnitGeneric,     1.0,  32.0,      0.0,  31, SYNTHLIB_MIDI_NONE,                                                                             0},
     {kP2ParamControlX,        "Control X",            "Ctrl X",    eSynthLibUnitGeneric,     1.0, 119.0, 0.025424, 118, SYNTHLIB_MIDI_NONE,                                                                             0},
     {kP2ParamControlXIn,      "Control X Value",      "CtrlXIn",   eSynthLibUnitGeneric,     0.0, 127.0, 0.000000,   0, SYNTHLIB_MIDI_NONE,       SYNTHLIB_PARAM_HIDDEN | SYNTHLIB_PARAM_NO_SAVE                         },
+    {kP2ParamThump,           "Thump",                "Thump",     eSynthLibUnitIndexed,     0.0,   1.0, 1.000000,   1, SYNTHLIB_MIDI_NONE,       SYNTHLIB_PARAM_LIST                                                    },
 };
 
 // The instrument's sound bytes, in order: which parameter each one is, and the raw value of its lowest step.
@@ -421,6 +423,7 @@ const char * const * p2_param_names(uint32_t id) {
         case kP2ParamArpAccent: return kNamesArpAccent;
 
         case kP2ParamHiss: return kNamesHiss;
+        case kP2ParamThump: return kNamesThump;
 
         case kP2ParamHwLink: return kNamesHwLink;
 
@@ -574,6 +577,7 @@ static const tP2Control kSection25[]     = {
     {kP2ParamVoices,     "Voices",    eP2ControlDial,   31, 1.0, NULL            },
     {kP2ParamAnomalies,  "Anomalies", eP2ControlChoice,  1, 0.0, kNamesAnomalies },
     {kP2ParamHiss,       "Hiss",      eP2ControlChoice,  1, 0.0, kNamesHiss      },
+    {kP2ParamThump,      "Thump",     eP2ControlChoice,  1, 0.0, kNamesThump     },
     {kP2ParamHwLink,     "Link",      eP2ControlChoice,  1, 0.0, kNamesHwLink    },
     {kP2ParamHwChannel,  "Channel",   eP2ControlDial,   15, 1.0, NULL            },
 };
@@ -616,7 +620,7 @@ static const tP2Section kPage6Sections[] = {
 };
 static const tP2Section kPage7Sections[] = {
     {"PERFORMANCE", {0.65, 0.65, 0.65}, kSection24, 7},
-    {"PLUG-IN",     {0.65, 0.65, 0.65}, kSection25, 6},
+    {"PLUG-IN",     {0.65, 0.65, 0.65}, kSection25, 7},
 };
 
 const tP2Page           gP2Pages[]       = {

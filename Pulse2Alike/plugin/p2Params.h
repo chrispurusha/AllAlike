@@ -148,6 +148,7 @@ enum {
     kP2ParamVoices,
     kP2ParamControlX,          // the instrument's global CONTROL X: which CC is the CONTROL-X mod source
     kP2ParamControlXIn,        //   that controller's value, as it arrives
+    kP2ParamThump,             // the VCA's control leaking into the output (p2Plugin notes §43); appended, so nothing renumbers
     kP2ParamCount
 };
 

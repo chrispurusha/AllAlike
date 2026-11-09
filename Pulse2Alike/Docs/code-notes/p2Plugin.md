@@ -386,6 +386,16 @@ The instrument's osc 2 burst there is also shorter and earlier (peak 0.155 at ~3
 engine's: likely the filter envelope's short attacks are faster than the amp envelope's table; to measure with
 noise through the filter (a saw's cycles make 2 ms windows useless at low notes).
 
+Refitted 2026-11-09 to the same nine cases taken through the QU-24 (`48k-qu/thump/`), over 1 s: 0.0425 x (VCA
+gain)^0.95 through couplings at 0.58 and 0.59 Hz. The 10-25 takes came through the Fireface, whose inputs take off
+much of this low end - normalised to its first peak, the same thump crosses zero at ~20 ms there and ~45 ms through
+the QU, and undershoots -0.27 for ~150 ms against -0.13 for ~550 ms - so the 2.3 and 2.8 Hz were partly the
+Fireface's. Error down 3-10x in every case (A40 0.049 -> 0.006); against Volume the engine is -0.3 dB at 127, +1.2 at
+100, +2.0 at 64, +2.9 at 30 (one power cannot follow the instrument's law). The Thump setting (on by default) turns
+the leak off; it is the plug-in's, not the sound's.
+Still missing: on P017 the instrument's thump is ~3 dB bigger with Resonance 27 than at 0 (Cutoff 0, oscillators
+silent), and 0-1 dB more with its filter envelope; the engine's does not move with either.
+
 ## 44. The instrument's mild distortion: per oscillator, and after the filter
 A triangle through LP24 with its cutoff just above the fundamental (`postsat/`: osc levels 40-127, osc 3 on MIX and
 LEVEL2, Volume 40 and 100) - an almost pure sine, so any 2nd or 3rd harmonic is distortion. Volume changes nothing,

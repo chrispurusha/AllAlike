@@ -36,6 +36,10 @@ as SynthEdit and G2Alike choose a bank location: 500 named rows numbered 1-500, 
 the instrument's banks of 100 matter only to program changes (p2Patch notes §3). A store is
 always confirmed, naming what the slot holds now; so is Revert.
 
+The browsers also sort by category: each sound's CLASS, its last sound byte, under the 20 names the instrument
+shows for it (ARP, ATMO, BASS, DRUM, FX, KEYS, LEAD, MONO, PAD, PERC, POLY, SEQ, DUB, LUSH, STRG, PLUK, WIND, NOIS,
+EXFX, INIT). The factory presets use 0-13. A value past the list is shown as INIT.
+
 ## 5. Menus and popups
 The menu bar (p2Menu.c) sits across the top of the panel; everything else is 20 units lower. Menus, the file
 browser and the dialogues all go through SynthLib's synthlibPopups, as in G2Alike's editor: a press is offered

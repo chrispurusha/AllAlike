@@ -265,6 +265,11 @@ static const char *const kHelpTexts[HELP_TOPICS]  = {
     "Oversample: 1, 2 or 4 times the host's rate (2 by default, 4 the cleanest). Changing it clicks once.\n\n"
     "Hiss (off by default): the instrument's faint hiss while a note sounds, about 74 dB under it - its air on "
     "dark sounds.\n\n"
+    "Thump (on by default): the low bump the Pulse 2 makes as its amplifier opens, a step in the first few "
+    "milliseconds and a slow swing back that can last half a second, below 60 Hz. It is there on every sound, "
+    "even with the oscillators silent, larger at higher Volume and with a fast amp attack (a slow attack turns "
+    "it into a dip). Off leaves only the sound itself - for a sound that will be layered, or a mix whose low end "
+    "the bump would crowd.\n\n"
     "Tune (420-460 Hz) and Transpose (+-24) shift every sound. A new instance starts at 440 and 0.\n\n"
     "None of these, nor Anomalies, is saved with a sound. Diagnostic log: touch /tmp/pulse2alike-log, reload "
     "the plug-in, read /tmp/pulse2alike.log.",

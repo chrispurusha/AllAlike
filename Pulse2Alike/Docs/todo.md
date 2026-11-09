@@ -16,6 +16,8 @@ One line per item. Measurements and reasoning go in `findings.md`, design in `de
 - P006: 1-4 kHz 3-7 dB bright; first 150 ms ~3 dB quiet; 2nd-4th harmonics 4/5/10 dB under over 7.5 s; its tail's VCA knee ~0.1 s early
 - Filter envelope short attacks: measure with noise through the filter (p2Plugin notes §43); P004's burst; redo `fenv_attack/` with Filter Velocity set (at 0 the envelope did not open)
 - The first ~4 ms of a note over a release: the instrument's first half-cycle is smoother (P004)
+- The thump grows with resonance on the instrument (~3 dB at Resonance 27 against 0, Cutoff 0, oscillators silent; P017) and 0-1 dB with the filter envelope; the engine does not - capture a resonance sweep oscillators-off (findings 2026-11-09)
+- Other near-DC constants fitted through the Fireface (MIX_COUPLING_HZ 5, LEVEL2's coupling, the drive's) may carry its input's low-end loss like the thump did: recheck against QU-24 takes
 - The thump (VCA feedthrough, p2Plugin notes §43): Decay 0 too big (0.149 against 0.103), Attack 20's small positive bump
 
 ## Drive
@@ -73,7 +75,6 @@ One line per item. Measurements and reasoning go in `findings.md`, design in `de
 - Amp Velocity: the engine moved P011 1.7 dB more than the instrument (velocity 100, Amp Velocity 95) - check the law away from velocity 64/127
 - Arp Pattern (0-14): what it selects
 - PITCH FLW now follows the glide and the bend (the manual; 2026-11-06) - 64 presets use it, P004 and P006 among them: recheck those two by ear and in the regression
-- CLASS (sound byte 127, 0-21: ARP, ATMO, BASS ... INIT) could fill the preset browser's Category column
 - Arp SOFT and HARD: measure their velocity offsets (the plug-in uses -32 and +64)
 - Arp, by program change: does a chord kept by one HOLD sound start again after a non-arp sound, in the next HOLD sound? (the plug-in does so with Anomalies on - p2Plugin notes §45)
 - The 1 kHz leak (−96 dBFS with a note sounding): decide whether to model it

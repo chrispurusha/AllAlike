@@ -89,10 +89,10 @@ static const uint8_t gControllerUid[16] = {0xC4, 0x71, 0x0E, 0x9B, 0x52, 0xF3, 0
 #define OSC_EVEN_COUPLING_HZ       (20.0)    // notes §44: the asymmetry's DC goes no further
 #define OSC_EVEN                   (0.06)    // notes §44: each oscillator level stage's asymmetry
 #define HW_UNITS                   (0.888)   // the engine's pre-VCA level in the instrument's output units at Volume 40
-#define VCA_FEEDTHROUGH            (0.040)   // notes §43: the VCA's control leaking into its output (the thump)
-#define VCA_FEEDTHROUGH_POWER      (1.2)
-#define VCA_COUPLING_HZ            (2.3)
-#define VCA_COUPLING2_HZ           (2.8)
+#define VCA_FEEDTHROUGH            (0.0425)  // notes §43: the VCA's control leaking into its output (the thump)
+#define VCA_FEEDTHROUGH_POWER      (0.95)
+#define VCA_COUPLING_HZ            (0.58)
+#define VCA_COUPLING2_HZ           (0.59)
 #define LEVEL_FEEDTHROUGH          (0.0)     // notes §43: osc level modulation leaking into the mix as DC
 #define ROUTED_MIX_GAIN            (1.8)     // notes §37: osc 3 routed away from the mix
 #define MIX_SLEW_PER_SECOND        (15000.0) // notes §40: the filter input's slew, fitted to saws
@@ -1623,6 +1623,7 @@ static void render_engine(void * inst, const float *const * in, uint32_t numIn, 
     double         darkInv   = NOISE_DARK_PER_STEP * fmax(0.0, fmin(127.0, plain(p, kP2ParamNoiseLevel) + p->mod[eModNoiseLevel]) - NOISE_DARK_FROM);
     double         dark      = (darkInv > 0.0) ? (1.0 - exp(-2.0 * M_PI / sqrt(darkInv) / rateIn)) : 1.0;   // notes §64
     double         hiss      = (plain_int(p, kP2ParamHiss) != 0) ? sqrt(rateIn / NOISE_REFERENCE_RATE) : 0.0;
+    double         thump     = (plain_int(p, kP2ParamThump) != 0) ? VCA_FEEDTHROUGH : 0.0;   // notes §43
     int            voices    = para_voices(p);
     bool           unison    = unison_mode(p) != 0;
     bool           osc3Off   = unison || (voices > 0);                                // notes §8: the unison and paraphonic modes take osc 3 (and 2) over
@@ -1819,7 +1820,7 @@ static void render_engine(void * inst, const float *const * in, uint32_t numIn, 
                 filtered += band_limit(band_limit(HISS_AFTER_FILTER * hiss * white_noise(p), noiseLp, &p->hissLp[4]), noiseLp, &p->hissLp[6]);
             }
             double driveNow = drive + ((!osc3Off && (routing == 3)) ? (level3 * cv3 * OSC3_TO_DRIVE) : 0.0);
-            double vcaLeak1 = (VCA_FEEDTHROUGH * pow(p->vca, VCA_FEEDTHROUGH_POWER)) - p->vcaCoupled; // notes §43: coupled twice
+            double vcaLeak1 = (thump * pow(p->vca, VCA_FEEDTHROUGH_POWER)) - p->vcaCoupled; // notes §43: coupled twice
             double vcaLeak  = vcaLeak1 - p->vcaCoupled2;
 
             p->vcaCoupled            += vcaHp * vcaLeak1;
@@ -1898,7 +1899,7 @@ static void preset_change(tP2Plugin * p, int number) {
     }
 
     for (uint32_t id = 0; id < kP2ParamCount; id++) {
-        if (  (id == kP2ParamVoices) || (id == kP2ParamOversample) || (id == kP2ParamAnomalies) || (id == kP2ParamHiss) || (id == kP2ParamHwLink)
+        if (  (id == kP2ParamVoices) || (id == kP2ParamOversample) || (id == kP2ParamAnomalies) || (id == kP2ParamHiss) || (id == kP2ParamThump) || (id == kP2ParamHwLink)
            || (id == kP2ParamHwChannel) || (id == kP2ParamMaster) || (id == kP2ParamMasterTune) || (id == kP2ParamTranspose)
            || (id == kP2ParamControlX) || (id == kP2ParamControlXIn)
            || (id == kP2ParamProgram) || (id == kP2ParamBank) || ((id >= kP2ParamPitchBend) && (id <= kP2ParamSustain)) || (values[id] == p->param[id])) {
@@ -2285,7 +2286,7 @@ static void p2_panel_init(void) {
 
 // What a sound carries: everything but the plug-in's own settings and the program change's two
 static bool sound_param(uint32_t id) {
-    return (id != kP2ParamVoices) && (id != kP2ParamOversample) && (id != kP2ParamAnomalies) && (id != kP2ParamHiss) && (id != kP2ParamHwLink)
+    return (id != kP2ParamVoices) && (id != kP2ParamOversample) && (id != kP2ParamAnomalies) && (id != kP2ParamHiss) && (id != kP2ParamThump) && (id != kP2ParamHwLink)
            && (id != kP2ParamHwChannel) && (id != kP2ParamMaster) && (id != kP2ParamMasterTune) && (id != kP2ParamTranspose)
            && (id != kP2ParamControlX) && (id != kP2ParamControlXIn)
            && (id != kP2ParamProgram) && (id != kP2ParamBank) && ((id < kP2ParamPitchBend) || (id > kP2ParamSustain));
