@@ -63,3 +63,4 @@ Built, not yet checked against the instrument or in a host. Confirmed → delete
 - Voices > 1 with a drive curve on (2026-11-02): chords go through one drive (p2Plugin notes §60) - by ear in a host, chords on TUBE and FUZZ, a single note as loud as at Voices 1, no clicks as voices come and go
 - Load/Store Preset browsers sort by category (each sound's CLASS; 2026-11-09): the factory presets fall under their own classes
 - Thump refitted through the QU-24 (2026-11-09): P017's start and tail by ear; other sounds' low end (it lingers now, as on the instrument); the Thump setting OFF removes it
+- Thump by filter type (2026-11-09, BACKED OUT for an A/B - p2Plugin notes §43): CT to compare P020 and other LP24 sounds with and without it against the instrument

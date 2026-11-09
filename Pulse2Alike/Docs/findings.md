@@ -1440,3 +1440,18 @@ CT: the plug-in misses some of P017's thump, and on some sounds it lingers.
 - **Still short on P017, ~4.5 dB:** Resonance 27 -> 0 lowers the instrument's thump ~3 dB, its filter envelope off
   (amount and velocity at 64) 0-1 dB; both off bring it to the test thump's level. The engine moves with neither.
 
+## 2026-11-09 - the thump through the filter types (`48k-qu/resthump/`)
+
+Oscillators silent, Volume 100, Attack 0, Decay 34. Each take fitted as a scale of LP12 at Resonance 0: the
+residue is 0.00-0.04 below self-oscillation, so it is one waveform, scaled.
+- By Resonance 0 / 14 / 27 / 45 / 64 / 96: LP12 +1.00 / +1.02 / +1.23 / +1.36 / +1.43 / +1.51; LP24 -0.63 / -0.61 /
+  -0.35 / -0.19 / -0.10 / -0.06; BP12 +0.78 throughout; HP12 +0.16 (0.15 at 96).
+- Cutoff: LP12 the same at 0, 32, 64 and 127; LP24 at Resonance 27 -0.35 at Cutoff 0, -0.32 at 64; HP12 +0.16 and +0.21.
+- Built (p2Plugin notes §43): every case within ~1 dB but LP24 at 96. P017 (LP12, Resonance 27) up ~1.7 dB.
+- The hardware's thump at the same settings moved ~2 dB between runs (Volume 100: 0.123 then 0.155): a single take's
+  absolute level is good to that much.
+- 370 of the 500 presets are LP24: their thump is now inverted and smaller (x0.63 or less) than in the LP12-fitted
+  build CT first heard.
+- **Backed out the same day** so CT can compare by ear: P020 (LP24) sounded different with it. The measurements stand;
+  the code to restore is in p2Plugin notes §43.
+
