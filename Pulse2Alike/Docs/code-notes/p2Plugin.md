@@ -87,9 +87,10 @@ the same session (findings 2026-11-09; 0.263 had it 0.8 dB quiet).
 Eight slots, each source × (amount − 64)·|amount − 64| / 32, summed per target on the control tick, in the
 target's own units. Measured on three targets, all the same law: cutoff (steps), pitch (semitones) and osc
 level (dial steps, then the level law; findings, "mod matrix scaling"). The same law is used for the other
-targets (PW, resonance, volume, LFO speed, env amount) until they are measured. Sources built: LFO 1, LFO 2, LFO 2 × amp env, both envelopes, velocity,
-keytrack and pitch follow ((note − 64)/64). The controller sources (mod wheel, pressure, bend, breath, CTRL X)
-and the math sources read 0 until they are wired.
+targets (PW, resonance, volume, LFO speed, env amount) until they are measured. All 24 sources are built: LFO 1,
+LFO 1 × mod wheel (§28), LFO 1 × pressure, LFO 2, LFO 2 × amp env, both envelopes, velocity, keytrack and pitch
+follow ((note − 64)/64), bend, mod wheel, pressure, breath, CTRL X (the CC the Control X setting names), release
+velocity, the six math outputs M-ACCU..M-MAX (§18), and the highest and lowest held notes (on keytrack's scale).
 
 ## 14. LFO 2
 LFO 2 has no shape setting; it is taken as a triangle. Its Delay is a wait, not a fade: LFO 2 stays at zero for
