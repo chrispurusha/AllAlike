@@ -50,7 +50,7 @@ One line per item. Measurements and reasoning go in `findings.md`, design in `de
 - A016 more tones on the hardware
 - A019 crackles here; the filter modulation may differ
 - A021 very different: the LFO 1 -> osc 2 route and its depth are right; look at its LFO assigns (dest 124, 43) and Assign 1's dest 126 acting on that route (findings 2026-11-09)
-- LFO sine Symmetry: fitted from captures 2026-11-09 (tiLfo notes §3) - check the law against the firmware next session; the other shapes' Symmetry (saw, square, S&H) against the instrument
+- LFO sine Symmetry: fitted from captures 2026-11-09 (tiLfo notes §3) - check the law against the reference next session; the other shapes' Symmetry (saw, square, S&H) against the instrument
 - A024 tonally very different
 - A027 much brighter on the hardware
 - A028 very different
@@ -58,7 +58,7 @@ One line per item. Measurements and reasoning go in `findings.md`, design in `de
 - A032 flat on one tone
 - A048 an extra tone here
 - A049 much weaker here
-- A053 ticking here
+- A053 ticking here: not in an offline render (note 48, 48 kHz, no sample spikes); CT suspects interpolation between waves - Wavetable Interpolation (C44, C64) is read nowhere in the engine; first settle whether A053's oscillators (shape 127, osc 2 wave 9) are in a wavetable mode at all
 - A060 wildly different
 - A062 distortion tonally different
 - A063 sounds like another patch altogether
