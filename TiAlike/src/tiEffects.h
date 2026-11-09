@@ -84,6 +84,8 @@ typedef struct {
     double    chorusLfo;
     float     chorusLine[2][TI_CHORUS_LINE];
     uint32_t  chorusAt;
+    double    chorusDelay, chorusSwing;   // notes §13: glided toward the bytes' values, so a modulated step does not zipper
+    bool      chorusGliding;
 } tTiEffects;
 
 #define TI_DIST_CURVES    (25)

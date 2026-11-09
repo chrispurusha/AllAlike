@@ -68,6 +68,11 @@ A Single older than format 12 has no Chorus Type: Mix alone turns the chorus on,
 
 The delay is 8 samples per step of Delay at 48 kHz, and swings down from there, reaching nothing at full Depth: d x (1 - Depth x (1 - wave) / 2), with the two sides mirror images. Rate is half an LFO's at the same dial value from the middle of the dial up, and measured below that. Sine and triangle start at the top; the saw falls and jumps half way; the square starts low.
 
+The chorus's delay and depth glide toward their values over 10 ms, every sample (2026-11-09). Modulation reaches
+the effects by rewriting their bytes once per block (tiVoices notes §22), and a step of Chorus Delay is 8 samples of
+delay time, so a modulated chorus jumped at every block boundary - a fast zipper on a held note (A053), worse at
+larger host blocks. Reading the line between samples cannot hide a jump in the delay itself.
+
 ## 14. Phaser sweep
 The sweep is a triangle, straight in octaves, starting at the top. It rises from the Frequency by 0.0465 octave per step of Depth, and its rate is the Chorus's. The right side stands 0.15 octave above the left at all times. Spread sets how far apart the stages lie, not the stereo. Feedback is 0.89 of the dial either side of centre, and is taken from the second section of the chain from the end, or the eighth at most.
 

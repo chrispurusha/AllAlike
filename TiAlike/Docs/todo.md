@@ -58,7 +58,9 @@ One line per item. Measurements and reasoning go in `findings.md`, design in `de
 - A032 flat on one tone
 - A048 an extra tone here
 - A049 much weaker here
-- A053 ticking here: not in an offline render (note 48, 48 kHz, no sample spikes); CT suspects interpolation between waves - Wavetable Interpolation (C44, C64) is read nowhere in the engine; first settle whether A053's oscillators (shape 127, osc 2 wave 9) are in a wavetable mode at all
+- A053 zipper: the chorus (found by CT, 2026-11-09) - modulated effect bytes step once per block, and a step of Chorus Delay is 8 samples; the chorus now glides its delay and depth (tiEffects notes §13) - confirm by ear. The other effects reached by kFxDst (phaser, delay, reverb) still take their modulation in per-block byte steps
+- Delay modulation (A116 rate, A117 depth) is not built: `delay_times()` takes neither, and the tap is a whole sample set once per block - when it is built, read the line interpolated and move the tap per sample, or it will zipper
+- Delay Colour (A119): check it is applied (A053's bright feedback)
 - A060 wildly different
 - A062 distortion tonally different
 - A063 sounds like another patch altogether

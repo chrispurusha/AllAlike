@@ -618,6 +618,8 @@ static bool chorus_active(const uint8_t * a) {
     return (a[105] != 0) && ((a[103] != 0) || (a[0] < 12));
 }
 
+#define CHORUS_GLIDE_SECONDS    (0.01)   // notes §13
+
 static void chorus(tTiEffects * e, const uint8_t * a, float * left, float * right, uint32_t frames) {
     if (!chorus_active(a)) {
         return;
@@ -629,12 +631,22 @@ static void chorus(tTiEffects * e, const uint8_t * a, float * left, float * righ
     double swing = 0.5 * delay * (a[107] / 127.0);   // notes §13
     double rate  = chorus_rate(a[106]);
     double back  = 0.85 * ((double)a[109] - 64.0) / 64.0;
+    double glide = 1.0 - exp(-1.0 / (CHORUS_GLIDE_SECONDS * e->rate));
+
+    if (!e->chorusGliding) {
+        e->chorusDelay   = delay;
+        e->chorusSwing   = swing;
+        e->chorusGliding = true;
+    }
 
     for (uint32_t f = 0; f < frames; f++) {
+        e->chorusDelay += glide * (delay - e->chorusDelay);
+        e->chorusSwing += glide * (swing - e->chorusSwing);
+
         for (int ch = 0; ch < 2; ch++) {
             float *  io   = (ch == 0) ? left : right;
             double   wave = chorus_wave(e->chorusLfo, a[110]);
-            double   at   = delay - swing + (((ch == 0) ? swing : -swing) * wave);
+            double   at   = e->chorusDelay - e->chorusSwing + (((ch == 0) ? e->chorusSwing : -e->chorusSwing) * wave);
             double   from = (double)e->chorusAt + TI_CHORUS_LINE - fmin(fmax(at, 1.0), TI_CHORUS_LINE - 2.0);
             uint32_t i    = (uint32_t)from;
             double   frac = from - i;
@@ -1589,6 +1601,7 @@ static void forget_when_off(tTiEffects * e, const uint8_t * a, const uint8_t * b
 
     if (!chorus_on && e->wasOn[3]) {
         memset(e->chorusLine, 0, sizeof(e->chorusLine));
+        e->chorusGliding = false;
     }
 
     if (!delay_on && e->wasOn[4]) {

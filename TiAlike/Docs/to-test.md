@@ -18,3 +18,4 @@ Built but not yet checked by ear or in a host. Confirmed: delete the line. Faile
 - Virus TI menu (2026-11-02), with the instrument on USB and Link off: Read Banks A-D (about 8 min) - the presets' A-D should match an earlier backup of the RAM banks; then Write Presets D to Bank D with D unchanged - "all 128 read back the same"; then one edited preset in D written and read back
 - Load/Store Preset browsers sort by category (2026-11-09): the presets fall under their own categories
 - LFO sine Symmetry (2026-11-09): sounds with a sine LFO away from Symmetry 64, by ear against the instrument
+- A053's zipper gone with the chorus's delay and depth glided (2026-11-09)
