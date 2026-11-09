@@ -27,8 +27,8 @@ ONE_UP=lambda n: [str(i + 1) for i in range(n)]
 # (id, title, short, lo, hi, default, kind, names, displayBase, continuous)
 # kind: dial | list | bi (shows value-64) ; existing ids 0..10 keep their order and ranges
 P=[]
-def add(i,t,s,lo,hi,d,kind='dial',names=None,base=None,cont=False,flags=None,midi='SYNTHLIB_MIDI_NONE'):
-    P.append(dict(id=i,title=t,short=s,lo=lo,hi=hi,d=d,kind=kind,names=names,base=(lo if base is None else base),cont=cont,flags=flags,midi=midi))
+def add(i,t,s,lo,hi,d,kind='dial',names=None,base=None,cont=False,flags=None,midi='SYNTHLIB_MIDI_NONE',note=None):
+    P.append(dict(id=i,title=t,short=s,lo=lo,hi=hi,d=d,kind=kind,names=names,base=(lo if base is None else base),cont=cont,flags=flags,midi=midi,note=note))
 # existing
 add('Osc1Shape','Osc 1 Shape','Shape',0,9,1,'list',SHAPE1)
 add('Osc1Width','Osc 1 Pulse Width','Width',0,127,64)
@@ -83,7 +83,7 @@ for m in range(1,9):
     add('Mod%dTarget'%m,'Mod %d Target'%m,'Target',0,31,0,'list',TGT)
 add('ArpActive','Arp Active','Arp',0,2,0,'list',ARPACT)
 add('ArpRange','Arp Range','Range',0,9,0,names=ONE_UP(10))
-add('ArpTempo','Arp Tempo','Tempo',0,127,37,names=TEMPO)
+add('ArpTempo','Arp Tempo','Tempo',0,127,37,names=TEMPO,flags='SYNTHLIB_PARAM_HIDDEN')
 add('ArpClock','Arp Clock','Clock',0,19,12,'list',CLOCK)
 add('ArpPattern','Arp Pattern','Pattern',0,14,0)
 add('ArpMode','Arp Mode','Mode',0,6,0,'list',ARPMODE)
@@ -118,6 +118,15 @@ add('Hiss','Hiss','Hiss',0,1,0,'list',OFFON)
 # notes §41 (p2Plugin): the instrument's edit buffer kept in step with the sound, and its MIDI channel for the CCs
 add('HwLink','Link to Pulse 2','Link',0,1,0,'list',OFFON)
 add('HwChannel','Pulse 2 MIDI Channel','Channel',1,16,1)
+# the instrument's global Master Tune and Transpose (p2Plugin notes §59)
+add('MasterTune','Master Tune','Tune',420,460,440)
+add('Transpose','Transpose','Transp',-24,24,0)
+# p2Plugin notes §57: extra voices, the instance's own
+add('Voices','Voices','Voices',1,32,1)
+add('ControlX','Control X','Ctrl X',1,119,4,note="the instrument's global CONTROL X: which CC is the CONTROL-X mod source")
+add('ControlXIn','Control X Value','CtrlXIn',0,127,0,cont=True,flags='SYNTHLIB_PARAM_HIDDEN | SYNTHLIB_PARAM_NO_SAVE',note="  that controller's value, as it arrives")
+# the VCA's control leaking into the output (p2Plugin notes §43); appended, so nothing renumbers
+add('Thump','Thump','Thump',0,1,1,'list',OFFON,note="the VCA's control leaking into the output (p2Plugin notes §43); appended, so nothing renumbers")
 
 
 ROWS = ['Osc1Shape','Osc1Width','Osc1Semitone','Osc1Detune','Osc1Keytrack','Osc1Level',
@@ -135,7 +144,7 @@ ROWS = ['Osc1Shape','Osc1Width','Osc1Semitone','Osc1Detune','Osc1Keytrack','Osc1
 RAW_LOW = {'Osc1Semitone': 16, 'Osc2Semitone': 16, 'Osc3Semitone': 16}   # stored 16..112, shown -48..+48
 
 PAGES=[
- ('OSCILLATORS',[('OSC 1',(0.30,0.55,0.85),['Osc1Shape','Osc1Width','Osc1Semitone','Osc1Detune','Osc1Keytrack','Osc1Level']),
+ ('OSC',[('OSC 1',(0.30,0.55,0.85),['Osc1Shape','Osc1Width','Osc1Semitone','Osc1Detune','Osc1Keytrack','Osc1Level']),
                  ('OSC 2',(0.30,0.55,0.85),['Osc2Shape','Osc2Width','Osc2Semitone','Osc2Detune','Osc2Keytrack','Osc2Level']),
                  ('OSC 3',(0.30,0.55,0.85),['Osc3Shape','Osc3Routing','Osc3Semitone','Osc3Detune','Osc3Sync','Osc3Level']),
                  ('MIXER',(0.55,0.55,0.75),['NoiseLevel','UnisonDetune']),
@@ -144,15 +153,15 @@ PAGES=[
             ('MODULATION',(0.90,0.55,0.20),['FilterEnvAmount','FilterKeytrack','FilterVelocity'])]),
  ('AMP',[('AMP',(0.85,0.75,0.25),['Drive','DriveCurve','Volume','Pan','AmpVelocity']),
          ('MASTER',(0.65,0.65,0.65),['Master'])]),
- ('ENVELOPES',[('FILTER ENV',(0.90,0.55,0.20),['EnvFAttack','EnvFDecay','EnvFSustain','EnvFRelease','EnvFLoop','EnvFTrigger']),
+ ('ENV',[('FILTER ENV',(0.90,0.55,0.20),['EnvFAttack','EnvFDecay','EnvFSustain','EnvFRelease','EnvFLoop','EnvFTrigger']),
                ('AMP ENV',(0.85,0.75,0.25),['EnvAAttack','EnvADecay','EnvASustain','EnvARelease','EnvALoop','EnvATrigger'])]),
- ('LFOS',[('LFO 1',(0.40,0.75,0.45),['Lfo1Shape','Lfo1Speed','Lfo1Phase']),
+ ('LFO',[('LFO 1',(0.40,0.75,0.45),['Lfo1Shape','Lfo1Speed','Lfo1Phase']),
           ('LFO 2',(0.40,0.75,0.45),['Lfo2Speed','Lfo2Delay','Lfo2Phase'])]),
  ('MOD',[('MOD %d'%m,(0.70,0.45,0.75),['Mod%dSource'%m,'Mod%dAmount'%m,'Mod%dTarget'%m]) for m in range(1,9)]),
- ('ARP',[('ARPEGGIATOR',(0.65,0.65,0.65),['ArpActive','ArpMode','ArpRange','ArpClock','ArpTempo','ArpPattern']),
+ ('ARP',[('ARPEGGIATOR',(0.65,0.65,0.65),['ArpActive','ArpMode','ArpRange','ArpClock','ArpPattern']),
          ('TIMING',(0.65,0.65,0.65),['ArpStep','ArpSwing','ArpDelay','ArpLength','ArpAccent'])]),
- ('GLOBAL',[('PERFORMANCE',(0.65,0.65,0.65),['BendUp','BendDown','Osc1Fade','Osc2Fade']),
-            ('PLUG-IN',(0.65,0.65,0.65),['Oversample','Anomalies','Hiss','HwLink','HwChannel'])]),
+ ('GLOBAL',[('PERFORMANCE',(0.65,0.65,0.65),['BendUp','BendDown','Osc1Fade','Osc2Fade','MasterTune','Transpose','ControlX']),
+            ('PLUG-IN',(0.65,0.65,0.65),['Oversample','Voices','Anomalies','Hiss','Thump','HwLink','HwChannel'])]),
 ]
 
 ids={p['id']:i for i,p in enumerate(P)}
@@ -186,7 +195,7 @@ H.append('''/*
 // notes §1: appended to, never inserted into - ids are what projects save
 enum {''')
 for i,p in enumerate(P):
-    H.append('    %s%s,'%(cname(p['id']),' = 0' if i==0 else ''))
+    H.append('    %s%s,%s'%(cname(p['id']),' = 0' if i==0 else '',('  // '+p['note']) if p['note'] else ''))
 H.append('    kP2ParamCount\n};\n')
 H.append('extern const tSynthLibParam gP2Params[kP2ParamCount];')
 H.append('extern const tP2Page        gP2Pages[];')

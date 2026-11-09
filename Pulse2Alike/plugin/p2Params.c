@@ -67,8 +67,8 @@ static const char *const kNamesOversample[]       = {"1x", "2x", "4x"};
 static const char *const kNamesAnomalies[]        = {"OFF", "ON"};
 static const char *const kNamesArpAccent[]        = {"OFF", "LFO1", "LFO1*MODW", "LFO1*PRS", "LFO2", "LFO2*ENVA", "ENVF", "ENVA", "VELOCITY", "KEYTRACK", "PITCH FLW", "PITCHBEND", "MODWHEEL", "PRESSURE", "BREATH CT", "CONTROL-X", "V.RELEASE", "M-ACCU", "M-PRODUCT", "M-DELAY", "M-SMOOTH", "M-MIN", "M-MAX", "K-HIGHEST", "K-LOWEST"};
 static const char *const kNamesHiss[]             = {"OFF", "ON"};
-static const char *const kNamesThump[]            = {"OFF", "ON"};
 static const char *const kNamesHwLink[]           = {"OFF", "ON"};
+static const char *const kNamesThump[]            = {"OFF", "ON"};
 
 const tSynthLibParam     gP2Params[kP2ParamCount] = {
     {kP2ParamOsc1Shape,       "Osc 1 Shape",          "Shape",     eSynthLibUnitIndexed,     0.0,   9.0, 0.111111,   9, SYNTHLIB_MIDI_NONE,       SYNTHLIB_PARAM_LIST                                                    },
@@ -148,7 +148,7 @@ const tSynthLibParam     gP2Params[kP2ParamCount] = {
     {kP2ParamMod8Target,      "Mod 8 Target",         "Target",    eSynthLibUnitIndexed,     0.0,  31.0, 0.000000,  31, SYNTHLIB_MIDI_NONE,       SYNTHLIB_PARAM_LIST                                                    },
     {kP2ParamArpActive,       "Arp Active",           "Arp",       eSynthLibUnitIndexed,     0.0,   2.0, 0.000000,   2, SYNTHLIB_MIDI_NONE,       SYNTHLIB_PARAM_LIST                                                    },
     {kP2ParamArpRange,        "Arp Range",            "Range",     eSynthLibUnitGeneric,     0.0,   9.0, 0.000000,   9, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kP2ParamArpTempo,        "Arp Tempo",            "Tempo",     eSynthLibUnitGeneric,     0.0, 127.0, 0.291339, 127, SYNTHLIB_MIDI_NONE, SYNTHLIB_PARAM_HIDDEN                                                         },
+    {kP2ParamArpTempo,        "Arp Tempo",            "Tempo",     eSynthLibUnitGeneric,     0.0, 127.0, 0.291339, 127, SYNTHLIB_MIDI_NONE,       SYNTHLIB_PARAM_HIDDEN                                                  },
     {kP2ParamArpClock,        "Arp Clock",            "Clock",     eSynthLibUnitIndexed,     0.0,  19.0, 0.631579,  19, SYNTHLIB_MIDI_NONE,       SYNTHLIB_PARAM_LIST                                                    },
     {kP2ParamArpPattern,      "Arp Pattern",          "Pattern",   eSynthLibUnitGeneric,     0.0,  14.0, 0.000000,  14, SYNTHLIB_MIDI_NONE,                                                                             0},
     {kP2ParamArpMode,         "Arp Mode",             "Mode",      eSynthLibUnitIndexed,     0.0,   6.0, 0.000000,   6, SYNTHLIB_MIDI_NONE,       SYNTHLIB_PARAM_LIST                                                    },
@@ -192,7 +192,7 @@ const tSynthLibParam     gP2Params[kP2ParamCount] = {
     {kP2ParamHwChannel,       "Pulse 2 MIDI Channel", "Channel",   eSynthLibUnitGeneric,     1.0,  16.0, 0.000000,  15, SYNTHLIB_MIDI_NONE,                                                                             0},
     {kP2ParamMasterTune,      "Master Tune",          "Tune",      eSynthLibUnitGeneric,   420.0, 460.0, 0.500000,  40, SYNTHLIB_MIDI_NONE,                                                                             0},
     {kP2ParamTranspose,       "Transpose",            "Transp",    eSynthLibUnitGeneric,   -24.0,  24.0, 0.500000,  48, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kP2ParamVoices,          "Voices",               "Voices",    eSynthLibUnitGeneric,     1.0,  32.0,      0.0,  31, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kP2ParamVoices,          "Voices",               "Voices",    eSynthLibUnitGeneric,     1.0,  32.0, 0.000000,  31, SYNTHLIB_MIDI_NONE,                                                                             0},
     {kP2ParamControlX,        "Control X",            "Ctrl X",    eSynthLibUnitGeneric,     1.0, 119.0, 0.025424, 118, SYNTHLIB_MIDI_NONE,                                                                             0},
     {kP2ParamControlXIn,      "Control X Value",      "CtrlXIn",   eSynthLibUnitGeneric,     0.0, 127.0, 0.000000,   0, SYNTHLIB_MIDI_NONE,       SYNTHLIB_PARAM_HIDDEN | SYNTHLIB_PARAM_NO_SAVE                         },
     {kP2ParamThump,           "Thump",                "Thump",     eSynthLibUnitIndexed,     0.0,   1.0, 1.000000,   1, SYNTHLIB_MIDI_NONE,       SYNTHLIB_PARAM_LIST                                                    },
@@ -423,9 +423,10 @@ const char * const * p2_param_names(uint32_t id) {
         case kP2ParamArpAccent: return kNamesArpAccent;
 
         case kP2ParamHiss: return kNamesHiss;
-        case kP2ParamThump: return kNamesThump;
 
         case kP2ParamHwLink: return kNamesHwLink;
+
+        case kP2ParamThump: return kNamesThump;
 
         default: return NULL;
     }
@@ -550,11 +551,11 @@ static const tP2Control kSection21[]     = {
     {kP2ParamMod8Target, "Target", eP2ControlChoice,  31,   0.0, kNamesMod8Target},
 };
 static const tP2Control kSection22[]     = {
-    {kP2ParamArpActive,  "Arp",     eP2ControlChoice,   2, 0.0, kNamesArpActive},
-    {kP2ParamArpMode,    "Mode",    eP2ControlChoice,   6, 0.0, kNamesArpMode  },
-    {kP2ParamArpRange,   "Range",   eP2ControlDial,     9, 0.0, kNamesArpRange },
-    {kP2ParamArpClock,   "Clock",   eP2ControlChoice,  19, 0.0, kNamesArpClock },
-    {kP2ParamArpPattern, "Pattern", eP2ControlDial,    14, 0.0, NULL           },
+    {kP2ParamArpActive,  "Arp",     eP2ControlChoice,  2, 0.0, kNamesArpActive},
+    {kP2ParamArpMode,    "Mode",    eP2ControlChoice,  6, 0.0, kNamesArpMode  },
+    {kP2ParamArpRange,   "Range",   eP2ControlDial,    9, 0.0, kNamesArpRange },
+    {kP2ParamArpClock,   "Clock",   eP2ControlChoice, 19, 0.0, kNamesArpClock },
+    {kP2ParamArpPattern, "Pattern", eP2ControlDial,   14, 0.0, NULL           },
 };
 static const tP2Control kSection23[]     = {
     {kP2ParamArpStep,   "Step",   eP2ControlDial,    14,  0.0, kNamesArpStep  },
@@ -624,13 +625,13 @@ static const tP2Section kPage7Sections[] = {
 };
 
 const tP2Page           gP2Pages[]       = {
-    {"OSC",         kPage0Sections, 5},
-    {"FILTER",      kPage1Sections, 2},
-    {"AMP",         kPage2Sections, 2},
-    {"ENV",         kPage3Sections, 2},
-    {"LFO",         kPage4Sections, 2},
-    {"MOD",         kPage5Sections, 8},
-    {"ARP",         kPage6Sections, 2},
-    {"GLOBAL",      kPage7Sections, 2},
+    {"OSC",    kPage0Sections, 5},
+    {"FILTER", kPage1Sections, 2},
+    {"AMP",    kPage2Sections, 2},
+    {"ENV",    kPage3Sections, 2},
+    {"LFO",    kPage4Sections, 2},
+    {"MOD",    kPage5Sections, 8},
+    {"ARP",    kPage6Sections, 2},
+    {"GLOBAL", kPage7Sections, 2},
 };
 const uint32_t          gP2PageCount     = sizeof(gP2Pages) / sizeof(gP2Pages[0]);
