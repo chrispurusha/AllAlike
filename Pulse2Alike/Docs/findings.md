@@ -1452,6 +1452,7 @@ residue is 0.00-0.04 below self-oscillation, so it is one waveform, scaled.
   absolute level is good to that much.
 - 370 of the 500 presets are LP24: their thump is now inverted and smaller (x0.63 or less) than in the LP12-fitted
   build CT first heard.
-- **Backed out the same day** so CT can compare by ear: P020 (LP24) sounded different with it. The measurements stand;
-  the code to restore is in p2Plugin notes §43.
+- Backed out the same day so CT could compare by ear (P020, LP24, sounded different with it), and put back: CT heard
+  P043 (LP24, Resonance 90) with no thump on the instrument where the engine's single thump was LP12's full one;
+  the factor there is -0.07, 24 dB down.
 

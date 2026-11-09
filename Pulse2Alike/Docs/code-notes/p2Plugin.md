@@ -401,29 +401,8 @@ falling to x-0.06 at 96, BP12 x0.78 and HP12 x0.16 whatever the resonance; Cutof
 instrument, LP12 at Resonance 0 unchanged; LP24 near self-oscillation (Resonance 96) is ringing more than thump.
 Its filter envelope adds 0-1 dB on P017, not modelled.
 
-**Backed out 2026-11-09 for CT to compare by ear** (P020, LP24, sounded different with it). The engine is back to
-one thump for every filter type, LP12's at Resonance 0. To restore it, put this back above `anomalies_on()`:
-
-```c
-// notes §43: the thump's size and sign by the filter's output and its feedback k - LP12 at k 0 is the measured one
-static double thump_through_filter(tP2FilterMode mode, double k) {
-    switch (mode) {
-        case eP2FilterLp24: return -0.645 / pow(1.0 + (0.92 * k), 1.55);
-        case eP2FilterLp12: return 1.0 + (0.64 * k / (1.07 + k));
-        case eP2FilterBp12: return 0.78;
-        default:            return 0.16;
-    }
-}
-```
-
-and in the render loop's set-up make `thump`:
-
-```c
-    double         thump     = (plain_int(p, kP2ParamThump) != 0)
-                               ? (VCA_FEEDTHROUGH * thump_through_filter((tP2FilterMode)plain_int(p, kP2ParamFilterType),
-                                                                         p2_filter_feedback(fmin(127.0, fmax(0.0, p->resonance + p->mod[eModResonance])))))
-                               : 0.0;   // notes §43
-```
+Backed out the same day for CT to compare by ear (P020, LP24, sounded different with it), and put back: on P043
+(LP24, Resonance 90, factor -0.07) the instrument has almost no thump where the single thump had LP12's full one.
 
 ## 44. The instrument's mild distortion: per oscillator, and after the filter
 A triangle through LP24 with its cutoff just above the fundamental (`postsat/`: osc levels 40-127, osc 3 on MIX and

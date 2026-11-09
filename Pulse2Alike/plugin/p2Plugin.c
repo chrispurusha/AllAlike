@@ -940,6 +940,16 @@ static void control_tick(tP2Plugin * p, double dt) {
     drive_gate(p, dt);
 }
 
+// notes §43: the thump's size and sign by the filter's output and its feedback k - LP12 at k 0 is the measured one
+static double thump_through_filter(tP2FilterMode mode, double k) {
+    switch (mode) {
+        case eP2FilterLp24: return -0.645 / pow(1.0 + (0.92 * k), 1.55);
+        case eP2FilterLp12: return 1.0 + (0.64 * k / (1.07 + k));
+        case eP2FilterBp12: return 0.78;
+        default:            return 0.16;
+    }
+}
+
 static bool anomalies_on(const tP2Plugin * p) {
     return plain_int(p, kP2ParamAnomalies) != 0;
 }
@@ -1623,7 +1633,10 @@ static void render_engine(void * inst, const float *const * in, uint32_t numIn, 
     double         darkInv   = NOISE_DARK_PER_STEP * fmax(0.0, fmin(127.0, plain(p, kP2ParamNoiseLevel) + p->mod[eModNoiseLevel]) - NOISE_DARK_FROM);
     double         dark      = (darkInv > 0.0) ? (1.0 - exp(-2.0 * M_PI / sqrt(darkInv) / rateIn)) : 1.0;   // notes §64
     double         hiss      = (plain_int(p, kP2ParamHiss) != 0) ? sqrt(rateIn / NOISE_REFERENCE_RATE) : 0.0;
-    double         thump     = (plain_int(p, kP2ParamThump) != 0) ? VCA_FEEDTHROUGH : 0.0;   // notes §43
+    double         thump     = (plain_int(p, kP2ParamThump) != 0)
+                               ? (VCA_FEEDTHROUGH * thump_through_filter((tP2FilterMode)plain_int(p, kP2ParamFilterType),
+                                                                         p2_filter_feedback(fmin(127.0, fmax(0.0, p->resonance + p->mod[eModResonance])))))
+                               : 0.0;   // notes §43
     int            voices    = para_voices(p);
     bool           unison    = unison_mode(p) != 0;
     bool           osc3Off   = unison || (voices > 0);                                // notes §8: the unison and paraphonic modes take osc 3 (and 2) over
