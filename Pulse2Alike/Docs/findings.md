@@ -1411,3 +1411,16 @@ The rig is now QU-24 inputs 23/24 at 48 kHz. CT heard P018 (UNISON-P) 5 dB quiet
   not have in the engine. Not chased.
 - `tools/p2render` takes `stereo` (both outputs); without it the WAV is the left output only, which cannot show pan.
 
+## 2026-11-09 - PARA-8 level, P017 (`48k-qu/para/`, `48k-qu/p017/`)
+
+CT heard P017 (PARA-8) 1 dB quiet, better with osc 1 on SAW.
+- **The test sound, one held note against a saw at the same Level:** PARA-8 15.4 dB down at width 64, 11.2 at 127,
+  the same at Level 40. The engine had each 0.8-0.9 dB further down. PARA8_VOICE_LEVEL 0.263 -> 0.29: all within
+  0.1 dB.
+- PARA-4 in the test sound reads 1.8 dB loud in the engine, but there its second pulse is at osc 1's exact pitch,
+  so the pair's level is a draw on the phase between them. Not a measurement of the gain; left at 0.243.
+- **P017 at note 48, velocity 100:** the level is the same with osc 1 on PARA-8, PULSE or SAW and with its PW mod
+  off, on the instrument and in the engine: through Cutoff 0 and Env F's slow attack little of osc 1 is heard on one
+  note. What differs is the thump: the instrument holds -38 to -40 dBFS 80-200 ms after it where the engine dips to
+  -63, and from 0.6 s the instrument comes back up to about -66 where the engine goes on falling.
+

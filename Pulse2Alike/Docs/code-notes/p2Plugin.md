@@ -79,7 +79,9 @@ measured (findings, "paraphonic modes"). A PARA-8 voice is one pulse at osc 1's 
 voice adds a second pulse at osc 2's, scaled by osc 2's level relative to osc 1's. A held note again reuses its
 voice. A new note takes a free voice, else steals the most recent, which is what the captures show. Voices fade
 in and out over a provisional 20 ms, until OSC1/OSC2 ENVA FADE is measured. The envelopes keep the mono trigger
-rules (the first note from silence, or every note in RET modes).
+rules (the first note from silence, or every note in RET modes). A PARA-8 voice's gain is 0.29: one held note 15.4 dB under
+a saw at the same Level (width 64; 11.2 at width 127, the same at Level 40), rms against a saw and a pulse taken in
+the same session (findings 2026-11-09; 0.263 had it 0.8 dB quiet).
 
 ## 13. The mod matrix
 Eight slots, each source × (amount − 64)·|amount − 64| / 32, summed per target on the control tick, in the

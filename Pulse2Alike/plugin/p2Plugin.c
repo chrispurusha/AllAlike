@@ -174,7 +174,7 @@ enum {
 #define eModMathFirst            (25)
 #define DELAY_LINE_MS            (1024)
 
-#define PARA8_VOICE_LEVEL        (0.263)    // notes §12: one voice against the same pulse played mono, measured
+#define PARA8_VOICE_LEVEL        (0.29)     // notes §12: one voice against the same pulse played mono, measured
 #define PARA4_VOICE_LEVEL        (0.243)
 #define PARA_LOWPASS_HZ          (9000.0)   // notes §58
 #define NOISE_FLOOR              (1e-5)     // about -100 dB: the analogue floor
