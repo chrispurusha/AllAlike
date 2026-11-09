@@ -44,7 +44,7 @@ One line per item. Measurements and reasoning go in `findings.md`, design in `de
 - Start with those that use no distortion: A012 A016 A019 A021 A048 A053 A063 A067 A071 A086, and C007
 - A076 and A064 (Rectifier) are not the distortion: with it off on both, the TI and the engine differ as much (A076 octave shape 3.8 -> 4.1 dB rms, the same pattern)
 - C007 very different (FM?)
-- A006 delays very different: it uses Pattern 5+3, one of the eleven patterns (2+5 to 5+5) not built until 2026-11-09 (tiEffects notes §8) - confirm by ear
+- A006 delays very different: Pattern 5+3 - the eleven patterns 2+5 to 5+5 built 2026-11-09; the routing still differs: on the instrument the right's tap is a single echo fed into the left's recirculating loop (findings 2026-11-09) - confirm on a second pattern, then rebuild the pattern delay
 - A012 brighter on the hardware
 - A014 distortion tonally different
 - A016 more tones on the hardware

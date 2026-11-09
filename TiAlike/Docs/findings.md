@@ -176,3 +176,15 @@ A019 A021 A048 A053 A063 A067 A071 A086), and C007 none either. Note 48, velocit
   osc 2's pitch track against the instrument 0.15 / 0.18 / 0.28 / 0.29 semitones rms at Symmetry 96 / 112 / 127 / 0
   (amount 96, a +-2 st swing); the phase-bent sine had gone to -11 st at 127 where the instrument stays at the top.
 
+## 2026-11-09 - A006's delay: Pattern 5+3 on the instrument
+
+A006 uses Delay Mode 20, Pattern 5+3. Patterns 2+5 to 5+5 (modes 12-22) had not been built and played as 1+1;
+now built (tiEffects notes §8). Against the instrument, a 0.08 s note at 60, echo onsets in sixteenths at the patch's
+own tempo, 135 BPM (the instrument alone runs at the patch tempo; the plug-in always at the host's):
+- Left: 0, 2.9, 5.0, 7.9, 10.0, 12.9, 15.3, 17.9 - Right: 0, 3.0, 5.5, 8.0, 13.0 (the right's after 3 22 dB down).
+- Levels: Right 3 at -33.5 dB; Left 5 at -51.6, 8 at -43.1, 10 at -56.3, 13 at -47.8 (the dry note is on the left only).
+- So the 5 tap recirculates on the left (5, 10, 15) and the right's 3 echo is fed into that loop (8, 13, 18), but not
+  back into the right. The engine reads one line at both taps, the left recirculating, so the right hears 3, 8, 13 and
+  the left only 5, 10 - the shape to rebuild: the right a single 3-sixteenth tap of the input, its output into the left's
+  5-sixteenth loop. Check the rule on a second pattern (e.g. 2+5, 4+3) before building it.
+
