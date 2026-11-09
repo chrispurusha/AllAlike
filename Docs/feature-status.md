@@ -1,17 +1,17 @@
 # Feature status
 
 Where each plug-in stands: what is **missing**, what is **built but needs more work**, and what is **built but not
-yet checked** in a host or against the instrument. Updated 2026-11-09 (Pulse2Alike's unison, PARA-8 and thump refitted through the QU-24; TiAlike's Bank A heard against the instrument; preset browsers by category).
+yet checked** in a host or against the instrument. Updated 2026-11-09 (Pulse2Alike's unison, PARA-8 and thump refitted through the QU-24, P016-P029 heard; TiAlike's Bank A heard against the instrument, its 11-08 oscillator, portamento and LFO work; preset browsers by category).
 
 This is a summary for planning. The working lists stay in each plug-in's `Docs/todo.md` (one line per item) and
 `Docs/to-test.md`; the reasoning and measurements in `Docs/findings.md` and `Docs/code-notes/`. Work spanning the
 plug-ins is listed in `Docs/todo.md` beside this file. When an item here is done, change it there first, then here.
 
-| | Pulse2Alike | TiAlike | Sn2Alike |
-|---|---|---|---|
-| State | Beta: the whole instrument plays | Work in progress: the voice is nearly complete, effects partly | Work in progress: oscillators and filter done, most modulation to come |
-| Scope | One sound per instance, optional extra voices | One Single per instance, a voice limit, no Multi | One program per instance (to confirm), no performances yet |
-| Hardware link | Built: follows the sound, backs up the instrument's sounds, stores one sound to a slot | Built: follows the sound; bank backup and restore built, not yet tried | Built: follows the sound, reads a backup |
+| | Pulse2Alike | TiAlike | Sn2Alike | Nl3Alike |
+|---|---|---|---|---|
+| State | Beta: the whole instrument plays | Work in progress: the voice is nearly complete, effects partly | Work in progress: oscillators and filter done, most modulation to come | Started: the instrument's filter, Saw and Program; a placeholder engine for the rest |
+| Scope | One sound per instance, optional extra voices | One Single per instance, a voice limit, no Multi | One program per instance (to confirm), no performances yet | One Program per instance |
+| Hardware link | Built: follows the sound, backs up the instrument's sounds, stores one sound to a slot | Built: follows the sound; bank backup and restore built, not yet tried | Built: follows the sound, reads a backup | Built: sends the whole program; reading its 1024 programs built, untried |
 
 ## Across all of them
 
@@ -29,7 +29,7 @@ Missing everywhere, or built in one and wanted in the others:
   octave, its dial shows it - a colour change, the same in every Alike - so the setting where the filter follows the
   keyboard like an oscillator can be found without reading numbers. Each Alike's 1:1 point comes from its own law
   (Nl3Alike's KBT is a switch whose On is 1:1; TiAlike's and Sn2Alike's from their measured key-follow curves).
-- **Writing sounds back to the instrument.** Pulse2Alike's Store to Slot is built (a test store to P450 read back), Restore Presets waits; TiAlike's bank write is built but untried; Sn2Alike only reads.
+- **Writing sounds back to the instrument.** Pulse2Alike's Store to Slot is built (the store itself proven by a test dump to P450 that read back; the menu command not yet tried from a host), Restore Presets waits; TiAlike's bank write is built but untried; Sn2Alike only reads.
 - **Link sends the sound only** (CT 2026-11-08), in every Alike: notes, bend, wheel and pedal reach the instrument from
   the host's own MIDI route, never from Link, so a key sounds once (forwarded both ways, every note played twice -
   two voices beating in Poly on the Virus TI). Pulse2Alike never forwarded them; TiAlike, Sn2Alike and Nl3Alike did
@@ -62,10 +62,10 @@ Missing everywhere, or built in one and wanted in the others:
 ## Pulse2Alike
 
 **Missing**
-- Restore Presets to Pulse 2 (flash writes, waiting for a go-ahead). Store Sound to Pulse 2 Slot is built (2026-11-06, P001-P499; P500 is the random generator and is never written), not yet tried from a host.
+- Restore Presets to Pulse 2 (flash writes, waiting for a go-ahead). Store Sound to Pulse 2 Slot is built (2026-11-06, P001-P499; P500 is the random generator and is never written): a test store to P450 read back, the menu command not yet tried from a host.
 
 **Needs more work**
-- **Drive.** Mono, as on the instrument (one circuit ahead of the two VCAs; `code-notes/p2Plugin.md` §60). The model is at its limit: a rebuild as one gain stage plus a fixed clipper per curve is planned (`code-notes/p2Drive.md` §9). FUZZ is close by ear at low and middle Drive, not at 127, and its even harmonics do not grow with Drive; quiet inputs are not lifted as on the instrument. TUBE at high Drive is a near-switch the present chain cannot make, and is 10 dB loud on noise.
+- **Drive.** Mono, as on the instrument (one circuit ahead of the two VCAs; `code-notes/p2Plugin.md` §60). Refitted 2026-11-06 (`code-notes/p2Drive.md` §10: FUZZ's bias now acts, a cubic for TUBE; P003's sustain -15 -> -6 dB), for CT to hear. The model is at its limit: a rebuild as one gain stage plus a fixed clipper per curve is planned (`code-notes/p2Drive.md` §9). FUZZ is close by ear at low and middle Drive, not at 127, and its even harmonics do not grow with Drive; quiet inputs are not lifted as on the instrument. TUBE at high Drive is a near-switch the present chain cannot make, and is 10 dB loud on noise.
 - **Filter.** LP12's stopband 2.5 dB high at 1-2.5 kHz at cutoff 0; level sweeps for its nonlinearity and lower-level resonance sweeps still to take.
 - **Oscillators.** Levels against pitch and Level now within 0.4 dB (2026-11-06); the toggle flip (an anomaly) built for the pulse. The triangle at full Level (too rounded at the top, low odd harmonics too strong); pulses at full Level 2.4 dB bright at 16 kHz; the noise now matches at every Level (2026-11-06); the saw's reset and ramp shape against pitch; APW mixed with other sources; X3-PWM with sync.
 - **Osc 3 routings.** LEVEL2 1.5-4 dB loud below osc 2 Level 101; the VCF, DRIVE and FB depths are guesses beyond what was measured; FB alone does not sing as the instrument's does.
@@ -75,9 +75,15 @@ Missing everywhere, or built in one and wanted in the others:
 - **Voice modes.** Unison and PARA-8 levels refitted (2026-11-09): every unison case within 0.4 dB of the instrument,
   PARA-8 within 0.1 dB, which settles P017-P019's levels; PARA-4's voice gain unchecked.
 - **Modulation.** The source and target lists match the instrument's; CONTROL-X is built (2026-11-06). The math sources (M-DELAY, M-SMOOTH, M-PRODUCT/MIN/MAX) want captures; the less-used targets want spot checks; Amp Velocity's law away from 64 and 127.
-- **Arpeggiator.** What Arp Pattern selects; the SOFT and HARD velocity offsets.
-- **Sounds by ear:** P001-P015 close (CT 2026-11-06) apart from P003, the only one with drive on; P016 onwards still to
-  hear. The measured residues of the close ones are parked in `todo.md`.
+- **Arpeggiator.** What Arp Pattern selects; the SOFT and HARD velocity offsets. Step events 9-15 now play as NORM, as
+  on the instrument (they were OFF, which put P022 out; 2026-11-07) - to check against a fresh take.
+- **Sounds by ear:** P001-P015 close (CT 2026-11-06) apart from P003, the only one with drive on. P016-P029 heard
+  (CT 2026-11-07): P021's fizz fixed; open are P016 (+15 dB fundamental, BP12 at resonance 103), P029's decay, the
+  filter envelope's 1.08 time scale and P021's bright attack; P019 3 dB quiet (11-09). P030 onwards still to hear. A
+  library-wide level check against fresh takes is still to do. The measured residues of the close ones are parked in
+  `todo.md`.
+- **Stray notes** (CT 2026-11-07): three causes found with `tools/notefuzz` and fixed (voices held across a change of
+  Voices, the pedal retriggering held notes, the arpeggiator leaving voice 0 held) - CT to confirm they have gone.
 
 **Built, not yet checked** - the full list is `to-test.md`. The big ones: the plug-in in a real host end to end (load, panel, menus, presets, program changes, project reopen); Drive by ear; the arpeggiator against the instrument; Link and the backup in Live; extra voices through one shared drive; the refitted thump by ear and by filter type.
 
@@ -93,19 +99,31 @@ Missing everywhere, or built in one and wanted in the others:
 
 **Needs more work**
 - **Smooth Mode settled on the hardware (2026-11-06):** no mode glides; Off/On/Auto/Note act at once, the Quantise values hold a change to the next tempo division - built.
-- **Oscillator models** (Wave PWM, Grain, Formant, built 2026-11-02): with Detune on, the Complex models make a half-frequency component 24 dB down that the reference does not; high Formant or Sync on rich tables keeps up to 2 dB too much at the top. Wavetables 7, 35 and 77 are missing content above the 64th partial.
+- **Next against the firmware probe, bank C:** AnlogBD's tail (23.5 dB late), Acidica's LFOs, 3-Dumm's tail, Bombers'
+  effects. Env Mode before Mono built (2026-11-08; CuttaD6's gap 11.4 -> 3.3 dB).
+- **Oscillator models** (Wave PWM, Grain, Formant, built 2026-11-02): the Complex models' half-frequency energy with
+  Detune matches the instrument within about 2 dB (checked 2026-11-08); high Formant or Sync on rich tables keeps up to
+  2 dB too much at the top.
+- **Wavetables:** the instrument's frames, versions and read built (2026-11-08). Still out: between frames a little of
+  the next frame is mixed in where Smooth 127 should hold one alone; table 34 7.7 dB off at C2 and C5; tables 88 and 1
+  on a few partials; the 8-, 4- and 2-partial versions not exact truncations on 11% of frames.
+- **Portamento by key mode** (2026-11-08): every mode matches the reference, separated and legato; the glide's tail is
+  a little slow, to check on the hardware.
+- **Velocity routes:** to Pulse Width within 0.1 dB; to FM follows, about 15% short at full (checked 2026-11-08).
 - **Bank A by ear** (CT 2026-11-09): about 30 Singles differ from the instrument, listed in `todo.md`; the ten without
   distortion first. Traced so far: A006 to the pattern delay's routing, A021 to its LFO assigns acting on LFO 1 -> osc 2;
   A053's zipper fixed (the chorus's delay and depth now glide, and the phaser, delay and reverb glide their modulated
   settings too). Delay Colour to check is applied.
 - **LFOs:** the sine's Symmetry refitted from captures (2026-11-09), to check against the reference; Symmetry on the saw,
   square and S&H against the instrument.
-- **Oscillators generally:** Osc 2 Detune drift built (2026-11-08), to hear against the hardware; start phases (free-running and fixed) do not yet line up for a null; a cent flat when free-running and 0.3 cents sharp otherwise; about 6 dB down at note 108; Ring at the same pitch; HyperSaw's cross-sync frequency.
+- **Oscillators generally:** Osc 2 Detune drift built (2026-11-08), to hear against the hardware; start phases (free-running and fixed) do not yet line up for a null; a cent flat when free-running and 0.3 cents sharp otherwise; Ring at the same pitch; HyperSaw's cross-sync frequency. The level drop at note 108 did not reproduce (2026-11-08: within 0.2 dB of the reference).
 - **Filters:** Serial 6's second section carries no resonance (close but not exact above 64); the analog modes' self-oscillation pitch (0.9% low) and high-frequency floor; Osc Volume's upper half into the analog filter.
 - **Saturation:** curves 6-14 approximate or blended, their key follow missing; the Rate and Bit Reducers at high drive.
 - **Effects built but approximate:** Distortion Mint, Treble Booster, High Cut, Tone; the Phaser's Spread and feedback extremes; the Filter Bank's in-between shapes, Vowel at high resonance, Stereo Phase; EQ's mid cut too wide; the Reverb's top octave 4-6 dB hot; Delay Clock's times wander with tempo.
 - **Punch and note starts:** Punch's decay law and sign cases; the first millisecond of a note; late release.
-- **Worst library Singles** still unexplained: Theory, RuffBelsBC, DRY DRUM.
+- **Worst library Singles**, all now explained: Theory was the LFO rate law below 48 (fixed 2026-11-08, error 18.5 ->
+  3.8; what is left is a free-running LFO's phase); RuffBelsBC is HyperSaw's cross-oscillator sync; DRY DRUM is the
+  error measure, not the sound (it scores the instrument's noise floor above a 46 Hz sine).
 
 **Built, not yet checked** - `to-test.md`: the first build in a host end to end; Link and Filter Link; patch loading and presets; the envelopes and Overdrives by ear; the Virus TI menu's bank backup and restore with the instrument connected; the chorus and effect glides, the pattern
 delays, the sine LFO's Symmetry.
@@ -124,13 +142,16 @@ delays, the sine LFO's Symmetry.
 **Needs more work**
 - **Oscillator stretch law:** nulls stop near -31 dB.
 - **Level and peaks:** voices peak about 3 dB over the instrument and chords about 1.7x lower in crest factor, so Distortion and the output ceiling are driven differently; A001 22-26 dB dark above 3 kHz; Distortion at low Volume too clean; Volume 127 with Distortion on 2.5 dB short.
-- **Envelopes:** Sustain Time's curve; the Trigger values beyond Retrigger and Legato; Glissando and the fixed Glide types.
+- **Envelopes:** the amp envelope's Sustain Rate measured (64 and up flat; below 64 it falls, doubling about every 4.7
+  steps) and Time 127 holds; Sustain Time's curve still to measure. Env 2 Delay seen on the hardware (64 arrives
+  between 0.1 and 1.2 s, 2026-11-08), its law not yet measured; the reference emulator ignores it, so LFO Delay's law
+  wants rechecking on the hardware too. The Trigger values beyond Retrigger and Legato; Glissando and the fixed Glide types.
 - **Glide** (2026-11-02, from the instrument by ear): Normal glides with a note held and starts from the pitch reached, mid-glide or not - built. In poly each voice seems to glide from its own last pitch: built that way, still to confirm.
 - **Odd sounds:** SuperStrings1 about 18 dB loud and decaying while held; the Vanilla group 3 dB quiet; a handful of outliers (TB1, BubbleArp, China Cymbal, Ride 2, Timpani and others).
 - **Voice pool:** notes sum as on the instrument when unison is off (checked on the hardware, 2026-11-02), but the instrument has a fixed number of voices (24 on the unit measured) and heavy unison runs out of them, so its chords grow much less; this plug-in has no pool, so unison chords come out louder.
 - **Checks owed:** Filter Overdrive and Q Normalise against the reference again.
 
-**Built, not yet checked** - `to-test.md`: almost everything outside the filter and oscillators has only been run offline: the Filter page in a host, program changes, mono and legato, bend and wheel, the LFO page, Link, and Read from Hardware.
+**Built, not yet checked** - `to-test.md`: almost everything outside the filter and oscillators has only been run offline: the Filter page in a host, program changes, mono and legato, bend and wheel, the LFO page, Link (its SysEx ID now taken from the instrument's identity reply, 2026-11-08), and Read from Hardware.
 
 ## Nl3Alike
 
