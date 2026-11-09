@@ -79,3 +79,9 @@ An oscillator's Wave byte is a wave in the Classic and HyperSaw models and a wav
 A read goes through the import's confirm, but replaces only the banks it read: the other presets are kept. A write is
 always confirmed, and suggests a read first. A progress box shows over the panel while either runs. The transfer is
 driven from the editor's frame, so it pauses while the editor is closed and carries on when it opens.
+
+## 15. Categories in the preset browsers
+Load Preset and Store Preset sort by category: each single's Category 1 (page B, byte 123) under the 22 names the
+instrument shows (Off, Lead, Bass, Pad, Decay, Pluck, Acid, Classic, Arpeggiator, Effects, Drums, Percussion, Input,
+Vocoder, Favourite 1-3, Organ, Piano, String, FM, Digital). Category 2 is not shown. A value past the list (a few
+presets hold 127) is shown as Off.

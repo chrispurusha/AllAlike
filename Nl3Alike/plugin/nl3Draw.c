@@ -431,6 +431,19 @@ void nl3_draw_store_preset(int number) {
 static tBankBrowserItem gSlotItems[NL3_PRESETS];
 static char             gSlotNames[NL3_PRESETS][NL3_SINGLE_NAME_LENGTH + 8];
 
+// notes §13: a program's Sound Category (byte 23 of its dump), as the instrument names it; 14 is no category
+static const char *const kCategoryNames[] = {"Acoustic", "Arpeggio", "Bass", "Classic", "Drum", "Fantasy", "FX", "Lead",
+                                             "Organ", "Pad", "Piano", "Synth", "User1", "User2", "No Cat"};
+#define CATEGORY_COUNT    ((uint32_t)(sizeof(kCategoryNames) / sizeof(kCategoryNames[0])))
+#define CATEGORY_AT       (23)
+
+static uint8_t slot_category(int n) {
+    const uint8_t * single = nl3_presets_single(n);
+    uint8_t         c      = (single != NULL) ? single[CATEGORY_AT] : (uint8_t)(CATEGORY_COUNT - 1);
+
+    return (c < CATEGORY_COUNT) ? c : (uint8_t)(CATEGORY_COUNT - 1);   // out of range is shown as No Cat
+}
+
 static void fill_slot_items(void) {
     char label[8];
 
@@ -440,7 +453,7 @@ static void fill_slot_items(void) {
         nl3_preset_label(n, label, sizeof(label));
         snprintf(gSlotNames[n - 1], sizeof(gSlotNames[0]), "%s %s", label, nl3_presets_name(n));
         gSlotItems[n - 1] = (tBankBrowserItem){
-            gSlotNames[n - 1], 0, (uint32_t)(((n - 1) / NL3_BANK_SIZE) + 1), (uint32_t)(((n - 1) % NL3_BANK_SIZE) + 1)
+            gSlotNames[n - 1], slot_category(n), (uint32_t)(((n - 1) / NL3_BANK_SIZE) + 1), (uint32_t)(((n - 1) % NL3_BANK_SIZE) + 1)
         };
     }
 }
@@ -463,12 +476,12 @@ static void on_store_slot(bool confirmed, uint32_t bank1Indexed, uint32_t locati
 
 void nl3_draw_load_preset_browser(void) {
     fill_slot_items();
-    open_bank_browser("Load Preset", "1:001-8:128, as the instrument's eight banks of 128.", "Load", gSlotItems, NL3_PRESETS, NULL, 0, on_load_slot);
+    open_bank_browser("Load Preset", "1:001-8:128, as the instrument's eight banks of 128.", "Load", gSlotItems, NL3_PRESETS, kCategoryNames, CATEGORY_COUNT, on_load_slot);
 }
 
 void nl3_draw_store_preset_browser(void) {
     fill_slot_items();
-    open_bank_browser("Store Preset", "The slot to store the sound as it is now into.", "Store...", gSlotItems, NL3_PRESETS, NULL, 0,
+    open_bank_browser("Store Preset", "The slot to store the sound as it is now into.", "Store...", gSlotItems, NL3_PRESETS, kCategoryNames, CATEGORY_COUNT,
                       on_store_slot);
 }
 

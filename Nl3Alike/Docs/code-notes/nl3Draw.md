@@ -71,3 +71,8 @@ no preset, Next is 1:001. Store always confirms, naming what the slot holds; Rev
 ## 12. Import and export
 Import replaces all 1536 after a confirm naming how many were found (nl3Patch notes §6). Export writes the 512 as one
 `.syx`, which Import reads back.
+
+## 13. Categories in the preset browsers
+Load Preset and Store Preset sort by category: each program's Sound Category (byte 23 of its dump) under the names
+the manual lists (Acoustic, Arpeggio, Bass, Classic, Drum, Fantasy, FX, Lead, Organ, Pad, Piano, Synth, User1, User2),
+and 14, which the factory Init sound holds, as No Cat - the instrument's 'Name: No Cat'. Past the list is No Cat too.

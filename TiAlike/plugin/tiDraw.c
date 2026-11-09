@@ -435,13 +435,28 @@ void ti_draw_store_preset(int number) {
 static tBankBrowserItem gSlotItems[TI_PRESETS];
 static char             gSlotNames[TI_PRESETS][TI_SINGLE_NAME_LENGTH + 8];
 
+// notes §15: a single's Category 1 (page B, byte 123), as the instrument names it
+static const char *const kCategoryNames[] = {"Off", "Lead", "Bass", "Pad", "Decay", "Pluck", "Acid", "Classic",
+                                             "Arpeggiator", "Effects", "Drums", "Percussion", "Input", "Vocoder",
+                                             "Favourite 1", "Favourite 2", "Favourite 3", "Organ", "Piano", "String",
+                                             "FM", "Digital"};
+#define CATEGORY_COUNT    ((uint32_t)(sizeof(kCategoryNames) / sizeof(kCategoryNames[0])))
+#define CATEGORY_AT       (9 + 128 + 123)   // the dump's header, page A, then page B's byte 123
+
+static uint8_t slot_category(int n) {
+    const uint8_t * single = ti_presets_single(n);
+    uint8_t         c      = (single != NULL) ? single[CATEGORY_AT] : 0;
+
+    return (c < CATEGORY_COUNT) ? c : 0;   // out of range is shown as Off
+}
+
 static void fill_slot_items(void) {
     (void)ti_presets_refresh();
 
     for (int n = 1; n <= TI_PRESETS; n++) {
         snprintf(gSlotNames[n - 1], sizeof(gSlotNames[0]), "%s", ti_presets_name(n));   // the browser shows the slot
         gSlotItems[n - 1] = (tBankBrowserItem){
-            gSlotNames[n - 1], 0, (uint32_t)(((n - 1) / TI_BANK_SIZE) + 1), (uint32_t)(((n - 1) % TI_BANK_SIZE) + 1)
+            gSlotNames[n - 1], slot_category(n), (uint32_t)(((n - 1) / TI_BANK_SIZE) + 1), (uint32_t)(((n - 1) % TI_BANK_SIZE) + 1)
         };
     }
 }
@@ -464,12 +479,12 @@ static void on_store_slot(bool confirmed, uint32_t bank1Indexed, uint32_t locati
 
 void ti_draw_load_preset_browser(void) {
     fill_slot_items();
-    open_bank_browser_lettered("Load Preset", "A001-W128, as banks A-W of 128.", "Load", gSlotItems, TI_PRESETS, NULL, 0, 1, on_load_slot);
+    open_bank_browser_lettered("Load Preset", "A001-W128, as banks A-W of 128.", "Load", gSlotItems, TI_PRESETS, kCategoryNames, CATEGORY_COUNT, 1, on_load_slot);
 }
 
 void ti_draw_store_preset_browser(void) {
     fill_slot_items();
-    open_bank_browser_lettered("Store Preset", "The slot to store the sound as it is now into.", "Store...", gSlotItems, TI_PRESETS, NULL, 0, 1,
+    open_bank_browser_lettered("Store Preset", "The slot to store the sound as it is now into.", "Store...", gSlotItems, TI_PRESETS, kCategoryNames, CATEGORY_COUNT, 1,
                       on_store_slot);
 }
 
