@@ -165,3 +165,13 @@ and the four morph groups; its programs read in and write back byte for byte. **
 mapping), single-parameter MIDI to the instrument, and reading its 1024 programs is built but untried. See
 `Nl3Alike/Docs/todo.md`.
 
+
+## OneShot
+
+Started 2026-11-09: a one-sample player, one sample per instance held in memory, meant for drum pads with ordinary
+effect plug-ins after it. Not a reproduction; it shares only SynthLib and the panel's look.
+**Built:** WAV/AIFF loading; Prev/Next through the sample's folder with play-on-load; a band-limited windowed-sinc
+interpolator (images and aliases near -88 dB); AHR or ADSR envelope with curves (Attack fine in its first 5 ms);
+Start with snapping to zero crossings; tune, key tracking, velocity, pan and volume (smoothed); One Shot / Gate,
+Poly / Mono; Reset. **Missing**: a category browser (Snare, Closed HH...) with search; OGG; reverse; keeping the sample
+inside the project. **Built, not yet checked**: everything in a real host - see `OneShot/Docs/to-test.md`.

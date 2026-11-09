@@ -29,6 +29,7 @@ PRODUCTS=(
     "TiAlike|TIA|A reproduction inspired by the Access Virus TI's single-patch engine. Work in progress."
     "Sn2Alike|SN2|A reproduction inspired by the Novation Supernova II. Work in progress."
     "Nl3Alike|NL3|A reproduction inspired by the Clavia Nord Lead 3. Work in progress: the filter is the instrument's, the rest a placeholder."
+    "OneShot|OS|A one-sample player for drum pads: AHR/ADSR envelope with curves, start with zero-crossing snap. Work in progress."
 )
 
 WORK=$(mktemp -d)   # never on a host's VST3 search path, and never a working build/ directory

@@ -1,5 +1,5 @@
 #!/bin/zsh
-# Build and install all three plug-ins. Arguments go to each do-plugin:
+# Build and install every plug-in. Arguments go to each do-plugin:
 #
 #   ./do-plugins                 VST3 and Audio Unit, and installs them
 #   ./do-plugins au              one format
@@ -9,7 +9,7 @@
 
 cd ${0:a:h}
 
-PRODUCTS=(Pulse2Alike TiAlike Sn2Alike Nl3Alike)
+PRODUCTS=(Pulse2Alike TiAlike Sn2Alike Nl3Alike OneShot)
 FAILED=()
 
 for product in $PRODUCTS; do

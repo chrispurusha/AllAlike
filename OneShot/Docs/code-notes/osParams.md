@@ -1,0 +1,17 @@
+# osParams.c
+
+## 1. Volume
+0 is silence; 1-127 run from -57 to +6 dB in 0.5 dB steps, so 0 dB is step 115 and the default, -6 dB (CT 2026-11-09),
+step 103 - each a step of its own. It was a square law on dial/100 at first, on which no step reached -6 dB.
+
+## 2. Note names
+Middle C (60) is C3, as Ableton names it.
+
+## 3. Envelope defaults
+Chosen so a newly loaded sample sounds as it is (but 6 dB down, from Volume): AHR, Attack 0, Hold Inf, Decay 645 ms (dial 64), Sustain 100%, Release 58 ms
+(dial 35), curves 0 / +50 / +50. The curve dials have 201 steps so +50 is a step of its own.
+
+## 4. Greyed controls
+`os_param_active()`: Decay, its curve and Sustain only in ADSR; Release and its curve always in AHR (the release follows
+the hold) and in ADSR only in Gate mode, since One Shot ignores the note off that would start it; Root only with Keys
+On. A greyed control is drawn grey and ignores clicks; a host can still automate it, and it still does nothing.
