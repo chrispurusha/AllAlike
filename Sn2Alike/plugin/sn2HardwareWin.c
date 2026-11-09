@@ -89,3 +89,12 @@ void sn2_hardware_short(const char * port, uint8_t status, uint8_t data1, uint8_
     (void)data1;
     (void)data2;
 }
+
+tSn2HardwareResult sn2_hardware_identify_start(const char * port) {
+    (void)port;
+    return eSn2HardwareNoMidi;
+}
+
+int sn2_hardware_identified(void) {
+    return -1;
+}
