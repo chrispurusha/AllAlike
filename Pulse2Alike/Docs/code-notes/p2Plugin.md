@@ -156,7 +156,9 @@ Measured (findings, "unison"): UNISON and UNIAPW are eight pulse (or APW) oscill
 symmetrically about the note, Unison Detune × 1.25 / 256 semitone apart (15.6 cents at 32, 31.1 at 64, 62 at
 127). M is monophonic: the newest note, with glide. P shares the eight between the held notes, which so far is
 provisional: they are split evenly, and the captured chord was more lopsided than that. Each oscillator is scaled
-so the eight come out near the measured level, about 5.5 dB below one pulse at full level. Osc 2 and osc 3 are not
+so the eight come out at the measured level: 7.0 dB below a saw and 2.4 below a 50 % pulse at the same Level, the
+same at Unison Detune 8-121, Level 109/127, width 64/89, M and P, and UNIAPW 2.6 below the saw (rms, findings
+2026-11-09; the first reading, 5.5 below a pulse from the fundamental's line alone, left the cluster 3 dB quiet). Osc 2 and osc 3 are not
 there in unison (§8). At Unison Detune 0 the eight play one pitch at unrelated phases, so their sum's harmonics are
 a random draw on the instrument as in the engine (P102 cannot be compared take to take).
 

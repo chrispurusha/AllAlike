@@ -5,6 +5,7 @@
 //        a title is the parameter's, matched without case or spaces: osc1level=127 drivecurve=1
 //        ext=<file.wav> plays a mono WAV (16/24/32-bit integer or 32-bit float, the render's rate) into the side-chain,
 //        osc 3 EXT's input, from the render's first sample (p2Plugin notes §65)
+//        stereo writes both outputs (left, right); without it the WAV is the left output alone
 // Build: tools/do-p2render
 #include <ctype.h>
 #include <stdio.h>
@@ -63,10 +64,10 @@ static bool apply_override(double values[kP2ParamCount], const char * arg) {
 
 // A mono (or the first channel of a) WAV, as floats; NULL if it is not one this reads
 static float * read_wav(const char * path, size_t * count) {
-    FILE *        f      = fopen(path, "rb");
+    FILE *        f = fopen(path, "rb");
     unsigned char h[12], ck[8];
-    uint16_t      fmt    = 0, channels = 0, bits = 0;
-    float *       x      = NULL;
+    uint16_t      fmt = 0, channels = 0, bits = 0;
+    float *       x = NULL;
 
     *count = 0;
 
@@ -126,15 +127,15 @@ static float * read_wav(const char * path, size_t * count) {
             fseek(f, (long)len + (long)(len & 1), SEEK_CUR);
         }
     }
-
     fclose(f);
     return x;
 }
 
-static void write_wav(const char * path, const float * x, size_t n, int rate) {
+// x holds n frames of ch interleaved channels
+static void write_wav(const char * path, const float * x, size_t n, uint16_t ch, int rate) {
     FILE *   f = fopen(path, "wb");
-    uint32_t dataBytes = (uint32_t)(n * 4), riff = 36 + dataBytes, fmtLen = 16, rate32 = (uint32_t)rate, byteRate = rate32 * 4;
-    uint16_t pcm = 1, ch = 1, align = 4, bits = 32;
+    uint32_t dataBytes = (uint32_t)(n * 4 * ch), riff = 36 + dataBytes, fmtLen = 16, rate32 = (uint32_t)rate, byteRate = rate32 * 4 * ch;
+    uint16_t pcm = 1, align = (uint16_t)(4 * ch), bits = 32;
 
     fwrite("RIFF", 1, 4, f);
     fwrite(&riff, 4, 1, f);
@@ -149,7 +150,7 @@ static void write_wav(const char * path, const float * x, size_t n, int rate) {
     fwrite("data", 1, 4, f);
     fwrite(&dataBytes, 4, 1, f);
 
-    for (size_t i = 0; i < n; i++) {
+    for (size_t i = 0; i < n * ch; i++) {
         // RENDERED 20 dB DOWN: the plug-in's float output may pass full scale (the host does not clip it), and a
         // clipped render scores as a difference. The comparisons level-match, so the scale is immaterial.
         double  v = x[i] * RENDER_GAIN;
@@ -201,9 +202,9 @@ int main(int argc, char ** argv) {
         fprintf(stderr, "not a Pulse 2 sound dump: %s\n", argv[1]);
         return 1;
     }
-
     float *                     ext                            = NULL;
     size_t                      extCount                       = 0;
+    uint16_t                    channels                       = 1;
 
     for (int a = 7; a < argc; a++) {
         if (strncmp(argv[a], "ext=", 4) == 0) {             // the side-chain's signal
@@ -213,6 +214,11 @@ int main(int argc, char ** argv) {
                 fprintf(stderr, "cannot read %s\n", argv[a] + 4);
                 return 3;
             }
+            continue;
+        }
+
+        if (strcmp(argv[a], "stereo") == 0) {
+            channels = 2;
             continue;
         }
 
@@ -238,12 +244,12 @@ int main(int argc, char ** argv) {
     d->cb.setActive(inst, true);
 
     size_t  total = (size_t)((0.1 + hold + tail) * rate), on = (size_t)(0.1 * rate), off = on + (size_t)(hold * rate);
-    float * mono    = calloc(total, sizeof(float));
+    float * interleaved = calloc(total * channels, sizeof(float));
     float   left[256], right[256];
-    float * outs[2] = {left, right};
+    float * outs[2]     = {left, right};
 
     for (size_t at = 0; at < total; at += 256) {
-        uint32_t frames = (uint32_t)((total - at) < 256 ? (total - at) : 256);
+        uint32_t      frames = (uint32_t)((total - at) < 256 ? (total - at) : 256);
 
         for (int n = 0; n < noteCount; n++) {
             size_t nOn  = sequence ? (on + (size_t)(starts[n] * rate)) : on;
@@ -264,14 +270,20 @@ int main(int argc, char ** argv) {
         for (uint32_t k = 0; k < frames; k++) {
             extBlock[k] = ((ext != NULL) && ((at + k) < extCount)) ? ext[at + k] : 0.0f;
         }
+
         d->cb.process(inst, (ext != NULL) ? ins : NULL, (ext != NULL) ? 2 : 0, outs, 2, frames, NULL);
-        memcpy(mono + at, left, frames * sizeof(float));
+
+        for (uint32_t k = 0; k < frames; k++) {
+            for (uint16_t c = 0; c < channels; c++) {
+                interleaved[((at + k) * channels) + c] = outs[c][k];
+            }
+        }
     }
 
-    write_wav(argv[5], mono, total, rate);
+    write_wav(argv[5], interleaved, total, channels, rate);
     printf("%s: \"%s\" note %d, %.2f s\n", argv[5], name, note, (double)total / rate);
     d->cb.destroy(inst);
-    free(mono);
+    free(interleaved);
     free(ext);
     return 0;
 }

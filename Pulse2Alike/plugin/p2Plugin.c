@@ -196,7 +196,7 @@ enum {
 // notes §21: unison - 8 oscillators, detune × 1.25 / 256 semitone apart, symmetric about the note
 #define UNISON_OSCS              (8)
 #define UNISON_SPACING           (1.25) // 1/256-semitone units per step of Unison Detune
-#define UNISON_VOICE_GAIN        (0.19) // each oscillator, so the eight sum near the measured level
+#define UNISON_VOICE_GAIN        (0.27) // each oscillator, so the eight sum near the measured level (notes §21)
 
 // notes §12: a paraphonic voice - one pulse (PARA-8) or two (PARA-4), fading on its own into the shared filter
 #define PARA_VOICES_MAX          (8)

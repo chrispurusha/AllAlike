@@ -1396,3 +1396,18 @@ Through EXT IN, the engine playing the same files through its side-chain:
 - **P022 (fast LFO), found:** not an LFO and not the arpeggiator - both envelopes loop (amp A-D, filter D-D), and
   the engine's loops ran 33 % fast (8.64 Hz against 6.48). The loop's turn now follows a creep near the target (p2Env
   notes §5); P022 with the arpeggiator off repeats at 6.48 Hz on both.
+
+## 2026-11-09 - unison level, P018 (`48k-qu/unison/`, `48k-qu/levels/`)
+
+The rig is now QU-24 inputs 23/24 at 48 kHz. CT heard P018 (UNISON-P) 5 dB quiet against the instrument, P019
+3 dB and P017 1 dB, with other patches level.
+- **P018 sustain, engine against P020's offset:** 3.5 dB quiet, and the same with its LFO 1 -> PANNING at 0 (0.2 dB
+  change on both). The loss was the cluster, not the pan.
+- **The test sound, broadband rms over 0.3-1.8 s, against a saw at the same Level:** the instrument's unison is 7.0
+  dB down (Detune 32-121, M or P), 6.2 at Detune 8, 8.2 at Level 109 (saw 1.1), 4.5 at width 89, UNIAPW-P 2.6.
+  Pulse at width 64 is 4.6 down on both. The engine had every one 3.0 +-0.2 dB further down. UNISON_VOICE_GAIN
+  0.19 -> 0.27: all within 0.4 dB, P018 within 0.5 of P020's offset.
+- Unison at width 0 is 29 dB under the saw on the instrument, 63 in the engine: a residue the pulse at width 0 does
+  not have in the engine. Not chased.
+- `tools/p2render` takes `stereo` (both outputs); without it the WAV is the left output only, which cannot show pan.
+
