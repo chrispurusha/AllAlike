@@ -8,7 +8,7 @@ Built but not yet checked in a host. Confirmed: delete the line. Failed: move it
 - Changing sample while a note sounds: the old one fades out, no click
 - Gate mode against note lengths; Keys On across the keyboard; offline bounce
 - Space and the arrow keys reach the panel in Live (a host may take them for its own transport)
-- Envelope by ear: AHR on a long sample (Hold and Release shortening it, the curve's tail), Gate cutting AHR short, ADSR with Gate, Attack on a hit
+- Envelope by ear: AHR on a long sample (Hold and Release shortening it, the curve's tail), Gate cutting AHR short, AHDSR with Gate, Attack on a hit
 - The envelope drawn on the waveform follows every dial; Hold at its top reads Inf and leaves the sample whole
 - By ear, hats and cymbals in a 48 kHz project and pitched up: no grit (the interpolator, osResample notes)
 - Automating Decay, Sustain and the curves while notes sound: no clicks
@@ -42,3 +42,4 @@ Built but not yet checked in a host. Confirmed: delete the line. Failed: move it
 - An older project opens as layer 1 with the others empty; a new one saves and reopens all four samples and settings
 - Automation in Live: "2 Volume" moves layer 2 only
 - Start by ear with Snap On and Off (no click either way); the yellow marker follows the dial and snaps
+- Windows (x64 and arm64, `tools/do-windows-plugin OneShot` from AllAlike): loads in a host, the panel draws (font), Load and Prev/Next with Windows paths, stretching (Rubber Band built in)

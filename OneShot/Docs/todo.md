@@ -11,4 +11,3 @@ One line per item.
 
 ## Later
 - The file browser lists every file; a filter for audio would need SynthLib's fileBrowser to take one (a SynthLib change - affects every project)
-- Windows build

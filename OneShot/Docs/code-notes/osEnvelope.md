@@ -2,7 +2,7 @@
 
 ## 1. Stages
 **AHR** (CT 2026-11-09: the usual one-shot drum envelope; it replaced an ADR here): Attack (0 to 1), Hold at 1, then Release
-to 0, and the note ends - the Release follows the Hold whatever the Mode. **ADSR**: Attack, Hold at 1, Decay to
+to 0, and the note ends - the Release follows the Hold whatever the Mode. **AHDSR**: Attack, Hold at 1, Decay to
 Sustain, held until a note off. In Gate mode a note off starts the Release from wherever the level is, in any stage
 and either mode; One Shot ignores the note off. Hold at its top position is Inf: it holds for ever (in AHR the whole
 sample plays). A zero-length stage is passed straight through, so Attack 0 starts at full level; AHR's release from
@@ -23,7 +23,7 @@ Each segment's progress x (0..1) is bent as `(1 - e^(-kx)) / (1 - e^(-k))`, k = 
 Positive moves fast first: a punchy attack, a decay or release that drops quickly and then tails off, as a natural
 decay does. Negative moves slowly first. 0 is a straight line. Decay and Release default to +50 (CT 2026-11-09: a drum
 envelope wants a curve by default). Checked 2026-11-09 with a stepping test: linear, +-50, Hold,
-ADSR with release, release from Inf, release mid-attack.
+AHDSR with release, release from Inf, release mid-attack.
 
 ## 4. Turning a dial during a note
 The envelope is computed every output sample, so it has no block steps. It keeps how far through each stage it is

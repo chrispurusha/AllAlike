@@ -65,7 +65,7 @@ const tSynthLibParam gOsParams[kOsParamCount] = {
 static const char *const kOffOn[]    = {"Off", "On"};
 static const char *const kModes[]    = {"One Shot", "Gate"};
 static const char *const kVoices[]   = {"Poly", "Mono"};
-static const char *const kEnvModes[] = {"AHR", "ADSR"};
+static const char *const kEnvModes[] = {"AHR", "AHDSR"};
 static const char *const kSlopes[]   = {"Soft", "12 dB", "24 dB"};
 static const char *const kSatModes[] = {"Classic", "Drums", "Tape"};
 
@@ -85,7 +85,7 @@ static double stepped(const double values[kOsParamCount], uint32_t id) {
     return (double)step_of(id, values[id]) / gOsParams[id].stepCount;
 }
 
-// notes §4: Decay and Sustain are ADSR's; in ADSR the Release needs a note off, which only Gate acts on, while
+// notes §4: Decay and Sustain are AHDSR's; in AHDSR the Release needs a note off, which only Gate acts on, while
 // AHR's Release follows its Hold and always acts
 bool os_param_active(uint32_t id, const double values[kOsParamCount]) {
     bool adsr = step_of(kOsParamEnvMode, values[kOsParamEnvMode]) > 0;

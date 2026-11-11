@@ -142,7 +142,7 @@ static void action_panel_help(int index) {
                "to the host's as well. Protect keeps the start as it is (the purple line) - the rest takes up the change - and its Snap moves its end to a zero crossing. "
                "With either on, Tune and Keys change the pitch but not the length, and the envelope's times stretch too. "
                "After a tempo change the first note still plays at the old tempo while the new one is prepared.\n\n"
-               "Envelope: AHR is Attack, Hold, then Release to silence; Hold at its top is Inf, the whole sample. ADSR adds Decay "
+               "Envelope: AHR is Attack, Hold, then Release to silence; Hold at its top is Inf, the whole sample. AHDSR adds Decay "
                "to Sustain; its Release needs Gate mode. In Gate mode a note off always starts the Release. The curves bend each "
                "stage: + drops fast then tails off, - the reverse. The green line on the waveform is the envelope.\n\n"
                "Filter: Low Cut and High Cut; Slope Soft (a gentle 12 dB Low Cut, a 6 dB High Cut), 12 or 24 dB an octave. Saturation: Classic (soft), Drums (hard) or Tape (Warmth "

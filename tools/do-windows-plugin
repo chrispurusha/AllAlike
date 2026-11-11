@@ -39,8 +39,8 @@ for arg in "$@"; do
     case $arg in
         arm64|aarch64) ARCHS+=(aarch64) ;;
         x64|x86_64)    ARCHS+=(x86_64) ;;
-        all)           PRODUCTS=(Pulse2Alike TiAlike Sn2Alike Nl3Alike) ;;
-        *Alike)        PRODUCTS+=($arg) ;;
+        all)           PRODUCTS=(Pulse2Alike TiAlike Sn2Alike Nl3Alike OneShot) ;;
+        *Alike|OneShot) PRODUCTS+=($arg) ;;
         *) echo "usage: tools/do-windows-plugin <Product>|all [x64] [arm64]" >&2; exit 2 ;;
     esac
 done
@@ -116,11 +116,20 @@ build_one() {
 
     # The Mac's link to the instrument out, its Windows stand-in in
     SOURCES=(${SOURCES:#*Hardware.c})
-    SOURCES+=($dir/plugin/*HardwareWin.c)
+    SOURCES+=($dir/plugin/*HardwareWin.c(N))    # (N): a product with no instrument to talk to has none
     SOURCES+=($ROOT/tools/windows/alikeWin.c)    # alikeCompat.h's getenv("HOME")
 
     local INCLUDES=(-I$dir/src -I$dir/plugin -I$SL/src -I$SL/audio -I$SL/plugin -I$SL/ThirdParty/glfw/include
-                    -I$DEPS/include/freetype2 -isystem $SDK)
+                    -I$DEPS/include/freetype2 -I$SL/ThirdParty/rubberband -isystem $SDK)
+
+    # A product's own C++ (OneShot's osStretch.cpp) goes to the C++ compiler; one that uses Rubber Band gets its
+    # single-file build here, as the Mac's do-build makes librubberband.a (its built-in FFT, not Apple's vDSP)
+    local PRODUCT_CXX=(${(M)SOURCES:#*.cpp})
+    SOURCES=(${SOURCES:#*.cpp})
+
+    if grep -qs "rubberband/" $PRODUCT_CXX; then
+        PRODUCT_CXX+=($SL/ThirdParty/rubberband/single/RubberBandSingle.cpp)
+    fi
 
     rm -rf $OBJ
     mkdir -p $OBJ
@@ -131,6 +140,14 @@ build_one() {
     for src in $SOURCES; do
         o=$OBJ/${${src:t}%.*}.o
         $CC -std=gnu17 $FLAGS $DEFS $INCLUDES -c $src -o $o &
+        OBJECTS+=($o)
+    done
+
+    for src in $PRODUCT_CXX; do
+        o=$OBJ/${${src:t}%.*}.oxx
+        local quiet=()
+        [[ $src == $SL/ThirdParty/* ]] && quiet=(-w)    # a third party's own file, theirs to warn about
+        $CXX -std=gnu++17 $FLAGS $quiet $DEFS $INCLUDES -c $src -o $o &
         OBJECTS+=($o)
     done
 

@@ -81,3 +81,7 @@ The instance's, not the shown layer's, so not one of the layer's controls: a "2x
 heading (lit when on; beside it "0.5 ms latency", or "no latency - nothing saturating" while no layer with a sample is
 saturating), and Controls > Oversample Saturation 2x - both through the host
 interface (`oversampling`, `setOversampling`). Every tab shows the same state.
+
+## 17. Windows paths
+A sample's name (the tabs, the sample bar, a load error) and its folder (Prev/Next) are found at the path's last / or
+\ - a Windows path from the file browser may use either. Folder listings are joined with /, which Windows takes.

@@ -12,8 +12,8 @@ Chosen so a newly loaded sample sounds as it is (but 6 dB down, from Volume): AH
 (dial 35), curves 0 / +50 / +50. The curve dials have 201 steps so +50 is a step of its own.
 
 ## 4. Greyed controls
-`os_param_active()`: Decay, its curve and Sustain only in ADSR; Release and its curve always in AHR (the release follows
-the hold) and in ADSR only in Gate mode, since One Shot ignores the note off that would start it; Root only with Keys
+`os_param_active()`: Decay, its curve and Sustain only in AHDSR; Release and its curve always in AHR (the release follows
+the hold) and in AHDSR only in Gate mode, since One Shot ignores the note off that would start it; Root only with Keys
 On. A greyed control is drawn grey and ignores clicks; a host can still automate it, and it still does nothing.
 
 ## 6. Stretch

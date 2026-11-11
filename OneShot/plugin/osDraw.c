@@ -49,51 +49,55 @@
 #define GL_SILENCE_DEPRECATION    1
 #include <GLFW/glfw3.h>           // the key constants SynthLib's popups speak
 
-#define FONT_PATH                 "/System/Library/Fonts/Supplemental/Arial.ttf"
-#define FONT_PRELOAD_SIZE         (16.0)
+#if defined (_WIN32)
+#define FONT_PATH               alike_font_path()     // AllAlike's tools/windows/alikeWin.c: Arial from the Windows fonts folder
+#else
+#define FONT_PATH               "/System/Library/Fonts/Supplemental/Arial.ttf"
+#endif
+#define FONT_PRELOAD_SIZE       (16.0)
 
-#define MAX_PARAMS                (64)
-#define MAX_PLACED                (64)
-#define MARGIN_X                  (16.0)
-#define TITLE_Y                   (30.0)     // below the menu bar
-#define BAR_X                     (130.0)
-#define BAR_BUTTON_H              (14.0)
-#define TAB_Y                     (54.0)     // notes §14: the layer tabs, between the sample bar and the waveform
-#define TAB_H                     (18.0)
-#define TAB_GAP                   (6.0)
-#define MUTE_Y                    (TAB_Y + TAB_H + 3.0)   // notes §15: a Mute under each tab
-#define MUTE_H                    (13.0)
-#define WAVE_Y                    (98.0)
-#define WAVE_H                    (130.0)
-#define PAGE_Y                    (248.0)
-#define ROW_H                     (112.0)
-#define SECTION_GAP               (16.0)
-#define CONTROL_W                 (50.0)   // twelve controls across the first row
-#define DIAL_SIZE                 (40.0)
-#define LABEL_H                   (11.0)
-#define HEADING_TO_DIAL           (34.0)
-#define BUTTON_H                  (12.0)
-#define MENU_BG                   {0.22, 0.22, 0.25}
-#define MENU_MAX                  (32)
-#define MENU_CELL_W               (96.0)
-#define MENU_ROWS_PER_COLUMN      (8)
-#define OPENING_RELEASE_SLOP      (4.0)   // how far the pointer may move and still be the opening click
-#define MAX_FOLDER_FILES          (4096)
-#define INACTIVE_COLOUR           {0.42, 0.42, 0.44}
-#define START_COLOUR              {0.95, 0.80, 0.25}
-#define PROTECT_COLOUR            {0.80, 0.55, 0.85}
-#define TOGGLE_OFF_COLOUR         {0.56, 0.56, 0.58}
-#define OUTSIDE_COLOUR            {0.07, 0.07, 0.08} // notes §12: the parts of the view that do not play
-#define TAB_COLOUR_TEXT_OFF       {0.40, 0.40, 0.42}
-#define MUTE_ON_COLOUR            {0.95, 0.55, 0.25}
-#define TAB_COLOUR                {0.22, 0.22, 0.25}
-#define TAB_SHOWN_COLOUR          {0.30, 0.42, 0.55}
-#define DELAY_COLOUR              {0.20, 0.18, 0.09} // notes §13: the wait between the note on and Start
-#define WAVE_COLUMNS              (512)
-#define VIEW_MARGIN               (0.06)             // notes §12: the sliver shown either side of Start..End
-#define NOTE_OFF_AT               (0.5)              // notes §5: Gate's drawing releases halfway along
-#define ENV_SUBSTEPS              (32)               // envelope steps per waveform column, so a short attack shows
-#define DOUBLE_CLICK_S            (0.4)              // notes §10: a second press on the same dial within this resets it
+#define MAX_PARAMS              (64)
+#define MAX_PLACED              (64)
+#define MARGIN_X                (16.0)
+#define TITLE_Y                 (30.0)       // below the menu bar
+#define BAR_X                   (130.0)
+#define BAR_BUTTON_H            (14.0)
+#define TAB_Y                   (54.0)       // notes §14: the layer tabs, between the sample bar and the waveform
+#define TAB_H                   (18.0)
+#define TAB_GAP                 (6.0)
+#define MUTE_Y                  (TAB_Y + TAB_H + 3.0)     // notes §15: a Mute under each tab
+#define MUTE_H                  (13.0)
+#define WAVE_Y                  (98.0)
+#define WAVE_H                  (130.0)
+#define PAGE_Y                  (248.0)
+#define ROW_H                   (112.0)
+#define SECTION_GAP             (16.0)
+#define CONTROL_W               (50.0)     // twelve controls across the first row
+#define DIAL_SIZE               (40.0)
+#define LABEL_H                 (11.0)
+#define HEADING_TO_DIAL         (34.0)
+#define BUTTON_H                (12.0)
+#define MENU_BG                 {0.22, 0.22, 0.25}
+#define MENU_MAX                (32)
+#define MENU_CELL_W             (96.0)
+#define MENU_ROWS_PER_COLUMN    (8)
+#define OPENING_RELEASE_SLOP    (4.0)     // how far the pointer may move and still be the opening click
+#define MAX_FOLDER_FILES        (4096)
+#define INACTIVE_COLOUR         {0.42, 0.42, 0.44}
+#define START_COLOUR            {0.95, 0.80, 0.25}
+#define PROTECT_COLOUR          {0.80, 0.55, 0.85}
+#define TOGGLE_OFF_COLOUR       {0.56, 0.56, 0.58}
+#define OUTSIDE_COLOUR          {0.07, 0.07, 0.08}   // notes §12: the parts of the view that do not play
+#define TAB_COLOUR_TEXT_OFF     {0.40, 0.40, 0.42}
+#define MUTE_ON_COLOUR          {0.95, 0.55, 0.25}
+#define TAB_COLOUR              {0.22, 0.22, 0.25}
+#define TAB_SHOWN_COLOUR        {0.30, 0.42, 0.55}
+#define DELAY_COLOUR            {0.20, 0.18, 0.09}   // notes §13: the wait between the note on and Start
+#define WAVE_COLUMNS            (512)
+#define VIEW_MARGIN             (0.06)               // notes §12: the sliver shown either side of Start..End
+#define NOTE_OFF_AT             (0.5)                // notes §5: Gate's drawing releases halfway along
+#define ENV_SUBSTEPS            (32)                 // envelope steps per waveform column, so a short attack shows
+#define DOUBLE_CLICK_S          (0.4)                // notes §10: a second press on the same dial within this resets it
 
 typedef struct {
     const tOsControl * control;
@@ -217,6 +221,14 @@ void os_draw_set_user(void * user) {
     gUser = user;
 }
 
+// The last / or \ in a path - a Windows path may have either (osDraw notes §17)
+static char * last_separator(const char * path) {
+    const char * a = strrchr(path, '/');
+    const char * b = strrchr(path, '\\');
+
+    return (char *)((a == NULL) ? b : ((b == NULL) ? a : ((a > b) ? a : b)));
+}
+
 static bool have_host(void) {
     return (gHost != NULL) && (gUser != NULL);
 }
@@ -278,7 +290,7 @@ static bool load(const char * path, bool reportFailure) {
     }
 
     if (reportFailure) {
-        snprintf(message, sizeof(message), "%s\n\n%s", strrchr(path, '/') ? strrchr(path, '/') + 1 : path, error);
+        snprintf(message, sizeof(message), "%s\n\n%s", last_separator(path) ? last_separator(path) + 1 : path, error);
         show_alert("Load Sample", message);
     }
     return false;
@@ -294,7 +306,7 @@ static const char * browser_start(void) {
     static char folder[2048];
 
     snprintf(folder, sizeof(folder), "%s", current_path());
-    char *      slash = strrchr(folder, '/');
+    char *      slash = last_separator(folder);
 
     if (slash != NULL) {
         *slash = '\0';
@@ -351,7 +363,7 @@ static void list_folder(const char * folder) {
 static int place_in_folder(void) {
     char         folder[2048];
     const char * path  = current_path();
-    const char * slash = strrchr(path, '/');
+    const char * slash = last_separator(path);
 
     if (slash == NULL) {
         return -1;
@@ -418,7 +430,7 @@ static void draw_tabs(void) {
 
     for (int i = 0; i < OS_LAYERS; i++) {
         const char * path = have_host() ? gHost->path(gUser, i) : "";
-        const char * base = strrchr(path, '/');
+        const char * base = last_separator(path);
         bool         full = (lround(gValues[i][kOsParamLowKey] * 127.0) == 0) && (lround(gValues[i][kOsParamHighKey] * 127.0) == 127);
         char         keys[32] = "", low[8], high[8], text[600];
 
@@ -475,7 +487,7 @@ static void draw_sample_bar(void) {
     char         label[600];
     char         place[32] = "";
     const char * path      = current_path();
-    const char * base      = strrchr(path, '/');
+    const char * base      = last_separator(path);
     int          at        = place_in_folder();
     double       x;
 

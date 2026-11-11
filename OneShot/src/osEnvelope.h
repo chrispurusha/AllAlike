@@ -23,9 +23,9 @@
 
 // notes §1: the shape, in seconds and curves; hold < 0 means it holds for ever (Inf)
 typedef struct {
-    bool   adsr;                                  // false: AHR - attack, hold, release to silence; true: ADSR with a hold
+    bool   adsr;                                  // false: AHR - attack, hold, release to silence; true: AHDSR with a hold
     double attack, hold, decay, release;
-    double sustain;                               // 0..1, ADSR only; decay is ADSR's only too
+    double sustain;                               // 0..1, AHDSR only; decay is AHDSR's only too
     double attackCurve, decayCurve, releaseCurve; // -1..1, 0 straight
 } tOsEnvShape;
 

@@ -41,10 +41,10 @@ Run `./do-uncrustify` after editing.
   The 2x Oversample button on its heading (or Controls > Oversample Saturation 2x) makes it cleaner at the cost of 0.5 ms latency on the whole instance, which the
   host compensates.
 - Double-click any dial to put it back to its default.
-- Envelope (Shift-drag any dial for fine steps; Attack has 1000, 195 of them in its first 5 ms): AHR (Attack, Hold, then Release to silence - the usual one-shot drum envelope) or ADSR, with a curve on
+- Envelope (Shift-drag any dial for fine steps; Attack has 1000, 195 of them in its first 5 ms): AHR (Attack, Hold, then Release to silence - the usual one-shot drum envelope) or AHDSR, with a curve on
   Attack, Decay and Release (-100..+100; Decay and Release default to +50). Hold at its top is Inf: the whole sample
-  plays, which with Attack 0 is the default, so a loaded sample sounds as it is. Decay and Sustain are ADSR's and
-  greyed in AHR; ADSR's Release needs Gate mode. In Gate mode a note off always starts the Release. The envelope is
+  plays, which with Attack 0 is the default, so a loaded sample sounds as it is. Decay and Sustain are AHDSR's and
+  greyed in AHR; AHDSR's Release needs Gate mode. In Gate mode a note off always starts the Release. The envelope is
   drawn over the waveform.
 
 The project saves the sample's path, not the sample.
