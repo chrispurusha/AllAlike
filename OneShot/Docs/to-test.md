@@ -18,4 +18,9 @@ Built but not yet checked in a host. Confirmed: delete the line. Failed: move it
 - Reverse in Live: plays backwards, the waveform mirrors, Start counts from the end, Snap still clickless
 - CPU in Live's meter: a 44.1 kHz sample in a 48 kHz set, Key Track Off, fast hits - lower than before; Key Track On across the keyboard
 - The file browser fits the larger panel, below the menu bar
+- Stretch by ear in Live: x0.25/x0.5/x2/x4 on a hit and on a sustained sample; Protect at 5 ms keeps the click of the attack; the seam is inaudible
+- Sync On: a loop at its Base BPM follows Live's tempo; a tempo change rebuilds on the next note (the first plays the old tempo), many instances not all at once
+- Keys On with Stretch: pitch moves, length stays; Reverse with Stretch
+- Envelope with Stretch: AHR Hold/Release scale with the stretch
+- Double-click a dial in Live (Stretch especially): back to its default, one Undo step, in both dial modes
 - Start by ear with Snap On and Off (no click either way); the yellow marker follows the dial and snaps

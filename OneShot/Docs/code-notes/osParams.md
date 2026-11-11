@@ -15,3 +15,9 @@ Chosen so a newly loaded sample sounds as it is (but 6 dB down, from Volume): AH
 `os_param_active()`: Decay, its curve and Sustain only in ADSR; Release and its curve always in AHR (the release follows
 the hold) and in ADSR only in Gate mode, since One Shot ignores the note off that would start it; Root only with Keys
 On. A greyed control is drawn grey and ignores clicks; a host can still automate it, and it still does nothing.
+
+## 6. Stretch
+Stretch is 2^(k/100) for k from -200 to +200: x0.25 to x4, a hundred steps an octave, x1 in the middle. Base BPM is
+40 to 240 in half-BPM steps, default 120. Protect has Start's law (0 to 2 s, exponential above 1 ms) and defaults to
+5 ms - step 236, 5.01 ms. Base is greyed with Sync Off, Protect when nothing is stretched. Appended after Reverse, so
+older projects keep their settings and open unstretched.

@@ -92,6 +92,8 @@ typedef struct {
     tOsCache          cache;                     // notes §4: resampled copies, built by its own thread
     _Atomic(const tOsSample *) borrowed;         // the sample the cache's thread is reading; never freed under it
     tOsCacheRequest   prefetched;                // audio thread: the last root pitch asked for
+    double            prefetchedSetting[3];      // and the Stretch, Sync and Base it was asked at
+    double            hostTempo;                 // audio thread: the host's, kept when it stops sending one
 } tOsPlugin;
 
 // ---- the sample, across threads - notes §1 ------------------------------------------------------------------
@@ -178,7 +180,8 @@ static void * os_create(const tSynthLibPluginDesc * desc) {
         atomic_store(&t->values[i], gOsParams[i].defaultNormalized);
     }
 
-    t->hostRate = 48000.0;
+    t->hostRate  = 48000.0;
+    t->hostTempo = 120.0;   // until the host says otherwise
     os_voices_init(&t->voices, t->hostRate);
 
     if (os_cache_init(&t->cache, (tOsCacheSource){cache_borrow, cache_give_back}, t)) {
@@ -283,7 +286,25 @@ static tOsPlay make_play(const tOsPlugin * t) {
         .start    = os_start_time(value(t, kOsParamStart)),
         .snap     = step(t, kOsParamSnap) > 0,
         .reverse  = step(t, kOsParamReverse) > 0,
+        .protect  = os_protect_time(value(t, kOsParamProtect)),
     };
+}
+
+// notes §5: Stretch, times the base tempo over the host's with Sync on; the envelope's times follow it
+static void apply_stretch(const tOsPlugin * t, tOsPlay * p) {
+    double f = os_stretch_multiple(value(t, kOsParamStretch));
+
+    if (step(t, kOsParamSync) > 0) {
+        f *= os_base_tempo(value(t, kOsParamBaseTempo)) / t->hostTempo;
+    }
+    p->stretch = f;
+
+    if (f != 1.0) {
+        p->env.attack  *= f;
+        p->env.decay   *= f;
+        p->env.release *= f;
+        p->env.hold     = (p->env.hold < 0.0) ? p->env.hold : p->env.hold * f;
+    }
 }
 
 static void play(tOsPlugin * t, const tOsSample * sample, const tOsPlay * p, const tOsEvent * e) {
@@ -316,11 +337,16 @@ static void os_process(void * inst, const float *const * in, uint32_t numIn, flo
     tOsPlugin *       t          = (tOsPlugin *)inst;
     uint32_t          generation = atomic_load(&t->generation);
     const tOsSample * sample     = atomic_load(&t->sample);
-    tOsPlay           p          = make_play(t);
+    tOsPlay           p;
 
     (void)in;
     (void)numIn;
-    (void)transport;
+
+    if ((transport != NULL) && transport->tempoValid && (transport->tempo > 0.0)) {
+        t->hostTempo = transport->tempo;
+    }
+    p = make_play(t);
+    apply_stretch(t, &p);
 
     // notes §1: a new sample ends what the old one was playing, with a short fade
     if (sample != t->playing) {
@@ -328,14 +354,22 @@ static void os_process(void * inst, const float *const * in, uint32_t numIn, flo
         t->playing = sample;
     }
 
-    // notes §4: the root key's pitch built before its first note - the only one, with Key Track off
+    // notes §4: the root key's copy built before its first note - the only one, with Key Track off. A change of
+    // the host's tempo alone asks for nothing: the next note does, so instances do not all rebuild at once.
     if (sample != NULL) {
-        tOsCacheRequest want = {{sample->serial, p.reverse, os_voices_step(&t->voices, sample, &p, (uint8_t)p.rootKey)}, !p.keyTrack};
+        tOsCacheRequest want       = {os_voices_key(&t->voices, sample, &p, (uint8_t)p.rootKey), !p.keyTrack};
+        tOsCacheKey     was        = t->prefetched.key;
+        double          setting[3] = {value(t, kOsParamStretch), value(t, kOsParamSync), value(t, kOsParamBaseTempo)};
+        bool            changed    = (want.key.serial != was.serial) || (want.key.reverse != was.reverse)
+                                     || (want.key.step != was.step) || (want.key.hostRate != was.hostRate)
+                                     || (want.key.protect != was.protect) || (want.only != t->prefetched.only)
+                                     || (memcmp(setting, t->prefetchedSetting, sizeof(setting)) != 0)
+                                     || ((want.key.stretch == 1.0) != (was.stretch == 1.0));
 
-        if (  (want.key.serial != t->prefetched.key.serial) || (want.key.reverse != t->prefetched.key.reverse)
-           || (want.key.step != t->prefetched.key.step) || (want.only != t->prefetched.only)) {
+        if (changed) {
             os_cache_request(&t->cache, want.key, want.only);
             t->prefetched = want;
+            memcpy(t->prefetchedSetting, setting, sizeof(setting));
         }
     }
 

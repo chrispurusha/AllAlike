@@ -86,6 +86,19 @@ static tOsVoice * take_voice(tOsVoices * v) {
 }
 
 // notes §6: in frames as played - from the end when reversed
+bool os_voices_stretched(const tOsPlay * play) {
+    return (play->stretch > 0.0) && (play->stretch != 1.0);
+}
+
+tOsCacheKey os_voices_key(const tOsVoices * v, const tOsSample * sample, const tOsPlay * play, uint8_t note) {
+    bool stretched = os_voices_stretched(play);
+
+    return (tOsCacheKey){
+        sample->serial, play->reverse, os_voices_step(v, sample, play, note), v->hostRate,
+        stretched ? play->stretch : 1.0, stretched ? play->protect : 0.0
+    };
+}
+
 uint32_t os_voices_start_frame(const tOsSample * sample, const tOsPlay * play) {
     double   at     = play->start * sample->rate;
 
@@ -122,7 +135,7 @@ void os_voices_note_on(tOsVoices * v, const tOsSample * sample, const tOsPlay * 
     if (play->mono) {
         os_voices_fade_all(v);
     }
-    tOsVoice * voice = take_voice(v);
+    tOsVoice * voice     = take_voice(v);
 
     end_voice(voice);
     *voice          = (tOsVoice){
@@ -137,7 +150,7 @@ void os_voices_note_on(tOsVoices * v, const tOsSample * sample, const tOsPlay * 
         .active   = true,
         .age      = ++v->started,
     };
-    uint32_t   start = os_voices_start_frame(sample, play);
+    uint32_t   start     = os_voices_start_frame(sample, play);
 
     voice->position = (double)start;
     voice->rise     = ((start > 0) && !play->snap) ? 0.0 : 1.0;
@@ -145,18 +158,23 @@ void os_voices_note_on(tOsVoices * v, const tOsSample * sample, const tOsPlay * 
     voice->cutoff   = os_resample_cutoff(voice->step);
     voice->end      = (double)sample->frames + os_resample_tail(voice->cutoff); // notes §3: the filter's ring after the last frame
 
-    // notes §7: through the copy if it is ready (its frame n is played position n x step), else live, and ask for it
-    if (voice->step != 1.0) {
-        tOsCacheKey key = {sample->serial, play->reverse, voice->step};
+    // notes §7, §8: through the copy if it is ready, else (stretched) the nearest one, else live - and ask for it
+    bool       stretched = os_voices_stretched(play);
+
+    if (stretched || (voice->step != 1.0)) {
+        tOsCacheKey key = os_voices_key(v, sample, play, note);
 
         voice->copy = os_cache_acquire(v->cache, key);
 
+        if (voice->copy == NULL) {
+            os_cache_request(v->cache, key, !play->keyTrack);
+            voice->copy = stretched ? os_cache_acquire_similar(v->cache, key) : NULL;
+        }
+
         if (voice->copy != NULL) {
-            voice->position = (double)lround((double)start / voice->step);
+            voice->position = os_cache_position(voice->copy, start);
             voice->end      = (double)voice->copy->frames;
             voice->step     = 1.0;
-        } else {
-            os_cache_request(v->cache, key, !play->keyTrack);
         }
     }
     os_env_start(&voice->env);

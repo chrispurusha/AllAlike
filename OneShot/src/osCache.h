@@ -29,12 +29,25 @@
 #define OS_CACHE_ENTRIES     (24)
 #define OS_CACHE_REQUESTS    (32)
 
-// What a copy is of: one load of a sample, its direction, and the playback step it was resampled for
+// What a copy is of: one load of a sample, its direction, the playback step it was resampled for (the file's rate
+// over the host's, times the pitch), and - stretch not 1 - how far it is stretched, keeping its first protect seconds
 typedef struct {
     uint32_t serial;
     bool     reverse;
     double   step;
+    double   hostRate;
+    double   stretch;   // 1: resampled only
+    double   protect;   // seconds of the original; 0 unless stretched
 } tOsCacheKey;
+
+// notes §7: how the copy is laid out - source frames [0, protectIn) resampled into [0, protectOut), the rest
+// stretched into [protectOut, frames)
+typedef struct {
+    uint32_t frames;
+    uint32_t protectIn, protectOut;
+    uint32_t regionIn, regionOut;
+    double   step;
+} tOsCopyPlan;
 
 // notes §6: only - no other pitch is wanted (Key Track off): every other copy goes
 typedef struct {
@@ -47,7 +60,8 @@ typedef struct {
     _Atomic int32_t  state;
     _Atomic uint64_t lastUsed;
     tOsCacheKey      key;          // these are written only while state is -1
-    float *          data[2];      // data[1] == data[0] for mono; frame n is the sample at n x step
+    float *          data[2];      // data[1] == data[0] for mono
+    tOsCopyPlan      plan;
     uint32_t         frames;
     size_t           bytes;
 } tOsCacheEntry;
@@ -79,6 +93,7 @@ void os_cache_destroy(tOsCache * c);                                    // stops
 
 // Audio thread. acquire returns a ready copy (held until release) or NULL; request asks the worker for one.
 const tOsCacheEntry * os_cache_acquire(tOsCache * c, tOsCacheKey key);
+const tOsCacheEntry * os_cache_acquire_similar(tOsCache * c, tOsCacheKey key);   // notes §8: stretched, any amount
 void os_cache_release(const tOsCacheEntry * e);
 void os_cache_request(tOsCache * c, tOsCacheKey key, bool only);
 
@@ -86,5 +101,8 @@ void os_cache_request(tOsCache * c, tOsCacheKey key, bool only);
 // played position n x step; the copy runs on through the filter's ring after the last frame.
 uint32_t os_cache_length(const tOsSample * s, double step);
 void os_cache_render(const tOsSample * s, bool reverse, double step, float * left, float * right, uint32_t frames);
+
+tOsCopyPlan os_cache_plan(const tOsSample * s, tOsCacheKey key);
+double os_cache_position(const tOsCacheEntry * e, uint32_t sourceFrame);   // a source frame (as played), in the copy
 
 #endif // __OS_CACHE_H__

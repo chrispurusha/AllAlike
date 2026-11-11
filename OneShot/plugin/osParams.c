@@ -16,28 +16,33 @@
 
 // id, title, short title, unit, plain min, plain max, default (normalized), steps, MIDI, flags
 const tSynthLibParam gOsParams[kOsParamCount] = {
-    {kOsParamVolume,       "Volume",        "Volume",  GEN,                       0.0,  127.0, 103.0 / 127.0,  127, NONE,    0},
-    {kOsParamPan,          "Pan",           "Pan",     GEN,                       0.0,  127.0,  64.0 / 127.0,  127, NONE,    0},
-    {kOsParamTune,         "Tune",          "Tune",    eSynthLibUnitSemitones,  -24.0,   24.0,           0.5,   48, NONE,    0},
-    {kOsParamFine,         "Fine Tune",     "Fine",    GEN,                     -50.0,   50.0,           0.5,  100, NONE,    0},
-    {kOsParamVelocity,     "Velocity",      "Vel",     GEN,                       0.0,  127.0, 100.0 / 127.0,  127, NONE,    0},
-    {kOsParamKeyTrack,     "Key Track",     "Keys",    IDX,                       0.0,    1.0,           0.0,    1, NONE, LIST},
-    {kOsParamRootKey,      "Root Key",      "Root",    GEN,                       0.0,  127.0,  60.0 / 127.0,  127, NONE,    0},
-    {kOsParamMode,         "Mode",          "Mode",    IDX,                       0.0,    1.0,           0.0,    1, NONE, LIST},
-    {kOsParamVoices,       "Voices",        "Voices",  IDX,                       0.0,    1.0,           0.0,    1, NONE, LIST},
+    {kOsParamVolume,       "Volume",        "Volume",  GEN,                       0.0,  127.0,  103.0 / 127.0,  127, NONE,    0},
+    {kOsParamPan,          "Pan",           "Pan",     GEN,                       0.0,  127.0,   64.0 / 127.0,  127, NONE,    0},
+    {kOsParamTune,         "Tune",          "Tune",    eSynthLibUnitSemitones,  -24.0,   24.0,            0.5,   48, NONE,    0},
+    {kOsParamFine,         "Fine Tune",     "Fine",    GEN,                     -50.0,   50.0,            0.5,  100, NONE,    0},
+    {kOsParamVelocity,     "Velocity",      "Vel",     GEN,                       0.0,  127.0,  100.0 / 127.0,  127, NONE,    0},
+    {kOsParamKeyTrack,     "Key Track",     "Keys",    IDX,                       0.0,    1.0,            0.0,    1, NONE, LIST},
+    {kOsParamRootKey,      "Root Key",      "Root",    GEN,                       0.0,  127.0,   60.0 / 127.0,  127, NONE,    0},
+    {kOsParamMode,         "Mode",          "Mode",    IDX,                       0.0,    1.0,            0.0,    1, NONE, LIST},
+    {kOsParamVoices,       "Voices",        "Voices",  IDX,                       0.0,    1.0,            0.0,    1, NONE, LIST},
     // notes §3: the envelope; its defaults leave a sample as it is
-    {kOsParamEnvMode,      "Envelope",      "Env",     IDX,                       0.0,    1.0,           0.0,    1, NONE, LIST},
-    {kOsParamAttack,       "Attack",        "Attack",  GEN,                       0.0, 1000.0,           0.0, 1000, NONE,    0},
-    {kOsParamHold,         "Hold",          "Hold",    GEN,                       0.0,  127.0,           1.0,  127, NONE,    0},
-    {kOsParamDecay,        "Decay",         "Decay",   GEN,                       0.0,  127.0,  64.0 / 127.0,  127, NONE,    0},
-    {kOsParamSustain,      "Sustain",       "Sustain", GEN,                       0.0,  127.0,           1.0,  127, NONE,    0},
-    {kOsParamRelease,      "Release",       "Release", GEN,                       0.0,  127.0,  35.0 / 127.0,  127, NONE,    0},
-    {kOsParamAttackCurve,  "Attack Curve",  "A Curve", GEN,                    -100.0,  100.0, 100.0 / 200.0,  200, NONE,    0},
-    {kOsParamDecayCurve,   "Decay Curve",   "D Curve", GEN,                    -100.0,  100.0, 150.0 / 200.0,  200, NONE,    0},
-    {kOsParamReleaseCurve, "Release Curve", "R Curve", GEN,                    -100.0,  100.0, 150.0 / 200.0,  200, NONE,    0},
-    {kOsParamStart,        "Start",         "Start",   GEN,                       0.0, 1000.0,           0.0, 1000, NONE,    0},
-    {kOsParamSnap,         "Snap to Zero",  "Snap",    IDX,                       0.0,    1.0,           1.0,    1, NONE, LIST},
-    {kOsParamReverse,      "Reverse",       "Rev",     IDX,                       0.0,    1.0,           0.0,    1, NONE, LIST},
+    {kOsParamEnvMode,      "Envelope",      "Env",     IDX,                       0.0,    1.0,            0.0,    1, NONE, LIST},
+    {kOsParamAttack,       "Attack",        "Attack",  GEN,                       0.0, 1000.0,            0.0, 1000, NONE,    0},
+    {kOsParamHold,         "Hold",          "Hold",    GEN,                       0.0,  127.0,            1.0,  127, NONE,    0},
+    {kOsParamDecay,        "Decay",         "Decay",   GEN,                       0.0,  127.0,   64.0 / 127.0,  127, NONE,    0},
+    {kOsParamSustain,      "Sustain",       "Sustain", GEN,                       0.0,  127.0,            1.0,  127, NONE,    0},
+    {kOsParamRelease,      "Release",       "Release", GEN,                       0.0,  127.0,   35.0 / 127.0,  127, NONE,    0},
+    {kOsParamAttackCurve,  "Attack Curve",  "A Curve", GEN,                    -100.0,  100.0,  100.0 / 200.0,  200, NONE,    0},
+    {kOsParamDecayCurve,   "Decay Curve",   "D Curve", GEN,                    -100.0,  100.0,  150.0 / 200.0,  200, NONE,    0},
+    {kOsParamReleaseCurve, "Release Curve", "R Curve", GEN,                    -100.0,  100.0,  150.0 / 200.0,  200, NONE,    0},
+    {kOsParamStart,        "Start",         "Start",   GEN,                       0.0, 1000.0,            0.0, 1000, NONE,    0},
+    {kOsParamSnap,         "Snap to Zero",  "Snap",    IDX,                       0.0,    1.0,            1.0,    1, NONE, LIST},
+    {kOsParamReverse,      "Reverse",       "Rev",     IDX,                       0.0,    1.0,            0.0,    1, NONE, LIST},
+    // notes §6: time-stretching
+    {kOsParamStretch,      "Stretch",       "Stretch", GEN,                    -200.0,  200.0,            0.5,  400, NONE,    0},
+    {kOsParamSync,         "Tempo Sync",    "Sync",    IDX,                       0.0,    1.0,            0.0,    1, NONE, LIST},
+    {kOsParamBaseTempo,    "Base Tempo",    "Base",    GEN,                      40.0,  240.0,            0.4,  400, NONE,    0},
+    {kOsParamProtect,      "Protect",       "Protect", GEN,                       0.0, 1000.0, 236.0 / 1000.0, 1000, NONE,    0},
 };
 
 static const char *const kOffOn[]    = {"Off", "On"};
@@ -79,6 +84,12 @@ bool os_param_active(uint32_t id, const double values[kOsParamCount]) {
         case kOsParamRootKey:
             return step_of(kOsParamKeyTrack, values[kOsParamKeyTrack]) > 0;
 
+        case kOsParamBaseTempo:
+            return step_of(kOsParamSync, values[kOsParamSync]) > 0;
+
+        case kOsParamProtect:
+            return (step_of(kOsParamStretch, values[kOsParamStretch]) != 200) || (step_of(kOsParamSync, values[kOsParamSync]) > 0);
+
         default:
             return true;
     }
@@ -117,6 +128,20 @@ double os_start_time(double normalized) {
     double v = fmin(1.0, fmax(0.0, normalized));
 
     return START_KNEE_S * (pow((START_MAX_S / START_KNEE_S) + 1.0, v) - 1.0);
+}
+
+// notes §6: 2^(k/100) - a hundred steps an octave, x1 in the middle
+double os_stretch_multiple(double normalized) {
+    return pow(2.0, (double)(step_of(kOsParamStretch, normalized) - 200) / 100.0);
+}
+
+double os_base_tempo(double normalized) {
+    return 40.0 + ((double)step_of(kOsParamBaseTempo, normalized) * 0.5);
+}
+
+// notes §6: as Start's - 0 to 2 s of the original, the default 5 ms
+double os_protect_time(double normalized) {
+    return os_start_time((double)step_of(kOsParamProtect, normalized) / 1000.0);
 }
 
 // notes §1: 0 is silence, then -57 to +6 dB in 0.5 dB steps - 0 dB at 115, the default -6 dB at 103
@@ -198,7 +223,20 @@ void os_param_text(uint32_t id, double normalized, char * out, size_t len) {
 
         case kOsParamSnap:
         case kOsParamReverse:
+        case kOsParamSync:
             snprintf(out, len, "%s", kOffOn[step > 0]);
+            break;
+
+        case kOsParamStretch:
+            snprintf(out, len, "x%.2f", os_stretch_multiple(normalized));
+            break;
+
+        case kOsParamBaseTempo:
+            snprintf(out, len, "%.1f", os_base_tempo(normalized));
+            break;
+
+        case kOsParamProtect:
+            time_text(os_protect_time(normalized), out, len);
             break;
 
         case kOsParamSustain:
@@ -239,6 +277,10 @@ static const tOsControl kEnvelope[]  = {
 static const tOsControl kCurves[]    = {
     DIAL(kOsParamAttackCurve, "Attack"), DIAL(kOsParamDecayCurve, "Decay"), DIAL(kOsParamReleaseCurve, "Release"),
 };
+static const tOsControl kStretch[]   = {
+    DIAL(kOsParamStretch, "Stretch"), CHOICE(kOsParamSync, "Sync", kOffOn), DIAL(kOsParamBaseTempo, "BPM"),
+    DIAL(kOsParamProtect, "Protect"),
+};
 
 static const tOsSection kMainPage[]  = {
     {"PITCH",    {0.90, 0.70, 0.30}, kPitch,    COUNT(kPitch)   },
@@ -246,6 +288,7 @@ static const tOsSection kMainPage[]  = {
     {"OUTPUT",   {0.75, 0.75, 0.75}, kOutput,   COUNT(kOutput)  },
     {"ENVELOPE", {0.55, 0.80, 0.40}, kEnvelope, COUNT(kEnvelope)},
     {"CURVE",    {0.55, 0.80, 0.40}, kCurves,   COUNT(kCurves)  },
+    {"STRETCH",  {0.80, 0.55, 0.85}, kStretch,  COUNT(kStretch) },
 };
 
 const tOsPage           gOsPages[]   = {

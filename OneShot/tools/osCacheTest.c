@@ -1,9 +1,11 @@
 // Build: clang -O2 -Isrc tools/osCacheTest.c src/osVoice.c src/osEnvelope.c src/osResample.c src/osCache.c \
 //        src/osSample.c -framework AudioToolbox -framework CoreFoundation -o /tmp/osCacheTest
-// (add -fsanitize=thread for the threading half). Checks the resampled copies (osCache notes): a note through a copy
+// (add -fsanitize=thread for the threading half; it links src/osStretch.cpp and SynthLib's build/librubberband.a,
+// -lc++ -framework Accelerate). Checks the resampled copies (osCache notes): a note through a copy
 // plays what the live interpolator plays, forwards and reversed; Reverse at the file's own rate is the file backwards;
 // what 8 voices cost each way; and the audio thread taking and dropping copies while the worker builds and evicts.
 #include <math.h>
+#include <stdatomic.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -14,10 +16,13 @@
 #include "osVoice.h"
 
 static tOsSample gSample;
+static _Atomic(const tOsSample *) gCurrent;   // what the cache's thread may read, published whole as the plug-in does
 
 static const tOsSample * borrow(void * user, uint32_t serial) {
+    const tOsSample * s = atomic_load(&gCurrent);
+
     (void)user;
-    return (serial == gSample.serial) ? &gSample : NULL;
+    return ((s != NULL) && (serial == s->serial)) ? s : NULL;
 }
 
 static void give_back(void * user, const tOsSample * s) {
@@ -49,6 +54,10 @@ static bool wait_for(tOsCache * c, tOsCacheKey key) {
             os_cache_release(e);
             return true;
         }
+
+        if ((i % 20) == 19) {
+            os_cache_request(c, key, false);   // a full queue drops a request; the plug-in asks again at the next note
+        }
         usleep(5000);
     }
 
@@ -72,6 +81,7 @@ int main(void) {
         }
     }
 
+    atomic_store(&gCurrent, &gSample);
     os_cache_init(&cache, (tOsCacheSource){borrow, give_back}, NULL);
 
     // 1. through a copy against live, at the pitches a 44.1 kHz file takes in a 48 kHz project
@@ -87,7 +97,7 @@ int main(void) {
             os_voices_init(&live, 48000);
             os_voices_init(&cached, 48000);
             os_voices_set_cache(&cached, &cache);
-            tOsCacheKey key     = {gSample.serial, rev, os_voices_step(&cached, &gSample, &p, 60)};
+            tOsCacheKey key     = os_voices_key(&cached, &gSample, &p, 60);
 
             os_cache_request(&cache, key, true);
 
@@ -144,7 +154,7 @@ int main(void) {
 
         os_voices_init(&v, 48000);
         os_voices_set_cache(&v, useCache ? &cache : NULL);
-        (void)wait_for(&cache, (tOsCacheKey){gSample.serial, false, os_voices_step(&v, &gSample, &p, 60)});
+        (void)wait_for(&cache, os_voices_key(&v, &gSample, &p, 60));
         t0 = now();
 
         for (int b = 0; b < (int)(seconds * 48000 / 512); b++) {
@@ -183,6 +193,104 @@ int main(void) {
 
         os_voices_stop(&v);
         printf("ok    stress: 1333 key-tracked notes with eviction, no crash\n");
+    }
+
+    // 5. stretched copies (osCache notes §7): a 440 Hz tone, 1 s, 44.1 kHz, its first 50 ms protected
+    {
+        static tOsSample tone;
+        uint32_t         frames  = 44100;
+
+        tone         = (tOsSample){
+            .serial = 9, .frames = frames, .channels = 1, .rate = 44100.0
+        };
+        tone.data[0] = tone.data[1] = malloc(frames * sizeof(float));
+
+        for (uint32_t i = 0; i < frames; i++) {
+            tone.data[0][i] = 0.5f * sinf(2.0f * (float)M_PI * 440.0f * (float)i / 44100.0f);
+        }
+
+        atomic_store(&gCurrent, &tone);
+        cache.budget = (size_t)256 * 1024 * 1024;
+
+        struct {
+            double stretch, tune;
+            bool   reverse;
+        }                cases[] = {{2.0, 0, false}, {0.5, 0, false}, {4.0, 0, false}, {2.0, 12, false}, {0.5, -12, false}, {2.0, 0, true}};
+
+        for (int k = 0; k < 6; k++) {
+            tOsPlay               p      = {
+                .rootKey =   60, .gain =    1, .tune    = cases[k].tune, .reverse = cases[k].reverse, .stretch = cases[k].stretch,
+                .protect = 0.05, .env  = {.hold = -1.0,.sustain = 1.0}};
+            tOsVoices             v;
+
+            os_voices_init(&v, 48000);
+            os_voices_set_cache(&v, &cache);
+            tOsCacheKey           key    = os_voices_key(&v, &tone, &p, 60);
+
+            os_cache_request(&cache, key, false);
+
+            if (!wait_for(&cache, key)) {
+                printf("FAIL  stretched copy never built: x%g %+g st\n", cases[k].stretch, cases[k].tune);
+                failures++;
+                continue;
+            }
+            const tOsCacheEntry * e      = os_cache_acquire(&cache, key);
+            double                want   = 1.0 * cases[k].stretch;
+            double                got    = e->frames / 48000.0;
+            double                pitch  = pow(2.0, cases[k].tune / 12.0);
+            uint32_t              from = e->plan.protectOut + 2400, to = e->frames - 2400;
+            int                   cross  = 0;
+
+            for (uint32_t i = from + 1; i < to; i++) {
+                cross += (e->data[0][i - 1] < 0.0f) && (e->data[0][i] >= 0.0f);
+            }
+
+            double                hz     = cross / ((to - from) / 48000.0);
+            double                worst  = 0.0;   // the protected part is the resampled original, untouched
+            tOsCopyPlan           plain  = {.step = key.step};
+            float *               ref    = malloc((e->plan.protectOut + 1) * sizeof(float));
+
+            (void)plain;
+            os_cache_render(&tone, cases[k].reverse, key.step, ref, NULL, e->plan.protectOut);
+
+            for (uint32_t i = 0; i < e->plan.protectOut; i++) {
+                worst = fmax(worst, fabs(ref[i] - e->data[0][i]));
+            }
+
+            free(ref);
+
+            // the seam: no step from one frame to the next bigger than the tone's own largest, and the level held
+            double                seamStep = 0.0, toneStep = 0.0, before = 0.0, after = 0.0;
+            uint32_t              at     = e->plan.protectOut;
+
+            for (uint32_t i = at - 400; i < at + 600; i++) {
+                seamStep = fmax(seamStep, fabs(e->data[0][i] - e->data[0][i - 1]));
+            }
+
+            for (uint32_t i = from + 1; i < to; i++) {
+                toneStep = fmax(toneStep, fabs(e->data[0][i] - e->data[0][i - 1]));
+            }
+
+            for (uint32_t i = at - 1000; i < at; i++) {
+                before = fmax(before, fabs(e->data[0][i]));
+            }
+
+            for (uint32_t i = at + 200; i < at + 1200; i++) {
+                after = fmax(after, fabs(e->data[0][i]));
+            }
+
+            bool                  seamOk = (seamStep < toneStep * 1.05) && (fabs(20.0 * log10(after / before)) < 1.0);
+
+            printf("      seam: largest step %.4f (tone %.4f), level %+.2f dB across it\n", seamStep, toneStep, 20.0 * log10(after / before));
+
+            bool                  ok     = seamOk && (fabs(got - want) < 0.002) && (fabs(hz - (440.0 * pitch)) < (440.0 * pitch * 0.01)) && (worst < 1e-6);
+
+            printf("%s  x%.2f %+3g st%-9s length %.4f s (want %.4f), tone %.1f Hz (want %.1f), protected part %s\n",
+                   ok ? "ok  " : "FAIL", cases[k].stretch, cases[k].tune, cases[k].reverse ? " reversed" : "", got, want, hz,
+                   440.0 * pitch, (worst < 1e-6) ? "untouched" : "CHANGED");
+            failures += ok ? 0 : 1;
+            os_cache_release(e);
+        }
     }
 
     os_cache_destroy(&cache);

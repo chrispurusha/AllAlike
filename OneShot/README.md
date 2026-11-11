@@ -25,6 +25,11 @@ Run `./do-uncrustify` after editing.
   (backwards; Start counts from the end),
   Velocity (how far velocity moves the level).
 - Output: Pan, Volume (-57..+6 dB in 0.5 dB steps; default -6 dB).
+- Stretch: the length x0.25..x4 with the pitch kept; Sync stretches it from the sample's own tempo (BPM) to the host's
+  as well; Protect (default 5 ms) keeps the start untouched while the rest takes up the change. While stretching, Tune
+  and Keys change the pitch but not the length, and the envelope's times stretch with the sample. Time-stretching is
+  the Rubber Band Library's (GPL; see `THIRD_PARTY.md`).
+- Double-click any dial to put it back to its default.
 - Envelope (Shift-drag any dial for fine steps; Attack has 1000, 195 of them in its first 5 ms): AHR (Attack, Hold, then Release to silence - the usual one-shot drum envelope) or ADSR, with a curve on
   Attack, Decay and Release (-100..+100; Decay and Release default to +50). Hold at its top is Inf: the whole sample
   plays, which with Attack 0 is the default, so a loaded sample sounds as it is. Decay and Sustain are ADSR's and

@@ -42,6 +42,8 @@ typedef struct {
     double      start;    // seconds into the sample
     bool        snap;     // to the nearest zero crossing
     bool        reverse;  // notes §6: the sample backwards; Start counts from its end
+    double      stretch;  // notes §8: the length's multiple, tempo included; 1 is off
+    double      protect;  // seconds of the original kept as they are when stretched
 } tOsPlay;
 
 typedef struct {
@@ -77,6 +79,8 @@ void os_voices_set_cache(tOsVoices * v, tOsCache * cache);
 
 // notes §7: the step a note plays at - what a copy is resampled for
 double os_voices_step(const tOsVoices * v, const tOsSample * sample, const tOsPlay * play, uint8_t note);
+bool os_voices_stretched(const tOsPlay * play);
+tOsCacheKey os_voices_key(const tOsVoices * v, const tOsSample * sample, const tOsPlay * play, uint8_t note);   // the copy a note wants
 void os_voices_stop(tOsVoices * v);
 void os_voices_note_on(tOsVoices * v, const tOsSample * sample, const tOsPlay * play, uint8_t note, float velocity);
 void os_voices_note_off(tOsVoices * v, const tOsPlay * play, uint8_t note);

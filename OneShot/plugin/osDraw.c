@@ -23,6 +23,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
+#include <time.h>
 
 #include "osDraw.h"
 
@@ -75,8 +76,10 @@
 #define MAX_FOLDER_FILES          (4096)
 #define INACTIVE_COLOUR           {0.42, 0.42, 0.44}
 #define START_COLOUR              {0.95, 0.80, 0.25}
+#define PROTECT_COLOUR            {0.80, 0.55, 0.85}
 #define NOTE_OFF_AT               (0.5)   // notes §5: Gate's drawing releases halfway along
 #define ENV_SUBSTEPS              (32)    // envelope steps per waveform column, so a short attack shows
+#define DOUBLE_CLICK_S            (0.4)   // notes §10: a second press on the same dial within this resets it
 
 typedef struct {
     const tOsControl * control;
@@ -113,6 +116,10 @@ static int                   gMenuChoice = -1;
 static tMenuItem             gMenuItems[MENU_MAX + 1];
 static bool                  gOpeningClick;  // the press that opened a menu, until its release
 static tCoord                gOpeningAt;
+
+// notes §10: the last press on a dial, for a double-click
+static const tOsControl *    gLastPressed;
+static double                gLastPressAt;
 
 static const tOsSampleHost * gHost;
 static void *                gUser;
@@ -518,6 +525,14 @@ static void draw_waveform(void) {
         set_rgb_colour((tRgb)START_COLOUR);
         render_line(mainArea, (tCoord){x, gWaveRect.coord.y + 2.0}, (tCoord){x, gWaveRect.coord.y + WAVE_H - 2.0}, 1.5);
     }
+
+    // notes §9: where the protected part ends, while stretching
+    if (os_param_active(kOsParamProtect, gValue)) {
+        double x = gWaveRect.coord.x + (fmin(1.0, os_protect_time(gValue[kOsParamProtect]) / seconds) * gWaveRect.size.w);
+
+        set_rgb_colour((tRgb)PROTECT_COLOUR);
+        render_line(mainArea, (tCoord){x, gWaveRect.coord.y + 2.0}, (tCoord){x, gWaveRect.coord.y + WAVE_H - 2.0}, 1.0);
+    }
     snprintf(text, sizeof(text), "%.3f s   %.0f Hz   %s", s->frames / s->rate, s->rate, (s->channels == 2) ? "stereo" : "mono");
     set_rgb_colour((tRgb)RGB_GREY_7);
     render_text(mainArea, (tRectangle){{gWaveRect.coord.x + 6.0, gWaveRect.coord.y + 4.0}, {0.0, 10.0}}, text);
@@ -705,7 +720,7 @@ bool os_draw_press(double x, double y, tOsEdit * edit, bool * grabbed) {
         return true;
     }
     layout();
-    const tPlaced * pc = hit(x, y);
+    const tPlaced * pc      = hit(x, y);
 
     if (pc == NULL) {
         return false;
@@ -721,10 +736,24 @@ bool os_draw_press(double x, double y, tOsEdit * edit, bool * grabbed) {
         gOpeningAt    = at;
         return true;
     }
-    gGrabbed   = pc->control;
-    gGrabValue = gValue[pc->control->paramId];
-    gGrabDial  = pc->dial;
-    *grabbed   = true;
+    // notes §10: a double-click puts the dial back to its default instead of grabbing it
+    struct timespec now;
+
+    clock_gettime(CLOCK_MONOTONIC, &now);
+    double          seconds = (double)now.tv_sec + ((double)now.tv_nsec * 1e-9);
+
+    if ((pc->control == gLastPressed) && ((seconds - gLastPressAt) < DOUBLE_CLICK_S)) {
+        edit->paramId    = pc->control->paramId;
+        edit->normalized = gOsParams[pc->control->paramId].defaultNormalized;
+        gLastPressed     = NULL;
+        return true;
+    }
+    gLastPressed = pc->control;
+    gLastPressAt = seconds;
+    gGrabbed     = pc->control;
+    gGrabValue   = gValue[pc->control->paramId];
+    gGrabDial    = pc->dial;
+    *grabbed     = true;
     return true;
 }
 

@@ -33,5 +33,26 @@ everything left is playing, the pitch plays live.
 
 ## 6. Key Track
 Off, every note plays at one step: the plug-in asks for that one with `only`, and every other copy goes (an older
-Tune, say). On, a copy is made for a note when it is first played - never the whole keyboard ahead - and that first
+Tune, say) - once the new one is built, so notes meanwhile still find the old one (§8). An `only` request with a later
+one queued behind it is skipped: it is already out of date. On, a copy is made for a note when it is first played - never the whole keyboard ahead - and that first
 note plays live while it builds. The root key's pitch is asked for ahead of any note either way.
+
+## 7. Stretched copies
+With Stretch not x1 (Tempo Sync included) a copy is also stretched, and keyed by the stretch and Protect as well. Its
+plan: the first Protect seconds of the original are resampled as before - tape-style, so at a pitch p they last
+Protect / p - and the rest goes through Rubber Band (osStretch) at the same pitch, to fill what remains of stretch x
+the original's length. So the whole note is exactly stretch x as long whatever the pitch, and the attack is the
+sample's own. In the owner's example: 4 s, 1 s protected, x2 - the note lasts 8 s, the 3 s after the protected second
+becomes 7 s.
+
+If the protected part alone is longer than the length asked for, it plays whole and the rest is squeezed to the
+stretcher's limit (1/16; 16 the other way): the note runs long rather than cutting the attack (owner, 2026-11-11).
+The two parts meet in a 3 ms crossfade, both starting from the same moment of the sample; on a 440 Hz tone no step
+across it is larger than the tone's own and the level moves under 0.9 dB. A note's Start, in the original's frames,
+lands in the protected part or proportionally in the stretched one (`os_cache_position`).
+
+## 8. While a stretched copy is built
+A note whose stretched copy is not ready plays the most recently played copy of the same sample at the same pitch
+stretched by any amount - the length a little off, the sound right - and asks for its own. Only with no stretched copy
+at all does it play unstretched. A host tempo change asks for nothing by itself: the next note does, so twenty
+instances do not all rebuild at the same moment (owner, 2026-11-11), and that note plays the old tempo's copy.

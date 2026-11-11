@@ -136,12 +136,14 @@ mkdir -p "$STAGE"
 cp -R "$VST3" "$AU" "$STAGE/"
 cp LICENSE "$STAGE/LICENSE.txt"
 
-# THIRD_PARTY.md: FreeType (statically linked, FTL - the credit below is mandatory) and the VST3 SDK (MIT - its
-# notice travels with the binary). A release without them stops.
+# THIRD_PARTY.md: FreeType (statically linked, FTL - the credit below is mandatory), the VST3 SDK (MIT - its
+# notice travels with the binary) and Rubber Band (GPL v2 or later - its COPYING travels with it). A release
+# without them stops.
 FTL="../../SynthLib/ThirdParty/freetype/docs/FTL.TXT"
 VST3_LICENSE="${VST3_SDK:-$HOME/Documents/vst3sdk}/LICENSE.txt"
+RUBBERBAND_LICENSE="../../SynthLib/ThirdParty/rubberband/COPYING"
 
-for f in "$FTL" "$VST3_LICENSE"; do
+for f in "$FTL" "$VST3_LICENSE" "$RUBBERBAND_LICENSE"; do
     if [[ ! -f $f ]]; then
         echo "error: $f is missing - a release must carry it (THIRD_PARTY.md)." >&2
         exit 1
@@ -150,6 +152,7 @@ done
 mkdir -p "$STAGE/Licences"
 cp "$FTL" "$STAGE/Licences/FreeType FTL.txt"
 cp "$VST3_LICENSE" "$STAGE/Licences/VST3 SDK LICENSE.txt"
+cp "$RUBBERBAND_LICENSE" "$STAGE/Licences/Rubber Band COPYING.txt"
 
 cat > "$STAGE/Read Me First.txt" <<EOF
 OneShot $VERSION_CLEAN
@@ -178,16 +181,18 @@ USING IT
 
 One sample per instance, held in memory, played by any note: one instance per drum pad, with ordinary effect
 plug-ins after it. Load... opens a WAV or AIFF file; < Prev and Next > step through the other samples in its folder.
-An AHR or ADSR envelope with curves, Start with snapping to zero crossings, tune, pan and volume. Help > The Panel
-explains the rest. No samples ship with it.
+An AHR or ADSR envelope with curves, Start with snapping to zero crossings, Reverse, time-stretching (to a
+multiple, or to the host's tempo from the sample's own, keeping its attack), tune, pan and volume. Help > The
+Panel explains the rest. No samples ship with it.
 
 LICENCE
 
 GPL version 3 - see LICENSE.txt.
 
 Portions of this software are copyright (C) The FreeType Project (www.freetype.org). All rights reserved.
-This software is based in part on the work of the FreeType Team. Its licence, and the VST3 SDK's, are in
-the Licences folder.
+This software is based in part on the work of the FreeType Team. Time-stretching uses the Rubber Band
+Library, copyright 2007-2024 Particular Programs Ltd., under the GPL (version 2 or later). Their licences,
+and the VST3 SDK's, are in the Licences folder.
 EOF
 
 DMG="$DIST/OneShot-$VERSION_CLEAN.dmg"

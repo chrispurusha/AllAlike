@@ -22,3 +22,10 @@ then checks it is still current, and `free_acknowledged` never frees the marked 
 swap or the mark, the sample is not freed while it is read. Each block the audio thread asks for the root key's pitch
 when it changes (sample, direction, Tune, rate, Key Track), so with Key Track off the copy is usually ready before the
 first note.
+
+## 5. Stretch
+The multiple is Stretch, times Base BPM over the host's tempo with Sync on. The host's tempo is taken from the
+transport each block and kept when the host stops sending one; 120 until it first does. The envelope's times are
+multiplied by the same amount (owner, 2026-11-11), so the envelope keeps its place against the sample. The look-ahead
+(§4) asks for a new copy when the sample, pitch, direction, rate, Protect or the Stretch, Sync or Base settings
+change - not when only the host's tempo does (osCache §8).

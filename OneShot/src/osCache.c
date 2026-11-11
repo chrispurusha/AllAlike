@@ -23,12 +23,17 @@
 
 #include "osCache.h"
 #include "osResample.h"
+#include "osStretch.h"
 
 #define BUDGET_BYTES     ((size_t)256 * 1024 * 1024)     // notes §5
 #define SAFETY_WAKE_S    (1)                             // a request whose signal was missed waits no longer than this
+#define MIN_RATIO        (1.0 / 16.0)                    // notes §7: the stretcher's limits, either way
+#define MAX_RATIO        (16.0)
+#define CROSSFADE_S      (0.003)                         // notes §7: from the protected part into the stretched
 
 static bool same_key(tOsCacheKey a, tOsCacheKey b) {
-    return (a.serial == b.serial) && (a.reverse == b.reverse) && (a.step == b.step);
+    return (a.serial == b.serial) && (a.reverse == b.reverse) && (a.step == b.step) && (a.hostRate == b.hostRate)
+           && (a.stretch == b.stretch) && (a.protect == b.protect);
 }
 
 // ---- the audio thread ---------------------------------------------------------------------------------------
@@ -64,6 +69,38 @@ const tOsCacheEntry * os_cache_acquire(tOsCache * c, tOsCacheKey key) {
     }
 
     return NULL;
+}
+
+// notes §8: the most recently played copy of this sample at this pitch stretched by any amount - what a note plays
+// while its own copy is built, rather than playing unstretched
+const tOsCacheEntry * os_cache_acquire_similar(tOsCache * c, tOsCacheKey key) {
+    tOsCacheEntry * best = NULL;
+
+    if (c == NULL) {
+        return NULL;
+    }
+
+    for (int i = 0; i < OS_CACHE_ENTRIES; i++) {
+        tOsCacheEntry * e       = &c->entry[i];
+
+        if (!hold(e)) {
+            continue;
+        }
+        tOsCacheKey     k       = e->key;
+        bool            similar = (k.serial == key.serial) && (k.reverse == key.reverse) && (k.step == key.step)
+                                  && (k.hostRate == key.hostRate) && (k.stretch != 1.0);
+
+        if (similar && ((best == NULL) || (atomic_load(&e->lastUsed) > atomic_load(&best->lastUsed)))) {
+            if (best != NULL) {
+                atomic_fetch_sub(&best->state, 1);
+            }
+            best = e;
+        } else {
+            atomic_fetch_sub(&e->state, 1);
+        }
+    }
+
+    return best;
 }
 
 void os_cache_release(const tOsCacheEntry * e) {
@@ -112,6 +149,45 @@ void os_cache_render(const tOsSample * s, bool reverse, double step, float * lef
             right[n] = r;
         }
     }
+}
+
+// notes §7: the protected part resampled (tape-style, so it lasts protect / pitch), the rest stretched to fill
+// what remains of stretch x the original's length, never past the stretcher's limits - the protected part wins
+tOsCopyPlan os_cache_plan(const tOsSample * s, tOsCacheKey key) {
+    tOsCopyPlan p       = {.step = key.step};
+
+    if (key.stretch == 1.0) {
+        p.frames     = os_cache_length(s, key.step);
+        p.protectIn  = s->frames;
+        p.protectOut = p.frames;
+        return p;
+    }
+    double      length  = (double)s->frames / s->rate;
+    double      protect = fmin(fmax(0.0, key.protect), length);
+
+    p.protectIn  = (uint32_t)lround(protect * s->rate);
+    p.protectIn  = (p.protectIn > s->frames) ? s->frames : p.protectIn;
+    p.protectOut = (uint32_t)lround((double)p.protectIn / key.step);
+    p.regionIn   = s->frames - p.protectIn;
+
+    if (p.regionIn > 0) {
+        double rest  = (double)p.regionIn / s->rate;
+        double fill  = (length * key.stretch) - ((double)p.protectOut / key.hostRate);
+        double ratio = fmin(MAX_RATIO, fmax(MIN_RATIO, fill / rest));
+
+        p.regionOut = (uint32_t)lround(rest * ratio * key.hostRate);
+    }
+    p.frames     = p.protectOut + p.regionOut;
+    return p;
+}
+
+double os_cache_position(const tOsCacheEntry * e, uint32_t sourceFrame) {
+    const tOsCopyPlan * p = &e->plan;
+
+    if ((sourceFrame < p->protectIn) || (p->regionIn == 0)) {
+        return (double)lround((double)sourceFrame / p->step);
+    }
+    return (double)p->protectOut + (double)lround((double)(sourceFrame - p->protectIn) * p->regionOut / p->regionIn);
 }
 
 // ---- the worker ---------------------------------------------------------------------------------------------
@@ -190,20 +266,104 @@ static void drop_others(tOsCache * c, tOsCacheKey key) {
     }
 }
 
+static bool cancelled(void * user) {
+    return atomic_load(&((tOsCache *)user)->quit);
+}
+
+// The source frames [from, from + count) as played - backwards when reversed - into a new buffer for the stretcher
+static float * played(const tOsSample * s, int channel, bool reverse, uint32_t from, uint32_t count) {
+    float * out = (float *)malloc(((size_t)count + 1) * sizeof(float));
+
+    if (out != NULL) {
+        for (uint32_t i = 0; i < count; i++) {
+            uint32_t at = from + i;
+
+            out[i] = s->data[channel][reverse ? (s->frames - 1 - at) : at];
+        }
+    }
+    return out;
+}
+
+// notes §7: resampled up to the end of the protected part and a crossfade on, then the stretched rest over it
+static bool render(tOsCache * c, const tOsSample * s, tOsCacheKey key, const tOsCopyPlan * plan, float * left, float * right) {
+    if (key.stretch == 1.0) {
+        os_cache_render(s, key.reverse, key.step, left, right, plan->frames);
+        return true;
+    }
+    uint32_t fade   = (uint32_t)(CROSSFADE_S * key.hostRate);
+
+    fade = (plan->protectOut == 0) ? 0 : ((fade > plan->regionOut) ? plan->regionOut : fade);
+    os_cache_render(s, key.reverse, key.step, left, right, plan->protectOut + fade);
+
+    if (plan->regionOut == 0) {
+        return true;
+    }
+    bool     stereo = (right != NULL);
+    float *  inL    = played(s, 0, key.reverse, plan->protectIn, plan->regionIn);
+    float *  inR    = stereo ? played(s, 1, key.reverse, plan->protectIn, plan->regionIn) : NULL;
+    float *  keepL  = (float *)malloc(((size_t)fade + 1) * sizeof(float));
+    float *  keepR  = (float *)malloc(((size_t)fade + 1) * sizeof(float));
+    bool     ok     = (inL != NULL) && (!stereo || (inR != NULL)) && (keepL != NULL) && (keepR != NULL);
+
+    if (ok) {
+        double pitch = key.step * key.hostRate / s->rate;
+
+        memcpy(keepL, left + plan->protectOut, fade * sizeof(float));
+
+        if (stereo) {
+            memcpy(keepR, right + plan->protectOut, fade * sizeof(float));
+        }
+        ok = os_stretch_render(inL, inR, plan->regionIn, s->rate, key.hostRate, pitch, left + plan->protectOut,
+                               stereo ? right + plan->protectOut : NULL, plan->regionOut, cancelled, c);
+    }
+
+    for (uint32_t i = 0; ok && (i < fade); i++) {
+        float w = ((float)i + 0.5f) / (float)fade;
+
+        left[plan->protectOut + i] = (keepL[i] * (1.0f - w)) + (left[plan->protectOut + i] * w);
+
+        if (stereo) {
+            right[plan->protectOut + i] = (keepR[i] * (1.0f - w)) + (right[plan->protectOut + i] * w);
+        }
+    }
+
+    free(inL);
+    free(inR);
+    free(keepL);
+    free(keepR);
+    return ok;
+}
+
+// notes §6: an only request with a later one queued behind it is already out of date
+static bool superseded(tOsCache * c, uint32_t tail) {
+    uint32_t head = atomic_load(&c->head);
+
+    for (uint32_t at = tail + 1; at != head; at++) {
+        if (c->request[at % OS_CACHE_REQUESTS].only) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 static void build(tOsCache * c, tOsCacheRequest request) {
     tOsCacheKey           key   = request.key;
 
-    if (request.only) {
-        drop_others(c, key);
-    }
-
-    if (key.step == 1.0) {
+    if ((key.step == 1.0) && (key.stretch == 1.0)) {
+        if (request.only) {
+            drop_others(c, key);
+        }
         return;   // the sample itself, read straight: nothing to copy
     }
     const tOsCacheEntry * have  = os_cache_acquire(c, key);
 
     if (have != NULL) {
         os_cache_release(have);
+
+        if (request.only) {
+            drop_others(c, key);
+        }
         return;
     }
     const tOsSample *     s     = c->source.borrow(c->user, key.serial);
@@ -211,19 +371,21 @@ static void build(tOsCache * c, tOsCacheRequest request) {
     if (s == NULL) {
         return;   // a sample since replaced
     }
-    uint32_t              n     = os_cache_length(s, key.step);
+    tOsCopyPlan           plan  = os_cache_plan(s, key);
+    uint32_t              n     = plan.frames;
     size_t                bytes = (size_t)n * sizeof(float) * s->channels;
-    tOsCacheEntry *       e     = (bytes <= c->budget) ? make_room(c, key.serial, bytes) : NULL;
+    tOsCacheEntry *       e     = ((n > 0) && (bytes <= c->budget)) ? make_room(c, key.serial, bytes) : NULL;
 
     if (e != NULL) {
         e->data[0] = (float *)malloc((size_t)n * sizeof(float));
         e->data[1] = (s->channels == 2) ? (float *)malloc((size_t)n * sizeof(float)) : e->data[0];
 
-        if ((e->data[0] == NULL) || (e->data[1] == NULL)) {
+        if (  (e->data[0] == NULL) || (e->data[1] == NULL)
+           || !render(c, s, key, &plan, e->data[0], (s->channels == 2) ? e->data[1] : NULL)) {
             free_entry(e);
         } else {
-            os_cache_render(s, key.reverse, key.step, e->data[0], (s->channels == 2) ? e->data[1] : NULL, n);
             e->key    = key;
+            e->plan   = plan;
             e->frames = n;
             e->bytes  = bytes;
             atomic_store(&e->lastUsed, atomic_fetch_add(&c->clock, 1) + 1);
@@ -231,6 +393,11 @@ static void build(tOsCache * c, tOsCacheRequest request) {
         }
     }
     c->source.give_back(c->user, s);
+
+    // notes §6: only once the new copy is there, so notes meanwhile still play the old one
+    if (request.only) {
+        drop_others(c, key);
+    }
 }
 
 static void * worker(void * arg) {
@@ -241,9 +408,13 @@ static void * worker(void * arg) {
 
         if (tail != atomic_load(&c->head)) {
             tOsCacheRequest request = c->request[tail % OS_CACHE_REQUESTS];
+            bool            stale   = request.only && superseded(c, tail);
 
             atomic_store(&c->tail, tail + 1);
-            build(c, request);
+
+            if (!stale) {
+                build(c, request);
+            }
             continue;
         }
         struct timespec until;

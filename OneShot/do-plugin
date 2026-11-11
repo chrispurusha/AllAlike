@@ -86,6 +86,12 @@ fi
 "$SL/do-build"
 SYNTHLIB_LIB="$SL/build/libSynthLib.a"
 FREETYPE_LIB="$SL/build/libfreetype.a"
+RUBBERBAND_LIB="$SL/build/librubberband.a"   # time-stretching; SynthLib builds it from ThirdParty/rubberband
+
+if [[ ! -f "$RUBBERBAND_LIB" ]]; then
+    print -u2 "error: $RUBBERBAND_LIB missing - in SynthLib: git submodule update --init ThirdParty/rubberband && ./do-build"
+    exit 1
+fi
 
 
 
@@ -99,6 +105,7 @@ SOURCES=(
     "$HERE/src/osEnvelope.c"
     "$HERE/src/osResample.c"
     "$HERE/src/osCache.c"
+    "$HERE/src/osStretch.cpp"
     "$HERE/plugin/osParams.c"
     "$HERE/plugin/osDraw.c"
     "$HERE/plugin/osMenu.c"
@@ -124,13 +131,13 @@ DEFS=(-DOS_VERSION_STRING="\"$OS_VERSION\"" -DSYNTHLIB_VERSION_STRING="\"$OS_VER
 # glfw for its HEADERS ONLY - SynthLib's key and mouse constants come from them. freetype is real: the panel
 # draws its text with it, linked statically below.
 INCLUDES=(-I"$HERE/src" -I"$HERE/plugin" -I"$SL/src" -I"$SL/audio" -I"$SL/plugin"
-          -I"$SL/ThirdParty/glfw/include" -I"$SL/ThirdParty/freetype/include")
+          -I"$SL/ThirdParty/glfw/include" -I"$SL/ThirdParty/freetype/include" -I"$SL/ThirdParty/rubberband")
 
 ARCHS=(-arch arm64 -arch x86_64)
 MIN=-mmacosx-version-min=12.0
 
 COMMON_LIBS=(-framework CoreFoundation -framework CoreAudio -framework CoreMIDI -framework Cocoa
-             -framework Metal -framework QuartzCore)
+             -framework Metal -framework QuartzCore -framework Accelerate)
 AU_LIBS=(-framework AudioToolbox -framework AudioUnit)
 
 OBJDIR="$(mktemp -d)"
@@ -146,7 +153,11 @@ COMMON_OBJECTS=()
 
 for src in "${SOURCES[@]}"; do
     obj="$OBJDIR/$(basename "${src%.*}").o"
-    clang $ARCHS $MIN -O2 -std=gnu11 "${WARNFLAGS[@]}" $(own_werror "$src") "${DEFS[@]}" "${INCLUDES[@]}" -c "$src" -o "$obj"
+    if [[ "$src" == *.cpp ]]; then
+        clang++ $ARCHS $MIN -O2 -std=c++14 "${WARNFLAGS[@]}" $(own_werror "$src") "${DEFS[@]}" "${INCLUDES[@]}" -c "$src" -o "$obj"
+    else
+        clang $ARCHS $MIN -O2 -std=gnu11 "${WARNFLAGS[@]}" $(own_werror "$src") "${DEFS[@]}" "${INCLUDES[@]}" -c "$src" -o "$obj"
+    fi
     COMMON_OBJECTS+=("$obj")
 done
 
@@ -217,7 +228,7 @@ build_vst3() {
 
     rm -rf "$out"
     mkdir -p "$out/Contents/MacOS"
-    clang++ $ARCHS $MIN -bundle -Wl,-dead_strip -Wl,-S -Wl,-u,_GetPluginFactory "${objects[@]}" "$SYNTHLIB_LIB" "$FREETYPE_LIB" "${COMMON_LIBS[@]}" -o "$bin"
+    clang++ $ARCHS $MIN -bundle -Wl,-dead_strip -Wl,-S -Wl,-u,_GetPluginFactory "${objects[@]}" "$SYNTHLIB_LIB" "$FREETYPE_LIB" "$RUBBERBAND_LIB" "${COMMON_LIBS[@]}" -o "$bin"
 
     cat > "$out/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -259,7 +270,7 @@ build_au() {
 
     rm -rf "$out"
     mkdir -p "$out/Contents/MacOS"
-    clang++ $ARCHS $MIN -bundle -Wl,-dead_strip -Wl,-S -Wl,-u,_SynthLibAUFactory "${objects[@]}" "$SYNTHLIB_LIB" "$FREETYPE_LIB" \
+    clang++ $ARCHS $MIN -bundle -Wl,-dead_strip -Wl,-S -Wl,-u,_SynthLibAUFactory "${objects[@]}" "$SYNTHLIB_LIB" "$FREETYPE_LIB" "$RUBBERBAND_LIB" \
             "${COMMON_LIBS[@]}" "${AU_LIBS[@]}" -o "$bin"
 
     # THE AudioComponents ARRAY IS HOW macOS FINDS AN AUDIO UNIT AT ALL - the component manager reads

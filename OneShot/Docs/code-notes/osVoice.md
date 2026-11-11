@@ -34,3 +34,9 @@ switching it does not turn a sounding note round.
 A note whose step is not 1 plays from osCache's copy for that sample, direction and step if one is ready: step 1
 through it, from the copy frame nearest Start. Otherwise it plays live and asks for one. The voice holds the copy
 until it ends, which every way a voice ends goes through (`end_voice`).
+
+## 8. Stretched
+Stretch (the plug-in's multiple, times the base tempo over the host's with Sync on) and Protect come in the play
+settings; any stretch other than 1 takes a stretched copy (osCache §7, §8), so Tune and Keys then change the pitch
+but not the length. `os_voices_key` is the one place the copy a note wants is worked out - the note and the
+plug-in's look-ahead both use it, so they ask for the same thing.

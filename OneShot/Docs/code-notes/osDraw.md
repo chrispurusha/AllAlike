@@ -33,3 +33,14 @@ are laid over it in played order.
 ## 8. Size
 760 x 540 since 2026-11-11 (was 640 x 420): the first row of controls takes Reverse, there is room for a third row, and
 the file browser lays itself out below the menu bar with all its rows.
+
+## 9. Protect on the waveform
+A purple line where the protected part ends, while stretching. The waveform and the envelope over it are not redrawn
+stretched: the envelope's times stretch with the sample, so the picture is the same.
+
+## 10. Double-click a dial
+Two presses on the same dial within 0.4 s put it back to its default (the parameter table's), through the host like
+any edit, so it can be undone there. The second press does not grab the dial; the first one does, as any press,
+so a little movement between the two is undone by the reset. Added 2026-11-11, when Stretch's x1 proved hard to
+find by dragging.
+
