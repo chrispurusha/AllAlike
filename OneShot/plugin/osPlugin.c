@@ -274,21 +274,22 @@ static tOsPlay make_play(const tOsPlugin * t) {
     }
 
     return (tOsPlay){
-        .tune     = (double)(step(t, kOsParamTune) - 24) + ((double)(step(t, kOsParamFine) - 50) / 100.0),
-        .velocity = value(t, kOsParamVelocity),
-        .keyTrack = step(t, kOsParamKeyTrack) > 0,
-        .rootKey  = (int)step(t, kOsParamRootKey),
-        .gate     = step(t, kOsParamMode) > 0,
-        .mono     = step(t, kOsParamVoices) > 0,
-        .pan      = (double)(step(t, kOsParamPan) - 64) / 64.0,
-        .gain     = os_volume_gain(value(t, kOsParamVolume)),
-        .env      = os_env_shape(values),
-        .start    = os_start_time(value(t, kOsParamStart)),
-        .snap     = step(t, kOsParamSnap) > 0,
-        .reverse  = step(t, kOsParamReverse) > 0,
-        .protect  = os_protect_time(value(t, kOsParamProtect)),
-        .end      = os_end_fraction(value(t, kOsParamEnd)),
-        .delay    = os_delay_time(value(t, kOsParamDelay)),
+        .tune        = (double)(step(t, kOsParamTune) - 24) + ((double)(step(t, kOsParamFine) - 50) / 100.0),
+        .velocity    = value(t, kOsParamVelocity),
+        .keyTrack    = step(t, kOsParamKeyTrack) > 0,
+        .rootKey     = (int)step(t, kOsParamRootKey),
+        .gate        = step(t, kOsParamMode) > 0,
+        .mono        = step(t, kOsParamVoices) > 0,
+        .pan         = (double)(step(t, kOsParamPan) - 64) / 64.0,
+        .gain        = os_volume_gain(value(t, kOsParamVolume)),
+        .env         = os_env_shape(values),
+        .start       = os_start_time(value(t, kOsParamStart)),
+        .snap        = step(t, kOsParamSnap) > 0,
+        .reverse     = step(t, kOsParamReverse) > 0,
+        .protect     = os_protect_time(value(t, kOsParamProtect)),
+        .protectSnap = step(t, kOsParamProtectSnap) > 0,
+        .end         = os_end_fraction(value(t, kOsParamEnd)),
+        .delay       = os_delay_time(value(t, kOsParamDelay)),
     };
 }
 

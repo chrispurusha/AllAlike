@@ -34,18 +34,19 @@ typedef struct {
     double      velocity; // 0..1: how much velocity moves the level
     bool        keyTrack;
     int         rootKey;
-    bool        gate;     // a note off starts the release; otherwise the note off is ignored
-    bool        mono;     // a new note fades out the ones still sounding
-    double      pan;      // -1..1
-    double      gain;     // linear
+    bool        gate;        // a note off starts the release; otherwise the note off is ignored
+    bool        mono;        // a new note fades out the ones still sounding
+    double      pan;         // -1..1
+    double      gain;        // linear
     tOsEnvShape env;
-    double      start;    // seconds into the sample
-    bool        snap;     // to the nearest zero crossing
-    bool        reverse;  // notes §6: the sample backwards; Start counts from its end
-    double      stretch;  // notes §8: the length's multiple, tempo included; 1 is off
-    double      protect;  // seconds of the original kept as they are when stretched
-    double      end;      // notes §9: where a note stops, 0..1 of the length as played; 1 the whole
-    double      delay;    // notes §10: seconds a note waits before it sounds
+    double      start;       // seconds into the sample
+    bool        snap;        // to the nearest zero crossing
+    bool        reverse;     // notes §6: the sample backwards; Start counts from its end
+    double      stretch;     // notes §8: the length's multiple, tempo included; 1 is off
+    double      protect;     // seconds of the original kept as they are when stretched
+    bool        protectSnap; // notes §11: its end to the nearest zero crossing (its own switch, not Snap)
+    double      end;         // notes §9: where a note stops, 0..1 of the length as played; 1 the whole
+    double      delay;       // notes §10: seconds a note waits before it sounds
 } tOsPlay;
 
 typedef struct {

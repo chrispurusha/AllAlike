@@ -401,7 +401,7 @@ int main(void) {
         const tOsSample * tone = atomic_load(&gCurrent);
 
         for (int snap = 0; snap < 2; snap++) {
-            tOsPlay     p     = {.rootKey = 60, .gain = 1, .end = 1, .snap = snap, .stretch = 2.0, .protect = 0.051, .env = {.hold = -1.0}};
+            tOsPlay     p     = {.rootKey = 60, .gain = 1, .end = 1, .protectSnap = snap, .stretch = 2.0, .protect = 0.051, .env = {.hold = -1.0}};
             tOsVoices   v;
 
             os_voices_init(&v, 48000);

@@ -19,7 +19,8 @@ On. A greyed control is drawn grey and ignores clicks; a host can still automate
 ## 6. Stretch
 Stretch is 2^(k/100) for k from -200 to +200: x0.25 to x4, a hundred steps an octave, x1 in the middle. Base BPM is
 40 to 240 in half-BPM steps, default 120. Protect has Start's law (0 to 2 s, exponential above 1 ms) and defaults to
-5 ms - step 236, 5.01 ms. Base is greyed with Sync Off, Protect when nothing is stretched. Appended after Reverse, so
+5 ms - step 236, 5.01 ms. Base is greyed with Sync Off, Protect and its Snap when nothing is stretched. Protect's Snap is its own switch, apart
+from TRIM's (owner, 2026-11-11), appended after Delay, default On. Appended after Reverse, so
 older projects keep their settings and open unstretched.
 
 ## 7. End

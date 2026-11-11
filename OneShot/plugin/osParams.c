@@ -45,6 +45,7 @@ const tSynthLibParam gOsParams[kOsParamCount] = {
     {kOsParamProtect,      "Protect",       "Protect", GEN,                       0.0, 1000.0, 236.0 / 1000.0, 1000, NONE,    0},
     {kOsParamEnd,          "End",           "End",     GEN,                       0.0,  100.0,            1.0, 1000, NONE,    0},
     {kOsParamDelay,        "Delay",         "Delay",   GEN,                       0.0, 1000.0,            0.0, 1000, NONE,    0},
+    {kOsParamProtectSnap,  "Protect Snap",  "PSnap",   IDX,                       0.0,    1.0,            1.0,    1, NONE, LIST},
 };
 
 static const char *const kOffOn[]    = {"Off", "On"};
@@ -90,6 +91,7 @@ bool os_param_active(uint32_t id, const double values[kOsParamCount]) {
             return step_of(kOsParamSync, values[kOsParamSync]) > 0;
 
         case kOsParamProtect:
+        case kOsParamProtectSnap:
             return (step_of(kOsParamStretch, values[kOsParamStretch]) != 200) || (step_of(kOsParamSync, values[kOsParamSync]) > 0);
 
         default:
@@ -240,6 +242,7 @@ void os_param_text(uint32_t id, double normalized, char * out, size_t len) {
         case kOsParamSnap:
         case kOsParamReverse:
         case kOsParamSync:
+        case kOsParamProtectSnap:
             snprintf(out, len, "%s", kOffOn[step > 0]);
             break;
 
@@ -305,8 +308,8 @@ static const tOsControl kCurves[]    = {
     DIAL(kOsParamAttackCurve, "Attack"), DIAL(kOsParamDecayCurve, "Decay"), DIAL(kOsParamReleaseCurve, "Release"),
 };
 static const tOsControl kStretch[]   = {
-    DIAL(kOsParamStretch, "Stretch"), TOGGLE(kOsParamSync, "Sync"), DIAL(kOsParamBaseTempo, "BPM"),
-    DIAL(kOsParamProtect, "Protect"),
+    DIAL(kOsParamStretch, "Stretch"), TOGGLE(kOsParamSync,        "Sync"), DIAL(kOsParamBaseTempo, "BPM"),
+    DIAL(kOsParamProtect, "Protect"), TOGGLE(kOsParamProtectSnap, "Snap"),
 };
 
 static const tOsSection kMainPage[]  = {

@@ -58,7 +58,7 @@ note that has not sounded, so it stays silent. Checked: a delayed note is the un
 For sample stacking, where layers are lined up against each other.
 
 ## 11. Protect snapped
-With Snap On the end of the protected part moves to the nearest zero crossing within 5 ms, like Start and End, so the
+With its own Snap On (STRETCH's, not TRIM's - owner, 2026-11-11; default On) the end of the protected part moves to the nearest zero crossing within 5 ms, like Start and End, so the
 untouched attack hands over to the stretched rest at a crossing. It is worked out in `os_voices_key`, so the copy is
 keyed and built on the snapped boundary, and the panel's purple line uses the same function. Checked: Protect 51 ms on
 a 440 Hz tone moves from frame 2249 (0.187) to the crossing at 2255 (0.004); Off leaves it at 2249.

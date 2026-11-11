@@ -107,7 +107,7 @@ uint32_t os_voices_protect_frame(const tOsSample * sample, const tOsPlay * play)
     uint32_t frame  = (at >= (double)sample->frames) ? sample->frames : (uint32_t)lround(at);
     uint32_t radius = (uint32_t)(SNAP_RADIUS_S * sample->rate);
 
-    if (!play->snap || (frame == 0) || (frame >= sample->frames)) {
+    if (!play->protectSnap || (frame == 0) || (frame >= sample->frames)) {
         return frame;
     }
     return play->reverse ? last - os_sample_zero_crossing(sample, last - frame, radius)

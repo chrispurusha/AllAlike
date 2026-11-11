@@ -34,6 +34,7 @@ enum {
     kOsParamProtect,
     kOsParamEnd,
     kOsParamDelay,
+    kOsParamProtectSnap,
     kOsParamCount
 };
 

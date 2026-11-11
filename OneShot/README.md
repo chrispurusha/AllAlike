@@ -23,12 +23,13 @@ Run `./do-uncrustify` after editing.
 - Play: Mode (One Shot ignores the note off, Gate releases at it), Voices (Mono, the default, cuts the last hit; Poly overlaps), Reverse
   (backwards; Start and End count in the order it plays).
 - Trim: Delay (0-2 s before a note sounds, microsecond steps at the bottom - for lining up layers), Start (0-2 s into
-  the sample, fine at the bottom), End (0-100% of its length, shown as a time), Snap (Start, End and Protect to the nearest zero
+  the sample, fine at the bottom), End (0-100% of its length, shown as a time), Snap (Start and End to the nearest zero
   crossing; Off fades in and out over 1 ms instead). The waveform shows Start to End, with a sliver either side.
 - Velocity (how far velocity moves the level).
 - Output: Pan, Volume (-57..+6 dB in 0.5 dB steps; default -6 dB).
 - Stretch: the length x0.25..x4 with the pitch kept; Sync stretches it from the sample's own tempo (BPM) to the host's
-  as well; Protect (default 5 ms) keeps the start untouched while the rest takes up the change. While stretching, Tune
+  as well; Protect (default 5 ms) keeps the start untouched while the rest takes up the change, and its Snap (default On)
+  moves Protect's end to the nearest zero crossing. While stretching, Tune
   and Keys change the pitch but not the length, and the envelope's times stretch with the sample. Time-stretching is
   the Rubber Band Library's (GPL; see `THIRD_PARTY.md`).
 - Double-click any dial to put it back to its default.

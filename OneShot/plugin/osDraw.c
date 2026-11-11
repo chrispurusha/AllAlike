@@ -636,7 +636,7 @@ static void draw_waveform(void) {
 
     // notes §9: where the protected part ends, while stretching
     if (os_param_active(kOsParamProtect, gValue)) {
-        tOsPlay snapped = {.protect = os_protect_time(gValue[kOsParamProtect]), .snap = gValue[kOsParamSnap] > 0.5, .reverse = reverse};
+        tOsPlay snapped = {.protect = os_protect_time(gValue[kOsParamProtect]), .protectSnap = gValue[kOsParamProtectSnap] > 0.5, .reverse = reverse};
         double  protect = (double)os_voices_protect_frame(s, &snapped);   // notes §9: snapped as the copy is built
 
         if ((protect >= (double)from) && (protect <= (double)to)) {
