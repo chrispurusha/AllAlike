@@ -127,7 +127,8 @@ build_one() {
     local PRODUCT_CXX=(${(M)SOURCES:#*.cpp})
     SOURCES=(${SOURCES:#*.cpp})
 
-    if grep -qs "rubberband/" $PRODUCT_CXX; then
+    # (( )) first: grep given no files reads standard input, and waits there for ever
+    if (( ${#PRODUCT_CXX} > 0 )) && grep -qs "rubberband/" $PRODUCT_CXX; then
         PRODUCT_CXX+=($SL/ThirdParty/rubberband/single/RubberBandSingle.cpp)
     fi
 
