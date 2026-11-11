@@ -53,7 +53,7 @@
 #define FONT_PRELOAD_SIZE         (16.0)
 
 #define MAX_PARAMS                (64)
-#define MAX_PLACED                (32)
+#define MAX_PLACED                (64)
 #define MARGIN_X                  (16.0)
 #define TITLE_Y                   (30.0)     // below the menu bar
 #define BAR_X                     (130.0)
@@ -229,6 +229,16 @@ static const char * current_path(void) {
 static void on_reset_confirmed(bool confirmed) {
     if (confirmed && have_host()) {
         gHost->reset(gUser, gLayer);
+    }
+}
+
+bool os_draw_oversampling(void) {
+    return have_host() && gHost->oversampling(gUser);
+}
+
+void os_draw_set_oversampling(bool on) {
+    if (have_host()) {
+        gHost->setOversampling(gUser, on);
     }
 }
 

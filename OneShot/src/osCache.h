@@ -83,6 +83,7 @@ typedef struct {
     size_t           budget;                       // bytes, all entries together
     pthread_t        thread;
     pthread_mutex_t  lock;
+    pthread_mutex_t  building;                     // notes §9: one builder at a time - the worker, or an offline note
     pthread_cond_t   wake;
     _Atomic bool     quit;
     bool             running;
@@ -96,6 +97,10 @@ const tOsCacheEntry * os_cache_acquire(tOsCache * c, tOsCacheKey key);
 const tOsCacheEntry * os_cache_acquire_similar(tOsCache * c, tOsCacheKey key);   // notes §8: stretched, any amount
 void os_cache_release(const tOsCacheEntry * e);
 void os_cache_request(tOsCache * c, tOsCacheKey key, bool only);
+
+// notes §9: offline only - builds the copy on the calling thread, waiting for the worker if it is building, and
+// returns it held (or NULL if it cannot be made). Never in real time: it takes as long as the build.
+const tOsCacheEntry * os_cache_build_now(tOsCache * c, tOsCacheKey key);
 
 // notes §4: what the copy holds - the step's resampling of the sample, read forwards or backwards. Frame n is
 // played position n x step; the copy runs on through the filter's ring after the last frame.

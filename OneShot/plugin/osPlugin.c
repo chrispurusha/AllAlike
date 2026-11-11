@@ -29,6 +29,7 @@
 #include "synthlibTypes.h"
 #include "osCache.h"
 #include "osDraw.h"
+#include "osFx.h"
 #include "osParams.h"
 #include "osPrefs.h"
 #include "osSample.h"
@@ -86,6 +87,7 @@ typedef struct {
     const tOsSample * playing;                   // audio thread: the sample its voices were last given
 
     char              path[PATH_LENGTH];         // main thread: kept when the file cannot be read
+    tOsFxState        fx;                        // notes §9: the layer's filter and saturation, after its voices
     tOsCacheRequest   prefetched;                // audio thread: the last root pitch asked for
     double            prefetchedSetting[3];      // and the Stretch, Sync and Base it was asked at
 } tOsLayer;
@@ -93,15 +95,17 @@ typedef struct {
 #define NO_AUDITION    (-1)
 
 typedef struct {
-    tOsLayer    layer[OS_LAYERS];
-    double      hostRate;
-    double      hostTempo;                       // audio thread: the host's, kept when it stops sending one
-    tOsEvent    events[MAX_EVENTS];
-    uint32_t    eventCount;
-    _Atomic int audition;                        // notes §6: a layer, + OS_LAYERS for the stack; NO_AUDITION
+    tOsLayer     layer[OS_LAYERS];
+    double       hostRate;
+    double       hostTempo;                      // audio thread: the host's, kept when it stops sending one
+    tOsEvent     events[MAX_EVENTS];
+    uint32_t     eventCount;
+    _Atomic int  audition;                       // notes §6: a layer, + OS_LAYERS for the stack; NO_AUDITION
 
-    tOsCache    cache;                           // notes §4: resampled copies for every layer, built by its one thread
+    tOsCache     cache;                          // notes §4: resampled copies for every layer, built by its one thread
     _Atomic(const tOsSample *) borrowed;         // the sample the cache's thread is reading; never freed under it
+    _Atomic bool oversample;                     // notes §10: saturation at 2x, every layer OS_FX_LATENCY late
+    bool         oversampling;                   // audio thread: what it last ran with
 } tOsPlugin;
 
 // ---- parameters: every layer's - notes §6 ------------------------------------------------------------------
@@ -272,14 +276,29 @@ static void os_destroy(void * inst) {
     free(t);
 }
 
-// notes §2: the plug-in's own state is the samples' paths - OSS2 the four layers', OSS1 (a one-sample project) the first's
-#define STATE_MAGIC      "OSS2"
-#define STATE_LENGTH     (4 + (OS_LAYERS * PATH_LENGTH))
-#define STATE1_MAGIC     "OSS1"
-#define STATE1_LENGTH    (4 + PATH_LENGTH)
+// notes §10: the whole instance's; the host is told the new lateness
+static void set_oversampling(tOsPlugin * t, bool on) {
+    if (atomic_exchange(&t->oversample, on) != on) {
+        synthlib_plugin_latency_changed(t);
+    }
+}
+
+static uint32_t os_latency(void * inst) {
+    return atomic_load(&((tOsPlugin *)inst)->oversample) ? OS_FX_LATENCY : 0;
+}
+
+// notes §2: the plug-in's own state - OSS3 the four layers' paths and the instance's flags, OSS2 the paths alone, OSS1
+// (a one-sample project) the first's
+#define STATE_MAGIC        "OSS3"
+#define STATE_LENGTH       (4 + (OS_LAYERS * PATH_LENGTH) + 4)
+#define STATE2_MAGIC       "OSS2"
+#define STATE2_LENGTH      (4 + (OS_LAYERS * PATH_LENGTH))
+#define FLAG_OVERSAMPLE    (1u)
+#define STATE1_MAGIC       "OSS1"
+#define STATE1_LENGTH      (4 + PATH_LENGTH)
 
 static size_t os_get_state(void * inst, void * out, size_t len) {
-    tOsPlugin * t = (tOsPlugin *)inst;
+    tOsPlugin * t     = (tOsPlugin *)inst;
 
     if ((out == NULL) || (len < STATE_LENGTH)) {
         return STATE_LENGTH;
@@ -290,6 +309,11 @@ static size_t os_get_state(void * inst, void * out, size_t len) {
         memcpy((uint8_t *)out + 4 + (i * PATH_LENGTH), t->layer[i].path, PATH_LENGTH);
     }
 
+    uint32_t    flags = atomic_load(&t->oversample) ? FLAG_OVERSAMPLE : 0u;
+    uint8_t *   f     = (uint8_t *)out + STATE2_LENGTH;
+
+    f[0] = (uint8_t)flags;
+    f[1] = f[2] = f[3] = 0;
     return STATE_LENGTH;
 }
 
@@ -311,14 +335,18 @@ static void restore_layer(tOsPlugin * t, int layer, const uint8_t * saved) {
 }
 
 static void os_set_state(void * inst, const void * data, size_t len) {
-    tOsPlugin *     t = (tOsPlugin *)inst;
-    const uint8_t * p = (const uint8_t *)data;
+    tOsPlugin *     t  = (tOsPlugin *)inst;
+    const uint8_t * p  = (const uint8_t *)data;
     static uint8_t  none[PATH_LENGTH];
 
-    if ((data != NULL) && (len >= STATE_LENGTH) && (memcmp(data, STATE_MAGIC, 4) == 0)) {
+    bool            v3 = (data != NULL) && (len >= STATE_LENGTH) && (memcmp(data, STATE_MAGIC, 4) == 0);
+
+    if (v3 || ((data != NULL) && (len >= STATE2_LENGTH) && (memcmp(data, STATE2_MAGIC, 4) == 0))) {
         for (int i = 0; i < OS_LAYERS; i++) {
             restore_layer(t, i, p + 4 + (i * PATH_LENGTH));
         }
+
+        set_oversampling(t, v3 && ((p[STATE2_LENGTH] & FLAG_OVERSAMPLE) != 0));
     } else if ((data != NULL) && (len >= STATE1_LENGTH) && (memcmp(data, STATE1_MAGIC, 4) == 0)) {
         restore_layer(t, 0, p + 4);
 
@@ -335,6 +363,7 @@ static void os_prepare(void * inst, const tSynthLibSetup * setup) {
 
     for (int i = 0; i < OS_LAYERS; i++) {
         t->layer[i].voices.hostRate = setup->sampleRate;
+        os_voices_set_offline(&t->layer[i].voices, setup->offline);   // notes §11
     }
 }
 
@@ -346,6 +375,7 @@ static void os_set_active(void * inst, bool active) {
 
     for (int i = 0; i < OS_LAYERS; i++) {
         os_voices_stop(&t->layer[i].voices);
+        os_fx_reset(&t->layer[i].fx);
     }
 }
 
@@ -460,18 +490,62 @@ static void play(tOsPlugin * t, const tOsSample *const * sample, const tOsPlay *
     }
 }
 
-static void render(tOsPlugin * t, const tOsPlay * p, float * left, float * right, uint32_t frames) {
+// notes §9: the layer's effects as set
+static tOsFx make_fx(const tOsLayer * l) {
+    return (tOsFx){
+        .filter   = step(l, kOsParamFilter) > 0,
+        .lowHz    = os_cut_hz(value(l, kOsParamLowCut)),
+        .highHz   = os_cut_hz(value(l, kOsParamHighCut)),
+        .slope    = (tOsSlope)step(l, kOsParamSlope),
+        .saturate = step(l, kOsParamSaturate) > 0,
+        .mode     = (tOsSatMode)step(l, kOsParamSatMode),
+        .gainDb   = os_param_db(kOsParamSatGain, value(l, kOsParamSatGain)),
+        .outputDb = os_param_db(kOsParamSatOutput, value(l, kOsParamSatOutput)),
+        .warmthDb = os_param_db(kOsParamSatWarmth, value(l, kOsParamSatWarmth)),
+        .hfHz     = os_hf_hz(value(l, kOsParamSatHf)),
+    };
+}
+
+#define FX_CHUNK    (256)
+
+// notes §9: each layer's voices, through its effects when it has any on, into the shared output
+static void render(tOsPlugin * t, const tOsPlay * p, const tOsFx * fx, float * left, float * right, uint32_t frames) {
+    float l[FX_CHUNK], r[FX_CHUNK];
+
     for (int i = 0; i < OS_LAYERS; i++) {
-        os_voices_render(&t->layer[i].voices, &p[i], left, right, frames);
+        tOsLayer * layer = &t->layer[i];
+
+        if (!fx[i].filter && !fx[i].saturate && !fx[i].oversample) {
+            os_voices_render(&layer->voices, &p[i], left, right, frames);
+            continue;
+        }
+
+        for (uint32_t at = 0; at < frames; at += FX_CHUNK) {
+            uint32_t n = ((frames - at) < FX_CHUNK) ? (frames - at) : FX_CHUNK;
+
+            memset(l, 0, n * sizeof(float));
+            memset(r, 0, n * sizeof(float));
+            os_voices_render(&layer->voices, &p[i], l, r, n);
+            os_fx_process(&layer->fx, &fx[i], t->hostRate, l, (right != NULL) ? r : NULL, n);
+
+            for (uint32_t k = 0; k < n; k++) {
+                left[at + k] += l[k];
+
+                if (right != NULL) {
+                    right[at + k] += r[k];
+                }
+            }
+        }
     }
 }
 
 static void os_process(void * inst, const float *const * in, uint32_t numIn, float ** out, uint32_t numOut,
                        uint32_t frames, const tSynthLibTransport * transport) {
-    tOsPlugin *       t = (tOsPlugin *)inst;
+    tOsPlugin *       t            = (tOsPlugin *)inst;
     uint32_t          generation[OS_LAYERS];
     const tOsSample * sample[OS_LAYERS];
     tOsPlay           p[OS_LAYERS];
+    tOsFx             fx[OS_LAYERS];
 
     (void)in;
     (void)numIn;
@@ -479,13 +553,25 @@ static void os_process(void * inst, const float *const * in, uint32_t numIn, flo
     if ((transport != NULL) && transport->tempoValid && (transport->tempo > 0.0)) {
         t->hostTempo = transport->tempo;
     }
+    // notes §10: a change of oversampling starts every layer's effects afresh, at the new lateness
+    bool              oversampling = atomic_load(&t->oversample);
+
+    if (oversampling != t->oversampling) {
+        for (int i = 0; i < OS_LAYERS; i++) {
+            os_fx_reset(&t->layer[i].fx);
+        }
+
+        t->oversampling = oversampling;
+    }
 
     for (int i = 0; i < OS_LAYERS; i++) {
         tOsLayer * l = &t->layer[i];
 
-        generation[i] = atomic_load(&l->generation);
-        sample[i]     = atomic_load(&l->sample);
-        p[i]          = make_play(l);
+        generation[i]    = atomic_load(&l->generation);
+        sample[i]        = atomic_load(&l->sample);
+        p[i]             = make_play(l);
+        fx[i]            = make_fx(l);
+        fx[i].oversample = oversampling;
         apply_stretch(l, t->hostTempo, &p[i]);
 
         // notes §1: a new sample ends what the old one was playing, with a short fade
@@ -541,7 +627,7 @@ static void os_process(void * inst, const float *const * in, uint32_t numIn, flo
         uint32_t at = (t->events[i].offset < frames) ? t->events[i].offset : frames;
 
         if (at > done) {
-            render(t, p, left + done, (right != NULL) ? right + done : NULL, at - done);
+            render(t, p, fx, left + done, (right != NULL) ? right + done : NULL, at - done);
             done = at;
         }
         play(t, sample, p, &t->events[i]);
@@ -550,7 +636,7 @@ static void os_process(void * inst, const float *const * in, uint32_t numIn, flo
     t->eventCount = 0;
 
     if (done < frames) {
-        render(t, p, left + done, (right != NULL) ? right + done : NULL, frames - done);
+        render(t, p, fx, left + done, (right != NULL) ? right + done : NULL, frames - done);
     }
 
     for (uint32_t ch = 2; ch < numOut; ch++) {
@@ -627,8 +713,17 @@ static void host_clear(void * user, int layer) {
     synthlib_log_line("layer %d: cleared", layer + 1);
 }
 
+static bool host_oversampling(void * user) {
+    return atomic_load(&((tOsPlugin *)user)->oversample);
+}
+
+static void host_set_oversampling(void * user, bool on) {
+    set_oversampling((tOsPlugin *)user, on);
+}
+
 static const tOsSampleHost gSampleHost = {
-    .load = host_load, .sample = host_sample, .path = host_path, .audition = host_audition, .reset = host_reset, .clear = host_clear,
+    .load         = host_load,         .sample          = host_sample,           .path = host_path, .audition = host_audition, .reset = host_reset, .clear = host_clear,
+    .oversampling = host_oversampling, .setOversampling = host_set_oversampling,
 };
 
 // An edit from the panel is to the shown layer's copy of the parameter
@@ -772,19 +867,20 @@ static const tSynthLibPluginDesc gDescriptor = {
     .editorAspect       = OS_CANVAS_W / OS_CANVAS_H,
 
     .cb                 = {
-        .create     = os_create,
-        .destroy    = os_destroy,
-        .prepare    = os_prepare,
-        .setActive  = os_set_active,
-        .process    = os_process,
-        .noteOn     = os_note_on,
-        .noteOff    = os_note_off,
-        .setParam   = os_set_param,
-        .getParam   = os_get_param,
-        .paramText  = os_param_text_cb,
-        .getState   = os_get_state,
-        .setState   = os_set_state,
-        .createView = os_create_view,
+        .create         = os_create,
+        .destroy        = os_destroy,
+        .prepare        = os_prepare,
+        .setActive      = os_set_active,
+        .process        = os_process,
+        .noteOn         = os_note_on,
+        .noteOff        = os_note_off,
+        .setParam       = os_set_param,
+        .getParam       = os_get_param,
+        .paramText      = os_param_text_cb,
+        .getState       = os_get_state,
+        .setState       = os_set_state,
+        .latencySamples = os_latency,
+        .createView     = os_create_view,
     }
 };
 

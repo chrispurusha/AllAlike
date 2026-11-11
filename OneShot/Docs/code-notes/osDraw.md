@@ -32,6 +32,7 @@ The overview is drawn as the sample plays, so with Reverse on it is mirrored, an
 are laid over it in played order.
 
 ## 8. Size
+860 wide since 2026-11-11, for the third row (STRETCH, FILTER, SATURATION); MAX_PLACED is 64 controls.
 760 x 540 since 2026-11-11 (was 640 x 420): the first row of controls takes Reverse, there is room for a third row, and
 the file browser lays itself out below the menu bar with all its rows.
 
@@ -74,3 +75,7 @@ the shown one, so the drawing code reads one layer as before; an edit leaves as 
 Under each tab, side by side: Mute, lit orange ("Muted") when on, and Clear, which empties that layer after a
 confirm (osPlugin §8) and is greyed on an empty one. A press flips that layer's, whichever is shown, so the edit
 names its layer (`tOsEdit.layer`; the plug-in's callers start it at -1, the shown one). The canvas grew to 584 high.
+
+## 16. Oversampling
+Not on the panel - it is the instance's, not the shown layer's: Controls > Oversample Saturation 2x, through the host
+interface (`oversampling`, `setOversampling`).

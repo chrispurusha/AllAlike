@@ -49,12 +49,25 @@ const tSynthLibParam gOsParams[kOsParamCount] = {
     {kOsParamLowKey,       "Low Key",       "Low",     GEN,                       0.0,  127.0,            0.0,  127, NONE,    0},
     {kOsParamHighKey,      "High Key",      "High",    GEN,                       0.0,  127.0,            1.0,  127, NONE,    0},
     {kOsParamMute,         "Mute",          "Mute",    IDX,                       0.0,    1.0,            0.0,    1, NONE, LIST},
+    // notes §11: the layer's filter and saturation
+    {kOsParamFilter,       "Filter",        "Filter",  IDX,                       0.0,    1.0,            0.0,    1, NONE, LIST},
+    {kOsParamLowCut,       "Low Cut",       "LoCut",   GEN,                       0.0, 1000.0,            0.0, 1000, NONE,    0},
+    {kOsParamHighCut,      "High Cut",      "HiCut",   GEN,                       0.0, 1000.0,            1.0, 1000, NONE,    0},
+    {kOsParamSlope,        "Filter Slope",  "Slope",   IDX,                       0.0,    2.0,            0.5,    2, NONE, LIST},
+    {kOsParamSaturate,     "Saturation",    "Sat",     IDX,                       0.0,    1.0,            0.0,    1, NONE, LIST},
+    {kOsParamSatMode,      "Sat Mode",      "Mode",    IDX,                       0.0,    2.0,            0.0,    2, NONE, LIST},
+    {kOsParamSatGain,      "Sat Gain",      "Gain",    GEN,                       0.0,   30.0,            0.0,   60, NONE,    0},
+    {kOsParamSatOutput,    "Sat Output",    "Output",  GEN,                     -30.0,    6.0,    60.0 / 72.0,   72, NONE,    0},
+    {kOsParamSatWarmth,    "Sat Warmth",    "Warmth",  GEN,                     -12.0,   12.0,            0.5,   48, NONE,    0},
+    {kOsParamSatHf,        "Sat HF",        "HF",      GEN,                       0.0, 1000.0,            1.0, 1000, NONE,    0},
 };
 
 static const char *const kOffOn[]    = {"Off", "On"};
 static const char *const kModes[]    = {"One Shot", "Gate"};
 static const char *const kVoices[]   = {"Poly", "Mono"};
 static const char *const kEnvModes[] = {"AHR", "ADSR"};
+static const char *const kSlopes[]   = {"Soft", "12 dB", "24 dB"};
+static const char *const kSatModes[] = {"Classic", "Drums", "Tape"};
 
 static long step_of(uint32_t id, double normalized) {
     return lround(normalized * gOsParams[id].stepCount);
@@ -92,6 +105,20 @@ bool os_param_active(uint32_t id, const double values[kOsParamCount]) {
 
         case kOsParamBaseTempo:
             return step_of(kOsParamSync, values[kOsParamSync]) > 0;
+
+        case kOsParamLowCut:
+        case kOsParamHighCut:
+        case kOsParamSlope:
+            return step_of(kOsParamFilter, values[kOsParamFilter]) > 0;
+
+        case kOsParamSatMode:
+        case kOsParamSatGain:
+        case kOsParamSatOutput:
+            return step_of(kOsParamSaturate, values[kOsParamSaturate]) > 0;
+
+        case kOsParamSatWarmth:
+        case kOsParamSatHf:
+            return (step_of(kOsParamSaturate, values[kOsParamSaturate]) > 0) && (step_of(kOsParamSatMode, values[kOsParamSatMode]) == 2);
 
         case kOsParamProtect:
         case kOsParamProtectSnap:
@@ -154,6 +181,29 @@ double os_end_fraction(double normalized) {
 // notes §8: as Start's - 0 to 2 s, exponential above 1 ms, so the first steps are microseconds for lining up layers
 double os_delay_time(double normalized) {
     return os_start_time((double)step_of(kOsParamDelay, normalized) / 1000.0);
+}
+
+// notes §11: three decades, a thousand steps - about 0.7% each
+double os_cut_hz(double normalized) {
+    return 20.0 * pow(1000.0, (double)step_of(kOsParamLowCut, normalized) / 1000.0);
+}
+
+double os_hf_hz(double normalized) {
+    return 1000.0 * pow(20.0, (double)step_of(kOsParamSatHf, normalized) / 1000.0);
+}
+
+double os_param_db(uint32_t id, double normalized) {
+    return gOsParams[id].plainMin + ((gOsParams[id].plainMax - gOsParams[id].plainMin) * (double)step_of(id, normalized) / gOsParams[id].stepCount);
+}
+
+static void hz_text(double hz, char * out, size_t len) {
+    if (hz >= 10000.0) {
+        snprintf(out, len, "%.1f kHz", hz / 1000.0);
+    } else if (hz >= 1000.0) {
+        snprintf(out, len, "%.2f kHz", hz / 1000.0);
+    } else {
+        snprintf(out, len, "%.0f Hz", hz);
+    }
 }
 
 void os_time_text(double seconds, char * out, size_t len) {
@@ -249,6 +299,8 @@ void os_param_text(uint32_t id, double normalized, char * out, size_t len) {
         case kOsParamSync:
         case kOsParamProtectSnap:
         case kOsParamMute:
+        case kOsParamFilter:
+        case kOsParamSaturate:
             snprintf(out, len, "%s", kOffOn[step > 0]);
             break;
 
@@ -266,6 +318,29 @@ void os_param_text(uint32_t id, double normalized, char * out, size_t len) {
 
         case kOsParamDelay:
             time_text(os_delay_time(normalized), out, len);
+            break;
+
+        case kOsParamLowCut:
+        case kOsParamHighCut:
+            hz_text(os_cut_hz(normalized), out, len);
+            break;
+
+        case kOsParamSatHf:
+            hz_text(os_hf_hz(normalized), out, len);
+            break;
+
+        case kOsParamSlope:
+            snprintf(out, len, "%s", kSlopes[(step < 0) ? 0 : ((step > 2) ? 2 : step)]);
+            break;
+
+        case kOsParamSatMode:
+            snprintf(out, len, "%s", kSatModes[(step < 0) ? 0 : ((step > 2) ? 2 : step)]);
+            break;
+
+        case kOsParamSatGain:
+        case kOsParamSatOutput:
+        case kOsParamSatWarmth:
+            snprintf(out, len, "%+.1f dB", os_param_db(id, normalized));
             break;
 
         case kOsParamProtect:
@@ -319,14 +394,24 @@ static const tOsControl kStretch[]   = {
     DIAL(kOsParamProtect, "Protect"), TOGGLE(kOsParamProtectSnap, "Snap"),
 };
 
+static const tOsControl kFilter[]    = {
+    TOGGLE(kOsParamFilter, "On"), DIAL(kOsParamLowCut, "Low Cut"), DIAL(kOsParamHighCut, "High Cut"), CHOICE(kOsParamSlope, "Slope", kSlopes),
+};
+static const tOsControl kSaturate[]  = {
+    TOGGLE(kOsParamSaturate, "On"),     CHOICE(kOsParamSatMode, "Mode", kSatModes),             DIAL(kOsParamSatGain, "Gain"),
+    DIAL(kOsParamSatWarmth,  "Warmth"), DIAL(kOsParamSatHf,     "HF"),  DIAL(kOsParamSatOutput, "Output"),
+};
+
 static const tOsSection kMainPage[]  = {
-    {"PITCH",    {0.90, 0.70, 0.30}, kPitch,    COUNT(kPitch)   },
-    {"PLAY",     {0.40, 0.70, 0.85}, kPlay,     COUNT(kPlay)    },
-    {"TRIM",     {0.95, 0.80, 0.25}, kTrim,     COUNT(kTrim)    },
-    {"OUTPUT",   {0.75, 0.75, 0.75}, kOutput,   COUNT(kOutput)  },
-    {"ENVELOPE", {0.55, 0.80, 0.40}, kEnvelope, COUNT(kEnvelope)},
-    {"CURVE",    {0.55, 0.80, 0.40}, kCurves,   COUNT(kCurves)  },
-    {"STRETCH",  {0.80, 0.55, 0.85}, kStretch,  COUNT(kStretch) },
+    {"PITCH",      {0.90, 0.70, 0.30}, kPitch,    COUNT(kPitch)   },
+    {"PLAY",       {0.40, 0.70, 0.85}, kPlay,     COUNT(kPlay)    },
+    {"TRIM",       {0.95, 0.80, 0.25}, kTrim,     COUNT(kTrim)    },
+    {"OUTPUT",     {0.75, 0.75, 0.75}, kOutput,   COUNT(kOutput)  },
+    {"ENVELOPE",   {0.55, 0.80, 0.40}, kEnvelope, COUNT(kEnvelope)},
+    {"CURVE",      {0.55, 0.80, 0.40}, kCurves,   COUNT(kCurves)  },
+    {"STRETCH",    {0.80, 0.55, 0.85}, kStretch,  COUNT(kStretch) },
+    {"FILTER",     {0.45, 0.80, 0.75}, kFilter,   COUNT(kFilter)  },
+    {"SATURATION", {0.90, 0.45, 0.40}, kSaturate, COUNT(kSaturate)},
 };
 
 const tOsPage           gOsPages[]   = {

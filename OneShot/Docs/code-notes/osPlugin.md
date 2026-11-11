@@ -53,3 +53,14 @@ playing fades out over 3 ms (the voices' steal fade). Checked: layers 1 and 2 on
 Empties a layer: its path goes, and its sample is retired as a replaced one is (§1), so a voice still playing it
 fades out and the memory is freed once the audio thread lets go. Its settings stay - Reset is for those. Not a
 parameter, so the host cannot undo it; the panel asks first.
+
+## 9. Effects
+Each layer's voices are rendered into a buffer of their own, put through the layer's filter and saturation (osFx)
+and added to the output; a layer with both off goes straight in, as before. Settings are read once a block; the
+effects glide to them. Checked through the VST3 (middle C held): plain -38.3 dBFS; High Cut 200 Hz -49.5 (12 dB) and
+-57.1 (24 dB); saturation at +24 dB gain -16.2 / -15.0 / -16.3 (Classic / Drums / Tape).
+
+## 10. Oversampling
+One switch for the instance, not a layer - every layer must be equally late to stay in step. Saved in the state
+(OSS3: OSS2 and four bytes of flags; OSS2 and OSS1 open with it off). Changing it tells the host to read the latency
+again (`synthlib_plugin_latency_changed`) and starts every layer's effects afresh.

@@ -78,10 +78,12 @@ typedef struct {
     double     outL, outR;    // notes §4: the output gains (pan x volume), smoothed toward the parameters
     bool       outSet;
     tOsCache * cache;         // notes §7: NULL reads every note live
+    bool       offline;       // notes §12: a bounce - a missing copy is built before the note plays
 } tOsVoices;
 
 void os_voices_init(tOsVoices * v, double hostRate);
 void os_voices_set_cache(tOsVoices * v, tOsCache * cache);
+void os_voices_set_offline(tOsVoices * v, bool offline);
 
 // notes §7: the step a note plays at - what a copy is resampled for
 double os_voices_step(const tOsVoices * v, const tOsSample * sample, const tOsPlay * play, uint8_t note);

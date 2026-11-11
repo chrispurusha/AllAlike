@@ -25,7 +25,7 @@
 
 #include "osSample.h"
 
-#define OS_CANVAS_W    (760.0)   // notes §8
+#define OS_CANVAS_W    (860.0)   // notes §8
 #define OS_CANVAS_H    (584.0)
 
 typedef enum {
@@ -70,6 +70,8 @@ typedef struct {
     void (*audition)(void * user, int layer, bool stack);                                      // at its root key: that layer alone, or every layer the key reaches
     void (*reset)(void * user, int layer);                                                     // every control to its default, through the host
     void (*clear)(void * user, int layer);                                                     // notes §15: back to empty; its settings kept
+    bool (*oversampling)(void * user);                                                         // notes §16: the whole instance's, not a layer's
+    void (*setOversampling)(void * user, bool on);
 } tOsSampleHost;
 
 void os_draw_init(void);
@@ -97,5 +99,7 @@ void os_draw_open_sample(void);                       // the file browser
 void os_draw_step_sample(int direction);              // notes §2: the previous or next sample in its folder
 void os_draw_audition(bool stack);                    // the tab's layer alone, or the stack
 void os_draw_reset_controls(void);                    // after a confirm
+bool os_draw_oversampling(void);                      // notes §16: Controls > Oversample Saturation 2x
+void os_draw_set_oversampling(bool on);
 
 #endif // __OS_DRAW_H__

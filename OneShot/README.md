@@ -35,6 +35,11 @@ Run `./do-uncrustify` after editing.
 - Layers: four, on the tabs under the sample bar, each its own sample with every control below and a key range (Low,
   High; default the whole keyboard). A note plays every layer whose range takes it, all in step. Under each tab, Mute silences its layer and Clear empties it (its settings stay). Play sounds the stack
   at the shown layer's root key; a click on the waveform, that layer alone.
+- Filter (per layer): Low Cut and High Cut, 20 Hz-20 kHz; Slope Soft (Low Cut 12 dB/octave with a gentle knee, High
+  Cut 6 dB/octave), 12 or 24 dB/octave.
+- Saturation (per layer): Classic (soft), Drums (hard clip) or Tape (with Warmth and HF), Gain and Output.
+  Controls > Oversample Saturation 2x makes it cleaner at the cost of 0.5 ms latency on the whole instance, which the
+  host compensates.
 - Double-click any dial to put it back to its default.
 - Envelope (Shift-drag any dial for fine steps; Attack has 1000, 195 of them in its first 5 ms): AHR (Attack, Hold, then Release to silence - the usual one-shot drum envelope) or ADSR, with a curve on
   Attack, Decay and Release (-100..+100; Decay and Release default to +50). Hold at its top is Inf: the whole sample
@@ -47,4 +52,4 @@ The project saves the sample's path, not the sample.
 ## Docs
 - `Docs/todo.md` - what is next; `Docs/to-test.md` - built but not yet tried in a host.
 - `Docs/code-notes/<file>.md` - the longer comments, numbered; code points there as `// notes §k`.
-- `tools/osTest.c` - offline check of the loader and the voice; `tools/osAliasTest.c` - the interpolator's aliasing; `tools/osCacheTest.c` - the resampled copies (see their headers).
+- `tools/osTest.c` - offline check of the loader and the voice; `tools/osAliasTest.c` - the interpolator's aliasing; `tools/osCacheTest.c` - the resampled copies; `tools/osFxTest.c` - the filter slopes and saturation aliasing (see their headers).

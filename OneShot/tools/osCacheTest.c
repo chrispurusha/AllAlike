@@ -418,6 +418,33 @@ int main(void) {
         }
     }
 
+    // 9. Offline (osVoice notes §12): a stretched note with no copy yet gets its own at once, never a stand-in -
+    //    while the worker is asked for the same copy at the same moment
+    {
+        const tOsSample * tone = atomic_load(&gCurrent);
+        int               exact = 0;
+
+        for (int k = 0; k < 20; k++) {
+            tOsPlay     p = {.rootKey = 60, .gain = 1, .end = 1, .stretch = 1.5 + (0.01 * k), .protect = 0.01, .env = {.hold = -1.0, .sustain = 1.0}};
+            tOsVoices   v;
+            tOsCacheKey key;
+
+            os_voices_init(&v, 48000);
+            os_voices_set_cache(&v, &cache);
+            os_voices_set_offline(&v, true);
+            key = os_voices_key(&v, tone, &p, 60);
+            os_cache_request(&cache, key, false);   // the worker races for it
+            os_voices_note_on(&v, tone, &p, 60, 1.0f);
+            exact += (v.voice[0].copy != NULL) && (v.voice[0].copy->key.stretch == key.stretch);
+            os_voices_stop(&v);
+        }
+
+        bool ok = (exact == 20);
+
+        printf("%s  offline: %d of 20 stretched notes played their own copy at once\n", ok ? "ok  " : "FAIL", exact);
+        failures += ok ? 0 : 1;
+    }
+
     os_cache_destroy(&cache);
     printf(failures ? "\n%d FAILED\n" : "\nall passed\n", failures);
     return failures ? 1 : 0;

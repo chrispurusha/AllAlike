@@ -81,6 +81,11 @@ static void action_dial_mode(int index) {
     os_set_dial_mode((tDialMode)gContextMenu.items[index].param);
 }
 
+static void action_oversample(int index) {
+    (void)index;
+    os_draw_set_oversampling(!os_draw_oversampling());
+}
+
 static void action_audition(int index) {
     (void)index;
     os_set_audition_on_browse(!os_audition_on_browse());
@@ -88,7 +93,7 @@ static void action_audition(int index) {
 
 // "* " marks the one in force, as the sibling editors' Controls menus do
 static void open_controls_menu(tCoord anchor) {
-    static tMenuItem items[5];
+    static tMenuItem items[6];
     tDialMode        mode = os_dial_mode();
 
     items[0] = (tMenuItem){
@@ -104,7 +109,10 @@ static void open_controls_menu(tCoord anchor) {
     items[3] = (tMenuItem){
         os_audition_on_browse() ? "* Play on Load" : "Play on Load", ITEM, action_audition, 0, NULL, 0, 0.0, NULL
     };
-    items[4] = END_OF_MENU;
+    items[4] = (tMenuItem){
+        os_draw_oversampling() ? "* Oversample Saturation 2x" : "Oversample Saturation 2x", ITEM, action_oversample, 0, NULL, 0, 0.0, NULL
+    };
+    items[5] = END_OF_MENU;
     open_context_menu(anchor, items, 0, 0.0);
 }
 
@@ -137,6 +145,8 @@ static void action_panel_help(int index) {
                "Envelope: AHR is Attack, Hold, then Release to silence; Hold at its top is Inf, the whole sample. ADSR adds Decay "
                "to Sustain; its Release needs Gate mode. In Gate mode a note off always starts the Release. The curves bend each "
                "stage: + drops fast then tails off, - the reverse. The green line on the waveform is the envelope.\n\n"
+               "Filter: Low Cut and High Cut; Slope Soft (a gentle 12 dB Low Cut, a 6 dB High Cut), 12 or 24 dB an octave. Saturation: Classic (soft), Drums (hard) or Tape (Warmth "
+               "shapes the lows, HF the highs), with Gain in and Output after. Both are per layer. Controls > Oversample Saturation 2x is cleaner, for 0.5 ms of latency the host makes up.\n\n"
                "Dials: drag to turn, Shift-drag for fine steps (Attack has 1000, a fifth of them in its first 5 ms); "
                "double-click one to put it back to its default.\n\n"
                "The project keeps the sample's path, not the sample: a moved file shows as Missing.\n\n"

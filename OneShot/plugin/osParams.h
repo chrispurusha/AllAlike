@@ -43,6 +43,16 @@ enum {
     kOsParamLowKey,
     kOsParamHighKey,
     kOsParamMute,
+    kOsParamFilter,
+    kOsParamLowCut,
+    kOsParamHighCut,
+    kOsParamSlope,
+    kOsParamSaturate,
+    kOsParamSatMode,
+    kOsParamSatGain,
+    kOsParamSatOutput,
+    kOsParamSatWarmth,
+    kOsParamSatHf,
     kOsParamCount
 };
 
@@ -58,7 +68,10 @@ double os_stretch_multiple(double normalized);                         // notes 
 double os_base_tempo(double normalized);                               // BPM
 double os_protect_time(double normalized);                             // seconds of the original; Start's law
 double os_end_fraction(double normalized);                             // notes §7: of the length as played, 0..1
-double os_delay_time(double normalized);                               // notes §8: seconds a note waits; Start's law
+double os_delay_time(double normalized);
+double os_cut_hz(double normalized);                                   // notes §11: 20 Hz to 20 kHz
+double os_hf_hz(double normalized);                                    // 1 to 20 kHz
+double os_param_db(uint32_t id, double normalized);                    // Gain, Output, Warmth                               // notes §8: seconds a note waits; Start's law
 void os_time_text(double seconds, char * out, size_t len);
 bool os_hold_is_infinite(double normalized);                           // the Hold dial's top position
 bool os_is_gate(const double values[kOsParamCount]);                   // Mode is Gate: a note off releases

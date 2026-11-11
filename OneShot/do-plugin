@@ -105,6 +105,7 @@ SOURCES=(
     "$HERE/src/osEnvelope.c"
     "$HERE/src/osResample.c"
     "$HERE/src/osCache.c"
+    "$HERE/src/osFx.c"
     "$HERE/src/osStretch.cpp"
     "$HERE/plugin/osParams.c"
     "$HERE/plugin/osDraw.c"

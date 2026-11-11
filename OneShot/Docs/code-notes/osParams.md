@@ -42,3 +42,8 @@ Mute (Off / On) is appended after High; the panel draws it under the tabs, not w
 
 Each layer's keys, MIDI 0 to 127 named as Root is (C3 = 60), default the whole keyboard. A note plays the layer when
 Low <= note <= High; High below Low takes no notes.
+
+## 11. Filter and saturation
+Filter On, Low Cut and High Cut (20 Hz x 1000^v - three decades in 1000 steps, about 0.7% each; defaults 20 Hz and
+20 kHz), Slope Soft / 12 dB / 24 dB (default 12 dB; osFx §5). Saturation On, Mode (Classic, Drums, Tape), Gain 0 to +30 dB and Output -30 to +6 dB in
+half-dB steps, Warmth -12 to +12 dB and HF 1 to 20 kHz (Tape only, greyed otherwise). All appended, all per layer.

@@ -39,6 +39,10 @@ void os_voices_set_cache(tOsVoices * v, tOsCache * cache) {
     v->cache = cache;
 }
 
+void os_voices_set_offline(tOsVoices * v, bool offline) {
+    v->offline = offline;
+}
+
 // Silences a voice and lets its copy go
 static void end_voice(tOsVoice * voice) {
     os_cache_release(voice->copy);
@@ -212,6 +216,10 @@ void os_voices_note_on(tOsVoices * v, const tOsSample * sample, const tOsPlay * 
         tOsCacheKey key = os_voices_key(v, sample, play, note);
 
         voice->copy = os_cache_acquire(v->cache, key);
+
+        if ((voice->copy == NULL) && v->offline) {
+            voice->copy = os_cache_build_now(v->cache, key);   // notes §12: a bounce plays what real time would
+        }
 
         if (voice->copy == NULL) {
             os_cache_request(v->cache, key, !play->keyTrack);

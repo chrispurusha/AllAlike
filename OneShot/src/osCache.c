@@ -400,6 +400,16 @@ static void build(tOsCache * c, tOsCacheRequest request) {
     }
 }
 
+const tOsCacheEntry * os_cache_build_now(tOsCache * c, tOsCacheKey key) {
+    if ((c == NULL) || !c->running) {
+        return NULL;
+    }
+    pthread_mutex_lock(&c->building);
+    build(c, (tOsCacheRequest){key, false});
+    pthread_mutex_unlock(&c->building);
+    return os_cache_acquire(c, key);
+}
+
 static void * worker(void * arg) {
     tOsCache * c = (tOsCache *)arg;
 
@@ -413,7 +423,9 @@ static void * worker(void * arg) {
             atomic_store(&c->tail, tail + 1);
 
             if (!stale) {
+                pthread_mutex_lock(&c->building);
                 build(c, request);
+                pthread_mutex_unlock(&c->building);
             }
             continue;
         }
@@ -445,6 +457,7 @@ bool os_cache_init(tOsCache * c, tOsCacheSource source, void * user) {
     }
 
     pthread_mutex_init(&c->lock, NULL);
+    pthread_mutex_init(&c->building, NULL);
     pthread_cond_init(&c->wake, NULL);
     c->running = (pthread_create(&c->thread, NULL, worker, c) == 0);
     return c->running;
@@ -466,4 +479,5 @@ void os_cache_destroy(tOsCache * c) {
 
     pthread_cond_destroy(&c->wake);
     pthread_mutex_destroy(&c->lock);
+    pthread_mutex_destroy(&c->building);
 }
