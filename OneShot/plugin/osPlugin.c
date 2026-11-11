@@ -287,6 +287,8 @@ static tOsPlay make_play(const tOsPlugin * t) {
         .snap     = step(t, kOsParamSnap) > 0,
         .reverse  = step(t, kOsParamReverse) > 0,
         .protect  = os_protect_time(value(t, kOsParamProtect)),
+        .end      = os_end_fraction(value(t, kOsParamEnd)),
+        .delay    = os_delay_time(value(t, kOsParamDelay)),
     };
 }
 

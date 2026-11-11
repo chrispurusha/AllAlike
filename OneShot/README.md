@@ -20,10 +20,12 @@ Run `./do-uncrustify` after editing.
   as it loads (Controls > Play on Load). **Play**, a click on the waveform or Space plays it again. **Reset** returns every control
   to its default, keeping the sample.
 - Pitch: Tune (±24 st), Fine (±50 ct), Keys (play at the note's pitch from Root), Root (C3 = 60).
-- Play: Start (0-2 s into the sample, fine at the bottom), Snap (to the nearest zero crossing; Off fades in over 1 ms
-  instead), Mode (One Shot ignores the note off, Gate releases at it), Voices (Poly overlaps, Mono cuts the last hit), Reverse
-  (backwards; Start counts from the end),
-  Velocity (how far velocity moves the level).
+- Play: Mode (One Shot ignores the note off, Gate releases at it), Voices (Mono, the default, cuts the last hit; Poly overlaps), Reverse
+  (backwards; Start and End count in the order it plays).
+- Trim: Delay (0-2 s before a note sounds, microsecond steps at the bottom - for lining up layers), Start (0-2 s into
+  the sample, fine at the bottom), End (0-100% of its length, shown as a time), Snap (Start, End and Protect to the nearest zero
+  crossing; Off fades in and out over 1 ms instead). The waveform shows Start to End, with a sliver either side.
+- Velocity (how far velocity moves the level).
 - Output: Pan, Volume (-57..+6 dB in 0.5 dB steps; default -6 dB).
 - Stretch: the length x0.25..x4 with the pitch kept; Sync stretches it from the sample's own tempo (BPM) to the host's
   as well; Protect (default 5 ms) keeps the start untouched while the rest takes up the change. While stretching, Tune

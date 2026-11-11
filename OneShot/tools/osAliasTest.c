@@ -30,7 +30,7 @@ static void run(double freq, double semis) {
 
     tOsSample s = {.frames = n, .channels = 1, .rate = 44100, .data = {d, d}};
     tOsVoices v;
-    tOsPlay   p = {.gain = 1, .tune = semis, .env = {.hold = -1}};
+    tOsPlay   p = {.gain = 1, .end = 1, .tune = semis, .env = {.hold = -1}};
     int       m = 16384;
     float *   l = calloc(m + 4096, sizeof(float)), * r = calloc(m + 4096, sizeof(float));
     os_voices_init(&v, 48000);

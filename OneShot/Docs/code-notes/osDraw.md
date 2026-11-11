@@ -10,7 +10,8 @@ not load is passed over silently. The folder is listed again only when it change
 the file browser.
 
 ## 3. Waveform
-The 512-point min/max overview computed at load (osSample), of the left and right averaged. A click on it plays the sample.
+A 512-column min/max of the left and right averaged, over the frames in view (§12) - worked out by the panel when the view
+changes, no longer at load. A click on it plays the sample.
 
 ## 4. Keys
 With no popup open: Left/Up previous, Right/Down next, Space plays. A host may keep some of these for itself.
@@ -35,7 +36,7 @@ are laid over it in played order.
 the file browser lays itself out below the menu bar with all its rows.
 
 ## 9. Protect on the waveform
-A purple line where the protected part ends, while stretching. The waveform and the envelope over it are not redrawn
+A purple line where the protected part ends, while stretching - snapped, as the copy is built (osVoice §11). The waveform and the envelope over it are not redrawn
 stretched: the envelope's times stretch with the sample, so the picture is the same.
 
 ## 10. Double-click a dial
@@ -44,3 +45,20 @@ any edit, so it can be undone there. The second press does not grab the dial; th
 so a little movement between the two is undone by the reset. Added 2026-11-11, when Stretch's x1 proved hard to
 find by dragging.
 
+## 11. Toggles
+Off / On controls (Keys, Reverse, Snap, Sync) are one button, flipped by a press: lit in the section's colour when On,
+grey when Off. A menu of two entries only got in the way (owner, 2026-11-11). Two-valued controls whose values are
+names (Mode, Voices, Type) keep their menu.
+
+## 12. The view: Start to End
+The waveform shows what plays - Start to End, snapped as the voice snaps them - with 6% of that span either side,
+darker, so what is cut off still shows. The envelope runs from Start and stops at End; Gate's nominal note off is
+halfway between. The view's frames go in the text line ("showing ..."). With End at or before Start the whole sample
+shows and nothing is lit. End's dial text is a time worked out from the sample here (osParams §7).
+
+## 13. Delay on the waveform
+With a Delay, a grey "note on" line where the note is played and a tinted band from it to Start, labelled with the
+Delay - the time before anything sounds. The waveform is drawn in the sample's own time, so the Delay (real time) is
+turned into the sample's frames and divided by the Stretch multiple; Sync's tempo and Tune are not counted, as for the
+envelope (§5). A Delay longer than the sliver before Start widens the view to the left, past the sample's first frame
+if need be ("showing" then starts below 0). The band is never thinner than a line, so a microsecond Delay still shows.

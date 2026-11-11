@@ -20,7 +20,7 @@ int main(int argc, char ** argv) {
             continue;
         }
         tOsVoices   v;
-        tOsPlay     p        = {.rootKey = 60, .gain = 1, .env = {.hold = -1.0, .sustain = 1.0}};
+        tOsPlay     p        = {.rootKey = 60, .gain = 1, .end = 1, .env = {.hold = -1.0, .sustain = 1.0}};
         double      hostRate = s->rate; // same rate: the output should equal the file
         uint32_t    n        = s->frames + 64;
         float *     l = calloc(n, sizeof(float)), * r = calloc(n, sizeof(float));

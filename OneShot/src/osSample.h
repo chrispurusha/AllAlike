@@ -23,7 +23,6 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define OS_SAMPLE_PEAKS    (512)     // the overview the panel draws
 
 // A whole sample in memory, one float array per channel (mono or stereo)
 typedef struct {
@@ -32,8 +31,6 @@ typedef struct {
     uint32_t channels;               // 1 or 2
     double   rate;                   // the file's own sample rate
     float *  data[2];                // data[1] == data[0] for mono
-    float    peakMin[OS_SAMPLE_PEAKS];
-    float    peakMax[OS_SAMPLE_PEAKS];
     char     path[2048];
 } tOsSample;
 
@@ -47,5 +44,6 @@ bool os_sample_is_audio_file(const char * name);    // by extension: what the lo
 // notes §6: the frame nearest `frame` where the sample (left and right summed) crosses zero, within radius frames;
 // `frame` itself when there is none
 uint32_t os_sample_zero_crossing(const tOsSample * sample, uint32_t frame, uint32_t radius);
+uint32_t os_zero_crossing(const float * left, const float * right, uint32_t frames, uint32_t frame, uint32_t radius);   // right = left for mono
 
 #endif // __OS_SAMPLE_H__

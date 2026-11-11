@@ -24,7 +24,7 @@ const tSynthLibParam gOsParams[kOsParamCount] = {
     {kOsParamKeyTrack,     "Key Track",     "Keys",    IDX,                       0.0,    1.0,            0.0,    1, NONE, LIST},
     {kOsParamRootKey,      "Root Key",      "Root",    GEN,                       0.0,  127.0,   60.0 / 127.0,  127, NONE,    0},
     {kOsParamMode,         "Mode",          "Mode",    IDX,                       0.0,    1.0,            0.0,    1, NONE, LIST},
-    {kOsParamVoices,       "Voices",        "Voices",  IDX,                       0.0,    1.0,            0.0,    1, NONE, LIST},
+    {kOsParamVoices,       "Voices",        "Voices",  IDX,                       0.0,    1.0,            1.0,    1, NONE, LIST},
     // notes §3: the envelope; its defaults leave a sample as it is
     {kOsParamEnvMode,      "Envelope",      "Env",     IDX,                       0.0,    1.0,            0.0,    1, NONE, LIST},
     {kOsParamAttack,       "Attack",        "Attack",  GEN,                       0.0, 1000.0,            0.0, 1000, NONE,    0},
@@ -43,6 +43,8 @@ const tSynthLibParam gOsParams[kOsParamCount] = {
     {kOsParamSync,         "Tempo Sync",    "Sync",    IDX,                       0.0,    1.0,            0.0,    1, NONE, LIST},
     {kOsParamBaseTempo,    "Base Tempo",    "Base",    GEN,                      40.0,  240.0,            0.4,  400, NONE,    0},
     {kOsParamProtect,      "Protect",       "Protect", GEN,                       0.0, 1000.0, 236.0 / 1000.0, 1000, NONE,    0},
+    {kOsParamEnd,          "End",           "End",     GEN,                       0.0,  100.0,            1.0, 1000, NONE,    0},
+    {kOsParamDelay,        "Delay",         "Delay",   GEN,                       0.0, 1000.0,            0.0, 1000, NONE,    0},
 };
 
 static const char *const kOffOn[]    = {"Off", "On"};
@@ -137,6 +139,20 @@ double os_stretch_multiple(double normalized) {
 
 double os_base_tempo(double normalized) {
     return 40.0 + ((double)step_of(kOsParamBaseTempo, normalized) * 0.5);
+}
+
+// notes §7: a tenth of a percent a step; the panel shows it as a time, which needs the sample
+double os_end_fraction(double normalized) {
+    return (double)step_of(kOsParamEnd, normalized) / 1000.0;
+}
+
+// notes §8: as Start's - 0 to 2 s, exponential above 1 ms, so the first steps are microseconds for lining up layers
+double os_delay_time(double normalized) {
+    return os_start_time((double)step_of(kOsParamDelay, normalized) / 1000.0);
+}
+
+void os_time_text(double seconds, char * out, size_t len) {
+    time_text(seconds, out, len);
 }
 
 // notes §6: as Start's - 0 to 2 s of the original, the default 5 ms
@@ -235,6 +251,14 @@ void os_param_text(uint32_t id, double normalized, char * out, size_t len) {
             snprintf(out, len, "%.1f", os_base_tempo(normalized));
             break;
 
+        case kOsParamEnd:
+            snprintf(out, len, "%.1f%%", os_end_fraction(normalized) * 100.0);
+            break;
+
+        case kOsParamDelay:
+            time_text(os_delay_time(normalized), out, len);
+            break;
+
         case kOsParamProtect:
             time_text(os_protect_time(normalized), out, len);
             break;
@@ -257,14 +281,17 @@ void os_param_text(uint32_t id, double normalized, char * out, size_t len) {
 
 #define DIAL(id, label)             {id, label, eOsControlDial, NULL}
 #define CHOICE(id, label, names)    {id, label, eOsControlChoice, names}
+#define TOGGLE(id, label)           {id, label, eOsControlToggle, kOffOn}
 #define COUNT(a)                    (sizeof(a) / sizeof((a)[0]))
 
 static const tOsControl kPitch[]     = {
-    DIAL(kOsParamTune, "Tune"), DIAL(kOsParamFine, "Fine"), CHOICE(kOsParamKeyTrack, "Keys", kOffOn), DIAL(kOsParamRootKey, "Root"),
+    DIAL(kOsParamTune, "Tune"), DIAL(kOsParamFine, "Fine"), TOGGLE(kOsParamKeyTrack, "Keys"), DIAL(kOsParamRootKey, "Root"),
 };
 static const tOsControl kPlay[]      = {
-    CHOICE(kOsParamMode, "Mode",   kModes),             CHOICE(kOsParamVoices, "Voices", kVoices), CHOICE(kOsParamReverse, "Reverse", kOffOn),
-    DIAL(kOsParamStart,  "Start"), CHOICE(kOsParamSnap, "Snap",                kOffOn),
+    CHOICE(kOsParamMode, "Mode", kModes), CHOICE(kOsParamVoices, "Voices", kVoices), TOGGLE(kOsParamReverse, "Reverse"),
+};
+static const tOsControl kTrim[]      = {
+    DIAL(kOsParamDelay, "Delay"), DIAL(kOsParamStart, "Start"), DIAL(kOsParamEnd, "End"), TOGGLE(kOsParamSnap, "Snap"),
 };
 static const tOsControl kOutput[]    = {
     DIAL(kOsParamVelocity, "Velocity"), DIAL(kOsParamPan, "Pan"), DIAL(kOsParamVolume, "Volume"),
@@ -278,13 +305,14 @@ static const tOsControl kCurves[]    = {
     DIAL(kOsParamAttackCurve, "Attack"), DIAL(kOsParamDecayCurve, "Decay"), DIAL(kOsParamReleaseCurve, "Release"),
 };
 static const tOsControl kStretch[]   = {
-    DIAL(kOsParamStretch, "Stretch"), CHOICE(kOsParamSync, "Sync", kOffOn), DIAL(kOsParamBaseTempo, "BPM"),
+    DIAL(kOsParamStretch, "Stretch"), TOGGLE(kOsParamSync, "Sync"), DIAL(kOsParamBaseTempo, "BPM"),
     DIAL(kOsParamProtect, "Protect"),
 };
 
 static const tOsSection kMainPage[]  = {
     {"PITCH",    {0.90, 0.70, 0.30}, kPitch,    COUNT(kPitch)   },
     {"PLAY",     {0.40, 0.70, 0.85}, kPlay,     COUNT(kPlay)    },
+    {"TRIM",     {0.95, 0.80, 0.25}, kTrim,     COUNT(kTrim)    },
     {"OUTPUT",   {0.75, 0.75, 0.75}, kOutput,   COUNT(kOutput)  },
     {"ENVELOPE", {0.55, 0.80, 0.40}, kEnvelope, COUNT(kEnvelope)},
     {"CURVE",    {0.55, 0.80, 0.40}, kCurves,   COUNT(kCurves)  },

@@ -23,4 +23,11 @@ Built but not yet checked in a host. Confirmed: delete the line. Failed: move it
 - Keys On with Stretch: pitch moves, length stays; Reverse with Stretch
 - Envelope with Stretch: AHR Hold/Release scale with the stretch
 - Double-click a dial in Live (Stretch especially): back to its default, one Undo step, in both dial modes
+- Toggles (Keys, Reverse, Snap, Sync): one click flips them, one Undo step in Live
+- End by ear with Snap On and Off: no click at the cut, live and stretched; Reverse; End before Start is silent
+- The waveform zooms to Start..End with the slivers either side, following the dials
+- Delay: layers on two instances line up to the sample; Gate note shorter than the Delay stays silent
+- Delay on the waveform: note-on line and band follow the dial; a long Delay reaches back before the sample
+- A new instance comes up Mono; an older project keeps its Poly
+- Protect with Snap On: the purple line jumps to a crossing; the attack-to-stretch seam by ear, Snap On vs Off
 - Start by ear with Snap On and Off (no click either way); the yellow marker follows the dial and snaps

@@ -20,5 +20,6 @@ A chunk claiming more bytes than the file holds is read to the end of the file, 
 Files of more than two channels play their first two.
 
 ## 6. Zero crossings
-For Snap: from the Start frame outward, the first place either side where left + right changes sign; of the two
+`os_zero_crossing` works on any two buffers, so Snap can look in a stretched copy too (osVoice §9).
+For Snap: from the Start (or End) frame outward, the first place either side where left + right changes sign; of the two
 frames there, the one nearer zero. A frame that is exactly 0 is taken as it is. With none in reach, the frame itself.

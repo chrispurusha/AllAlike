@@ -2,7 +2,8 @@
 
 ## 1. Voices
 Eight. A note takes a free voice, else the oldest, which is cut (it cannot fade under the new note in the same slot).
-Mono mode fades every sounding voice before the new note starts.
+Mono mode fades every sounding voice before the new note starts. Mono is the default since 2026-11-11 (owner); a
+project saved before keeps the Voices it saved.
 
 ## 2. Fades
 3 ms for a stolen voice, a Mono retrigger and a change of sample. A note off in Gate mode starts the envelope's release.
@@ -40,3 +41,24 @@ Stretch (the plug-in's multiple, times the base tempo over the host's with Sync 
 settings; any stretch other than 1 takes a stretched copy (osCache §7, §8), so Tune and Keys then change the pitch
 but not the length. `os_voices_key` is the one place the copy a note wants is worked out - the note and the
 plug-in's look-ahead both use it, so they ask for the same thing.
+
+## 9. End
+A note stops at End: a fraction of the sample's length counted in the order it plays (so from the end when reversed),
+in the original's frames, snapped like Start (5 ms either side, osSample §6). Snap On cuts at the crossing; Off fades
+out over 1 ms ending there. At 100% (the default) nothing changes and the filter's ring after the last frame plays as
+before. End at or before Start plays nothing. Through a copy, End and Start are carried into it by its plan
+(osCache §7) - and, snapped, looked for again in the copy's own data: stretching moves the waveform's phase, so a
+crossing of the original is not one of the copy (measured 2026-11-11: 0.5 at the cut on a 0.5 tone before, at a
+crossing after). Checked live and stretched, Snap On and Off (`tools/osCacheTest.c`).
+
+## 10. Delay
+A note waits Delay before it sounds - the envelope not started, nothing read - counted in whole output frames (21 us at
+48 kHz). It is real time: neither Stretch nor the tempo moves it. In Gate mode a note off during the wait releases a
+note that has not sounded, so it stays silent. Checked: a delayed note is the undelayed one moved, sample for sample.
+For sample stacking, where layers are lined up against each other.
+
+## 11. Protect snapped
+With Snap On the end of the protected part moves to the nearest zero crossing within 5 ms, like Start and End, so the
+untouched attack hands over to the stretched rest at a crossing. It is worked out in `os_voices_key`, so the copy is
+keyed and built on the snapped boundary, and the panel's purple line uses the same function. Checked: Protect 51 ms on
+a 440 Hz tone moves from frame 2249 (0.187) to the crossing at 2255 (0.004); Off leaves it at 2249.

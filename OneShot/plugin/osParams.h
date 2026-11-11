@@ -32,6 +32,8 @@ enum {
     kOsParamSync,
     kOsParamBaseTempo,
     kOsParamProtect,
+    kOsParamEnd,
+    kOsParamDelay,
     kOsParamCount
 };
 
@@ -46,6 +48,9 @@ double os_start_time(double normalized);                               // notes 
 double os_stretch_multiple(double normalized);                         // notes §6: x0.25 to x4
 double os_base_tempo(double normalized);                               // BPM
 double os_protect_time(double normalized);                             // seconds of the original; Start's law
+double os_end_fraction(double normalized);                             // notes §7: of the length as played, 0..1
+double os_delay_time(double normalized);                               // notes §8: seconds a note waits; Start's law
+void os_time_text(double seconds, char * out, size_t len);
 bool os_hold_is_infinite(double normalized);                           // the Hold dial's top position
 bool os_is_gate(const double values[kOsParamCount]);                   // Mode is Gate: a note off releases
 bool os_param_active(uint32_t id, const double values[kOsParamCount]); // notes §4: false is drawn greyed

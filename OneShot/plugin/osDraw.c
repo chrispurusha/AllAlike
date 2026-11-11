@@ -77,9 +77,14 @@
 #define INACTIVE_COLOUR           {0.42, 0.42, 0.44}
 #define START_COLOUR              {0.95, 0.80, 0.25}
 #define PROTECT_COLOUR            {0.80, 0.55, 0.85}
-#define NOTE_OFF_AT               (0.5)   // notes §5: Gate's drawing releases halfway along
-#define ENV_SUBSTEPS              (32)    // envelope steps per waveform column, so a short attack shows
-#define DOUBLE_CLICK_S            (0.4)   // notes §10: a second press on the same dial within this resets it
+#define TOGGLE_OFF_COLOUR         {0.56, 0.56, 0.58}
+#define OUTSIDE_COLOUR            {0.07, 0.07, 0.08} // notes §12: the parts of the view that do not play
+#define DELAY_COLOUR              {0.20, 0.18, 0.09} // notes §13: the wait between the note on and Start
+#define WAVE_COLUMNS              (512)
+#define VIEW_MARGIN               (0.06)             // notes §12: the sliver shown either side of Start..End
+#define NOTE_OFF_AT               (0.5)              // notes §5: Gate's drawing releases halfway along
+#define ENV_SUBSTEPS              (32)               // envelope steps per waveform column, so a short attack shows
+#define DOUBLE_CLICK_S            (0.4)              // notes §10: a second press on the same dial within this resets it
 
 typedef struct {
     const tOsControl * control;
@@ -423,9 +428,52 @@ static void draw_sample_bar(void) {
     render_text(mainArea, (tRectangle){{x, TITLE_Y + 4.0}, {0.0, 11.0}}, label);
 }
 
-// notes §3: the sample's overview, its folder under it
+// notes §12: the peaks of the frames [from, to) as played, a column each - worked out again only when the view moves
+static struct {
+    uint32_t serial;
+    int64_t  from, to;          // may start before the sample: a long Delay is drawn ahead of it (§13)
+    bool     reverse;
+    float    lo[WAVE_COLUMNS], hi[WAVE_COLUMNS];
+} gView;
+
+static void view_peaks(const tOsSample * s, int64_t from, int64_t to, bool reverse) {
+    if ((gView.serial == s->serial) && (gView.from == from) && (gView.to == to) && (gView.reverse == reverse)) {
+        return;
+    }
+    gView.serial  = s->serial;
+    gView.from    = from;
+    gView.to      = to;
+    gView.reverse = reverse;
+
+    for (int i = 0; i < WAVE_COLUMNS; i++) {
+        int64_t a = from + (((to - from) * i) / WAVE_COLUMNS);
+        int64_t b = from + (((to - from) * (i + 1)) / WAVE_COLUMNS);
+        float   lo = 0.0f, hi = 0.0f;
+
+        b           = (b <= a) ? a + 1 : b;
+        a           = (a < 0) ? 0 : a; // before the sample: nothing
+
+        for (int64_t j = a; (j < b) && (j < (int64_t)s->frames); j++) {
+            uint32_t k = reverse ? (uint32_t)(s->frames - 1 - j) : (uint32_t)j;
+            float    v = 0.5f * (s->data[0][k] + s->data[1][k]);
+
+            lo = fminf(lo, v);
+            hi = fmaxf(hi, v);
+        }
+
+        gView.lo[i] = lo;
+        gView.hi[i] = hi;
+    }
+}
+
+static void wave_marker(double x, tRgb colour, double width) {
+    set_rgb_colour(colour);
+    render_line(mainArea, (tCoord){x, gWaveRect.coord.y + 2.0}, (tCoord){x, gWaveRect.coord.y + WAVE_H - 2.0}, width);
+}
+
+// notes §3, §12: what plays, from Start to End, with a sliver either side of what does not
 static void draw_waveform(void) {
-    const tOsSample * s       = have_host() ? gHost->sample(gUser) : NULL;
+    const tOsSample * s        = have_host() ? gHost->sample(gUser) : NULL;
     char              text[600];
 
     gWaveRect = (tRectangle){{
@@ -437,14 +485,14 @@ static void draw_waveform(void) {
     set_rgb_colour((tRgb){0.12, 0.12, 0.14});
     (void)render_rectangle(mainArea, gWaveRect);
 
-    double            mid     = gWaveRect.coord.y + (WAVE_H / 2.0);
-    double            half    = (WAVE_H / 2.0) - 4.0;
-
-    set_rgb_colour((tRgb)RGB_GREY_5);
-    render_line(mainArea, (tCoord){gWaveRect.coord.x, mid}, (tCoord){gWaveRect.coord.x + gWaveRect.size.w, mid}, 1.0);
+    double            mid      = gWaveRect.coord.y + (WAVE_H / 2.0);
+    double            half     = (WAVE_H / 2.0) - 4.0;
 
     if (s == NULL) {
         const char * path = current_path();
+
+        set_rgb_colour((tRgb)RGB_GREY_5);
+        render_line(mainArea, (tCoord){gWaveRect.coord.x, mid}, (tCoord){gWaveRect.coord.x + gWaveRect.size.w, mid}, 1.0);
 
         if (path[0] != '\0') {
             snprintf(text, sizeof(text), "Missing: %s", path);
@@ -454,86 +502,154 @@ static void draw_waveform(void) {
         }
         return;
     }
-    // notes §5: the envelope over the sample's own length, as a note held throughout
-    tOsEnvShape       shape   = os_env_shape(gValue);
-    tOsEnv            env;
-    double            env_level[OS_SAMPLE_PEAKS];
-    double            seconds = s->frames / s->rate;
-    double            dt      = seconds / (OS_SAMPLE_PEAKS * ENV_SUBSTEPS);
+    // notes §6: Start and End snapped as the voice snaps them, in frames as played
+    bool              reverse  = gValue[kOsParamReverse] > 0.5;
+    tOsPlay           play     = {
+        .start = os_start_time(gValue[kOsParamStart]), .end     = os_end_fraction(gValue[kOsParamEnd]),
+        .snap  = gValue[kOsParamSnap] > 0.5,           .reverse = reverse
+    };
+    uint32_t          start    = os_voices_start_frame(s, &play);
+    uint32_t          end      = os_voices_end_frame(s, &play);
+    bool              silent   = (end <= start);
+    uint32_t          span     = silent ? s->frames : (end - start);
+    int64_t           margin   = (int64_t)(span * VIEW_MARGIN);
+    // notes §13: the Delay in the sample's frames - real time, so shorter by the Stretch multiple (Sync not counted)
+    double            wait     = os_delay_time(gValue[kOsParamDelay]) * s->rate / os_stretch_multiple(gValue[kOsParamStretch]);
+    int64_t           noteOn   = (int64_t)start - (int64_t)llround(wait);
+    int64_t           from     = silent ? 0 : (((int64_t)start > margin) ? (int64_t)start - margin : 0);
+    int64_t           to       = silent ? s->frames : (((int64_t)end + margin < (int64_t)s->frames) ? (int64_t)end + margin : s->frames);
+    bool              delayed  = !silent && (wait > 0.0);
 
-    bool              gate    = os_is_gate(gValue);
-    // notes §6: where a note starts, snapped as the voice will snap it; the envelope runs from there
-    bool              reverse = gValue[kOsParamReverse] > 0.5;
-    tOsPlay           play    = {.start = os_start_time(gValue[kOsParamStart]), .snap = gValue[kOsParamSnap] > 0.5, .reverse = reverse};
-    uint32_t          start   = os_voices_start_frame(s, &play);
-    int               first   = (int)(((double)start / s->frames) * OS_SAMPLE_PEAKS);
-    int               noteOff = gate ? first + (int)(NOTE_OFF_AT * (OS_SAMPLE_PEAKS - first)) : OS_SAMPLE_PEAKS;
+    if (delayed && (noteOn - (margin / 2) < from)) {
+        from = noteOn - (margin / 2);   // the note-on line in view, with a little before it
+    }
+    to = (to <= from) ? from + 1 : to;
+    view_peaks(s, from, to, reverse);
+    double            perFrame = gWaveRect.size.w / (double)(to - from);
+    double            xStart   = gWaveRect.coord.x + ((double)((int64_t)start - from) * perFrame);
+    double            xEnd     = gWaveRect.coord.x + ((double)((int64_t)end - from) * perFrame);
+    double            xNoteOn  = gWaveRect.coord.x + ((double)(noteOn - from) * perFrame);
+
+    // the parts that do not play, darker; the Delay's wait between the note on and Start, tinted (§13)
+    set_rgb_colour((tRgb)OUTSIDE_COLOUR);
+
+    if (!silent && (xStart > gWaveRect.coord.x)) {
+        (void)render_rectangle(mainArea, (tRectangle){gWaveRect.coord, {xStart - gWaveRect.coord.x, WAVE_H}});
+    }
+
+    if (delayed) {
+        double x0 = fmin(xNoteOn, xStart - 2.0);   // never thinner than a line
+
+        set_rgb_colour((tRgb)DELAY_COLOUR);
+        (void)render_rectangle(mainArea, (tRectangle){{x0, gWaveRect.coord.y}, {xStart - x0, WAVE_H}});
+    }
+
+    if (!silent && (xEnd < gWaveRect.coord.x + gWaveRect.size.w)) {
+        set_rgb_colour((tRgb)OUTSIDE_COLOUR);
+        (void)render_rectangle(mainArea, (tRectangle){{xEnd, gWaveRect.coord.y}, {gWaveRect.coord.x + gWaveRect.size.w - xEnd, WAVE_H}});
+    }
+    set_rgb_colour((tRgb)RGB_GREY_5);
+    render_line(mainArea, (tCoord){gWaveRect.coord.x, mid}, (tCoord){gWaveRect.coord.x + gWaveRect.size.w, mid}, 1.0);
+
+    // notes §5: the envelope from Start, as a note held throughout, stopped at End; Gate's note off halfway between
+    tOsEnvShape shape    = os_env_shape(gValue);
+    tOsEnv      env;
+    double      level[WAVE_COLUMNS];
+    double      column   = (double)(to - from) / WAVE_COLUMNS;         // frames a column
+    double      dt       = column / s->rate / ENV_SUBSTEPS;
+    bool        gate     = os_is_gate(gValue);
+    double      noteOff  = (double)start + (NOTE_OFF_AT * (double)span);
+    bool        released = false;
 
     os_env_start(&env);
 
-    for (int i = 0; i < OS_SAMPLE_PEAKS; i++) {
+    for (int i = 0; i < WAVE_COLUMNS; i++) {
+        double at   = (double)from + ((i + 0.5) * column);
         double peak = 0.0;
 
-        if (i < first) {
-            env_level[i] = 0.0;
+        if (silent || (at < (double)start) || (at >= (double)end)) {
+            level[i] = 0.0;
             continue;
         }
 
-        if (i == noteOff) {
+        if (gate && !released && (at >= noteOff)) {
             os_env_release(&env);
+            released = true;
         }
 
         for (int k = 0; k < ENV_SUBSTEPS; k++) {
             peak = fmax(peak, os_env_step(&env, &shape, dt));
         }
 
-        env_level[i] = peak;
+        level[i] = peak;
     }
 
-    for (int i = 0; i < OS_SAMPLE_PEAKS; i++) {
-        double x  = gWaveRect.coord.x + ((i + 0.5) * gWaveRect.size.w / OS_SAMPLE_PEAKS);
-        int    at = reverse ? (OS_SAMPLE_PEAKS - 1 - i) : i;   // notes §7: drawn as it plays
-        double lo = fmax(-1.0, s->peakMin[at]), hi = fmin(1.0, s->peakMax[at]);
+    for (int i = 0; i < WAVE_COLUMNS; i++) {
+        double x = gWaveRect.coord.x + ((i + 0.5) * gWaveRect.size.w / WAVE_COLUMNS);
+        double lo = fmax(-1.0, gView.lo[i]), hi = fmin(1.0, gView.hi[i]);
 
         set_rgb_colour((tRgb){0.28, 0.32, 0.38});
         render_line(mainArea, (tCoord){x, mid - (hi * half)}, (tCoord){x, mid - (lo * half) + 0.5}, 1.0);
-        set_rgb_colour((tRgb){0.40, 0.75, 0.95});
-        render_line(mainArea, (tCoord){x, mid - (hi * env_level[i] * half)}, (tCoord){x, mid - (lo * env_level[i] * half) + 0.5}, 1.0);
+
+        if (level[i] > 0.0) {
+            set_rgb_colour((tRgb){0.40, 0.75, 0.95});
+            render_line(mainArea, (tCoord){x, mid - (hi * level[i] * half)}, (tCoord){x, mid - (lo * level[i] * half) + 0.5}, 1.0);
+        }
     }
 
     set_rgb_colour((tRgb){0.55, 0.85, 0.40});
 
-    for (int i = 1; i < OS_SAMPLE_PEAKS; i++) {
-        double x0 = gWaveRect.coord.x + ((i - 0.5) * gWaveRect.size.w / OS_SAMPLE_PEAKS);
-        double x1 = gWaveRect.coord.x + ((i + 0.5) * gWaveRect.size.w / OS_SAMPLE_PEAKS);
+    for (int i = 1; i < WAVE_COLUMNS; i++) {
+        double x0 = gWaveRect.coord.x + ((i - 0.5) * gWaveRect.size.w / WAVE_COLUMNS);
+        double x1 = gWaveRect.coord.x + ((i + 0.5) * gWaveRect.size.w / WAVE_COLUMNS);
         double top = gWaveRect.coord.y + 4.0, h = WAVE_H - 8.0;
 
-        render_line(mainArea, (tCoord){x0, top + ((1.0 - env_level[i - 1]) * h)}, (tCoord){x1, top + ((1.0 - env_level[i]) * h)}, 1.5);
+        render_line(mainArea, (tCoord){x0, top + ((1.0 - level[i - 1]) * h)}, (tCoord){x1, top + ((1.0 - level[i]) * h)}, 1.5);
     }
 
-    if (gate) {
-        double x = gWaveRect.coord.x + ((noteOff + 0.5) * gWaveRect.size.w / OS_SAMPLE_PEAKS);
+    if (gate && !silent) {
+        double x = gWaveRect.coord.x + ((noteOff - (double)from) * perFrame);
 
         set_rgb_colour((tRgb)RGB_GREY_7);
         render_line(mainArea, (tCoord){x, gWaveRect.coord.y + 16.0}, (tCoord){x, gWaveRect.coord.y + WAVE_H - 2.0}, 1.0);
         render_text(mainArea, (tRectangle){{x + 4.0, gWaveRect.coord.y + 16.0}, {0.0, 10.0}}, "note off");
     }
 
-    if (start > 0) {
-        double x = gWaveRect.coord.x + (((double)start / s->frames) * gWaveRect.size.w);
+    if ((start > 0) || delayed) {
+        wave_marker(xStart, (tRgb)START_COLOUR, 1.5);
+    }
 
-        set_rgb_colour((tRgb)START_COLOUR);
-        render_line(mainArea, (tCoord){x, gWaveRect.coord.y + 2.0}, (tCoord){x, gWaveRect.coord.y + WAVE_H - 2.0}, 1.5);
+    if (delayed) {
+        char   label[64] = "delay ";
+        double x0        = fmin(xNoteOn, xStart - 2.0);
+
+        wave_marker(x0, (tRgb)RGB_GREY_7, 1.0);
+        os_param_text(kOsParamDelay, gValue[kOsParamDelay], label + 6, sizeof(label) - 6);
+        set_rgb_colour((tRgb)RGB_GREY_7);
+        render_text(mainArea, (tRectangle){{x0 + 4.0, gWaveRect.coord.y + WAVE_H - 16.0}, {0.0, 10.0}}, label);
+        render_text(mainArea, (tRectangle){{x0 + 4.0, gWaveRect.coord.y + WAVE_H - 28.0}, {0.0, 10.0}}, "note on");
+    }
+
+    if (end < s->frames) {
+        wave_marker(xEnd, (tRgb)START_COLOUR, 1.5);
     }
 
     // notes §9: where the protected part ends, while stretching
     if (os_param_active(kOsParamProtect, gValue)) {
-        double x = gWaveRect.coord.x + (fmin(1.0, os_protect_time(gValue[kOsParamProtect]) / seconds) * gWaveRect.size.w);
+        tOsPlay snapped = {.protect = os_protect_time(gValue[kOsParamProtect]), .snap = gValue[kOsParamSnap] > 0.5, .reverse = reverse};
+        double  protect = (double)os_voices_protect_frame(s, &snapped);   // notes §9: snapped as the copy is built
 
-        set_rgb_colour((tRgb)PROTECT_COLOUR);
-        render_line(mainArea, (tCoord){x, gWaveRect.coord.y + 2.0}, (tCoord){x, gWaveRect.coord.y + WAVE_H - 2.0}, 1.0);
+        if ((protect >= (double)from) && (protect <= (double)to)) {
+            wave_marker(gWaveRect.coord.x + ((protect - (double)from) * perFrame), (tRgb)PROTECT_COLOUR, 1.0);
+        }
     }
     snprintf(text, sizeof(text), "%.3f s   %.0f Hz   %s", s->frames / s->rate, s->rate, (s->channels == 2) ? "stereo" : "mono");
+
+    if ((from != 0) || (to < (int64_t)s->frames)) {
+        size_t used = strlen(text);
+
+        snprintf(text + used, sizeof(text) - used, "   showing %.3f - %.3f s", from / s->rate, to / s->rate);
+    }
     set_rgb_colour((tRgb)RGB_GREY_7);
     render_text(mainArea, (tRectangle){{gWaveRect.coord.x + 6.0, gWaveRect.coord.y + 4.0}, {0.0, 10.0}}, text);
 }
@@ -630,7 +746,21 @@ void os_draw_frame(int pixelWidth, int pixelHeight) {
         render_text(mainArea, (tRectangle){{pc->x, pc->dial.coord.y - 14.0}, {0.0, LABEL_H}}, c->label);
         os_param_text(c->paramId, gValue[c->paramId], text, sizeof(text));
 
-        if (c->kind == eOsControlChoice) {
+        if ((c->paramId == kOsParamEnd) && have_host() && (gHost->sample(gUser) != NULL)) {
+            const tOsSample * s    = gHost->sample(gUser);
+            tOsPlay           play = {
+                .end     = os_end_fraction(gValue[kOsParamEnd]), .snap = gValue[kOsParamSnap] > 0.5,
+                .reverse = gValue[kOsParamReverse] > 0.5
+            };
+
+            os_time_text(os_voices_end_frame(s, &play) / s->rate, text, sizeof(text));   // notes §12: End as a time
+        }
+
+        if (c->kind == eOsControlToggle) {
+            tRgb lit = (step_of(c) > 0) ? colour : (tRgb)TOGGLE_OFF_COLOUR;
+
+            fitted_button((tRectangle){{pc->x, pc->dial.coord.y + ((DIAL_SIZE - BUTTON_H) / 2.0)}, {CONTROL_W - 6.0, BUTTON_H}}, text, lit);
+        } else if (c->kind == eOsControlChoice) {
             fitted_button((tRectangle){{pc->x, pc->dial.coord.y + ((DIAL_SIZE - BUTTON_H) / 2.0)}, {CONTROL_W - 6.0, BUTTON_H}}, text, colour);
         } else {
             render_dial(mainArea, pc->dial, (uint32_t)step_of(c), (uint32_t)gSteps[c->paramId] + 1u, 0, colour);
@@ -720,7 +850,7 @@ bool os_draw_press(double x, double y, tOsEdit * edit, bool * grabbed) {
         return true;
     }
     layout();
-    const tPlaced * pc      = hit(x, y);
+    const tPlaced * pc = hit(x, y);
 
     if (pc == NULL) {
         return false;
@@ -728,6 +858,14 @@ bool os_draw_press(double x, double y, tOsEdit * edit, bool * grabbed) {
 
     if (!os_param_active(pc->control->paramId, gValue)) {
         return true;   // greyed: it does nothing in this mode
+    }
+
+    // notes §11: a toggle flips at the press
+    if (pc->control->kind == eOsControlToggle) {
+        edit->paramId                = pc->control->paramId;
+        edit->normalized             = (step_of(pc->control) > 0) ? 0.0 : 1.0;
+        gValue[pc->control->paramId] = edit->normalized;
+        return true;
     }
 
     if (pc->control->kind == eOsControlChoice) {

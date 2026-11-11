@@ -91,7 +91,7 @@ int main(void) {
 
     for (int rev = 0; rev < 2; rev++) {
         for (int k = 0; k < 5; k++) {
-            tOsPlay     p       = {.rootKey = 60, .gain = 1, .tune = tunes[k], .reverse = rev, .env = {.hold = -1.0, .sustain = 1.0}};
+            tOsPlay     p       = {.rootKey = 60, .gain = 1, .end = 1, .tune = tunes[k], .reverse = rev, .env = {.hold = -1.0, .sustain = 1.0}};
             tOsVoices   live, cached;
 
             os_voices_init(&live, 48000);
@@ -129,7 +129,7 @@ int main(void) {
 
     // 2. Reverse at the file's own rate: the file backwards, sample for sample
     {
-        tOsPlay   p     = {.rootKey = 60, .gain = 1, .reverse = true, .env = {.hold = -1.0, .sustain = 1.0}};
+        tOsPlay   p     = {.rootKey = 60, .gain = 1, .end = 1, .reverse = true, .env = {.hold = -1.0, .sustain = 1.0}};
         tOsVoices v;
         double    worst = 0;
 
@@ -147,7 +147,7 @@ int main(void) {
 
     // 3. what 8 voices cost, live and through a copy (a note every 85 ms, so all eight stay busy)
     for (int useCache = 0; useCache < 2; useCache++) {
-        tOsPlay   p = {.rootKey = 60, .gain = 1, .env = {.hold = -1.0, .sustain = 1.0}};
+        tOsPlay   p = {.rootKey = 60, .gain = 1, .end = 1, .env = {.hold = -1.0, .sustain = 1.0}};
         tOsVoices v;
         float     L[512], R[512];
         double    seconds = 5.0, t0;
@@ -172,7 +172,7 @@ int main(void) {
 
     // 4. key-tracked notes asked for and played while the worker builds and evicts (run under -fsanitize=thread)
     {
-        tOsPlay   p = {.rootKey = 60, .gain = 1, .keyTrack = true, .env = {.hold = -1.0, .sustain = 1.0}};
+        tOsPlay   p = {.rootKey = 60, .gain = 1, .end = 1, .keyTrack = true, .env = {.hold = -1.0, .sustain = 1.0}};
         tOsVoices v;
         float     L[512], R[512];
 
@@ -219,8 +219,8 @@ int main(void) {
 
         for (int k = 0; k < 6; k++) {
             tOsPlay               p      = {
-                .rootKey =   60, .gain =    1, .tune    = cases[k].tune, .reverse = cases[k].reverse, .stretch = cases[k].stretch,
-                .protect = 0.05, .env  = {.hold = -1.0,.sustain = 1.0}};
+                .rootKey =   60, .gain = 1, .tune = cases[k].tune, .reverse = cases[k].reverse, .stretch = cases[k].stretch,
+                .protect = 0.05, .end  = 1, .env  = {.hold = -1.0, .sustain = 1.0}};
             tOsVoices             v;
 
             os_voices_init(&v, 48000);
@@ -290,6 +290,131 @@ int main(void) {
                    440.0 * pitch, (worst < 1e-6) ? "untouched" : "CHANGED");
             failures += ok ? 0 : 1;
             os_cache_release(e);
+        }
+    }
+
+    // 6. End (osVoice notes §9): where the note stops, live and through a stretched copy, snapped and not
+    {
+        const tOsSample * tone    = atomic_load(&gCurrent); // the 440 Hz tone of section 5
+        struct {
+            double stretch;
+            bool   snap;
+        }                 cases[] = {{1.0, false}, {1.0, true}, {2.0, false}, {2.0, true}};
+
+        for (int k = 0; k < 4; k++) {
+            tOsPlay   p     = {
+                .rootKey =   60, .gain    = 1, .end = 0.5, .snap = cases[k].snap, .stretch = cases[k].stretch, .protect = 0.05,
+                .env     = {.hold = -1.0, .sustain = 1.0}};
+            tOsVoices v;
+            uint32_t  m     = 120000;
+            float *   l = calloc(m, sizeof(float)), * r = calloc(m, sizeof(float));
+
+            os_voices_init(&v, 48000);
+            os_voices_set_cache(&v, &cache);
+
+            if (cases[k].stretch != 1.0) {
+                (void)wait_for(&cache, os_voices_key(&v, tone, &p, 60));
+            }
+            os_voices_note_on(&v, tone, &p, 60, 1.0f);
+            render(&v, &p, l, r, m);
+            uint32_t  last  = 0;
+
+            for (uint32_t i = 0; i < m; i++) {
+                last = (fabsf(l[i]) > 1e-6f) ? i : last;
+            }
+
+            // half the tone, where the copy puts it (its protected 50 ms is not stretched)
+            double    want  = 0.5 * 44100.0 * 48000.0 / 44100.0;
+            double    slack = cases[k].snap ? (0.005 * 48000.0) : 3.0;
+
+            if (cases[k].stretch != 1.0) {
+                const tOsCacheEntry * e = os_cache_acquire(&cache, os_voices_key(&v, tone, &p, 60));
+
+                want = os_cache_position(e, 22050);
+                os_cache_release(e);
+            }
+            // Snap Off: the last frames faded; On: the last frame at a crossing (under one frame's swing of the tone)
+            double    tail  = 0.0;
+
+            for (uint32_t i = (cases[k].snap ? last : last - 4); i <= last; i++) {
+                tail = fmax(tail, fabs(l[i]));
+            }
+
+            bool      ok    = (fabs((double)last - want) <= slack) && (tail < 0.06);
+
+            printf("%s  End 50%% x%.0f Snap %-3s: stops at %u (want %.0f +-%.0f), last frames peak %.3f\n", ok ? "ok  " : "FAIL",
+                   cases[k].stretch, cases[k].snap ? "On" : "Off", last, want, slack, tail);
+            failures += ok ? 0 : 1;
+            os_voices_stop(&v);
+            free(l);
+            free(r);
+        }
+    }
+
+    // 7. Delay (osVoice notes §10): the first sound comes exactly that many output frames late
+    {
+        const tOsSample * tone     = atomic_load(&gCurrent);
+        double            delays[] = {0.0, 0.0001, 0.010, 0.25};
+
+        for (int k = 0; k < 4; k++) {
+            tOsPlay   p     = {.rootKey = 60, .gain = 1, .end = 1, .delay = delays[k], .env = {.hold = -1.0, .sustain = 1.0}};
+            tOsVoices v;
+            uint32_t  m = 48000, first = m;
+            float *   l = calloc(m, sizeof(float)), * r = calloc(m, sizeof(float)), * l0 = calloc(m, sizeof(float));
+
+            os_voices_init(&v, 48000);
+            os_voices_note_on(&v, tone, &p, 60, 1.0f);
+            render(&v, &p, l, r, m);
+            p.delay = 0.0;
+            os_voices_init(&v, 48000);
+            os_voices_note_on(&v, tone, &p, 60, 1.0f);
+            render(&v, &p, l0, r, m);
+
+            uint32_t  wait  = (uint32_t)lround(delays[k] * 48000.0);
+            double    worst = 0.0;   // the delayed note is the undelayed one, moved
+
+            for (uint32_t i = 0; i < m; i++) {
+                first = ((first == m) && (fabsf(l[i]) > 1e-6f)) ? i : first;
+            }
+
+            for (uint32_t i = wait; i < m; i++) {
+                worst = fmax(worst, fabs(l[i] - l0[i - wait]));
+            }
+
+            for (uint32_t i = 0; i < wait; i++) {
+                worst = fmax(worst, fabs(l[i]));
+            }
+
+            bool      ok    = (worst < 1e-6);
+
+            printf("%s  Delay %.4f s: silent for %u frames, then the undelayed note moved (largest difference %.1e)\n",
+                   ok ? "ok  " : "FAIL", delays[k], first, worst);
+            failures += ok ? 0 : 1;
+            free(l);
+            free(r);
+            free(l0);
+        }
+    }
+
+    // 8. Protect snapped (osVoice notes §11): the boundary the copy is keyed and built on is a zero crossing
+    {
+        const tOsSample * tone = atomic_load(&gCurrent);
+
+        for (int snap = 0; snap < 2; snap++) {
+            tOsPlay     p     = {.rootKey = 60, .gain = 1, .end = 1, .snap = snap, .stretch = 2.0, .protect = 0.051, .env = {.hold = -1.0}};
+            tOsVoices   v;
+
+            os_voices_init(&v, 48000);
+            tOsCacheKey key   = os_voices_key(&v, tone, &p, 60);
+            tOsCopyPlan plan  = os_cache_plan(tone, key);
+            uint32_t    f     = plan.protectIn;
+            bool        cross = (f > 0) && (f + 1 < tone->frames)
+                                && (((tone->data[0][f - 1] <= 0.0f) != (tone->data[0][f + 1] <= 0.0f)) || (tone->data[0][f] == 0.0f));
+            bool        ok    = snap ? (cross && (fabsf(tone->data[0][f]) < 0.02f)) : (f == (uint32_t)lround(0.051 * 44100.0));
+
+            printf("%s  Protect 51 ms Snap %-3s: boundary at frame %u (%s), sample there %.4f\n", ok ? "ok  " : "FAIL",
+                   snap ? "On" : "Off", f, snap ? "a crossing" : "as set", tone->data[0][f]);
+            failures += ok ? 0 : 1;
         }
     }
 

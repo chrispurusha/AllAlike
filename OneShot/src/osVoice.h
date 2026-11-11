@@ -44,6 +44,8 @@ typedef struct {
     bool        reverse;  // notes §6: the sample backwards; Start counts from its end
     double      stretch;  // notes §8: the length's multiple, tempo included; 1 is off
     double      protect;  // seconds of the original kept as they are when stretched
+    double      end;      // notes §9: where a note stops, 0..1 of the length as played; 1 the whole
+    double      delay;    // notes §10: seconds a note waits before it sounds
 } tOsPlay;
 
 typedef struct {
@@ -57,8 +59,11 @@ typedef struct {
     double                fadeStep; // per output frame, 0 while not fading
     double                rise;     // notes §5: a 1 ms fade-in for an unsnapped start, 1 once done
     double                riseStep;
+    double                stop;     // notes §9: End, in position's units; a note ends here
+    double                stopFrom; // where its 1 ms fade-out starts (Snap Off), or stop
+    uint32_t              wait;     // notes §10: output frames still to wait before it sounds
     tOsEnv                env;
-    const tOsCacheEntry * copy;    // notes §7: the resampled copy read instead, held while the voice plays
+    const tOsCacheEntry * copy;     // notes §7: the resampled copy read instead, held while the voice plays
     bool                  reverse;
     uint8_t               note;
     bool                  active;
@@ -87,7 +92,9 @@ void os_voices_note_off(tOsVoices * v, const tOsPlay * play, uint8_t note);
 void os_voices_fade_all(tOsVoices * v);
 
 // notes §5: where a note starts in the sample, in its frames - Start, snapped as the settings ask
-uint32_t os_voices_start_frame(const tOsSample * sample, const tOsPlay * play);   // a change of sample: every voice ends, without a click
+uint32_t os_voices_start_frame(const tOsSample * sample, const tOsPlay * play);
+uint32_t os_voices_end_frame(const tOsSample * sample, const tOsPlay * play);
+uint32_t os_voices_protect_frame(const tOsSample * sample, const tOsPlay * play);   // notes §11: snapped, as played   // notes §9: frames as played; frames = the whole   // a change of sample: every voice ends, without a click
 
 // Adds into left and right
 void os_voices_render(tOsVoices * v, const tOsPlay * play, float * left, float * right, uint32_t frames);

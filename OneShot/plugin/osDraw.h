@@ -30,7 +30,8 @@
 
 typedef enum {
     eOsControlDial = 0,
-    eOsControlChoice        // a button that opens a list of its values
+    eOsControlChoice,       // a button that opens a list of its values
+    eOsControlToggle        // notes §11: Off / On, flipped by a click
 } tOsControlKind;
 
 typedef struct {

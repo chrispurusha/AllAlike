@@ -227,24 +227,6 @@ static float read_value(const uint8_t * p, const tFormat * fmt) {
     return 0.0f;
 }
 
-static void make_peaks(tOsSample * s) {
-    for (uint32_t i = 0; i < OS_SAMPLE_PEAKS; i++) {
-        uint32_t from = (uint32_t)(((uint64_t)s->frames * i) / OS_SAMPLE_PEAKS);
-        uint32_t to   = (uint32_t)(((uint64_t)s->frames * (i + 1)) / OS_SAMPLE_PEAKS);
-        float    lo = 0.0f, hi = 0.0f;
-
-        for (uint32_t k = from; (k < to) || (k == from && k < s->frames); k++) {
-            float v = 0.5f * (s->data[0][k] + s->data[1][k]);
-
-            lo = (v < lo) ? v : lo;
-            hi = (v > hi) ? v : hi;
-        }
-
-        s->peakMin[i] = lo;
-        s->peakMax[i] = hi;
-    }
-}
-
 static uint8_t * read_file(const char * path, size_t * length, char * error, size_t errorLength) {
     FILE *    file = fopen(path, "rb");
     uint8_t * data = NULL;
@@ -333,7 +315,6 @@ tOsSample * os_sample_load(const char * path, char * error, size_t errorLength) 
             }
 
             snprintf(s->path, sizeof(s->path), "%s", path);
-            make_peaks(s);
         }
     }
     free(f);
@@ -367,17 +348,21 @@ bool os_sample_is_audio_file(const char * name) {
     return false;
 }
 
-static inline float mixed(const tOsSample * s, uint32_t i) {
-    return s->data[0][i] + s->data[1][i];
+static inline float mixed(const float * left, const float * right, uint32_t i) {
+    return left[i] + right[i];
 }
 
 // notes §6: outward from the frame, the first sign change either side; of its two frames, the one nearer zero
 uint32_t os_sample_zero_crossing(const tOsSample * sample, uint32_t frame, uint32_t radius) {
-    if ((sample == NULL) || (frame + 1 >= sample->frames)) {
+    return (sample == NULL) ? frame : os_zero_crossing(sample->data[0], sample->data[1], sample->frames, frame, radius);
+}
+
+uint32_t os_zero_crossing(const float * left, const float * right, uint32_t frames, uint32_t frame, uint32_t radius) {
+    if (frame + 1 >= frames) {
         return frame;
     }
 
-    if (mixed(sample, frame) == 0.0f) {
+    if (mixed(left, right, frame) == 0.0f) {
         return frame;
     }
 
@@ -385,10 +370,10 @@ uint32_t os_sample_zero_crossing(const tOsSample * sample, uint32_t frame, uint3
         for (int side = 0; side < 2; side++) {
             int64_t a = (side == 0) ? (int64_t)frame + d : (int64_t)frame - d - 1;
 
-            if ((a < 0) || (a + 1 >= (int64_t)sample->frames)) {
+            if ((a < 0) || (a + 1 >= (int64_t)frames)) {
                 continue;
             }
-            float   x = mixed(sample, (uint32_t)a), y = mixed(sample, (uint32_t)a + 1);
+            float   x = mixed(left, right, (uint32_t)a), y = mixed(left, right, (uint32_t)a + 1);
 
             if ((x <= 0.0f) != (y <= 0.0f)) {
                 return (fabsf(x) <= fabsf(y)) ? (uint32_t)a : (uint32_t)a + 1;

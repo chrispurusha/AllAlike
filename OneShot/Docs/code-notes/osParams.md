@@ -21,3 +21,11 @@ Stretch is 2^(k/100) for k from -200 to +200: x0.25 to x4, a hundred steps an oc
 40 to 240 in half-BPM steps, default 120. Protect has Start's law (0 to 2 s, exponential above 1 ms) and defaults to
 5 ms - step 236, 5.01 ms. Base is greyed with Sync Off, Protect when nothing is stretched. Appended after Reverse, so
 older projects keep their settings and open unstretched.
+
+## 7. End
+0 to 100% of the sample's length in tenths of a percent, default 100%. The host sees a percentage - the parameter's text
+has no sample to measure - and the panel a time (osDraw §12).
+
+## 8. Delay
+Start's law (0 to 2 s, exponential above 1 ms): its first steps are microseconds, for lining up layers. Appended after
+End, with End, so older projects open with neither.
