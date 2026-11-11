@@ -62,5 +62,18 @@ effects glide to them. Checked through the VST3 (middle C held): plain -38.3 dBF
 
 ## 10. Oversampling
 One switch for the instance, not a layer - every layer must be equally late to stay in step. Saved in the state
-(OSS3: OSS2 and four bytes of flags; OSS2 and OSS1 open with it off). Changing it tells the host to read the latency
-again (`synthlib_plugin_latency_changed`) and starts every layer's effects afresh.
+(OSS3: OSS2 and four bytes of flags; OSS2 and OSS1 open with it off). It is in force - every layer 23 frames late, 23
+reported - only while some layer with a sample has saturation on (`oversampling_in_force`, used by both the audio
+thread and `latencySamples`). The audio thread compares it each block; when it changes - the button, a layer's
+saturation switched or automated, a sample loaded or cleared - it starts every layer's effects afresh and tells the
+host to read the latency again (`synthlib_plugin_latency_changed`, which posts to the main thread). Checked: switch on
+with nothing saturating, a note sounds from frame 389 as with it off; with a layer saturating, from 411.
+
+## 11. Automation
+Every parameter is read once a block, so automation takes effect from the next block. What a copy depends on - the
+sample, Reverse, Tune, Fine, Keys and Root (the step), the host's rate, Stretch, Sync, Base and Protect - is compared
+each block with what was last asked for, and a change asks for a new copy (§4): a sweep asks every block, the cache
+builds only the newest (osCache §6), and notes meanwhile play live, or stretched notes the nearest copy (osCache §8).
+These are taken when a note starts: a sounding note keeps its pitch, stretch, Start, End and Delay. The envelope,
+Volume, Pan, the filter and saturation are read each block and shape sounding notes too, gliding where a step would
+click. A bounce builds what it needs before each note (osVoice §12), so it does not depend on how fast the cache is.

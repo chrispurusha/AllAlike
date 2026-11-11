@@ -56,3 +56,9 @@ A note whose stretched copy is not ready plays the most recently played copy of 
 stretched by any amount - the length a little off, the sound right - and asks for its own. Only with no stretched copy
 at all does it play unstretched. A host tempo change asks for nothing by itself: the next note does, so twenty
 instances do not all rebuild at the same moment (owner, 2026-11-11), and that note plays the old tempo's copy.
+
+## 9. Building now, offline
+`os_cache_build_now` builds a copy on the calling thread and hands it back held. Only a bounce uses it (osVoice §12):
+there the audio thread may wait, and a note must not play a stand-in that real time would not have played. A mutex
+(`building`) keeps it and the worker from building at once - they would choose the same free slot and share the
+one `borrowed` mark. Checked under ThreadSanitizer with the worker racing for the same copy.

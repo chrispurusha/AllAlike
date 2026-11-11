@@ -36,8 +36,9 @@ High Cut 1 kHz -3.0 / -7.0 / -12.5 dB at 1, 2, 4 kHz; Low Cut 1 kHz -6.0 dB at 1
 Controls > Oversample Saturation 2x, for the whole instance (owner, 2026-11-11). The curve runs at twice the rate
 between two 47-tap half-band filters (Kaiser 8; every other tap 0, so 24 multiplies a phase), with the antiderivative
 kept at the doubled rate: without it the hard clip still aliased at -47.7 dB below 20 kHz. The filters make the
-output 23 frames late (0.48 ms at 48 kHz), so while it is on every layer is 23 frames late - a layer not saturating
-through a plain delay - and the plug-in reports 23 to the host, which lines it up. The antiderivative adds a quarter
+output 23 frames late (0.48 ms at 48 kHz), so while it is in force every layer is 23 frames late - a layer not
+saturating through a plain delay - and the plug-in reports 23 to the host, which lines it up. It is in force only
+while some layer with a sample has saturation on; otherwise nothing is delayed and 0 is reported (owner, 2026-11-11). The antiderivative adds a quarter
 of a frame on a saturating layer (5 us; a comb under 0.1 dB below 20 kHz against an unsaturated twin).
 Measured on a 5 kHz sine at +18 dB, worst alias below 20 kHz: Classic -35.1 dB -> -129.0, Drums -31.0 -> -82.7, Tape
 -35.4 -> -122.5. What is left is at 23 kHz (the 25 kHz harmonic, at the half-band's corner): -28.6 / -25.9 / -41.1 dB,

@@ -62,3 +62,16 @@ With its own Snap On (STRETCH's, not TRIM's - owner, 2026-11-11; default On) the
 untouched attack hands over to the stretched rest at a crossing. It is worked out in `os_voices_key`, so the copy is
 keyed and built on the snapped boundary, and the panel's purple line uses the same function. Checked: Protect 51 ms on
 a 440 Hz tone moves from frame 2249 (0.187) to the crossing at 2255 (0.004); Off leaves it at 2249.
+
+## 12. Offline
+In a bounce (the host's offline mode) a note whose copy is not ready builds it before it plays, rather than playing
+live, or a stretched note playing the nearest copy at the wrong length. So an offline bounce is what real-time
+playback with every copy ready sounds like, and the same each time, whatever the host's speed or automation.
+
+## 13. Stereo
+A stereo sample stays stereo everywhere: both channels through the interpolator (one set of weights), the copies,
+Reverse, the stretcher (its channels together, so the image keeps its phase) and each layer's filter and saturation
+(a state per channel). Pan on a stereo sample is a balance: each side keeps its own channel and only its level moves
+(equal power; centre leaves both as they are). Checked (`tools/osCacheTest.c`, 440 Hz left and 660 Hz right): every
+path keeps each tone on its own side, the other side's at least 115 dB down - stretched, 68 dB (the stretcher's
+joint processing) - and half-left pan gives +2.4 / -5.3 dB.

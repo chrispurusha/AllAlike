@@ -115,7 +115,8 @@ static int                   gLayer;
 static tRectangle            gTabRect[OS_LAYERS];
 static tRectangle            gMuteRect[OS_LAYERS];
 static tRectangle            gClearRect[OS_LAYERS];
-static int                   gClearing;   // the layer a Clear is being confirmed for
+static tRectangle            gOversampleRect; // notes §16
+static int                   gClearing;       // the layer a Clear is being confirmed for
 static int32_t               gSteps[MAX_PARAMS];
 static bool                  gFontReady;
 static tCoord                gMouse;
@@ -834,6 +835,35 @@ void os_draw_frame(int pixelWidth, int pixelHeight) {
 
         set_rgb_colour((tRgb)RGB_WHITE);
         render_text(mainArea, (tRectangle){{ps->x, ps->y}, {0.0, 12.0}}, ps->section->title);
+
+        // notes §16: oversampling - the instance's, so a button on the heading rather than a control of the layer
+        if (strcmp(ps->section->title, "SATURATION") == 0) {
+            bool on = os_draw_oversampling();
+
+            gOversampleRect = (tRectangle){{
+                                               ps->x + get_text_width(ps->section->title, 12.0, eNoCache) + 10.0, ps->y - 1.0
+                                           }, {
+                                               86.0, 13.0
+                                           }
+            };
+            set_rgb_colour(on ? (tRgb){ps->section->colour[0], ps->section->colour[1], ps->section->colour[2]}
+                                                                                                               : (tRgb)TAB_COLOUR);
+            (void)render_rectangle(mainArea, gOversampleRect);
+            set_rgb_colour(on ? (tRgb)RGB_BLACK : (tRgb)RGB_GREY_7);
+            render_text(mainArea, (tRectangle){{gOversampleRect.coord.x + 5.0, gOversampleRect.coord.y + 2.0}, {0.0, 9.0}}, "2x Oversample");
+
+            if (on) {
+                bool saturating = false;   // as the plug-in decides it: some layer with a sample saturating
+
+                for (int i = 0; i < OS_LAYERS; i++) {
+                    saturating |= (gValues[i][kOsParamSaturate] > 0.5) && have_host() && (gHost->sample(gUser, i) != NULL);
+                }
+
+                set_rgb_colour((tRgb)RGB_GREY_7);
+                render_text(mainArea, (tRectangle){{gOversampleRect.coord.x + gOversampleRect.size.w + 8.0, ps->y + 1.0}, {0.0, 9.0}},
+                            saturating ? "0.5 ms latency" : "no latency - nothing saturating");
+            }
+        }
         set_rgb_colour((tRgb)RGB_GREY_5);
         render_line(mainArea, (tCoord){ps->x, ps->y + 15.0}, (tCoord){ps->x + ps->w - 6.0, ps->y + 15.0}, 1.0);
     }
@@ -947,6 +977,12 @@ bool os_draw_press(double x, double y, tOsEdit * edit, bool * grabbed) {
 
     if (within_rectangle(at, draw_button_bounds(gResetRect))) {
         os_draw_reset_controls();
+        return true;
+    }
+
+    // notes §16: the oversampling button, for the whole instance
+    if (within_rectangle(at, gOversampleRect)) {
+        os_draw_set_oversampling(!os_draw_oversampling());
         return true;
     }
 

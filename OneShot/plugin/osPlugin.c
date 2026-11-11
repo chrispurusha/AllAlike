@@ -277,14 +277,28 @@ static void os_destroy(void * inst) {
 }
 
 // notes §10: the whole instance's; the host is told the new lateness
+// The audio thread notices the change at its next block and tells the host (os_process)
 static void set_oversampling(tOsPlugin * t, bool on) {
-    if (atomic_exchange(&t->oversample, on) != on) {
-        synthlib_plugin_latency_changed(t);
+    atomic_store(&t->oversample, on);
+}
+
+// notes §10: oversampling is in force - and every layer late - only while some layer with a sample is saturating
+static bool oversampling_in_force(tOsPlugin * t) {
+    if (!atomic_load(&t->oversample)) {
+        return false;
     }
+
+    for (int i = 0; i < OS_LAYERS; i++) {
+        if ((atomic_load(&t->layer[i].sample) != NULL) && (lround(atomic_load(&t->layer[i].values[kOsParamSaturate])) > 0)) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 static uint32_t os_latency(void * inst) {
-    return atomic_load(&((tOsPlugin *)inst)->oversample) ? OS_FX_LATENCY : 0;
+    return oversampling_in_force((tOsPlugin *)inst) ? OS_FX_LATENCY : 0;
 }
 
 // notes §2: the plug-in's own state - OSS3 the four layers' paths and the instance's flags, OSS2 the paths alone, OSS1
@@ -553,8 +567,9 @@ static void os_process(void * inst, const float *const * in, uint32_t numIn, flo
     if ((transport != NULL) && transport->tempoValid && (transport->tempo > 0.0)) {
         t->hostTempo = transport->tempo;
     }
-    // notes §10: a change of oversampling starts every layer's effects afresh, at the new lateness
-    bool              oversampling = atomic_load(&t->oversample);
+    // notes §10: a change of lateness starts every layer's effects afresh, and the host is told (it reads the
+    // figure again on the main thread; the message is posted, so nothing re-enters the plug-in from here)
+    bool              oversampling = oversampling_in_force(t);
 
     if (oversampling != t->oversampling) {
         for (int i = 0; i < OS_LAYERS; i++) {
@@ -562,6 +577,7 @@ static void os_process(void * inst, const float *const * in, uint32_t numIn, flo
         }
 
         t->oversampling = oversampling;
+        synthlib_plugin_latency_changed(t);
     }
 
     for (int i = 0; i < OS_LAYERS; i++) {

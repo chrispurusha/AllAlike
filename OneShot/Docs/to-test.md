@@ -33,7 +33,10 @@ Built but not yet checked in a host. Confirmed: delete the line. Failed: move it
 - Layers in Live: four samples stacked on one note, in step; key ranges splitting the keyboard; Play (stack) vs a click on the waveform (layer alone)
 - Filter by ear: Low/High Cut sweeps without zipper or click, Soft vs 12 vs 24 dB
 - Saturation by ear: Classic, Drums, Tape at moderate and full Gain; Warmth and HF in Tape; CPU with all four layers saturating
+- 2x Oversample button on the SATURATION heading flips it (and the menu item agrees); confirmed 11-11 that Live picks up the latency.
+- With 2x on, switching every layer's saturation off takes the latency out of Live's compensation, and back on puts it back
 - Oversample Saturation 2x in Live: the latency appears in Live's delay compensation; layers stay in step; Drums at high Gain sounds cleaner; the setting saves
+- Automation in Live: sweep Tune and Stretch while a pattern plays (later notes follow, no glitches); bounce offline with Stretch automated and compare with real-time playback
 - Clear under a tab: asks, empties that layer (a sounding note fades), the tab reads "empty", the project saves it empty
 - Mute under each tab: silences that layer at once (no click), automates and saves
 - An older project opens as layer 1 with the others empty; a new one saves and reopens all four samples and settings

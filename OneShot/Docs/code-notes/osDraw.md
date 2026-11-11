@@ -77,5 +77,7 @@ confirm (osPlugin §8) and is greyed on an empty one. A press flips that layer's
 names its layer (`tOsEdit.layer`; the plug-in's callers start it at -1, the shown one). The canvas grew to 584 high.
 
 ## 16. Oversampling
-Not on the panel - it is the instance's, not the shown layer's: Controls > Oversample Saturation 2x, through the host
-interface (`oversampling`, `setOversampling`).
+The instance's, not the shown layer's, so not one of the layer's controls: a "2x Oversample" button on the SATURATION
+heading (lit when on; beside it "0.5 ms latency", or "no latency - nothing saturating" while no layer with a sample is
+saturating), and Controls > Oversample Saturation 2x - both through the host
+interface (`oversampling`, `setOversampling`). Every tab shows the same state.

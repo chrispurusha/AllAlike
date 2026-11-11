@@ -13,6 +13,7 @@
 #include <unistd.h>
 
 #include "osCache.h"
+#include "osFx.h"
 #include "osVoice.h"
 
 static tOsSample gSample;
@@ -35,6 +36,20 @@ static double now(void) {
 
     clock_gettime(CLOCK_MONOTONIC, &t);
     return t.tv_sec + (t.tv_nsec * 1e-9);
+}
+
+// The level of a tone in x (48 kHz), by correlation over a Hann window
+static double level_at(const float * x, uint32_t n, double f) {
+    double re = 0, im = 0;
+
+    for (uint32_t i = 0; i < n; i++) {
+        double w = 0.5 - (0.5 * cos(2.0 * M_PI * i / (n - 1)));
+
+        re += x[i] * w * cos(2.0 * M_PI * f * i / 48000.0);
+        im += x[i] * w * sin(2.0 * M_PI * f * i / 48000.0);
+    }
+
+    return 20.0 * log10((2.0 * sqrt((re * re) + (im * im)) / (n * 0.5)) + 1e-12);
 }
 
 static void render(tOsVoices * v, const tOsPlay * p, float * l, float * r, uint32_t n) {
@@ -421,7 +436,7 @@ int main(void) {
     // 9. Offline (osVoice notes §12): a stretched note with no copy yet gets its own at once, never a stand-in -
     //    while the worker is asked for the same copy at the same moment
     {
-        const tOsSample * tone = atomic_load(&gCurrent);
+        const tOsSample * tone  = atomic_load(&gCurrent);
         int               exact = 0;
 
         for (int k = 0; k < 20; k++) {
@@ -432,17 +447,87 @@ int main(void) {
             os_voices_init(&v, 48000);
             os_voices_set_cache(&v, &cache);
             os_voices_set_offline(&v, true);
-            key = os_voices_key(&v, tone, &p, 60);
+            key    = os_voices_key(&v, tone, &p, 60);
             os_cache_request(&cache, key, false);   // the worker races for it
             os_voices_note_on(&v, tone, &p, 60, 1.0f);
             exact += (v.voice[0].copy != NULL) && (v.voice[0].copy->key.stretch == key.stretch);
             os_voices_stop(&v);
         }
 
-        bool ok = (exact == 20);
+        bool              ok    = (exact == 20);
 
         printf("%s  offline: %d of 20 stretched notes played their own copy at once\n", ok ? "ok  " : "FAIL", exact);
         failures += ok ? 0 : 1;
+    }
+
+    // 10. Stereo kept apart: 440 Hz left, 660 Hz right, through every path - each tone stays on its own side
+    {
+        static tOsSample st;
+        uint32_t         frames  = 44100;
+
+        st         = (tOsSample){
+            .serial = 11, .frames = frames, .channels = 2, .rate = 44100.0
+        };
+        st.data[0] = malloc(frames * sizeof(float));
+        st.data[1] = malloc(frames * sizeof(float));
+
+        for (uint32_t i = 0; i < frames; i++) {
+            st.data[0][i] = 0.4f * sinf(2.0f * (float)M_PI * 440.0f * (float)i / 44100.0f);
+            st.data[1][i] = 0.4f * sinf(2.0f * (float)M_PI * 660.0f * (float)i / 44100.0f);
+        }
+
+        atomic_store(&gCurrent, &st);
+
+        struct {
+            const char * name;
+            double       stretch;
+            bool         reverse, cache, fx;
+            double       pan;
+        }                cases[] = {
+            {"live resampling",        1.0, false, false, false, 0.0}, {"cached copy",      1.0, false, true, false,  0.0},
+            {"stretched x2",           2.0, false, true,  false, 0.0}, {"reversed",         1.0, true,  true, false,  0.0},
+            {"filter + saturation 2x", 1.0, false, true,  true,  0.0}, {"panned half left", 1.0, false, true, false, -0.5},
+        };
+
+        for (int k = 0; k < 6; k++) {
+            tOsPlay    p  = {
+                .rootKey =   60, .gain =    1, .end     = 1, .stretch = cases[k].stretch, .reverse = cases[k].reverse, .pan = cases[k].pan,
+                .protect = 0.01, .env  = {.hold = -1.0,.sustain = 1.0}};
+            tOsVoices  v;
+            uint32_t   m  = 30000;
+            float *    l = calloc(m, sizeof(float)), * r = calloc(m, sizeof(float));
+            tOsFx      fx = {
+                .filter = true, .lowHz =    40, .highHz     = 15000, .slope = eOsSlope24, .saturate = true, .mode = eOsSatTape,
+                .gainDb =    3, .hfHz  = 18000, .oversample = true
+            };
+            tOsFxState fs;
+
+            os_voices_init(&v, 48000);
+
+            if (cases[k].cache) {
+                os_voices_set_cache(&v, &cache);
+                (void)wait_for(&cache, os_voices_key(&v, &st, &p, 60));
+            }
+            os_voices_note_on(&v, &st, &p, 60, 1.0f);
+            render(&v, &p, l, r, m);
+
+            if (cases[k].fx) {
+                os_fx_reset(&fs);
+                os_fx_process(&fs, &fx, 48000.0, l, r, m);
+            }
+            // on each side, its own tone against the other's
+            double     ll = level_at(l + 4000, 16000, 440.0), lr = level_at(l + 4000, 16000, 660.0);
+            double     rr = level_at(r + 4000, 16000, 660.0), rl = level_at(r + 4000, 16000, 440.0);
+            bool       ok = (ll - lr > 60.0) && (rr - rl > 60.0) && (ll > -20.0) && (rr > -20.0)
+                            && ((cases[k].pan == 0.0) ? (fabs(ll - rr) < 1.0) : (ll - rr > 4.0));
+
+            printf("%s  stereo, %-22s left: 440 %.1f dB, 660 %.1f   right: 660 %.1f dB, 440 %.1f\n", ok ? "ok  " : "FAIL", cases[k].name,
+                   ll, lr, rr, rl);
+            failures += ok ? 0 : 1;
+            os_voices_stop(&v);
+            free(l);
+            free(r);
+        }
     }
 
     os_cache_destroy(&cache);

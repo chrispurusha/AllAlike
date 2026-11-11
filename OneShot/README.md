@@ -38,7 +38,7 @@ Run `./do-uncrustify` after editing.
 - Filter (per layer): Low Cut and High Cut, 20 Hz-20 kHz; Slope Soft (Low Cut 12 dB/octave with a gentle knee, High
   Cut 6 dB/octave), 12 or 24 dB/octave.
 - Saturation (per layer): Classic (soft), Drums (hard clip) or Tape (with Warmth and HF), Gain and Output.
-  Controls > Oversample Saturation 2x makes it cleaner at the cost of 0.5 ms latency on the whole instance, which the
+  The 2x Oversample button on its heading (or Controls > Oversample Saturation 2x) makes it cleaner at the cost of 0.5 ms latency on the whole instance, which the
   host compensates.
 - Double-click any dial to put it back to its default.
 - Envelope (Shift-drag any dial for fine steps; Attack has 1000, 195 of them in its first 5 ms): AHR (Attack, Hold, then Release to silence - the usual one-shot drum envelope) or ADSR, with a curve on

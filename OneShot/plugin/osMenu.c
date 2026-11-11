@@ -146,7 +146,7 @@ static void action_panel_help(int index) {
                "to Sustain; its Release needs Gate mode. In Gate mode a note off always starts the Release. The curves bend each "
                "stage: + drops fast then tails off, - the reverse. The green line on the waveform is the envelope.\n\n"
                "Filter: Low Cut and High Cut; Slope Soft (a gentle 12 dB Low Cut, a 6 dB High Cut), 12 or 24 dB an octave. Saturation: Classic (soft), Drums (hard) or Tape (Warmth "
-               "shapes the lows, HF the highs), with Gain in and Output after. Both are per layer. Controls > Oversample Saturation 2x is cleaner, for 0.5 ms of latency the host makes up.\n\n"
+               "shapes the lows, HF the highs), with Gain in and Output after. Both are per layer. 2x Oversample (on the SATURATION heading, or in Controls) is cleaner, for 0.5 ms of latency the host makes up.\n\n"
                "Dials: drag to turn, Shift-drag for fine steps (Attack has 1000, a fifth of them in its first 5 ms); "
                "double-click one to put it back to its default.\n\n"
                "The project keeps the sample's path, not the sample: a moved file shows as Missing.\n\n"
