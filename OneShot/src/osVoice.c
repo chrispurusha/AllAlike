@@ -34,9 +34,20 @@ void os_voices_init(tOsVoices * v, double hostRate) {
     v->hostRate = hostRate;
 }
 
+void os_voices_set_cache(tOsVoices * v, tOsCache * cache) {
+    v->cache = cache;
+}
+
+// Silences a voice and lets its copy go
+static void end_voice(tOsVoice * voice) {
+    os_cache_release(voice->copy);
+    voice->copy   = NULL;
+    voice->active = false;
+}
+
 void os_voices_stop(tOsVoices * v) {
     for (int i = 0; i < OS_VOICES; i++) {
-        v->voice[i].active = false;
+        end_voice(&v->voice[i]);
     }
 }
 
@@ -74,8 +85,9 @@ static tOsVoice * take_voice(tOsVoices * v) {
     return oldest;
 }
 
+// notes §6: in frames as played - from the end when reversed
 uint32_t os_voices_start_frame(const tOsSample * sample, const tOsPlay * play) {
-    double   at    = play->start * sample->rate;
+    double   at     = play->start * sample->rate;
 
     if ((at <= 0.0) || (sample->frames == 0)) {
         return 0;
@@ -84,9 +96,22 @@ uint32_t os_voices_start_frame(const tOsSample * sample, const tOsPlay * play) {
     if (at >= (double)sample->frames) {
         return sample->frames;
     }
-    uint32_t frame = (uint32_t)lround(at);
+    uint32_t frame  = (uint32_t)lround(at);
+    uint32_t last   = sample->frames - 1;
 
-    return play->snap ? os_sample_zero_crossing(sample, frame, (uint32_t)(SNAP_RADIUS_S * sample->rate)) : frame;
+    if (!play->snap) {
+        return frame;
+    }
+    uint32_t radius = (uint32_t)(SNAP_RADIUS_S * sample->rate);
+
+    return play->reverse ? last - os_sample_zero_crossing(sample, last - frame, radius)
+                         : os_sample_zero_crossing(sample, frame, radius);
+}
+
+double os_voices_step(const tOsVoices * v, const tOsSample * sample, const tOsPlay * play, uint8_t note) {
+    double semitones = play->tune + (play->keyTrack ? (double)((int)note - play->rootKey) : 0.0);
+
+    return (sample->rate / v->hostRate) * pow(2.0, semitones / 12.0);
 }
 
 void os_voices_note_on(tOsVoices * v, const tOsSample * sample, const tOsPlay * play, uint8_t note, float velocity) {
@@ -97,13 +122,14 @@ void os_voices_note_on(tOsVoices * v, const tOsSample * sample, const tOsPlay * 
     if (play->mono) {
         os_voices_fade_all(v);
     }
-    tOsVoice * voice     = take_voice(v);
-    double     semitones = play->tune + (play->keyTrack ? (double)((int)note - play->rootKey) : 0.0);
+    tOsVoice * voice = take_voice(v);
 
+    end_voice(voice);
     *voice          = (tOsVoice){
         .sample   = sample,
         .position = 0.0,   // set below, from Start
-        .step     = (sample->rate / v->hostRate) * pow(2.0, semitones / 12.0),
+        .step     = os_voices_step(v, sample, play, note),
+        .reverse  = play->reverse,
         .level    = (1.0 - play->velocity) + (play->velocity * velocity),
         .fade     = 1.0,
         .fadeStep = 0.0,
@@ -111,13 +137,28 @@ void os_voices_note_on(tOsVoices * v, const tOsSample * sample, const tOsPlay * 
         .active   = true,
         .age      = ++v->started,
     };
-    uint32_t   start     = os_voices_start_frame(sample, play);
+    uint32_t   start = os_voices_start_frame(sample, play);
 
     voice->position = (double)start;
     voice->rise     = ((start > 0) && !play->snap) ? 0.0 : 1.0;
     voice->riseStep = 1.0 / (START_FADE_S * v->hostRate);
     voice->cutoff   = os_resample_cutoff(voice->step);
     voice->end      = (double)sample->frames + os_resample_tail(voice->cutoff); // notes §3: the filter's ring after the last frame
+
+    // notes §7: through the copy if it is ready (its frame n is played position n x step), else live, and ask for it
+    if (voice->step != 1.0) {
+        tOsCacheKey key = {sample->serial, play->reverse, voice->step};
+
+        voice->copy = os_cache_acquire(v->cache, key);
+
+        if (voice->copy != NULL) {
+            voice->position = (double)lround((double)start / voice->step);
+            voice->end      = (double)voice->copy->frames;
+            voice->step     = 1.0;
+        } else {
+            os_cache_request(v->cache, key, !play->keyTrack);
+        }
+    }
     os_env_start(&voice->env);
 }
 
@@ -171,15 +212,24 @@ void os_voices_render(tOsVoices * v, const tOsPlay * play, float * left, float *
                 double e = os_env_step(&voice->env, &play->env, dt);
 
                 if ((voice->position >= voice->end) || (voice->fade <= 0.0) || os_env_done(&voice->env)) {
-                    voice->active = false;
+                    end_voice(voice);
                     break;
                 }
                 float  f = (float)(voice->level * voice->fade * e * voice->rise);
 
                 voice->rise      = fmin(1.0, voice->rise + voice->riseStep);
-                float  l = os_resample_read(s->data[0], s->frames, voice->position, voice->cutoff);
-                float  r = (s->channels == 2) ? os_resample_read(s->data[1], s->frames, voice->position, voice->cutoff) : l;
+                float  l, r;
 
+                if (voice->copy != NULL) {
+                    uint32_t n = (uint32_t)voice->position;
+
+                    l = voice->copy->data[0][n];
+                    r = voice->copy->data[1][n];
+                } else {
+                    double at = voice->reverse ? ((double)s->frames - 1.0) - voice->position : voice->position;
+
+                    os_resample_read2(s->data[0], (s->channels == 2) ? s->data[1] : NULL, s->frames, at, voice->cutoff, &l, &r);
+                }
                 left[at + i]    += l * f * gainL[i];
 
                 if (right != NULL) {

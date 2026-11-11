@@ -25,3 +25,11 @@ shaped by the envelope over it, and the envelope as a green line. Tune and Keys 
 A yellow line where the note starts - snapped as the voice snaps it, through the same `os_voices_start_frame()` - with
 the part before it dim and the envelope starting there. Gate's nominal note off is halfway from the start to the end.
 The controls are 50 units wide so that PITCH, PLAY and OUTPUT (eleven controls) fit one row.
+
+## 7. Reverse on the waveform
+The overview is drawn as the sample plays, so with Reverse on it is mirrored, and the envelope and the Start marker
+are laid over it in played order.
+
+## 8. Size
+760 x 540 since 2026-11-11 (was 640 x 420): the first row of controls takes Reverse, there is room for a third row, and
+the file browser lays itself out below the menu bar with all its rows.

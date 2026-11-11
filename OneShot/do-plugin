@@ -98,6 +98,7 @@ SOURCES=(
     "$HERE/src/osVoice.c"
     "$HERE/src/osEnvelope.c"
     "$HERE/src/osResample.c"
+    "$HERE/src/osCache.c"
     "$HERE/plugin/osParams.c"
     "$HERE/plugin/osDraw.c"
     "$HERE/plugin/osMenu.c"

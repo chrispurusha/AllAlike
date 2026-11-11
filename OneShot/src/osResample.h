@@ -29,6 +29,9 @@ void os_resample_init(void);    // builds the kernel table; call before the firs
 // the sample plays faster than its rate allows). Past either end reads as silence.
 float os_resample_read(const float * d, uint32_t frames, double position, double cutoff);
 
+// notes §5: both channels at once, from one set of weights; right may be NULL (mono: *outR = *outL)
+void os_resample_read2(const float * left, const float * right, uint32_t frames, double position, double cutoff, float * outL, float * outR);
+
 // What a playback step needs: 1 up to the file's own speed, then 1/step, never below the narrowest the table serves
 double os_resample_cutoff(double step);
 

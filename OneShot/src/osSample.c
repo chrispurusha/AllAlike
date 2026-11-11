@@ -17,6 +17,7 @@
 // Notes: Docs/code-notes/osSample.md - "// notes §k" refers there.
 
 #include <math.h>
+#include <stdatomic.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -25,6 +26,8 @@
 #include "osSample.h"
 
 #define MAX_FILE_BYTES    (1024u * 1024u * 1024u)   // notes §2
+
+static _Atomic uint32_t gSerial;
 
 typedef enum {
     eIntLE = 0,
@@ -309,6 +312,7 @@ tOsSample * os_sample_load(const char * path, char * error, size_t errorLength) 
     if (s != NULL) {
         uint32_t keep = (fmt.channels >= 2) ? 2 : 1;   // notes §5: a file of more channels plays its first two
 
+        s->serial   = atomic_fetch_add(&gSerial, 1) + 1;
         s->frames   = frames;
         s->channels = keep;
         s->rate     = fmt.rate;

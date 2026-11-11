@@ -18,6 +18,7 @@
 
 #include <math.h>
 #include <pthread.h>
+#include <stdbool.h>
 
 #include "osResample.h"
 
@@ -25,6 +26,7 @@
 #define TABLE_SIZE     ((2 * OS_RESAMPLE_HALF * PHASES) + 2)   // one spare for the interpolation's last step
 #define KAISER_BETA    (8.6)                                   // notes §2: about 87 dB stopband
 #define MIN_CUTOFF     (0.25)                                  // notes §3: two octaves up, then aliasing returns
+#define MAX_TAPS       ((2 * OS_RESAMPLE_HALF * 4) + 2)        // the widest kernel: 1 / MIN_CUTOFF
 
 static float          gKernel[TABLE_SIZE];   // the windowed sinc from -HALF to +HALF taps
 static pthread_once_t gOnce = PTHREAD_ONCE_INIT;
@@ -66,36 +68,70 @@ double os_resample_tail(double cutoff) {
     return OS_RESAMPLE_HALF / cutoff;
 }
 
-static inline float kernel(double u) {
-    double t = (u + OS_RESAMPLE_HALF) * PHASES;
-    int    i = (int)t;
+// notes §5: the weights for the taps around position, into w; returns the first tap's frame and sets *count
+static int64_t weights(uint32_t frames, double position, double cutoff, float * w, int * count) {
+    double  width  = OS_RESAMPLE_HALF / cutoff;
+    int64_t from   = (int64_t)ceil(position - width);
+    int64_t to     = (int64_t)floor(position + width);
 
-    if ((i < 0) || (i >= TABLE_SIZE - 1)) {
-        return 0.0f;
+    from   = (from < 0) ? 0 : from;
+    to     = (to >= (int64_t)frames) ? (int64_t)frames - 1 : to;
+    int     n      = (to >= from) ? (int)(to - from + 1) : 0;
+
+    // notes §5: walking the table, one tap's distance (cutoff x PHASES points) at a time
+    double  stride = cutoff * PHASES;
+    double  t      = (((position - (double)from) * cutoff) + OS_RESAMPLE_HALF) * PHASES;
+    float   gain   = (float)cutoff;
+
+    for (int k = 0; k < n; k++, t -= stride) {
+        int   i = (int)floor(t);
+        float f = (float)(t - i);
+
+        w[k] = ((i < 0) || (i >= TABLE_SIZE - 1)) ? 0.0f : (gKernel[i] + (f * (gKernel[i + 1] - gKernel[i]))) * gain;
     }
-    float  f = (float)(t - i);
 
-    return gKernel[i] + (f * (gKernel[i + 1] - gKernel[i]));
+    *count = n;
+    return from;
 }
 
-float os_resample_read(const float * d, uint32_t frames, double position, double cutoff) {
-    int64_t at    = (int64_t)floor(position);
+void os_resample_read2(const float * left, const float * right, uint32_t frames, double position, double cutoff,
+                       float * outL, float * outR) {
+    int64_t       at   = (int64_t)floor(position);
 
     // notes §4: on a frame at full bandwidth the kernel is 1 there and 0 at every other frame: the sample itself
     if ((cutoff >= 1.0) && (position == (double)at)) {
-        return ((at < 0) || (at >= (int64_t)frames)) ? 0.0f : d[at];
+        bool inside = (at >= 0) && (at < (int64_t)frames);
+
+        *outL = inside ? left[at] : 0.0f;
+        *outR = (right == NULL) ? *outL : (inside ? right[at] : 0.0f);
+        return;
     }
-    double  width = OS_RESAMPLE_HALF / cutoff;
-    int64_t from  = (int64_t)ceil(position - width);
-    int64_t to    = (int64_t)floor(position + width);
-    float   sum   = 0.0f;
+    float         w[MAX_TAPS];
+    int           n;
+    int64_t       from = weights(frames, position, cutoff, w, &n);
+    float         sl = 0.0f, sr = 0.0f;
+    const float * l    = left + from;
 
-    from = (from < 0) ? 0 : from;
-    to   = (to >= (int64_t)frames) ? (int64_t)frames - 1 : to;
-
-    for (int64_t k = from; k <= to; k++) {
-        sum += d[k] * kernel((position - (double)k) * cutoff);
+    for (int k = 0; k < n; k++) {
+        sl += l[k] * w[k];
     }
 
-    return sum * (float)cutoff;
+    if (right != NULL) {
+        const float * r = right + from;
+
+        for (int k = 0; k < n; k++) {
+            sr += r[k] * w[k];
+        }
+    } else {
+        sr = sl;
+    }
+    *outL = sl;
+    *outR = sr;
+}
+
+float os_resample_read(const float * d, uint32_t frames, double position, double cutoff) {
+    float l, r;
+
+    os_resample_read2(d, NULL, frames, position, cutoff, &l, &r);
+    return l;
 }

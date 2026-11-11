@@ -27,6 +27,7 @@
 
 // A whole sample in memory, one float array per channel (mono or stereo)
 typedef struct {
+    uint32_t serial;                 // unique to this load: what a cached copy is keyed by, never reused
     uint32_t frames;
     uint32_t channels;               // 1 or 2
     double   rate;                   // the file's own sample rate

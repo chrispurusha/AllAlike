@@ -23,6 +23,7 @@
 #include <stdint.h>
 
 #include "osEnvelope.h"
+#include "osCache.h"
 #include "osSample.h"
 
 #define OS_VOICES    (8)
@@ -40,34 +41,42 @@ typedef struct {
     tOsEnvShape env;
     double      start;    // seconds into the sample
     bool        snap;     // to the nearest zero crossing
+    bool        reverse;  // notes §6: the sample backwards; Start counts from its end
 } tOsPlay;
 
 typedef struct {
-    const tOsSample * sample;
-    double            position;    // in the sample's frames
-    double            step;        // frames per output frame
-    double            cutoff;      // the interpolator's bandwidth for that step
-    double            end;         // the position at which it has finished ringing
-    double            level;       // velocity's part
-    double            fade;        // 1 while sounding; falls to 0 when ended
-    double            fadeStep;    // per output frame, 0 while not fading
-    double            rise;        // notes §5: a 1 ms fade-in for an unsnapped start, 1 once done
-    double            riseStep;
-    tOsEnv            env;
-    uint8_t           note;
-    bool              active;
-    uint32_t          age;         // for stealing the oldest
+    const tOsSample *     sample;
+    double                position; // in the sample's frames as played (reversed when reverse), or the copy's
+    double                step;     // frames per output frame; 1 through a copy
+    double                cutoff;   // the interpolator's bandwidth for that step
+    double                end;      // the position at which it has finished ringing
+    double                level;    // velocity's part
+    double                fade;     // 1 while sounding; falls to 0 when ended
+    double                fadeStep; // per output frame, 0 while not fading
+    double                rise;     // notes §5: a 1 ms fade-in for an unsnapped start, 1 once done
+    double                riseStep;
+    tOsEnv                env;
+    const tOsCacheEntry * copy;    // notes §7: the resampled copy read instead, held while the voice plays
+    bool                  reverse;
+    uint8_t               note;
+    bool                  active;
+    uint32_t              age;     // for stealing the oldest
 } tOsVoice;
 
 typedef struct {
-    tOsVoice voice[OS_VOICES];
-    double   hostRate;
-    uint32_t started;
-    double   outL, outR;      // notes §4: the output gains (pan x volume), smoothed toward the parameters
-    bool     outSet;
+    tOsVoice   voice[OS_VOICES];
+    double     hostRate;
+    uint32_t   started;
+    double     outL, outR;    // notes §4: the output gains (pan x volume), smoothed toward the parameters
+    bool       outSet;
+    tOsCache * cache;         // notes §7: NULL reads every note live
 } tOsVoices;
 
 void os_voices_init(tOsVoices * v, double hostRate);
+void os_voices_set_cache(tOsVoices * v, tOsCache * cache);
+
+// notes §7: the step a note plays at - what a copy is resampled for
+double os_voices_step(const tOsVoices * v, const tOsSample * sample, const tOsPlay * play, uint8_t note);
 void os_voices_stop(tOsVoices * v);
 void os_voices_note_on(tOsVoices * v, const tOsSample * sample, const tOsPlay * play, uint8_t note, float velocity);
 void os_voices_note_off(tOsVoices * v, const tOsPlay * play, uint8_t note);

@@ -15,4 +15,7 @@ Built but not yet checked in a host. Confirmed: delete the line. Failed: move it
 - Reset in Live: every control back to default, the sample kept, and Live's Undo brings the settings back
 - Pan and Volume automated fast in Live: no zipper
 - Attack's fine end by Shift-drag in Live: 0-5 ms in small even steps, the text in 0.01 ms under 1 ms
+- Reverse in Live: plays backwards, the waveform mirrors, Start counts from the end, Snap still clickless
+- CPU in Live's meter: a 44.1 kHz sample in a 48 kHz set, Key Track Off, fast hits - lower than before; Key Track On across the keyboard
+- The file browser fits the larger panel, below the menu bar
 - Start by ear with Snap On and Off (no click either way); the yellow marker follows the dial and snaps

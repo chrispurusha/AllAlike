@@ -25,8 +25,8 @@
 
 #include "osSample.h"
 
-#define OS_CANVAS_W    (640.0)
-#define OS_CANVAS_H    (420.0)
+#define OS_CANVAS_W    (760.0)   // notes §8
+#define OS_CANVAS_H    (540.0)
 
 typedef enum {
     eOsControlDial = 0,

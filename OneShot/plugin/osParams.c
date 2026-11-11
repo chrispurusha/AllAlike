@@ -37,6 +37,7 @@ const tSynthLibParam gOsParams[kOsParamCount] = {
     {kOsParamReleaseCurve, "Release Curve", "R Curve", GEN,                    -100.0,  100.0, 150.0 / 200.0,  200, NONE,    0},
     {kOsParamStart,        "Start",         "Start",   GEN,                       0.0, 1000.0,           0.0, 1000, NONE,    0},
     {kOsParamSnap,         "Snap to Zero",  "Snap",    IDX,                       0.0,    1.0,           1.0,    1, NONE, LIST},
+    {kOsParamReverse,      "Reverse",       "Rev",     IDX,                       0.0,    1.0,           0.0,    1, NONE, LIST},
 };
 
 static const char *const kOffOn[]    = {"Off", "On"};
@@ -196,6 +197,7 @@ void os_param_text(uint32_t id, double normalized, char * out, size_t len) {
             break;
 
         case kOsParamSnap:
+        case kOsParamReverse:
             snprintf(out, len, "%s", kOffOn[step > 0]);
             break;
 
@@ -223,8 +225,8 @@ static const tOsControl kPitch[]     = {
     DIAL(kOsParamTune, "Tune"), DIAL(kOsParamFine, "Fine"), CHOICE(kOsParamKeyTrack, "Keys", kOffOn), DIAL(kOsParamRootKey, "Root"),
 };
 static const tOsControl kPlay[]      = {
-    CHOICE(kOsParamMode, "Mode", kModes), CHOICE(kOsParamVoices, "Voices", kVoices), DIAL(kOsParamStart, "Start"),
-    CHOICE(kOsParamSnap, "Snap", kOffOn),
+    CHOICE(kOsParamMode, "Mode",   kModes),             CHOICE(kOsParamVoices, "Voices", kVoices), CHOICE(kOsParamReverse, "Reverse", kOffOn),
+    DIAL(kOsParamStart,  "Start"), CHOICE(kOsParamSnap, "Snap",                kOffOn),
 };
 static const tOsControl kOutput[]    = {
     DIAL(kOsParamVelocity, "Velocity"), DIAL(kOsParamPan, "Pan"), DIAL(kOsParamVolume, "Volume"),

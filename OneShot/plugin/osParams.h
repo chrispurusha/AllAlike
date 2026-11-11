@@ -27,6 +27,7 @@ enum {
     kOsParamReleaseCurve,
     kOsParamStart,
     kOsParamSnap,
+    kOsParamReverse,
     kOsParamCount
 };
 

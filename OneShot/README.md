@@ -21,7 +21,8 @@ Run `./do-uncrustify` after editing.
   to its default, keeping the sample.
 - Pitch: Tune (±24 st), Fine (±50 ct), Keys (play at the note's pitch from Root), Root (C3 = 60).
 - Play: Start (0-2 s into the sample, fine at the bottom), Snap (to the nearest zero crossing; Off fades in over 1 ms
-  instead), Mode (One Shot ignores the note off, Gate releases at it), Voices (Poly overlaps, Mono cuts the last hit),
+  instead), Mode (One Shot ignores the note off, Gate releases at it), Voices (Poly overlaps, Mono cuts the last hit), Reverse
+  (backwards; Start counts from the end),
   Velocity (how far velocity moves the level).
 - Output: Pan, Volume (-57..+6 dB in 0.5 dB steps; default -6 dB).
 - Envelope (Shift-drag any dial for fine steps; Attack has 1000, 195 of them in its first 5 ms): AHR (Attack, Hold, then Release to silence - the usual one-shot drum envelope) or ADSR, with a curve on
@@ -35,4 +36,4 @@ The project saves the sample's path, not the sample.
 ## Docs
 - `Docs/todo.md` - what is next; `Docs/to-test.md` - built but not yet tried in a host.
 - `Docs/code-notes/<file>.md` - the longer comments, numbered; code points there as `// notes §k`.
-- `tools/osTest.c` - offline check of the loader and the voice; `tools/osAliasTest.c` - the interpolator's aliasing (see their headers).
+- `tools/osTest.c` - offline check of the loader and the voice; `tools/osAliasTest.c` - the interpolator's aliasing; `tools/osCacheTest.c` - the resampled copies (see their headers).

@@ -22,5 +22,12 @@ At full bandwidth on a whole frame (the file's rate equals the host's and nothin
 that frame and 0 at every other, so the frame itself is returned: playback is the file, sample for sample.
 
 ## Cost
-64 multiply-adds per channel per output sample at full bandwidth, 64 x step when faster; 8 stereo voices at 48 kHz
-is about 50 million a second.
+65 taps per output sample at full bandwidth, 65 x step when faster, each a table lookup with interpolation and a
+multiply-add per channel: 0.5% of a core per stereo voice for a 44.1 kHz file at 48 kHz, 0.8% up an octave
+(2026-11-11, after §5).
+
+## 5. Both channels, one set of weights
+The weights depend only on the position, so `os_resample_read2` works them out once and applies them to both
+channels. They are found by walking the table a tap's distance at a time; at full bandwidth each tap lands the same
+fraction between two table points, a whole tap (512 points) apart. Same output to float rounding; 1.4-1.8x faster
+than reading each channel on its own (2026-11-11). Most notes no longer come here at all: osCache.

@@ -23,3 +23,14 @@ Snap (default On) moves it to the nearest zero crossing within 5 ms either side 
 without a step; with Snap Off it starts exactly there and fades in over 1 ms, which is what keeps that from clicking.
 A Start past the end plays nothing. Checked 2026-11-09 on a 100 Hz sine from 12.3 ms: Snap On started at the crossing
 at 10.000 ms, sample-exact after; Off started at 12.29 ms with the 1 ms rise, then exact.
+
+## 6. Reverse
+The sample backwards. Positions are counted as played, so Start runs from the sample's end and Snap looks for its
+crossing there; a voice reads the forward data at (frames - 1 - position), which the interpolator's symmetric kernel
+makes the reversed sample. At the file's own rate it is the file backwards, sample for sample. Taken at note on:
+switching it does not turn a sounding note round.
+
+## 7. Through a copy
+A note whose step is not 1 plays from osCache's copy for that sample, direction and step if one is ready: step 1
+through it, from the copy frame nearest Start. Otherwise it plays live and asks for one. The voice holds the copy
+until it ends, which every way a voice ends goes through (`end_voice`).

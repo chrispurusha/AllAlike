@@ -58,11 +58,11 @@
 #define BAR_X                     (130.0)
 #define BAR_BUTTON_H              (14.0)
 #define WAVE_Y                    (60.0)
-#define WAVE_H                    (110.0)
-#define PAGE_Y                    (190.0)
+#define WAVE_H                    (130.0)
+#define PAGE_Y                    (210.0)
 #define ROW_H                     (112.0)
 #define SECTION_GAP               (16.0)
-#define CONTROL_W                 (50.0)   // eleven controls across the first row
+#define CONTROL_W                 (50.0)   // twelve controls across the first row
 #define DIAL_SIZE                 (40.0)
 #define LABEL_H                   (11.0)
 #define HEADING_TO_DIAL           (34.0)
@@ -456,7 +456,8 @@ static void draw_waveform(void) {
 
     bool              gate    = os_is_gate(gValue);
     // notes §6: where a note starts, snapped as the voice will snap it; the envelope runs from there
-    tOsPlay           play    = {.start = os_start_time(gValue[kOsParamStart]), .snap = gValue[kOsParamSnap] > 0.5};
+    bool              reverse = gValue[kOsParamReverse] > 0.5;
+    tOsPlay           play    = {.start = os_start_time(gValue[kOsParamStart]), .snap = gValue[kOsParamSnap] > 0.5, .reverse = reverse};
     uint32_t          start   = os_voices_start_frame(s, &play);
     int               first   = (int)(((double)start / s->frames) * OS_SAMPLE_PEAKS);
     int               noteOff = gate ? first + (int)(NOTE_OFF_AT * (OS_SAMPLE_PEAKS - first)) : OS_SAMPLE_PEAKS;
@@ -483,8 +484,9 @@ static void draw_waveform(void) {
     }
 
     for (int i = 0; i < OS_SAMPLE_PEAKS; i++) {
-        double x = gWaveRect.coord.x + ((i + 0.5) * gWaveRect.size.w / OS_SAMPLE_PEAKS);
-        double lo = fmax(-1.0, s->peakMin[i]), hi = fmin(1.0, s->peakMax[i]);
+        double x  = gWaveRect.coord.x + ((i + 0.5) * gWaveRect.size.w / OS_SAMPLE_PEAKS);
+        int    at = reverse ? (OS_SAMPLE_PEAKS - 1 - i) : i;   // notes §7: drawn as it plays
+        double lo = fmax(-1.0, s->peakMin[at]), hi = fmin(1.0, s->peakMax[at]);
 
         set_rgb_colour((tRgb){0.28, 0.32, 0.38});
         render_line(mainArea, (tCoord){x, mid - (hi * half)}, (tCoord){x, mid - (lo * half) + 0.5}, 1.0);

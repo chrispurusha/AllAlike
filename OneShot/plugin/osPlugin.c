@@ -26,6 +26,7 @@
 #include "synthlibLog.h"
 #include "synthlibPanelView.h"
 #include "synthlibTypes.h"
+#include "osCache.h"
 #include "osDraw.h"
 #include "osParams.h"
 #include "osPrefs.h"
@@ -87,6 +88,10 @@ typedef struct {
 
     char              path[PATH_LENGTH];         // main thread: kept when the file cannot be read
     _Atomic bool      audition;
+
+    tOsCache          cache;                     // notes §4: resampled copies, built by its own thread
+    _Atomic(const tOsSample *) borrowed;         // the sample the cache's thread is reading; never freed under it
+    tOsCacheRequest   prefetched;                // audio thread: the last root pitch asked for
 } tOsPlugin;
 
 // ---- the sample, across threads - notes §1 ------------------------------------------------------------------
@@ -96,7 +101,7 @@ static void free_acknowledged(tOsPlugin * t) {
     uint32_t keep = 0;
 
     for (uint32_t i = 0; i < t->retiredCount; i++) {
-        if ((int32_t)(ack - t->retired[i].generation) >= 0) {
+        if (((int32_t)(ack - t->retired[i].generation) >= 0) && (t->retired[i].sample != atomic_load(&t->borrowed))) {
             os_sample_free(t->retired[i].sample);
         } else {
             t->retired[keep++] = t->retired[i];
@@ -139,6 +144,25 @@ static bool load_sample(tOsPlugin * t, const char * path, char * error, size_t e
     return true;
 }
 
+// notes §4: the cache's thread reads only the current sample, and marks it first so it cannot be freed meanwhile
+static const tOsSample * cache_borrow(void * user, uint32_t serial) {
+    tOsPlugin *       t = (tOsPlugin *)user;
+    const tOsSample * s = atomic_load(&t->sample);
+
+    atomic_store(&t->borrowed, s);
+
+    if ((s == NULL) || (s != atomic_load(&t->sample)) || (s->serial != serial)) {
+        atomic_store(&t->borrowed, NULL);
+        return NULL;
+    }
+    return s;
+}
+
+static void cache_give_back(void * user, const tOsSample * sample) {
+    (void)sample;
+    atomic_store(&((tOsPlugin *)user)->borrowed, NULL);
+}
+
 // ---- lifetime -----------------------------------------------------------------------------------------------
 
 static void * os_create(const tSynthLibPluginDesc * desc) {
@@ -156,6 +180,10 @@ static void * os_create(const tSynthLibPluginDesc * desc) {
 
     t->hostRate = 48000.0;
     os_voices_init(&t->voices, t->hostRate);
+
+    if (os_cache_init(&t->cache, (tOsCacheSource){cache_borrow, cache_give_back}, t)) {
+        os_voices_set_cache(&t->voices, &t->cache);
+    }
     os_prefs_init();
     synthlib_log_line("created - OneShot %s", OS_VERSION_STRING);
     return t;
@@ -163,6 +191,9 @@ static void * os_create(const tSynthLibPluginDesc * desc) {
 
 static void os_destroy(void * inst) {
     tOsPlugin * t = (tOsPlugin *)inst;
+
+    os_voices_stop(&t->voices);
+    os_cache_destroy(&t->cache);
 
     for (uint32_t i = 0; i < t->retiredCount; i++) {
         os_sample_free(t->retired[i].sample);
@@ -251,6 +282,7 @@ static tOsPlay make_play(const tOsPlugin * t) {
         .env      = os_env_shape(values),
         .start    = os_start_time(value(t, kOsParamStart)),
         .snap     = step(t, kOsParamSnap) > 0,
+        .reverse  = step(t, kOsParamReverse) > 0,
     };
 }
 
@@ -294,6 +326,17 @@ static void os_process(void * inst, const float *const * in, uint32_t numIn, flo
     if (sample != t->playing) {
         os_voices_fade_all(&t->voices);
         t->playing = sample;
+    }
+
+    // notes §4: the root key's pitch built before its first note - the only one, with Key Track off
+    if (sample != NULL) {
+        tOsCacheRequest want = {{sample->serial, p.reverse, os_voices_step(&t->voices, sample, &p, (uint8_t)p.rootKey)}, !p.keyTrack};
+
+        if (  (want.key.serial != t->prefetched.key.serial) || (want.key.reverse != t->prefetched.key.reverse)
+           || (want.key.step != t->prefetched.key.step) || (want.only != t->prefetched.only)) {
+            os_cache_request(&t->cache, want.key, want.only);
+            t->prefetched = want;
+        }
     }
 
     if (atomic_exchange(&t->audition, false) && (sample != NULL)) {
