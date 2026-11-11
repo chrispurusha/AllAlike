@@ -32,6 +32,9 @@ Run `./do-uncrustify` after editing.
   moves Protect's end to the nearest zero crossing. While stretching, Tune
   and Keys change the pitch but not the length, and the envelope's times stretch with the sample. Time-stretching is
   the Rubber Band Library's (GPL; see `THIRD_PARTY.md`).
+- Layers: four, on the tabs under the sample bar, each its own sample with every control below and a key range (Low,
+  High; default the whole keyboard). A note plays every layer whose range takes it, all in step. Under each tab, Mute silences its layer and Clear empties it (its settings stay). Play sounds the stack
+  at the shown layer's root key; a click on the waveform, that layer alone.
 - Double-click any dial to put it back to its default.
 - Envelope (Shift-drag any dial for fine steps; Attack has 1000, 195 of them in its first 5 ms): AHR (Attack, Hold, then Release to silence - the usual one-shot drum envelope) or ADSR, with a curve on
   Attack, Decay and Release (-100..+100; Decay and Release default to +50). Hold at its top is Inf: the whole sample

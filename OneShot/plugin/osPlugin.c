@@ -17,6 +17,7 @@
 // Notes: Docs/code-notes/osPlugin.md - "// notes §k" refers there.
 
 #include <math.h>
+#include <pthread.h>
 #include <stdatomic.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -72,14 +73,12 @@ typedef struct {
     uint32_t    generation;    // freed once the audio thread has acknowledged this generation
 } tRetired;
 
+// notes §6: one of the four layers - all a one-sample instance was, with its own sample, settings and voices
 typedef struct {
     tOsVoices         voices;
-    double            hostRate;
-    tOsEvent          events[MAX_EVENTS];
-    uint32_t          eventCount;
     _Atomic double    values[kOsParamCount];     // normalized
 
-    _Atomic(tOsSample *)  sample;                // the one notes play; swapped by the main thread
+    _Atomic(tOsSample *) sample;                 // the one notes play; swapped by the main thread
     _Atomic uint32_t  generation;                // bumped after each swap
     _Atomic uint32_t  acknowledged;              // the audio thread: no voice plays anything older
     tRetired          retired[MAX_RETIRED];      // main thread
@@ -87,44 +86,87 @@ typedef struct {
     const tOsSample * playing;                   // audio thread: the sample its voices were last given
 
     char              path[PATH_LENGTH];         // main thread: kept when the file cannot be read
-    _Atomic bool      audition;
-
-    tOsCache          cache;                     // notes §4: resampled copies, built by its own thread
-    _Atomic(const tOsSample *) borrowed;         // the sample the cache's thread is reading; never freed under it
     tOsCacheRequest   prefetched;                // audio thread: the last root pitch asked for
     double            prefetchedSetting[3];      // and the Stretch, Sync and Base it was asked at
-    double            hostTempo;                 // audio thread: the host's, kept when it stops sending one
+} tOsLayer;
+
+#define NO_AUDITION    (-1)
+
+typedef struct {
+    tOsLayer    layer[OS_LAYERS];
+    double      hostRate;
+    double      hostTempo;                       // audio thread: the host's, kept when it stops sending one
+    tOsEvent    events[MAX_EVENTS];
+    uint32_t    eventCount;
+    _Atomic int audition;                        // notes §6: a layer, + OS_LAYERS for the stack; NO_AUDITION
+
+    tOsCache    cache;                           // notes §4: resampled copies for every layer, built by its one thread
+    _Atomic(const tOsSample *) borrowed;         // the sample the cache's thread is reading; never freed under it
 } tOsPlugin;
 
-// ---- the sample, across threads - notes §1 ------------------------------------------------------------------
+// ---- parameters: every layer's - notes §6 ------------------------------------------------------------------
 
-static void free_acknowledged(tOsPlugin * t) {
-    uint32_t ack  = atomic_load(&t->acknowledged);
+static tSynthLibParam gAllParams[OS_LAYERS * kOsParamCount];
+static char           gTitles[OS_LAYERS * kOsParamCount][2][48];
+static pthread_once_t gParamsOnce = PTHREAD_ONCE_INIT;
+
+// Layer n's copy of each parameter: its id moved up by n x OS_LAYER_STRIDE, its names numbered
+static void build_params(void) {
+    for (uint32_t layer = 0; layer < OS_LAYERS; layer++) {
+        for (uint32_t id = 0; id < kOsParamCount; id++) {
+            uint32_t         at = (layer * kOsParamCount) + id;
+            tSynthLibParam * p  = &gAllParams[at];
+
+            *p            = gOsParams[id];
+            p->id         = (layer * OS_LAYER_STRIDE) + id;
+            snprintf(gTitles[at][0], sizeof(gTitles[at][0]), "%u %s", layer + 1, gOsParams[id].title);
+            snprintf(gTitles[at][1], sizeof(gTitles[at][1]), "%u %s", layer + 1, gOsParams[id].shortTitle);
+            p->title      = gTitles[at][0];
+            p->shortTitle = gTitles[at][1];
+        }
+    }
+}
+
+// A host id's layer and parameter; false for an id that is neither
+static bool split_id(uint32_t globalId, uint32_t * layer, uint32_t * id) {
+    *layer = globalId / OS_LAYER_STRIDE;
+    *id    = globalId % OS_LAYER_STRIDE;
+    return (*layer < OS_LAYERS) && (*id < kOsParamCount);
+}
+
+static uint32_t global_id(uint32_t layer, uint32_t id) {
+    return (layer * OS_LAYER_STRIDE) + id;
+}
+
+// ---- the samples, across threads - notes §1 -----------------------------------------------------------------
+
+static void free_acknowledged(tOsPlugin * t, tOsLayer * l) {
+    uint32_t ack  = atomic_load(&l->acknowledged);
     uint32_t keep = 0;
 
-    for (uint32_t i = 0; i < t->retiredCount; i++) {
-        if (((int32_t)(ack - t->retired[i].generation) >= 0) && (t->retired[i].sample != atomic_load(&t->borrowed))) {
-            os_sample_free(t->retired[i].sample);
+    for (uint32_t i = 0; i < l->retiredCount; i++) {
+        if (((int32_t)(ack - l->retired[i].generation) >= 0) && (l->retired[i].sample != atomic_load(&t->borrowed))) {
+            os_sample_free(l->retired[i].sample);
         } else {
-            t->retired[keep++] = t->retired[i];
+            l->retired[keep++] = l->retired[i];
         }
     }
 
-    t->retiredCount = keep;
+    l->retiredCount = keep;
 }
 
-static void install_sample(tOsPlugin * t, tOsSample * sample) {
-    tOsSample * old        = atomic_exchange(&t->sample, sample);
-    uint32_t    generation = atomic_fetch_add(&t->generation, 1) + 1;
+static void install_sample(tOsPlugin * t, tOsLayer * l, tOsSample * sample) {
+    tOsSample * old        = atomic_exchange(&l->sample, sample);
+    uint32_t    generation = atomic_fetch_add(&l->generation, 1) + 1;
 
-    free_acknowledged(t);
+    free_acknowledged(t, l);
 
     if (old == NULL) {
         return;
     }
 
-    if (t->retiredCount < MAX_RETIRED) {
-        t->retired[t->retiredCount++] = (tRetired){
+    if (l->retiredCount < MAX_RETIRED) {
+        l->retired[l->retiredCount++] = (tRetired){
             old, generation
         };
     } else {
@@ -132,32 +174,40 @@ static void install_sample(tOsPlugin * t, tOsSample * sample) {
     }
 }
 
-static bool load_sample(tOsPlugin * t, const char * path, char * error, size_t errorLength) {
+static bool load_sample(tOsPlugin * t, int layer, const char * path, char * error, size_t errorLength) {
     char        unused[512];
+    tOsLayer *  l      = &t->layer[layer];
     tOsSample * sample = os_sample_load(path, (error != NULL) ? error : unused, (error != NULL) ? errorLength : sizeof(unused));
 
     if (sample == NULL) {
-        synthlib_log_line("could not load %s: %s", path, (error != NULL) ? error : unused);
+        synthlib_log_line("layer %d: could not load %s: %s", layer + 1, path, (error != NULL) ? error : unused);
         return false;
     }
-    snprintf(t->path, sizeof(t->path), "%s", path);
-    install_sample(t, sample);
-    synthlib_log_line("loaded %s: %u frames, %u ch, %.0f Hz", path, sample->frames, sample->channels, sample->rate);
+    snprintf(l->path, sizeof(l->path), "%s", path);
+    install_sample(t, l, sample);
+    synthlib_log_line("layer %d: loaded %s: %u frames, %u ch, %.0f Hz", layer + 1, path, sample->frames, sample->channels, sample->rate);
     return true;
 }
 
-// notes §4: the cache's thread reads only the current sample, and marks it first so it cannot be freed meanwhile
+// notes §4: the cache's thread reads only a layer's current sample, and marks it first so it cannot be freed meanwhile
 static const tOsSample * cache_borrow(void * user, uint32_t serial) {
-    tOsPlugin *       t = (tOsPlugin *)user;
-    const tOsSample * s = atomic_load(&t->sample);
+    tOsPlugin * t = (tOsPlugin *)user;
 
-    atomic_store(&t->borrowed, s);
+    for (int i = 0; i < OS_LAYERS; i++) {
+        const tOsSample * s = atomic_load(&t->layer[i].sample);
 
-    if ((s == NULL) || (s != atomic_load(&t->sample)) || (s->serial != serial)) {
+        if ((s == NULL) || (s->serial != serial)) {
+            continue;
+        }
+        atomic_store(&t->borrowed, s);
+
+        if (s == atomic_load(&t->layer[i].sample)) {
+            return s;
+        }
         atomic_store(&t->borrowed, NULL);
-        return NULL;
     }
-    return s;
+
+    return NULL;
 }
 
 static void cache_give_back(void * user, const tOsSample * sample) {
@@ -169,24 +219,32 @@ static void cache_give_back(void * user, const tOsSample * sample) {
 
 static void * os_create(const tSynthLibPluginDesc * desc) {
     tOsPlugin * t = (tOsPlugin *)calloc(1, sizeof(tOsPlugin));
+    bool        cached;
 
     (void)desc;
 
     if (t == NULL) {
         return NULL;
     }
-
-    for (uint32_t i = 0; i < kOsParamCount; i++) {
-        atomic_store(&t->values[i], gOsParams[i].defaultNormalized);
-    }
-
     t->hostRate  = 48000.0;
     t->hostTempo = 120.0;   // until the host says otherwise
-    os_voices_init(&t->voices, t->hostRate);
+    atomic_store(&t->audition, NO_AUDITION);
+    cached       = os_cache_init(&t->cache, (tOsCacheSource){cache_borrow, cache_give_back}, t);
 
-    if (os_cache_init(&t->cache, (tOsCacheSource){cache_borrow, cache_give_back}, t)) {
-        os_voices_set_cache(&t->voices, &t->cache);
+    for (int i = 0; i < OS_LAYERS; i++) {
+        tOsLayer * l = &t->layer[i];
+
+        for (uint32_t id = 0; id < kOsParamCount; id++) {
+            atomic_store(&l->values[id], gOsParams[id].defaultNormalized);
+        }
+
+        os_voices_init(&l->voices, t->hostRate);
+
+        if (cached) {
+            os_voices_set_cache(&l->voices, &t->cache);
+        }
     }
+
     os_prefs_init();
     synthlib_log_line("created - OneShot %s", OS_VERSION_STRING);
     return t;
@@ -195,20 +253,30 @@ static void * os_create(const tSynthLibPluginDesc * desc) {
 static void os_destroy(void * inst) {
     tOsPlugin * t = (tOsPlugin *)inst;
 
-    os_voices_stop(&t->voices);
-    os_cache_destroy(&t->cache);
-
-    for (uint32_t i = 0; i < t->retiredCount; i++) {
-        os_sample_free(t->retired[i].sample);
+    for (int i = 0; i < OS_LAYERS; i++) {
+        os_voices_stop(&t->layer[i].voices);
     }
 
-    os_sample_free(atomic_load(&t->sample));
+    os_cache_destroy(&t->cache);
+
+    for (int i = 0; i < OS_LAYERS; i++) {
+        tOsLayer * l = &t->layer[i];
+
+        for (uint32_t k = 0; k < l->retiredCount; k++) {
+            os_sample_free(l->retired[k].sample);
+        }
+
+        os_sample_free(atomic_load(&l->sample));
+    }
+
     free(t);
 }
 
-// notes §2: the plug-in's own state is the sample's path
-#define STATE_MAGIC     "OSS1"
-#define STATE_LENGTH    (4 + PATH_LENGTH)
+// notes §2: the plug-in's own state is the samples' paths - OSS2 the four layers', OSS1 (a one-sample project) the first's
+#define STATE_MAGIC      "OSS2"
+#define STATE_LENGTH     (4 + (OS_LAYERS * PATH_LENGTH))
+#define STATE1_MAGIC     "OSS1"
+#define STATE1_LENGTH    (4 + PATH_LENGTH)
 
 static size_t os_get_state(void * inst, void * out, size_t len) {
     tOsPlugin * t = (tOsPlugin *)inst;
@@ -217,35 +285,57 @@ static size_t os_get_state(void * inst, void * out, size_t len) {
         return STATE_LENGTH;
     }
     memcpy(out, STATE_MAGIC, 4);
-    memcpy((uint8_t *)out + 4, t->path, PATH_LENGTH);
+
+    for (int i = 0; i < OS_LAYERS; i++) {
+        memcpy((uint8_t *)out + 4 + (i * PATH_LENGTH), t->layer[i].path, PATH_LENGTH);
+    }
+
     return STATE_LENGTH;
 }
 
-static void os_set_state(void * inst, const void * data, size_t len) {
-    tOsPlugin * t = (tOsPlugin *)inst;
-    char        path[PATH_LENGTH];
+static void restore_layer(tOsPlugin * t, int layer, const uint8_t * saved) {
+    tOsLayer * l = &t->layer[layer];
+    char       path[PATH_LENGTH];
 
-    if ((data == NULL) || (len < STATE_LENGTH) || (memcmp(data, STATE_MAGIC, 4) != 0)) {
-        return;
-    }
-    memcpy(path, (const uint8_t *)data + 4, PATH_LENGTH);
+    memcpy(path, saved, PATH_LENGTH);
     path[PATH_LENGTH - 1] = '\0';
 
-    if (strcmp(path, t->path) == 0) {
+    if (strcmp(path, l->path) == 0) {
         return;
     }
 
-    if (!load_sample(t, path, NULL, 0)) {
-        snprintf(t->path, sizeof(t->path), "%s", path);   // shown as Missing; the project still names it
-        install_sample(t, NULL);
+    if ((path[0] == '\0') || !load_sample(t, layer, path, NULL, 0)) {
+        snprintf(l->path, sizeof(l->path), "%s", path);   // shown as Missing; the project still names it
+        install_sample(t, l, NULL);
+    }
+}
+
+static void os_set_state(void * inst, const void * data, size_t len) {
+    tOsPlugin *     t = (tOsPlugin *)inst;
+    const uint8_t * p = (const uint8_t *)data;
+    static uint8_t  none[PATH_LENGTH];
+
+    if ((data != NULL) && (len >= STATE_LENGTH) && (memcmp(data, STATE_MAGIC, 4) == 0)) {
+        for (int i = 0; i < OS_LAYERS; i++) {
+            restore_layer(t, i, p + 4 + (i * PATH_LENGTH));
+        }
+    } else if ((data != NULL) && (len >= STATE1_LENGTH) && (memcmp(data, STATE1_MAGIC, 4) == 0)) {
+        restore_layer(t, 0, p + 4);
+
+        for (int i = 1; i < OS_LAYERS; i++) {
+            restore_layer(t, i, none);
+        }
     }
 }
 
 static void os_prepare(void * inst, const tSynthLibSetup * setup) {
     tOsPlugin * t = (tOsPlugin *)inst;
 
-    t->hostRate        = setup->sampleRate;
-    t->voices.hostRate = setup->sampleRate;
+    t->hostRate = setup->sampleRate;
+
+    for (int i = 0; i < OS_LAYERS; i++) {
+        t->layer[i].voices.hostRate = setup->sampleRate;
+    }
 }
 
 static void os_set_active(void * inst, bool active) {
@@ -253,52 +343,55 @@ static void os_set_active(void * inst, bool active) {
 
     (void)active;
     t->eventCount = 0;
-    os_voices_stop(&t->voices);
+
+    for (int i = 0; i < OS_LAYERS; i++) {
+        os_voices_stop(&t->layer[i].voices);
+    }
 }
 
 // ---- playing ------------------------------------------------------------------------------------------------
 
-static double value(const tOsPlugin * t, uint32_t id) {
-    return atomic_load(&((tOsPlugin *)t)->values[id]);
+static double value(const tOsLayer * l, uint32_t id) {
+    return atomic_load(&((tOsLayer *)l)->values[id]);
 }
 
-static long step(const tOsPlugin * t, uint32_t id) {
-    return lround(value(t, id) * gOsParams[id].stepCount);
+static long step(const tOsLayer * l, uint32_t id) {
+    return lround(value(l, id) * gOsParams[id].stepCount);
 }
 
-static tOsPlay make_play(const tOsPlugin * t) {
+static tOsPlay make_play(const tOsLayer * l) {
     double values[kOsParamCount];
 
     for (uint32_t id = 0; id < kOsParamCount; id++) {
-        values[id] = value(t, id);
+        values[id] = value(l, id);
     }
 
     return (tOsPlay){
-        .tune        = (double)(step(t, kOsParamTune) - 24) + ((double)(step(t, kOsParamFine) - 50) / 100.0),
-        .velocity    = value(t, kOsParamVelocity),
-        .keyTrack    = step(t, kOsParamKeyTrack) > 0,
-        .rootKey     = (int)step(t, kOsParamRootKey),
-        .gate        = step(t, kOsParamMode) > 0,
-        .mono        = step(t, kOsParamVoices) > 0,
-        .pan         = (double)(step(t, kOsParamPan) - 64) / 64.0,
-        .gain        = os_volume_gain(value(t, kOsParamVolume)),
+        .tune        = (double)(step(l, kOsParamTune) - 24) + ((double)(step(l, kOsParamFine) - 50) / 100.0),
+        .velocity    = value(l, kOsParamVelocity),
+        .keyTrack    = step(l, kOsParamKeyTrack) > 0,
+        .rootKey     = (int)step(l, kOsParamRootKey),
+        .gate        = step(l, kOsParamMode) > 0,
+        .mono        = step(l, kOsParamVoices) > 0,
+        .pan         = (double)(step(l, kOsParamPan) - 64) / 64.0,
+        .gain        = os_volume_gain(value(l, kOsParamVolume)),
         .env         = os_env_shape(values),
-        .start       = os_start_time(value(t, kOsParamStart)),
-        .snap        = step(t, kOsParamSnap) > 0,
-        .reverse     = step(t, kOsParamReverse) > 0,
-        .protect     = os_protect_time(value(t, kOsParamProtect)),
-        .protectSnap = step(t, kOsParamProtectSnap) > 0,
-        .end         = os_end_fraction(value(t, kOsParamEnd)),
-        .delay       = os_delay_time(value(t, kOsParamDelay)),
+        .start       = os_start_time(value(l, kOsParamStart)),
+        .snap        = step(l, kOsParamSnap) > 0,
+        .reverse     = step(l, kOsParamReverse) > 0,
+        .protect     = os_protect_time(value(l, kOsParamProtect)),
+        .protectSnap = step(l, kOsParamProtectSnap) > 0,
+        .end         = os_end_fraction(value(l, kOsParamEnd)),
+        .delay       = os_delay_time(value(l, kOsParamDelay)),
     };
 }
 
 // notes §5: Stretch, times the base tempo over the host's with Sync on; the envelope's times follow it
-static void apply_stretch(const tOsPlugin * t, tOsPlay * p) {
-    double f = os_stretch_multiple(value(t, kOsParamStretch));
+static void apply_stretch(const tOsLayer * l, double hostTempo, tOsPlay * p) {
+    double f = os_stretch_multiple(value(l, kOsParamStretch));
 
-    if (step(t, kOsParamSync) > 0) {
-        f *= os_base_tempo(value(t, kOsParamBaseTempo)) / t->hostTempo;
+    if (step(l, kOsParamSync) > 0) {
+        f *= os_base_tempo(value(l, kOsParamBaseTempo)) / hostTempo;
     }
     p->stretch = f;
 
@@ -310,11 +403,32 @@ static void apply_stretch(const tOsPlugin * t, tOsPlay * p) {
     }
 }
 
-static void play(tOsPlugin * t, const tOsSample * sample, const tOsPlay * p, const tOsEvent * e) {
-    if (e->on) {
-        os_voices_note_on(&t->voices, sample, p, e->note, e->velocity);
-    } else {
-        os_voices_note_off(&t->voices, p, e->note);
+// notes §7: a muted layer takes no notes, and what it is playing fades out
+static bool muted(const tOsLayer * l) {
+    return step(l, kOsParamMute) > 0;
+}
+
+// notes §6: the layer's keys, Low to High inclusive
+static bool in_range(const tOsLayer * l, uint8_t note) {
+    return (note >= step(l, kOsParamLowKey)) && (note <= step(l, kOsParamHighKey));
+}
+
+// notes §4: the root key's copy built before its first note - the only one, with Key Track off. A change of
+// the host's tempo alone asks for nothing: the next note does, so instances do not all rebuild at once.
+static void prefetch(tOsPlugin * t, tOsLayer * l, const tOsSample * sample, const tOsPlay * p) {
+    tOsCacheRequest want       = {os_voices_key(&l->voices, sample, p, (uint8_t)p->rootKey), !p->keyTrack};
+    tOsCacheKey     was        = l->prefetched.key;
+    double          setting[3] = {value(l, kOsParamStretch), value(l, kOsParamSync), value(l, kOsParamBaseTempo)};
+    bool            changed    = (want.key.serial != was.serial) || (want.key.reverse != was.reverse)
+                                 || (want.key.step != was.step) || (want.key.hostRate != was.hostRate)
+                                 || (want.key.protect != was.protect) || (want.only != l->prefetched.only)
+                                 || (memcmp(setting, l->prefetchedSetting, sizeof(setting)) != 0)
+                                 || ((want.key.stretch == 1.0) != (was.stretch == 1.0));
+
+    if (changed) {
+        os_cache_request(&t->cache, want.key, want.only);
+        l->prefetched = want;
+        memcpy(l->prefetchedSetting, setting, sizeof(setting));
     }
 }
 
@@ -335,12 +449,29 @@ static void os_note_off(void * inst, uint8_t channel, uint8_t note, float veloci
     queue((tOsPlugin *)inst, (tOsEvent){sampleOffset, note, false, 0.0f});
 }
 
+// notes §6: a note to every layer whose keys it falls in; a note off to all of them
+static void play(tOsPlugin * t, const tOsSample *const * sample, const tOsPlay * p, const tOsEvent * e) {
+    for (int i = 0; i < OS_LAYERS; i++) {
+        if (!e->on) {
+            os_voices_note_off(&t->layer[i].voices, &p[i], e->note);
+        } else if ((sample[i] != NULL) && !muted(&t->layer[i]) && in_range(&t->layer[i], e->note)) {
+            os_voices_note_on(&t->layer[i].voices, sample[i], &p[i], e->note, e->velocity);
+        }
+    }
+}
+
+static void render(tOsPlugin * t, const tOsPlay * p, float * left, float * right, uint32_t frames) {
+    for (int i = 0; i < OS_LAYERS; i++) {
+        os_voices_render(&t->layer[i].voices, &p[i], left, right, frames);
+    }
+}
+
 static void os_process(void * inst, const float *const * in, uint32_t numIn, float ** out, uint32_t numOut,
                        uint32_t frames, const tSynthLibTransport * transport) {
-    tOsPlugin *       t          = (tOsPlugin *)inst;
-    uint32_t          generation = atomic_load(&t->generation);
-    const tOsSample * sample     = atomic_load(&t->sample);
-    tOsPlay           p;
+    tOsPlugin *       t = (tOsPlugin *)inst;
+    uint32_t          generation[OS_LAYERS];
+    const tOsSample * sample[OS_LAYERS];
+    tOsPlay           p[OS_LAYERS];
 
     (void)in;
     (void)numIn;
@@ -348,44 +479,48 @@ static void os_process(void * inst, const float *const * in, uint32_t numIn, flo
     if ((transport != NULL) && transport->tempoValid && (transport->tempo > 0.0)) {
         t->hostTempo = transport->tempo;
     }
-    p = make_play(t);
-    apply_stretch(t, &p);
 
-    // notes §1: a new sample ends what the old one was playing, with a short fade
-    if (sample != t->playing) {
-        os_voices_fade_all(&t->voices);
-        t->playing = sample;
-    }
+    for (int i = 0; i < OS_LAYERS; i++) {
+        tOsLayer * l = &t->layer[i];
 
-    // notes §4: the root key's copy built before its first note - the only one, with Key Track off. A change of
-    // the host's tempo alone asks for nothing: the next note does, so instances do not all rebuild at once.
-    if (sample != NULL) {
-        tOsCacheRequest want       = {os_voices_key(&t->voices, sample, &p, (uint8_t)p.rootKey), !p.keyTrack};
-        tOsCacheKey     was        = t->prefetched.key;
-        double          setting[3] = {value(t, kOsParamStretch), value(t, kOsParamSync), value(t, kOsParamBaseTempo)};
-        bool            changed    = (want.key.serial != was.serial) || (want.key.reverse != was.reverse)
-                                     || (want.key.step != was.step) || (want.key.hostRate != was.hostRate)
-                                     || (want.key.protect != was.protect) || (want.only != t->prefetched.only)
-                                     || (memcmp(setting, t->prefetchedSetting, sizeof(setting)) != 0)
-                                     || ((want.key.stretch == 1.0) != (was.stretch == 1.0));
+        generation[i] = atomic_load(&l->generation);
+        sample[i]     = atomic_load(&l->sample);
+        p[i]          = make_play(l);
+        apply_stretch(l, t->hostTempo, &p[i]);
 
-        if (changed) {
-            os_cache_request(&t->cache, want.key, want.only);
-            t->prefetched = want;
-            memcpy(t->prefetchedSetting, setting, sizeof(setting));
+        // notes §1: a new sample ends what the old one was playing, with a short fade
+        if (sample[i] != l->playing) {
+            os_voices_fade_all(&l->voices);
+            l->playing = sample[i];
+        }
+
+        if (sample[i] != NULL) {
+            prefetch(t, l, sample[i], &p[i]);
+        }
+
+        if (muted(l)) {
+            os_voices_fade_all(&l->voices);   // notes §7
         }
     }
 
-    if (atomic_exchange(&t->audition, false) && (sample != NULL)) {
-        if (p.mono) {
-            os_voices_fade_all(&t->voices);
+    // notes §6: Play - the shown layer alone at its root key, or that key through every layer it reaches
+    int audition = atomic_exchange(&t->audition, NO_AUDITION);
+
+    if (audition != NO_AUDITION) {
+        int      shown = audition % OS_LAYERS;
+        uint8_t  key   = (uint8_t)p[shown].rootKey;
+        tOsEvent e     = {0, key, true, AUDITION_VELOCITY};
+
+        if (audition >= OS_LAYERS) {
+            play(t, sample, p, &e);
+        } else if ((sample[shown] != NULL) && !muted(&t->layer[shown])) {
+            os_voices_note_on(&t->layer[shown].voices, sample[shown], &p[shown], key, AUDITION_VELOCITY);
         }
-        os_voices_note_on(&t->voices, sample, &p, (uint8_t)p.rootKey, AUDITION_VELOCITY);
     }
 
     if ((out == NULL) || (numOut == 0) || (out[0] == NULL)) {
         for (uint32_t i = 0; i < t->eventCount; i++) {
-            play(t, sample, &p, &t->events[i]);
+            play(t, sample, p, &t->events[i]);
         }
 
         t->eventCount = 0;
@@ -401,21 +536,21 @@ static void os_process(void * inst, const float *const * in, uint32_t numIn, flo
         memset(right, 0, (size_t)frames * sizeof(float));
     }
 
-    // up to each note, then the note; the host sends them in time order
+    // up to each note, then the note - every layer in the same block, on this thread (notes §6)
     for (uint32_t i = 0; i < t->eventCount; i++) {
         uint32_t at = (t->events[i].offset < frames) ? t->events[i].offset : frames;
 
         if (at > done) {
-            os_voices_render(&t->voices, &p, left + done, (right != NULL) ? right + done : NULL, at - done);
+            render(t, p, left + done, (right != NULL) ? right + done : NULL, at - done);
             done = at;
         }
-        play(t, sample, &p, &t->events[i]);
+        play(t, sample, p, &t->events[i]);
     }
 
     t->eventCount = 0;
 
     if (done < frames) {
-        os_voices_render(&t->voices, &p, left + done, (right != NULL) ? right + done : NULL, frames - done);
+        render(t, p, left + done, (right != NULL) ? right + done : NULL, frames - done);
     }
 
     for (uint32_t ch = 2; ch < numOut; ch++) {
@@ -424,26 +559,34 @@ static void os_process(void * inst, const float *const * in, uint32_t numIn, flo
         }
     }
 
-    if (!os_voices_use_other_than(&t->voices, sample)) {
-        atomic_store(&t->acknowledged, generation);
+    for (int i = 0; i < OS_LAYERS; i++) {
+        if (!os_voices_use_other_than(&t->layer[i].voices, sample[i])) {
+            atomic_store(&t->layer[i].acknowledged, generation[i]);
+        }
     }
 }
 
-static void os_set_param(void * inst, uint32_t id, double normalized) {
-    if (id < kOsParamCount) {
-        atomic_store(&((tOsPlugin *)inst)->values[id], normalized);
+static void os_set_param(void * inst, uint32_t globalId, double normalized) {
+    uint32_t layer, id;
+
+    if (split_id(globalId, &layer, &id)) {
+        atomic_store(&((tOsPlugin *)inst)->layer[layer].values[id], normalized);
     }
 }
 
-static double os_get_param(void * inst, uint32_t id) {
-    return (id < kOsParamCount) ? value((tOsPlugin *)inst, id) : 0.0;
+static double os_get_param(void * inst, uint32_t globalId) {
+    uint32_t layer, id;
+
+    return split_id(globalId, &layer, &id) ? value(&((tOsPlugin *)inst)->layer[layer], id) : 0.0;
 }
 
-static bool os_param_text_cb(const tSynthLibPluginDesc * desc, void * inst, uint32_t id, double normalized, char * out, size_t len) {
+static bool os_param_text_cb(const tSynthLibPluginDesc * desc, void * inst, uint32_t globalId, double normalized, char * out, size_t len) {
+    uint32_t layer, id;
+
     (void)desc;
     (void)inst;
 
-    if (id >= kOsParamCount) {
+    if (!split_id(globalId, &layer, &id)) {
         return false;
     }
     os_param_text(id, normalized, out, len);
@@ -452,32 +595,50 @@ static bool os_param_text_cb(const tSynthLibPluginDesc * desc, void * inst, uint
 
 // ---- the editor ---------------------------------------------------------------------------------------------
 
-static bool host_load(void * user, const char * path, char * error, size_t errorLength) {
-    return load_sample((tOsPlugin *)user, path, error, errorLength);
+static bool host_load(void * user, int layer, const char * path, char * error, size_t errorLength) {
+    return load_sample((tOsPlugin *)user, layer, path, error, errorLength);
 }
 
-static const tOsSample * host_sample(void * user) {
-    return atomic_load(&((tOsPlugin *)user)->sample);
+static const tOsSample * host_sample(void * user, int layer) {
+    return atomic_load(&((tOsPlugin *)user)->layer[layer].sample);
 }
 
-static const char * host_path(void * user) {
-    return ((tOsPlugin *)user)->path;
+static const char * host_path(void * user, int layer) {
+    return ((tOsPlugin *)user)->layer[layer].path;
 }
 
-static void host_audition(void * user) {
-    atomic_store(&((tOsPlugin *)user)->audition, true);
+static void host_audition(void * user, int layer, bool stack) {
+    atomic_store(&((tOsPlugin *)user)->audition, stack ? layer + OS_LAYERS : layer);
 }
 
 // Through the host, as an edit of each, so it sees the change (and can undo it)
-static void host_reset(void * user) {
+static void host_reset(void * user, int layer) {
     for (uint32_t id = 0; id < kOsParamCount; id++) {
-        synthlib_plugin_param_edited(user, id, gOsParams[id].defaultNormalized);
+        synthlib_plugin_param_edited(user, global_id((uint32_t)layer, id), gOsParams[id].defaultNormalized);
     }
 }
 
+// notes §8: the layer back to empty - its sample retired like a replaced one, its settings left alone
+static void host_clear(void * user, int layer) {
+    tOsPlugin * t = (tOsPlugin *)user;
+
+    t->layer[layer].path[0] = '\0';
+    install_sample(t, &t->layer[layer], NULL);
+    synthlib_log_line("layer %d: cleared", layer + 1);
+}
+
 static const tOsSampleHost gSampleHost = {
-    .load = host_load, .sample = host_sample, .path = host_path, .audition = host_audition, .reset = host_reset,
+    .load = host_load, .sample = host_sample, .path = host_path, .audition = host_audition, .reset = host_reset, .clear = host_clear,
 };
+
+// An edit from the panel is to the shown layer's copy of the parameter
+static void edited(void * user, const tOsEdit * edit) {
+    if (edit->paramId != UINT32_MAX) {
+        uint32_t layer = (edit->layer >= 0) ? (uint32_t)edit->layer : (uint32_t)os_draw_layer();
+
+        synthlib_plugin_param_edited(user, global_id(layer, edit->paramId), edit->normalized);
+    }
+}
 
 static void os_panel_init(void) {
     os_draw_init();
@@ -493,10 +654,13 @@ static void os_panel_sync(void * user) {
     tOsPlugin * t = (tOsPlugin *)user;
 
     os_draw_set_user(user);
-    free_acknowledged(t);
 
-    for (uint32_t id = 0; id < kOsParamCount; id++) {
-        os_draw_set_value(id, synthlib_plugin_param_value(user, id));
+    for (uint32_t layer = 0; layer < OS_LAYERS; layer++) {
+        free_acknowledged(t, &t->layer[layer]);
+
+        for (uint32_t id = 0; id < kOsParamCount; id++) {
+            os_draw_set_value(global_id(layer, id), synthlib_plugin_param_value(user, global_id(layer, id)));
+        }
     }
 }
 
@@ -506,14 +670,12 @@ static void os_panel_frame(void * user, int pixelWidth, int pixelHeight) {
 }
 
 static bool os_panel_press(void * user, double x, double y) {
-    tOsEdit edit;
+    tOsEdit edit    = {.paramId = UINT32_MAX, .layer = -1};
     bool    grabbed = false;
 
     (void)os_draw_press(x, y, &edit, &grabbed);
 
-    if (edit.paramId != UINT32_MAX) {
-        synthlib_plugin_param_edited(user, edit.paramId, edit.normalized);
-    }
+    edited(user, &edit);
     return grabbed;
 }
 
@@ -523,29 +685,26 @@ static bool os_panel_keeps_pointer(void * user) {
 }
 
 static void os_panel_drag_to(void * user, double x, double y) {
-    tOsEdit edit;
+    tOsEdit edit = {.paramId = UINT32_MAX, .layer = -1};
 
     if (os_draw_drag_to(x, y, &edit)) {
-        synthlib_plugin_param_edited(user, edit.paramId, edit.normalized);
+        edited(user, &edit);
     }
 }
 
 static void os_panel_drag_by(void * user, double dx, double dy) {
-    tOsEdit edit;
+    tOsEdit edit = {.paramId = UINT32_MAX, .layer = -1};
 
     if (os_draw_drag_by(dx, dy, &edit)) {
-        synthlib_plugin_param_edited(user, edit.paramId, edit.normalized);
+        edited(user, &edit);
     }
 }
 
 static void os_panel_release(void * user, double x, double y) {
-    tOsEdit edit;
+    tOsEdit edit = {.paramId = UINT32_MAX, .layer = -1};
 
     os_draw_release(x, y, &edit);
-
-    if (edit.paramId != UINT32_MAX) {
-        synthlib_plugin_param_edited(user, edit.paramId, edit.normalized);
-    }
+    edited(user, &edit);
 }
 
 static bool os_panel_key(void * user, int glfwKey, unsigned int codepoint, bool isRepeat) {
@@ -604,8 +763,8 @@ static const tSynthLibPluginDesc gDescriptor = {
     .auVersion          = OS_AU_VERSION,
     .auBundleId         = OS_AU_BUNDLE_ID,
 
-    .params             = gOsParams,
-    .numParams          = kOsParamCount,
+    .params             = gAllParams,
+    .numParams          = OS_LAYERS * kOsParamCount,
 
     .editorDefaultWidth = OS_CANVAS_W,
     .editorMinWidth     = OS_CANVAS_W * 0.75,
@@ -635,6 +794,7 @@ static const tSynthLibPluginSet  gSet = {
 };
 
 static const tSynthLibPluginSet * plugin_variants(void) {
+    pthread_once(&gParamsOnce, build_params);
     return &gSet;
 }
 

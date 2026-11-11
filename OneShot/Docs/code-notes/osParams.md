@@ -30,3 +30,15 @@ has no sample to measure - and the panel a time (osDraw §12).
 ## 8. Delay
 Start's law (0 to 2 s, exponential above 1 ms): its first steps are microseconds, for lining up layers. Appended after
 End, with End, so older projects open with neither.
+
+## 9. Layers
+Every parameter here exists once a layer. Layer n's id is n x 256 + the id in the table (`OS_LAYERS`,
+`OS_LAYER_STRIDE`), so layer 1's ids are what a one-layer project saved, and it opens as layer 1 with the rest at
+their defaults. The host sees 4 x 30, named "1 Volume" to "4 Volume" and so on; the table is built once, when the
+plug-in is first asked for its description. 256 leaves room to append parameters to every layer at once.
+
+## 10. Low and High, Mute
+Mute (Off / On) is appended after High; the panel draws it under the tabs, not with the controls (osDraw §15).
+
+Each layer's keys, MIDI 0 to 127 named as Root is (C3 = 60), default the whole keyboard. A note plays the layer when
+Low <= note <= High; High below Low takes no notes.

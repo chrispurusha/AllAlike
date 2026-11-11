@@ -9,6 +9,9 @@ replacement, and frees it once that generation is acknowledged - so nothing is f
 and the audio thread never allocates, frees or touches a file. Retired samples are also freed on destroy.
 
 ## 2. State
+OSS2 since 2026-11-11: the four layers' paths. OSS1 - one path, a project from before the layers - loads into layer
+1 and empties the others.
+
 `OSS1` and the sample's path (2048 bytes). Parameters are saved by SynthLib's wrapper. A path that no longer loads is
 kept and shown as Missing, so re-saving the project does not lose it.
 
@@ -29,3 +32,24 @@ transport each block and kept when the host stops sending one; 120 until it firs
 multiplied by the same amount (owner, 2026-11-11), so the envelope keeps its place against the sample. The look-ahead
 (§4) asks for a new copy when the sample, pitch, direction, rate, Protect or the Stretch, Sync or Base settings
 change - not when only the host's tempo does (osCache §8).
+
+## 6. Layers
+Four layers, each all a one-sample instance was: its own sample (with its own retire list, §1), its own settings and
+eight voices of its own, so Mono, stealing and Gate act within a layer. They share the one cache and its thread - a
+copy is keyed by the sample's load, so layers never mix theirs up - and `borrow` looks for the serial in every layer.
+A note goes to every layer whose Low..High takes it (default the whole keyboard); a note off to all. Every layer
+renders into the same block on the audio thread, between the same events, so the stack is sample-locked and
+predictable (owner, 2026-11-11). Play (button, Space, menu) sends the shown layer's root key through every layer it
+reaches; a click on the waveform plays the shown layer alone at its root key, whatever its range.
+Checked through the VST3 (vst3host --bus-test, middle C held): layer 1 alone -38.3 dBFS, layer 2 alone -39.9, both
+-36.1 (their power sum), and layer 2 set to start above the note -38.3 again.
+
+## 7. Mute
+A layer's Mute (a parameter, so it automates and saves): the layer takes no notes, Play included, and what it is
+playing fades out over 3 ms (the voices' steal fade). Checked: layers 1 and 2 on middle C -36.1 dBFS; layer 2 muted
+-38.3, layer 1 alone.
+
+## 8. Clear
+Empties a layer: its path goes, and its sample is retired as a replaced one is (§1), so a voice still playing it
+fades out and the memory is freed once the audio thread lets go. Its settings stay - Reset is for those. Not a
+parameter, so the host cannot undo it; the panel asks first.

@@ -5,6 +5,11 @@
 #include "osDraw.h"
 #include "osEnvelope.h"
 
+// notes §9: four layers, each with every parameter below; layer n's ids are n x OS_LAYER_STRIDE + the id here, so
+// layer 1's are the ids a one-layer project saved
+#define OS_LAYERS          (4)
+#define OS_LAYER_STRIDE    (256)
+
 // APPENDED TO, NEVER INSERTED INTO: the ids are what host projects save
 enum {
     kOsParamVolume = 0,
@@ -35,6 +40,9 @@ enum {
     kOsParamEnd,
     kOsParamDelay,
     kOsParamProtectSnap,
+    kOsParamLowKey,
+    kOsParamHighKey,
+    kOsParamMute,
     kOsParamCount
 };
 

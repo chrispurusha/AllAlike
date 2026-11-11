@@ -45,7 +45,7 @@ static void action_step(int index) {
 
 static void action_play(int index) {
     (void)index;
-    os_draw_audition();
+    os_draw_audition(true);
 }
 
 static void action_reset(int index) {
@@ -119,7 +119,9 @@ static void action_about(int index) {
 static void action_panel_help(int index) {
     (void)index;
     show_alert("The Panel",
-               "One sample, held in memory, played by any note.\n\n"
+               "Up to four samples, one a layer on the tabs, held in memory. Each layer has its own controls and a key range "
+               "(Low to High); a note plays every layer it falls in, all in step; Mute under a tab silences that layer, Clear empties it. Play sounds the stack at the shown layer's root "
+               "key; a click on the waveform plays that layer alone.\n\n"
                "Load... opens a WAV or AIFF file. < Prev and Next > step through the other samples in its folder, "
                "as do the arrow keys; each one plays as it loads (Controls > Play on Load). Play, a click on the "
                "waveform or Space plays it again.\n\n"

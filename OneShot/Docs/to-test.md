@@ -30,4 +30,9 @@ Built but not yet checked in a host. Confirmed: delete the line. Failed: move it
 - Delay on the waveform: note-on line and band follow the dial; a long Delay reaches back before the sample
 - A new instance comes up Mono; an older project keeps its Poly
 - Protect with STRETCH's Snap On (TRIM's Snap not affecting it): the purple line jumps to a crossing; the attack-to-stretch seam by ear, Snap On vs Off
+- Layers in Live: four samples stacked on one note, in step; key ranges splitting the keyboard; Play (stack) vs a click on the waveform (layer alone)
+- Clear under a tab: asks, empties that layer (a sounding note fades), the tab reads "empty", the project saves it empty
+- Mute under each tab: silences that layer at once (no click), automates and saves
+- An older project opens as layer 1 with the others empty; a new one saves and reopens all four samples and settings
+- Automation in Live: "2 Volume" moves layer 2 only
 - Start by ear with Snap On and Off (no click either way); the yellow marker follows the dial and snaps

@@ -26,7 +26,7 @@
 #include "osSample.h"
 
 #define OS_CANVAS_W    (760.0)   // notes §8
-#define OS_CANVAS_H    (540.0)
+#define OS_CANVAS_H    (584.0)
 
 typedef enum {
     eOsControlDial = 0,
@@ -58,21 +58,25 @@ typedef struct {
 typedef struct {
     uint32_t paramId;
     double   normalized;
+    int32_t  layer;        // notes §15: the layer it is for; -1 (set by the caller) the shown one
 } tOsEdit;
 
 // notes §1: what the panel asks of the plug-in instance it shows
+// notes §14: each for one layer, 0..OS_LAYERS-1
 typedef struct {
-    bool (*load)(void * user, const char * path, char * error, size_t errorLength); // a sample chosen
-    const tOsSample * (*sample)(void * user);                                       // the one loaded, or NULL; main thread
-    const char * (*path)(void * user);                                              // its path, kept even when the file could not be read
-    void (*audition)(void * user);
-    void (*reset)(void * user);                                                     // every control to its default, through the host                                                  // play it once, at its root key
+    bool (*load)(void * user, int layer, const char * path, char * error, size_t errorLength); // a sample chosen
+    const tOsSample * (*sample)(void * user, int layer);                                       // the one loaded, or NULL; main thread
+    const char * (*path)(void * user, int layer);                                              // its path, kept even when the file could not be read
+    void (*audition)(void * user, int layer, bool stack);                                      // at its root key: that layer alone, or every layer the key reaches
+    void (*reset)(void * user, int layer);                                                     // every control to its default, through the host
+    void (*clear)(void * user, int layer);                                                     // notes §15: back to empty; its settings kept
 } tOsSampleHost;
 
 void os_draw_init(void);
 void os_draw_set_pages(const tOsPage * pages, uint32_t count);
-void os_draw_set_steps(uint32_t paramId, int32_t steps);   // from the parameter table
-void os_draw_set_value(uint32_t paramId, double normalized);
+void os_draw_set_steps(uint32_t paramId, int32_t steps);     // from the parameter table
+void os_draw_set_value(uint32_t paramId, double normalized); // notes §14: a host id - layer x OS_LAYER_STRIDE + the parameter
+int os_draw_layer(void);                                     // the tab shown
 void os_draw_set_mouse(double x, double y);
 void os_draw_frame(int pixelWidth, int pixelHeight);
 bool os_draw_menu_active(void);
@@ -91,7 +95,7 @@ void os_draw_set_user(void * user);
 
 void os_draw_open_sample(void);                       // the file browser
 void os_draw_step_sample(int direction);              // notes §2: the previous or next sample in its folder
-void os_draw_audition(void);
+void os_draw_audition(bool stack);                    // the tab's layer alone, or the stack
 void os_draw_reset_controls(void);                    // after a confirm
 
 #endif // __OS_DRAW_H__

@@ -179,8 +179,8 @@ before the host sees it.
 
 USING IT
 
-One sample per instance, held in memory, played by any note: one instance per drum pad, with ordinary effect
-plug-ins after it. Load... opens a WAV or AIFF file; < Prev and Next > step through the other samples in its folder.
+Up to four samples per instance, layered on tabs, held in memory, each with its own controls and key range:
+one instance per drum pad, with ordinary effect plug-ins after it. Load... opens a WAV or AIFF file; < Prev and Next > step through the other samples in its folder.
 An AHR or ADSR envelope with curves, Start with snapping to zero crossings, Reverse, time-stretching (to a
 multiple, or to the host's tempo from the sample's own, keeping its attack), tune, pan and volume. Help > The
 Panel explains the rest. No samples ship with it.

@@ -46,6 +46,9 @@ const tSynthLibParam gOsParams[kOsParamCount] = {
     {kOsParamEnd,          "End",           "End",     GEN,                       0.0,  100.0,            1.0, 1000, NONE,    0},
     {kOsParamDelay,        "Delay",         "Delay",   GEN,                       0.0, 1000.0,            0.0, 1000, NONE,    0},
     {kOsParamProtectSnap,  "Protect Snap",  "PSnap",   IDX,                       0.0,    1.0,            1.0,    1, NONE, LIST},
+    {kOsParamLowKey,       "Low Key",       "Low",     GEN,                       0.0,  127.0,            0.0,  127, NONE,    0},
+    {kOsParamHighKey,      "High Key",      "High",    GEN,                       0.0,  127.0,            1.0,  127, NONE,    0},
+    {kOsParamMute,         "Mute",          "Mute",    IDX,                       0.0,    1.0,            0.0,    1, NONE, LIST},
 };
 
 static const char *const kOffOn[]    = {"Off", "On"};
@@ -199,6 +202,8 @@ void os_param_text(uint32_t id, double normalized, char * out, size_t len) {
             break;
 
         case kOsParamRootKey:   // notes §2: middle C (60) is C3, as Ableton names it
+        case kOsParamLowKey:
+        case kOsParamHighKey:
             snprintf(out, len, "%s%ld", kNotes[step % 12], (step / 12) - 2);
             break;
 
@@ -243,6 +248,7 @@ void os_param_text(uint32_t id, double normalized, char * out, size_t len) {
         case kOsParamReverse:
         case kOsParamSync:
         case kOsParamProtectSnap:
+        case kOsParamMute:
             snprintf(out, len, "%s", kOffOn[step > 0]);
             break;
 
@@ -288,7 +294,8 @@ void os_param_text(uint32_t id, double normalized, char * out, size_t len) {
 #define COUNT(a)                    (sizeof(a) / sizeof((a)[0]))
 
 static const tOsControl kPitch[]     = {
-    DIAL(kOsParamTune, "Tune"), DIAL(kOsParamFine, "Fine"), TOGGLE(kOsParamKeyTrack, "Keys"), DIAL(kOsParamRootKey, "Root"),
+    DIAL(kOsParamTune,   "Tune"), DIAL(kOsParamFine,    "Fine"), TOGGLE(kOsParamKeyTrack, "Keys"), DIAL(kOsParamRootKey, "Root"),
+    DIAL(kOsParamLowKey, "Low"),  DIAL(kOsParamHighKey, "High"),
 };
 static const tOsControl kPlay[]      = {
     CHOICE(kOsParamMode, "Mode", kModes), CHOICE(kOsParamVoices, "Voices", kVoices), TOGGLE(kOsParamReverse, "Reverse"),

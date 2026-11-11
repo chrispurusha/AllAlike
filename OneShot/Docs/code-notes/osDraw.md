@@ -62,3 +62,15 @@ Delay - the time before anything sounds. The waveform is drawn in the sample's o
 turned into the sample's frames and divided by the Stretch multiple; Sync's tempo and Tune are not counted, as for the
 envelope (§5). A Delay longer than the sliver before Start widens the view to the left, past the sample's first frame
 if need be ("showing" then starts below 0). The band is never thinner than a line, so a microsecond Delay still shows.
+
+## 14. Layer tabs
+Four tabs between the sample bar and the waveform: the layer's number, its sample (or "empty") and its keys when not
+the whole keyboard; the shown one lit. Everything else on the panel - the sample bar, Load, Prev/Next, the waveform,
+every control, Reset - is the shown layer's. The panel keeps every layer's values (`gValues`) and points `gValue` at
+the shown one, so the drawing code reads one layer as before; an edit leaves as the shown layer's host id
+(osPlugin `edited`). The canvas grew to 566 high for the tab row.
+
+## 15. Mute and Clear row
+Under each tab, side by side: Mute, lit orange ("Muted") when on, and Clear, which empties that layer after a
+confirm (osPlugin §8) and is greyed on an empty one. A press flips that layer's, whichever is shown, so the edit
+names its layer (`tOsEdit.layer`; the plug-in's callers start it at -1, the shown one). The canvas grew to 584 high.

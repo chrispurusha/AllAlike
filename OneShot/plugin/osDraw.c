@@ -58,9 +58,14 @@
 #define TITLE_Y                   (30.0)     // below the menu bar
 #define BAR_X                     (130.0)
 #define BAR_BUTTON_H              (14.0)
-#define WAVE_Y                    (60.0)
+#define TAB_Y                     (54.0)     // notes §14: the layer tabs, between the sample bar and the waveform
+#define TAB_H                     (18.0)
+#define TAB_GAP                   (6.0)
+#define MUTE_Y                    (TAB_Y + TAB_H + 3.0)   // notes §15: a Mute under each tab
+#define MUTE_H                    (13.0)
+#define WAVE_Y                    (98.0)
 #define WAVE_H                    (130.0)
-#define PAGE_Y                    (210.0)
+#define PAGE_Y                    (248.0)
 #define ROW_H                     (112.0)
 #define SECTION_GAP               (16.0)
 #define CONTROL_W                 (50.0)   // twelve controls across the first row
@@ -79,6 +84,10 @@
 #define PROTECT_COLOUR            {0.80, 0.55, 0.85}
 #define TOGGLE_OFF_COLOUR         {0.56, 0.56, 0.58}
 #define OUTSIDE_COLOUR            {0.07, 0.07, 0.08} // notes §12: the parts of the view that do not play
+#define TAB_COLOUR_TEXT_OFF       {0.40, 0.40, 0.42}
+#define MUTE_ON_COLOUR            {0.95, 0.55, 0.25}
+#define TAB_COLOUR                {0.22, 0.22, 0.25}
+#define TAB_SHOWN_COLOUR          {0.30, 0.42, 0.55}
 #define DELAY_COLOUR              {0.20, 0.18, 0.09} // notes §13: the wait between the note on and Start
 #define WAVE_COLUMNS              (512)
 #define VIEW_MARGIN               (0.06)             // notes §12: the sliver shown either side of Start..End
@@ -100,7 +109,13 @@ typedef struct {
 
 static const tOsPage *       gPages;
 static uint32_t              gPageCount;
-static double                gValue[MAX_PARAMS]; // normalized, as the host holds them
+static double                gValues[OS_LAYERS][MAX_PARAMS]; // notes §14: normalized, as the host holds them, per layer
+static double *              gValue = gValues[0];            // the shown layer's
+static int                   gLayer;
+static tRectangle            gTabRect[OS_LAYERS];
+static tRectangle            gMuteRect[OS_LAYERS];
+static tRectangle            gClearRect[OS_LAYERS];
+static int                   gClearing;   // the layer a Clear is being confirmed for
 static int32_t               gSteps[MAX_PARAMS];
 static bool                  gFontReady;
 static tCoord                gMouse;
@@ -167,9 +182,20 @@ void os_draw_set_steps(uint32_t paramId, int32_t steps) {
 }
 
 void os_draw_set_value(uint32_t paramId, double normalized) {
-    if (paramId < MAX_PARAMS) {
-        gValue[paramId] = normalized;
+    uint32_t layer = paramId / OS_LAYER_STRIDE, id = paramId % OS_LAYER_STRIDE;
+
+    if ((layer < OS_LAYERS) && (id < MAX_PARAMS)) {
+        gValues[layer][id] = normalized;
     }
+}
+
+int os_draw_layer(void) {
+    return gLayer;
+}
+
+static void select_layer(int layer) {
+    gLayer = layer;
+    gValue = gValues[layer];
 }
 
 void os_draw_set_mouse(double x, double y) {
@@ -195,24 +221,33 @@ static bool have_host(void) {
 }
 
 static const char * current_path(void) {
-    return have_host() ? gHost->path(gUser) : "";
+    return have_host() ? gHost->path(gUser, gLayer) : "";
 }
 
 // ---- loading - notes §1, §2 ---------------------------------------------------------------------------------
 
 static void on_reset_confirmed(bool confirmed) {
     if (confirmed && have_host()) {
-        gHost->reset(gUser);
+        gHost->reset(gUser, gLayer);
+    }
+}
+
+static void on_clear_confirmed(bool confirmed) {
+    if (confirmed && have_host()) {
+        gHost->clear(gUser, gClearing);
     }
 }
 
 void os_draw_reset_controls(void) {
-    show_confirm("Reset Controls", "Set every dial and switch to its default? The sample stays loaded.", "Reset", on_reset_confirmed);
+    static char message[160];
+
+    snprintf(message, sizeof(message), "Set every dial and switch of layer %d to its default? Its sample stays loaded.", gLayer + 1);
+    show_confirm("Reset Controls", message, "Reset", on_reset_confirmed);
 }
 
-void os_draw_audition(void) {
+void os_draw_audition(bool stack) {
     if (have_host()) {
-        gHost->audition(gUser);
+        gHost->audition(gUser, gLayer, stack);
     }
 }
 
@@ -224,9 +259,9 @@ static bool load(const char * path, bool reportFailure) {
         return false;
     }
 
-    if (gHost->load(gUser, path, error, sizeof(error))) {
+    if (gHost->load(gUser, gLayer, path, error, sizeof(error))) {
         if (os_audition_on_browse()) {
-            gHost->audition(gUser);
+            gHost->audition(gUser, gLayer, false);
         }
         return true;
     }
@@ -366,6 +401,65 @@ static void fit_text(char * text, double height, double width) {
     }
 }
 
+// notes §14: one tab a layer - its number, its sample, and its keys when not the whole keyboard; the shown one lit
+static void draw_tabs(void) {
+    double width = (OS_CANVAS_W - (2.0 * MARGIN_X) - ((OS_LAYERS - 1) * TAB_GAP)) / OS_LAYERS;
+
+    for (int i = 0; i < OS_LAYERS; i++) {
+        const char * path = have_host() ? gHost->path(gUser, i) : "";
+        const char * base = strrchr(path, '/');
+        bool         full = (lround(gValues[i][kOsParamLowKey] * 127.0) == 0) && (lround(gValues[i][kOsParamHighKey] * 127.0) == 127);
+        char         keys[32] = "", low[8], high[8], text[600];
+
+        gTabRect[i] = (tRectangle){{
+                                       MARGIN_X + (i * (width + TAB_GAP)), TAB_Y
+                                   }, {
+                                       width, TAB_H
+                                   }
+        };
+        set_rgb_colour((i == gLayer) ? (tRgb)TAB_SHOWN_COLOUR : (tRgb)TAB_COLOUR);
+        (void)render_rectangle(mainArea, gTabRect[i]);
+
+        if (!full) {
+            os_param_text(kOsParamLowKey, gValues[i][kOsParamLowKey], low, sizeof(low));
+            os_param_text(kOsParamHighKey, gValues[i][kOsParamHighKey], high, sizeof(high));
+            snprintf(keys, sizeof(keys), "  %s-%s", low, high);
+        }
+        snprintf(text, sizeof(text), "%d  %s", i + 1, ((base != NULL) && (base[1] != '\0')) ? base + 1 : "empty");
+        fit_text(text, 11.0, width - 10.0 - get_text_width(keys, 11.0, eNoCache));
+        strcat(text, keys);
+        set_rgb_colour(((base != NULL) && (base[1] != '\0')) ? ((i == gLayer) ? (tRgb)RGB_WHITE : (tRgb)RGB_GREY_7) : (tRgb)RGB_GREY_5);
+        render_text(mainArea, (tRectangle){{gTabRect[i].coord.x + 5.0, TAB_Y + 3.0}, {0.0, 11.0}}, text);
+
+        // notes §15: its Mute, lit when muted
+        bool   muted = gValues[i][kOsParamMute] > 0.5;
+
+        double half  = (width - TAB_GAP) / 2.0;
+        bool   empty = (base == NULL) || (base[1] == '\0');
+
+        gMuteRect[i]  = (tRectangle){{
+                                         gTabRect[i].coord.x, MUTE_Y
+                                     }, {
+                                         half, MUTE_H
+                                     }
+        };
+        gClearRect[i] = (tRectangle){{
+                                         gTabRect[i].coord.x + half + TAB_GAP, MUTE_Y
+                                     }, {
+                                         half, MUTE_H
+                                     }
+        };
+        set_rgb_colour((tRgb)TAB_COLOUR);
+        (void)render_rectangle(mainArea, gClearRect[i]);
+        set_rgb_colour(empty ? (tRgb)TAB_COLOUR_TEXT_OFF : (tRgb)RGB_GREY_7);
+        render_text(mainArea, (tRectangle){{gClearRect[i].coord.x + 5.0, MUTE_Y + 2.0}, {0.0, 9.0}}, "Clear");
+        set_rgb_colour(muted ? (tRgb)MUTE_ON_COLOUR : (tRgb)TAB_COLOUR);
+        (void)render_rectangle(mainArea, gMuteRect[i]);
+        set_rgb_colour(muted ? (tRgb)RGB_BLACK : (tRgb)RGB_GREY_5);
+        render_text(mainArea, (tRectangle){{gMuteRect[i].coord.x + 5.0, MUTE_Y + 2.0}, {0.0, 9.0}}, muted ? "Muted" : "Mute");
+    }
+}
+
 static void draw_sample_bar(void) {
     char         label[600];
     char         place[32] = "";
@@ -473,7 +567,7 @@ static void wave_marker(double x, tRgb colour, double width) {
 
 // notes §3, §12: what plays, from Start to End, with a sliver either side of what does not
 static void draw_waveform(void) {
-    const tOsSample * s        = have_host() ? gHost->sample(gUser) : NULL;
+    const tOsSample * s        = have_host() ? gHost->sample(gUser, gLayer) : NULL;
     char              text[600];
 
     gWaveRect = (tRectangle){{
@@ -721,6 +815,7 @@ void os_draw_frame(int pixelWidth, int pixelHeight) {
     set_rgb_colour((tRgb){0.95, 0.95, 0.97});
     render_text(mainArea, (tRectangle){{MARGIN_X, TITLE_Y}, {0.0, 18.0}}, "OneShot");
     draw_sample_bar();
+    draw_tabs();
     draw_waveform();
     layout();
 
@@ -746,8 +841,8 @@ void os_draw_frame(int pixelWidth, int pixelHeight) {
         render_text(mainArea, (tRectangle){{pc->x, pc->dial.coord.y - 14.0}, {0.0, LABEL_H}}, c->label);
         os_param_text(c->paramId, gValue[c->paramId], text, sizeof(text));
 
-        if ((c->paramId == kOsParamEnd) && have_host() && (gHost->sample(gUser) != NULL)) {
-            const tOsSample * s    = gHost->sample(gUser);
+        if ((c->paramId == kOsParamEnd) && have_host() && (gHost->sample(gUser, gLayer) != NULL)) {
+            const tOsSample * s    = gHost->sample(gUser, gLayer);
             tOsPlay           play = {
                 .end     = os_end_fraction(gValue[kOsParamEnd]), .snap = gValue[kOsParamSnap] > 0.5,
                 .reverse = gValue[kOsParamReverse] > 0.5
@@ -845,8 +940,48 @@ bool os_draw_press(double x, double y, tOsEdit * edit, bool * grabbed) {
         return true;
     }
 
-    if (within_rectangle(at, draw_button_bounds(gPlayRect)) || within_rectangle(at, gWaveRect)) {
-        os_draw_audition();
+    // notes §15: a Mute flips its own layer's, whichever is shown
+    for (int i = 0; i < OS_LAYERS; i++) {
+        if (within_rectangle(at, gMuteRect[i])) {
+            edit->paramId            = kOsParamMute;
+            edit->normalized         = (gValues[i][kOsParamMute] > 0.5) ? 0.0 : 1.0;
+            edit->layer              = i;
+            gValues[i][kOsParamMute] = edit->normalized;
+            return true;
+        }
+    }
+
+    // notes §15: Clear empties its layer, once confirmed
+    for (int i = 0; i < OS_LAYERS; i++) {
+        if (within_rectangle(at, gClearRect[i])) {
+            const char * path = have_host() ? gHost->path(gUser, i) : "";
+
+            if (path[0] != '\0') {
+                static char message[160];
+
+                gClearing = i;
+                snprintf(message, sizeof(message), "Empty layer %d? Its settings stay; Load... fills it again.", i + 1);
+                show_confirm("Clear Layer", message, "Clear", on_clear_confirmed);
+            }
+            return true;
+        }
+    }
+
+    // notes §14: a tab shows its layer
+    for (int i = 0; i < OS_LAYERS; i++) {
+        if (within_rectangle(at, gTabRect[i])) {
+            select_layer(i);
+            return true;
+        }
+    }
+
+    if (within_rectangle(at, draw_button_bounds(gPlayRect))) {
+        os_draw_audition(true);
+        return true;
+    }
+
+    if (within_rectangle(at, gWaveRect)) {
+        os_draw_audition(false);
         return true;
     }
     layout();
@@ -977,7 +1112,7 @@ bool os_draw_key(int glfwKey, unsigned int codepoint, bool isRepeat) {
         }
 
         if ((glfwKey == GLFW_KEY_SPACE) || ((glfwKey == GLFW_KEY_UNKNOWN) && (codepoint == ' '))) {
-            os_draw_audition();
+            os_draw_audition(true);
             return true;
         }
     }
