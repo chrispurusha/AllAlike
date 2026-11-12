@@ -93,6 +93,9 @@ typedef struct {
     double    delayNow[6];     // wet, dry, feedback, left and right taps in samples, Colour's q
     double    delayTone[2][2]; // notes §25a: Colour's last input and output, each line
     tTiLfo    delayLfo;        // notes §8a
+    double    tapeBand[4][4];  // notes §8b: Bandwidth's two high-pass and two low-pass poles - each line's loop, then each line's input
+    double    tapeAt[2];       // its two read points, in samples, gliding
+    bool      tapeSet;
     double    verbNow[12];     // wet, dry, pre-delay, low pass, high pass, then the tank's seven coefficients
     bool      phaserGliding, delayGliding, verbGliding;
 } tTiEffects;

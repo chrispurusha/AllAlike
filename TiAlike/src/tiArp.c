@@ -17,6 +17,7 @@
 // Notes: Docs/code-notes/tiArp.md - "// notes §k" refers there.
 
 #include <math.h>
+#include <stdint.h>
 #include <string.h>
 
 #include "tiArp.h"
@@ -35,9 +36,14 @@ void ti_arp_reset(tTiArp * a) {
     a->random = 0x13579bdu;
 }
 
+#define KEY_MODE_HOLD    (5)
+
 int ti_arp_mode(const uint8_t * pageA, const uint8_t * pageB) {
     int mode = (pageA[0] < FORMAT_TI) ? pageB[1] : pageB[15];
 
+    if (pageA[94] == KEY_MODE_HOLD) {
+        return 0;   // notes §1a: Key Mode Hold plays the keys as they are, with no arpeggio
+    }
     return (mode > 7) ? 0 : mode;
 }
 
@@ -94,6 +100,9 @@ void ti_arp_key(tTiArp * a, const uint8_t * pageB, uint8_t note, float velocity,
     }
 }
 
+#define USER_TIE           (127)
+#define USER_TIE_LENGTH    (INT32_MAX / 4)   // notes §2: held until the next step that plays
+
 // notes §2: the pattern's steps, the user pattern (page D) as 0
 static uint32_t pattern(const uint8_t * pageB, const uint8_t * pageC, const uint8_t * pageD, tTiArpStep * user, const tTiArpStep ** steps) {
     int      p     = (pageB[2] > 63) ? 63 : pageB[2];
@@ -105,7 +114,7 @@ static uint32_t pattern(const uint8_t * pageB, const uint8_t * pageC, const uint
     uint32_t count = (uint32_t)(pageC[127] & 31u) + 1u;
 
     for (uint32_t k = 0; k < count; k++) {
-        user[k].length   = (int32_t)lround(pageD[3 * k] * STEP_UNIT / 127.0);
+        user[k].length   = (pageD[3 * k] >= USER_TIE) ? USER_TIE_LENGTH : (int32_t)lround(pageD[3 * k] * STEP_UNIT / 64.0);   // notes §2: 64 is the whole step, 127 a tie
         user[k].duration = (int32_t)STEP_UNIT;
         user[k].velocity = (pageD[(3 * k) + 2] & 1u) ? pageD[(3 * k) + 1] : 0;
     }
@@ -346,7 +355,8 @@ uint32_t ti_arp_run(tTiArp * a, const uint8_t * pageA, const uint8_t * pageB, co
         }
 
         // notes §3: the gate - the step's length times Note Length / 64, in whole ticks, at least one
-        double gate = fmax(1.0, (double)lround(st->length * stepTicks / STEP_UNIT * pageB[5] / 64.0));
+        double gate = (st->length >= USER_TIE_LENGTH) ? INFINITY                                 // notes §2: a tie, until the next step plays
+                      : fmax(1.0, (double)lround(st->length * stepTicks / STEP_UNIT * pageB[5] / 64.0));
 
         a->offTick       = stepAt + gate;
     }

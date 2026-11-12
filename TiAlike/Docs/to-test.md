@@ -31,3 +31,7 @@ Built but not yet checked by ear or in a host. Confirmed: delete the line. Faile
 - Arp Mode, Unison and Ring on an older factory Single (banks A-D): the panel now changes them; and the sustain pedal with the arpeggiator holds the keys as Hold does, without sustaining the arp's notes (2026-11-12)
 - Delay modulation built 2026-11-12 (tiEffects notes §8a; rate, depth, antiphase within 0.4 dB of the reference on a sine's echo): listen to a Single with Depth up (A006, A116-A118) against the hardware
 - User wavetables (2026-11-12, Wavetable menu): load a PPG, a TI2/Serum and a Waldorf .syx table on each oscillator, step with Prev/Next beside Wave (greyed for the built-in tables), sweep Index, save the project and reopen it with the files moved away
+- LFO 1 in Env Mode to Filter Gain silent once its cycle is spent (B093 RePunch, 2026-11-12), Key Mode Hold with no arpeggio (C074, C117), Mint Overdrive at twice its old level: listen against the hardware
+- Rectifier with a quiet input, arpeggiator user patterns (step lengths in 64ths, 127 a tie), an Env Mode LFO with Keytrigger resting where its cycle began (K030 FunkMamaBC) (2026-11-12): listen against the hardware
+- A clocked LFO in Env Mode (U076 OfcHell), Patch Volume below 8 (2026-11-12): listen against the hardware
+- Tape delay (Clocked, Free, Doppler; Ratio, Bandwidth, Feedback) and Reverb Predelay / Reverb Clock (2026-11-12): listen against the hardware, and turn Delay Time while Tape Free and Doppler run

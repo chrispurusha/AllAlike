@@ -13,13 +13,13 @@ Nearly every curve is a shaper with no memory, then a delay of 26 samples, then 
 - Light, Soft, Medium, Hard and Digital are saturation curves 1-5, with Intensity as drive.
 - Wide, the Bounces and the Folds are one curve: level times a sine at a rate rising 10 dB every 16 steps. They differ in how far they follow it before holding: a quarter turn for Wide, three quarters for the Bounces, without limit for the Folds. Triangle, Hard Bounce and Sawtooth use the same rate with their own wave. The level keeps the slope near 1 at low Intensity, so one formula covers the whole dial.
 - Wave Shaper is a sine whose rate climbs 18 dB across Intensity.
-- Rectifier crossfades from the signal to a folded form of it, and has no delay.
+- Rectifier crossfades from the signal to a folded form of it, and has no delay, but keeps the high-pass: the fold leaves a large offset, which the instrument does not pass (without it a quiet input came out 7-20 dB loud, all of it DC; the rest within 0.5 dB, 2026-11-12).
 - Bit Reducer and its older form round to a step. The newer step doubles every 12 steps of Intensity up to 64 and every 24 above it.
 - Treble Booster tilts the signal ahead of the shaper, cutting lows and lifting highs; High Cut is a two-pole low pass after it, its corner an octave lower every 21 steps.
 - The Rate Reducers are a sample and hold. The older hold doubles every 23 steps, the newer every 12. Neither reducer takes Treble Booster or High Cut, and neither goes through the delay and high-pass.
 - Low Pass and High Pass are first-order filters with the corner moved by Intensity.
 - At a low Intensity, where the signal has not reached the curve, some curves run straight through.
-- The Overdrives are the Wide curve between filters: a first-order low cut and a two-pole top in front, then a level, ramped in over the first 48 steps of Intensity, then one pole after it, 350 Hz or 550 Hz, except Curry. The pole shapes the buzz at high drive, so it cannot sit ahead of the curve, though at Intensity 0 the response is the same. Measured against a saw: a near-sine leaves a fit with almost nothing to hold it.
+- The Overdrives are the Wide curve between filters: a first-order low cut and a two-pole top in front, then a level, ramped in over the first 48 steps of Intensity, then one pole after it, 350 Hz or 550 Hz, except Curry. The pole shapes the buzz at high drive, so it cannot sit ahead of the curve, though at Intensity 0 the response is the same. Measured against a saw: a near-sine leaves a fit with almost nothing to hold it. Mint comes out at twice the level of the others: it measured 5-7 dB low at every Intensity and every input level, Intensity 0 included, and at twice it is within about 1 dB, 2.6 at most (2026-11-12).
 - The Rate Reducers pass no DC: a hold landing on the same point of each cycle gives silence, not a constant.
 
 ## 3. Phaser
@@ -55,8 +55,41 @@ All seventeen patterns (2026-11-09): Pattern x+y is x sixteenths on the left and
 instrument's list order. Only the first six (1+1 to 2+3) had been built; the eleven after them (2+5 to 5+5) played 1+1,
 which is why A006 (Pattern 5+3) sounded nothing like the instrument.
 
+## 8b. Tape
+Tape Type replaces the classic delay with a tape: two lines, left and right, whatever Delay Mode says.
+
+- **Times.** Tape Clocked takes Left and Right from their lists, 1/32 and 1 to 8 sixteenths at the host's tempo, each
+  side stopping at 734 ms. Tape Free and Tape Doppler take Delay Time, 5.461 ms a step (256 samples at 46.875 kHz,
+  not the classic delay's 5.333), and Ratio shortens one side: 1/4, 2/4 and 3/4 the left, 4/3, 4/2 and 4/1 the right
+  (to 3/4, 1/2 and 1/4 of the time). Against reference renders: every case tried within 0.6 ms (Clocked within 4 ms
+  at the longest).
+- **No delay modulation.** Rate and Depth move nothing on a tape: the reference's two sides stay together.
+- **Feedback** is Feedback / 64 a trip, so 64 keeps the repeats at one level (0.496 at 32, 0.986 at 64 measured).
+  Above 64 what goes round is limited: straight up to a knee and rounding off below a ceiling, so at 127 the repeats
+  settle about 20 dB below full scale instead of growing (the reference settles at -21 dB).
+- **Bandwidth** narrows the band on to 1 kHz from both sides, two poles each way, the corners moving in by 1.2 octaves
+  every 32 steps (31 Hz and 29 kHz at 0, 970 Hz and 1 kHz at 127). The whole of it acts once, on the way in; three
+  quarters of it again on each trip round. Against reference renders the single echo within about 3 dB in each octave
+  at 32, 64, 96 and 127 (two-pole fits within 0.05-3 dB), the first echo at 127 18.1 dB down against 18.4, then about
+  4.5 dB a repeat against 3.5-5.
+- **Tape Doppler and Tape Free** sound the same on a steady time. A change of time glides over about 0.2 s, so the
+  pitch bends as a tape's would - not measured, and the two are not yet told apart.
+
+Measure long times with a held note: the reference stops processing about 0.4 s after its voices end, so an echo due
+later never comes out and looks like a limit that is not there (2026-11-12).
+
 ## 9. Reverb
-A tank of tapped delays and allpasses in one ring of 16382 words, run at half the sample rate, each Type its own list of read offsets. These lists are the one table here: their entries must sum exactly for the read points to keep their places, so scaling them does not work. Two values drive it: one from Time, scaled by the room, and one from Damping; the other coefficients follow them with simple limits. Send follows Delay's law, and Predelay is 1.875 ms a step. Color is a one-pole tilt on the way in, low pass one way and high pass the other. The tank's slow modulation and the Feedback modes are not built.
+A tank of tapped delays and allpasses in one ring of 16382 words, run at half the sample rate, each Type its own list of read offsets. These lists are the one table here: their entries must sum exactly for the read points to keep their places, so scaling them does not work. Two values drive it: one from Time, scaled by the room, and one from Damping; the other coefficients follow them with simple limits. Send follows Delay's law; Predelay is §9a. Color is a one-pole tilt on the way in, low pass one way and high pass the other. The tank's slow modulation and the Feedback modes are not built.
+
+## 9a. Reverb Predelay and Clock
+Predelay is 5.461 ms a step (256 samples at 46.875 kHz), up to 502 ms at 92. Reverb Clock replaces the dial with a
+note value at the host's tempo - Delay Clock's list (§11), but at the tempo as it is, without the delay's 0.9816 -
+halved while it is longer than 533 ms (25600 samples at 48 kHz): at 120 BPM a half note is folded to 500 ms, three
+quarters to 375. Against reference renders, a held note with the Send at full, the wet sound's arrival: every
+Predelay step tried from 10 to 92 within 0.5 ms, the clock values 1/64 to 3/4 at 120 BPM within 0.5 ms, the fold
+between a 531 and a 536 ms quarter note (2026-11-12; Predelay had been 1.875 ms a step, a third of the instrument's,
+and Clock did nothing). A short note is no use for the long values: the reference stops processing about 0.4 s
+after its voices end, so a later arrival never comes out.
 
 ## 10. Sample rates
 Nothing is resampled: the engine runs at the host's rate. The tables stay as they are and values are scaled to hold their hertz and seconds, as checked at 44.1 kHz against 48 kHz. The Reverb tank counts samples, so above 50 kHz it runs at a quarter of the rate to keep its decay. Speaker Cabinet and Stereo Widener were measured at 48 kHz, so their coefficients are moved to the running rate by an allpass substitution in z^-1, which keeps the response in hertz.

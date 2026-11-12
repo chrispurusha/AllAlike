@@ -134,6 +134,7 @@ static void * sn2_create(const tSynthLibPluginDesc * desc) {
 
     snprintf(t->soundName, sizeof(t->soundName), "Init");
     sn2_voices_init(&t->voices);
+    sn2_voices_set_clean(&t->voices, t->values[kSn2ParamAntiAlias] >= 0.5);   // voices notes §17: On unless the host says otherwise
     sn2_effects_reset(&t->effects);
     t->hostRate    = 48000.0;
     t->tempo       = DEFAULT_TEMPO;
@@ -208,6 +209,7 @@ static void render_host(tSn2Plugin * t, const tSn2Sound * sound, float * outL, f
 
     if (atomic_exchange(&t->clearEffects, false)) {
         sn2_effects_reset(&t->effects);   // notes §15
+        sn2_voices_all_off(&t->voices);   // the old sound's notes stop too, rather than playing on in the new one
     }
 
     while (frames > 0) {
@@ -225,7 +227,10 @@ static void render_host(tSn2Plugin * t, const tSn2Sound * sound, float * outL, f
 
         if (t->effects.clipped) {
             t->effects.clipped = false;
-            atomic_store(&t->clipped, true);
+
+            if (!atomic_load(&t->fade.holding) && (t->fade.gain >= 1.0f)) {   // notes §15: what leaves the plug-in, not a block the swap fade holds down
+                atomic_store(&t->clipped, true);
+            }
         }
         synthlib_resample_process(&t->resampler, t->engineL, outL, chunk);
         float    discard[HOST_CHUNK];
@@ -441,6 +446,8 @@ static void sn2_set_param(void * inst, uint32_t id, double normalized) {
             atomic_store(&t->wantPreset, number);
             synthlib_swap_fade_start(&t->fade);
         }
+    } else if (id == kSn2ParamAntiAlias) {
+        sn2_voices_set_clean(&t->voices, normalized >= 0.5);   // voices notes §17
     } else if (id == kSn2ParamVoiceLimit) {
         sn2_voices_set_limit(&t->voices, voice_limit(t));
     }
@@ -535,7 +542,7 @@ static bool sn2_param_text(const tSynthLibPluginDesc * desc, void * inst, uint32
 
 // What a sound carries: everything but the plug-in's own settings
 static bool sound_param(uint32_t id) {
-    return (id != kSn2ParamVoiceLimit) && (id != kSn2ParamMaster) && (id != kSn2ParamEffectsBypass) && (id != kSn2ParamSustainPedal)
+    return (id != kSn2ParamVoiceLimit) && (id != kSn2ParamAntiAlias) && (id != kSn2ParamMaster) && (id != kSn2ParamEffectsBypass) && (id != kSn2ParamSustainPedal)
            && (id != kSn2ParamHwLink) && (id != kSn2ParamHwChannel) && (id != kSn2ParamHwDevice) && (id != kSn2ParamProgram) && (id != kSn2ParamBank)
            && (id != kSn2ParamPitchBend) && (id != kSn2ParamModWheel);
 }
@@ -564,6 +571,7 @@ static void sn2_load_single(void * user, const uint8_t * single, const char * pa
     // change runs this on the audio thread
     memcpy(values, t->values, sizeof(values));
     sn2_patch_from_single(single, values);
+    atomic_store(&t->clearEffects, true);   // notes §15: before the new values, so the audio thread sees the change of sound first
 
     // The whole sound into the engine now, while the fade holds it silent. The host's copies come back
     // later - a block or more on VST3, and on an Audio Unit only once the main thread is free - so
@@ -575,7 +583,6 @@ static void sn2_load_single(void * user, const uint8_t * single, const char * pa
         }
     }
 
-    atomic_store(&t->clearEffects, true);   // notes §15: the audio thread does it, at its next block
     memcpy(t->base, single, SN2_SINGLE_LENGTH);
     t->haveBase   = true;
     sn2_patch_name(single, t->soundName);

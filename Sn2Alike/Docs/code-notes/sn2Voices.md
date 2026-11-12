@@ -89,3 +89,29 @@ new note after all keys are up glides from whatever pitch was last sounding - No
 legato. So a glide starts from the pitch the voice had reached. In poly the instrument seems to glide each voice from
 that voice's own last pitch (hard to follow by ear); a voice that has never played starts from the last note.
 
+## 17. Anti-alias
+The GLOBAL page's Anti-alias, On by default (owner, 2026-11-12), as on the other Alikes. Off plays the oscillators as
+the instrument makes them at its own rate, aliases included. On runs the same law at four times the rate - the same
+edge, the stretch still taken from the note's own increment, so the tone is the instrument's - and brings it back down
+through a 48-tap windowed-sinc low-pass at 0.45 of the engine's rate. A restarted wave clears that filter. Against the
+Off path, a lone saw: the harmonics identical, the energy between them down 7-22 dB, to -63 to -84 dB from C5 to G7;
+Soften 64, where the instrument aliases most (-47 to -56 dB), comes down to -63 to -73. It costs four oscillator
+steps and a 48-tap sum per oscillator a sample. Stored 0 = Off, 1 = On.
+
+## 18. FM
+The FM 1x3, FM 2x3 and FM Noise switches each turn a mixer slot into frequency modulation of Osc 3: Osc 1, Osc 2 or
+the noise modulates it, at the slot's own level (1x3, 2x3, Noise) as the depth, and that slot is then not heard as ring
+or noise. The modulator is the oscillator's own output before its mix level (Osc 1's mix makes no difference); Osc 3 is
+heard through its own mix level as usual.
+
+Linear and through zero: each sample Osc 3's phase step is multiplied by 1 + depth x modulator, so the swing in hertz is
+a fixed share of Osc 3's pitch - the same 16% at depth 8 from 523 Hz to 2093 Hz - and symmetric in hertz, not in cents;
+past 1 the phase runs backwards. The depth goes as the level squared: a full square modulator swings Osc 3 by 1.25 x
+10^-3 x level^2 of its pitch. A saw modulates 0.82 as hard as its own level would say against the square. The step is
+held within a cycle a sample.
+
+Against reference renders: Osc 3's two pitches under a square Osc 1 within 1-4% at depths 6 to 24; spectra of an FM
+voice best matched within 0.06-0.13 of the depth squared from 8 to 127 (square) and at the same depth with the saw
+factor; 808 Cow Bell 2 (FM 2x3) 5.3 -> 0.8 in spectrum error. With Anti-alias on, Osc 3's sub-steps take Osc 1's and
+Osc 2's own sub-steps (2026-11-12).
+

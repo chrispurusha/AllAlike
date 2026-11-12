@@ -43,6 +43,8 @@ void ti_lfo_trigger(tTiLfo * l, double phase, uint32_t seed) {
     l->fade  = 0.0;
     l->spent = false;
     l->seen  = 0.0;
+    l->start = phase;
+    l->run   = 0.0;
 
     if (seed != 0u) {
         l->noise = seed;
@@ -57,15 +59,9 @@ static double contoured(double p, double contour) {
     return (p < mid) ? (0.5 * p / mid) : (0.5 + (0.5 * (p - mid) / (1.0 - mid)));
 }
 
-double ti_lfo_tick(tTiLfo * l, const tTiLfoShape * s, double seconds) {
-    double inc = s->rateHz * seconds * (s->envMode ? 2.0 : 1.0);   // notes §2
-    double p   = contoured(l->phase, s->contour);
-
-    if (l->wraps) {
-        l->wraps = false;
-        l->seen += 1.0;
-        l->spent = l->seen > 0.0;
-    }
+// notes §3-§4: the shape's value at a place in its cycle
+static double shape_value(const tTiLfo * l, const tTiLfoShape * s, double phase) {
+    double p = contoured(phase, s->contour);
     double v;
 
     switch (s->shape) {
@@ -74,7 +70,7 @@ double ti_lfo_tick(tTiLfo * l, const tTiLfoShape * s, double seconds) {
             // notes §3: the sine is not bent - above the middle Contour drives it into a limit, below it does nothing
             double drive = (s->contour > 0.0) ? pow(1.0 - fmin(s->contour, 0.999), -0.8) : 1.0;
 
-            v = fmax(-1.0, fmin(1.0, -drive * cos(2.0 * M_PI * l->phase)));   // notes §4: from the minimum
+            v = fmax(-1.0, fmin(1.0, -drive * cos(2.0 * M_PI * phase)));   // notes §4: from the minimum
             break;
         }
         case 1:
@@ -82,15 +78,29 @@ double ti_lfo_tick(tTiLfo * l, const tTiLfoShape * s, double seconds) {
             break;
         case 2:  v = 1.0 - (2.0 * p);
             break;
-        case 3:  v = (l->phase < (0.5 + (0.49 * s->contour))) ? 1.0 : -1.0;
+        case 3:  v = (phase < (0.5 + (0.49 * s->contour))) ? 1.0 : -1.0;
             break;
         case 4:  v = l->held;
             break;
-        case 5:  v = l->last + ((l->target - l->last) * l->phase);
+        case 5:  v = l->last + ((l->target - l->last) * phase);
             break;
         default: v = ti_osc_wave(s->shape - 4, p, 0.001);
             break;
     }
+    return v;
+}
+
+double ti_lfo_tick(tTiLfo * l, const tTiLfoShape * s, double seconds) {
+    double inc = s->rateHz * seconds * (s->envMode ? 2.0 : 1.0);   // notes §2
+
+    if (l->wraps) {
+        l->wraps = false;
+        l->seen += 1.0;
+    }
+    l->spent  = l->run >= 1.0;   // notes §2: one whole cycle from where it started
+    double v   = shape_value(l, s, l->phase);
+
+    l->run   += inc;
     l->phase += inc;
 
     if (l->phase >= 1.0) {
@@ -106,7 +116,8 @@ double ti_lfo_tick(tTiLfo * l, const tTiLfoShape * s, double seconds) {
         if ((s->shape == 4) || (s->shape == 5)) {
             v = l->spent ? l->value : v;
         } else {
-            v = l->pinned ? 2.0 : (l->spent ? 0.0 : (v + 1.0));
+            // notes §2: spent, it rests where its cycle ended - the value just before its start
+            v = l->pinned ? 2.0 : ((l->spent ? shape_value(l, s, (l->start > 0.0) ? (l->start - 1e-9) : (1.0 - 1e-9)) : v) + 1.0);
         }
     }
 

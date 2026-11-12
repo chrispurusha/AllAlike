@@ -26,6 +26,7 @@ typedef struct {
     double   phase;
     double   held, last, target;   // S&H and S&G
     double   seen;                 // cycles begun, and notes §2: Env Mode has run its one
+    double   start, run;           // notes §2: Env Mode's start phase, and how far it has gone since
     bool     wraps, spent;
     bool     pinned;               // tiVoices notes §13: held at the top of Env Mode
     double   fade;                 // LFO 3's fade-in, 0..1

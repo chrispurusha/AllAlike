@@ -339,3 +339,26 @@ carries no ring; ours sent both through Filter 1 and kept the ring. Fixed (tiVoi
   stores matched the loaded one to -55 dB until the top partial was kept below the 512-sample cycle's Nyquist; since,
   to -95 dB (16-bit). A lone HyperSaw saw with Anti-alias off, made on points of its own as the classic saw is: -46.6
   and -42.9 dB between the harmonics at C6 and C7 against the reference's -46.5 and -43.2.
+- Bank re-ranking (2026-11-12): two noise floors no longer score as a difference (a window where both sides sit below
+  -70 dBFS is left out); A026's 44 dB was one. Three real faults it found: LFO 1 in Env Mode reads Filter Gain from
+  its rest, so a spent cycle leaves silence (B093 held on at -23 dB); Key Mode Hold turns the arpeggiator off (C074
+  and C117 re-attacked every step); Mint Overdrive comes out at twice its old level (5-7 dB low at every Intensity
+  and input). The distortion survey, one oscillator at two input levels and two Intensities, left Bit Reducer,
+  Rectifier, Saffron and Onion apart (todo).
+- All 23 banks ranked (2026-11-12): medians 2.5-4.7 dB a window. The worst were ours falling silent where the
+  instrument plays on. The arpeggiator's user pattern counts a step's length in 64ths of the step, 64 the whole step
+  and 127 a tie to the next step that plays (read as 127ths every note stopped halfway: W115, P006); an LFO in Env
+  Mode runs one whole cycle from its Keytrigger phase and then rests at the value it started from, not at zero
+  (K030; through Filter Gain, saw and square at every phase within 0.1 dB); Keytrigger places the start in 128ths of
+  a cycle (126ths put a square started at 65 on the wrong side of its edge). The Rectifier's fold left an offset
+  that read as 7-20 dB of level on a quiet input; it now keeps the high-pass.
+- Second pass over all banks (2026-11-12): a clocked LFO in Env Mode is not doubled in speed (U076, 42 -> 2); Patch
+  Volume below 8 is a straight line in level (it fell towards -90 dB, 18 dB low at 2). The ranking judges a silent
+  side by its level: a window the reference has a dropout across had been scored as silence (a dozen arpeggiated
+  Singles at the maximum). Filter Gain does act on noise, as here.
+- Reverb Predelay and Clock, Tape delay (2026-11-12): Predelay was a third of the instrument's (1.875 ms a step, not
+  5.461); Reverb Clock is Delay Clock's note values at the tempo as it is, folded below 533 ms. Tape takes its own
+  step (5.461 ms), Feedback / 64 a trip with a limit above 64, Bandwidth a band closing on 1 kHz, and no delay
+  modulation. Trap: a short note cannot measure long times - the reference stops processing about 0.4 s after its
+  voices end, which first looked like a 350 ms ceiling on both.
+

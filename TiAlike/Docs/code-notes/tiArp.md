@@ -9,10 +9,19 @@ The keys are kept in the order played. A key let go is forgotten, unless Hold is
 down with none held, which replaces the chord. Turning Hold off lets go of the keys it was keeping. The sustain pedal is a second Hold while the arpeggiator runs: keys let go with it down stay, lifting it lets go of those no longer down, and it never holds the arpeggiator's own notes, which still stop at each step (the reference, rendered with and without the pedal, 2026-11-12). The mode is page B
 15 (page B 1 in a Single older than the TI format): Off, Up, Down, Up&Down, As Played, Random, Chord, Arp>Matrix.
 
+## 1a. Key Mode Hold
+With Key Mode on Hold the arpeggiator does nothing: a held key plays at its own pitch with one attack, whatever Arp Mode
+says. Against reference renders, Init with Arp Mode Up over two octaves: Poly steps through 131, 262 and 522 Hz; Hold
+stays on 131 Hz with a single attack (C074 and C117, both on Hold, had the arpeggiator re-attacking every step here,
+2026-11-12).
+
 ## 2. Patterns and the clock
 A pattern is a list of steps: a note length and a duration, both in 1/65536ths of a step, and a velocity, 0 being a
 rest. Patterns 1-63 are the instrument's own (`tiArpPatterns.c`, generated); pattern 0 is the user pattern from page D
-(step k: length, velocity, and bit 0 of its third byte for on), as many steps as page C 127 says plus one.
+(step k: length, velocity, and bit 0 of its third byte for on), as many steps as page C 127 says plus one. A step's
+length is in 64ths of the step: 64 sounds the whole step and 127 nearly two (against reference renders of Init's own
+user pattern at Arp Clock 3 and 10, 2026-11-12; read as 127ths, every note stopped halfway and W115 and P006 fell
+silent between steps).
 The clock runs at 96 ticks a quarter note from the host's tempo. Arp Clock sets a step's ticks: 1/16 is 24, from 3
 (1/128) to 192 (1/2), triplets and dotted values between. A step's duration is cut to whole ticks (with a margin of
 1/64 tick, so a third of a step lands on 8 and 3.2 steps on 76, as on the instrument).

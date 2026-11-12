@@ -392,7 +392,7 @@ static void start_voice(tTiVoices * v, tTiVoice * vc, uint8_t note, float veloci
             bool    mono = lfo_is_mono(s, l);
 
             if (!mono) {
-                double ph      = fmod(((trig > 0) ? ((trig - 1.0) / 126.0) : 0.0) + lfoPhase + 1.0, 1.0); // notes §12
+                double ph      = fmod(((trig > 0) ? ((trig - 1.0) / 128.0) : 0.0) + lfoPhase + 1.0, 1.0); // notes §12: in 128ths of a cycle
 
                 bool   envMode = (l == 0) ? (s->a[69] != 0) : ((l == 1) ? (s->a[81] != 0) : false);       // notes §12: always from the top
                 bool   clocked = (l == 0) ? (s->b[18] != 0) : ((l == 1) ? (s->b[19] != 0) : false);
@@ -404,6 +404,7 @@ static void start_voice(tTiVoices * v, tTiVoice * vc, uint8_t note, float veloci
                 } else {
                     vc->lfo[l].spent = false;
                     vc->lfo[l].seen  = 0.0;
+                    vc->lfo[l].run   = 0.0;
 
                     if (silent) {
                         double      none[kDstCount] = {0.0};
@@ -983,9 +984,13 @@ static double patch_volume(double dial) {
     if (dial >= 48.0) {
         return pow(10.0, -(127.0 - dial) * 0.2513 / 20.0);
     }
+
+    if (dial < 8.0) {
+        return pow(10.0, kDb[1] / 20.0) * dial / 8.0;   // notes §7: below 8 a straight line in level down to nothing
+    }
     int                 i      = (int)(dial / 8.0);
 
-    return (dial <= 0.0) ? 0.0 : pow(10.0, (kDb[i] + (((dial / 8.0) - i) * (kDb[(i < 6) ? (i + 1) : 6] - kDb[i]))) / 20.0);
+    return pow(10.0, (kDb[i] + (((dial / 8.0) - i) * (kDb[(i < 6) ? (i + 1) : 6] - kDb[i]))) / 20.0);
 }
 
 // notes §7
@@ -1204,7 +1209,8 @@ static void lfo_shape(const tTiVoices * v, const tTiSound * s, int l, const doub
     out->rateHz   = ti_lfo_rate_hz(clamp(rate + (MOD_DEPTH * mod[dstR]), 0.0, 127.0));
 
     if ((clock > 0) && (clock < 22)) {
-        out->rateHz = (v->tempo / 60.0) / (4.0 * kDivide[clock]);    // notes §12: the host's tempo
+        out->rateHz = (v->tempo / 60.0) / (4.0 * kDivide[clock]);     // notes §12: the host's tempo
+        out->rateHz = (env != 0) ? (0.5 * out->rateHz) : out->rateHz; // tiLfo notes §2: Env Mode does not hurry a clocked LFO
     }
     out->shape    = (shape > 67) ? 67 : shape;
     out->contour  = clamp(bipolar(cont) + ((l < 2) ? mod[(l == 0) ? kDstLfo1Contour : kDstLfo2Contour] : 0.0), -1.0, 1.0);
@@ -1694,12 +1700,12 @@ static void glide_advance(tTiVoice * vc, double dial, double seconds) {
 
 // notes §12c: LFO 1's Filter Gain - its depth from a nine-point table, the LFO moved to 0..1 (turned over for a
 // negative depth), through the sustain curve, offset and doubled, never below 0
-static double filter_gain(uint8_t amount, double lfo) {
+static double filter_gain(uint8_t amount, double lfo, bool envMode) {
     static const double kDepth[9] = {-0.625, -0.5, -0.375, -0.25, 0.0, 0.25, 0.375, 0.5, 0.625};
     double              p         = amount / 16.0;
     int                 i         = (p >= 8.0) ? 7 : (int)p;
     double              d         = kDepth[i] + ((p - i) * (kDepth[i + 1] - kDepth[i]));
-    double              u         = clamp(0.5 + (0.5 * lfo), 0.0, 1.0);
+    double              u         = clamp(envMode ? (0.5 * lfo) : (0.5 + (0.5 * lfo)), 0.0, 1.0);   // notes §12c: Env Mode's 0..2 from its rest
     double              a         = fabs(d);
 
     if (d == 0.0) {
@@ -1889,7 +1895,7 @@ static void render_block(tTiVoices * v, const tTiSound * given, float * left, fl
             mod[kDstPitch1]    += lfo[0] * lfo_pitch_amount(pitch_amount_byte(dial_moved(s->a[74], mod[kDstLfo1Pitch1]))) / PITCH_MOD_DEPTH;
             mod[kDstPitch2]    += lfo[0] * lfo_pitch_amount(pitch_amount_byte(dial_moved(s->a[75], mod[kDstLfo1Pitch2]))) / PITCH_MOD_DEPTH;
             mod[kDstLfo1Width] += lfo[0] * bipolar(s->a[76]);
-            vc->filtGainTo      = filter_gain(modded(s->a[78], mod[kDstLfo1Gain]), lfo[0]);
+            vc->filtGainTo      = filter_gain(modded(s->a[78], mod[kDstLfo1Gain]), lfo[0], s->a[69] != 0);
             mod[kDstRes1]      += 0.5 * lfo[0] * curve9(kOffsetCurve, modded(s->a[77], mod[kDstLfo1Res]));
             mod[kDstRes2]      += 0.5 * lfo[0] * curve9(kOffsetCurve, modded(s->a[77], mod[kDstLfo1Res]));
             mod[kDstLfo2Shape] += 0.5 * lfo[1] * bipolar(s->a[86]);

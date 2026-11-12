@@ -265,31 +265,101 @@ static void action_about(int index) {
     show_alert("About", synthlib_about_text("TiAlike"));
 }
 
-static void action_panel_help(int index) {
+// notes §5: one topic a window - an alert holds about 32 wrapped lines
+static void action_help_panel(int index) {
     (void)index;
     show_alert("The Panel",
-               "An early build: one oscillator, the two filters, the amplifier envelope (ENV) and the voice limit on the "
-               "GLOBAL page.\n\n"
-               "Patches: < Prev and Next > step through the presets, A001-W128, in the order the Sort menu sets; Load... opens a .syx or .mid file of "
-               "Singles, choosing one when it holds several. The name beside them edits on a click. A Single keeps "
-               "every byte it came with, though only what is built so far plays.\n\n"
-               "Dials: drag to turn, Shift to turn finely. Controls chooses how a drag turns them: Rotary follows the "
-               "pointer round the dial, Vertical and Horizontal count its movement.\n\n"
-               "Lists (the oscillator's shape, the filter's mode) open a menu of their values on a click.\n\n"
-               "For a diagnostic log: in Terminal, touch /tmp/tialike-log, then reload the plug-in; the log is "
-               "/tmp/tialike.log.");
+               "The tabs along the top choose a page: OSC, TABLES, FILTER, AMP, ENV, LFO, the matrix (MOD 1-3, MOD 4-6), "
+               "DRIVE, MOD FX, EFFECTS, ARP and GLOBAL. Each page is the instrument's own controls, grouped as on the Virus TI.\n\n"
+               "Dials: drag to turn, with Shift to turn finely. Controls chooses how a drag turns them: Rotary follows the "
+               "pointer round the dial, Vertical and Horizontal count how far it moves.\n\n"
+               "Lists (a wave, a filter mode, a matrix source) open a menu of their values on a click.\n\n"
+               "Beside each oscillator's Wave are Prev and Next for its user wavetable - see User Wavetables.\n\n"
+               "The CLIP lamp lights when the output reaches full scale.\n\n"
+               "For a diagnostic log: in Terminal, touch /tmp/tialike-log; the log is /tmp/tialike.log. Remove the "
+               "first file to stop it.");
+}
+
+static void action_help_patches(int index) {
+    (void)index;
+    show_alert("Patches and Presets",
+               "One instance plays one Single. < Prev and Next > in the top bar step through the 2944 presets, A001 to "
+               "W128, in the order the Sort menu chooses: bank and location, category, or name. Load... opens the preset "
+               "browser. The name beside them edits on a click.\n\n"
+               "File opens a .syx or .mid of Singles (choosing one when it holds several), saves the sound as a .syx, or "
+               "starts again from Init.\n\n"
+               "Presets stores the sound back to its preset or to another, reverts to the stored one, and imports or "
+               "exports the whole set as .syx files.\n\n"
+               "A Single keeps every byte it came with, so one saved here loads on the instrument as it was. Singles "
+               "from before the TI format load too.\n\n"
+               "The host's project keeps the sound as edited, and any user wavetables, so it reopens as it was left.");
+}
+
+static void action_help_tables(int index) {
+    (void)index;
+    show_alert("User Wavetables",
+               "Each oscillator can play a wavetable of your own. Wavetable > Osc 1 (or Osc 2) Load Wavetable... opens "
+               "one; the oscillator switches to the Wavetable model and its Wave to User, which shows the table's name. "
+               "Index then sweeps through its frames, and Wave PWM, Grain and Formant read it too.\n\n"
+               "Read: WAV files of single cycles - Serum-style tables (2048 a cycle, as their file marks), PPG tables "
+               "(22.05 kHz files of 256-sample cycles), and other WAVs of 2048 or 256-sample cycles - and Waldorf user "
+               "wavetable dumps as .syx or .mid. Up to 256 frames.\n\n"
+               "Prev and Next beside the oscillator's Wave step through the other tables in the same folder, in name "
+               "order. They are greyed unless the oscillator is playing its user table.\n\n"
+               "The table is kept inside the host's project, so it plays even if the file moves. A preset or .syx keeps "
+               "only Wave = User, not the table: load the table again after loading such a sound.");
+}
+
+static void action_help_global(int index) {
+    (void)index;
+    show_alert("Global Settings",
+               "On the GLOBAL page, PLUG-IN:\n\n"
+               "Limit - the most voices the instance plays at once.\n\n"
+               "Maths - FLOAT, or FIXED for the instrument's own fixed-point arithmetic where it is built (the filter "
+               "so far). The two differ only far below the signal.\n\n"
+               "Link - follows the sound on a connected Virus TI (see The Virus TI).\n\n"
+               "Delay and Reverb - switch those effects off for this instance, to use the host's instead.\n\n"
+               "Anti-alias - On (the default) makes the oscillators band-limited: clean, with nothing folding back from "
+               "above the top of the audio band. Off makes them as the instrument does, aliasing included - the "
+               "classic oscillators, the sub, Osc 3, sync and the HyperSaw - for its grittier top end. Off costs more "
+               "processing, most of all with a big HyperSaw.\n\n"
+               "PLAY, UNISON and CONTROL are the Single's own key mode, unison and controller settings.");
+}
+
+static void action_help_hardware(int index) {
+    (void)index;
+    show_alert("The Virus TI",
+               "With a Virus TI connected over USB, Link on the GLOBAL page sends it the sound and then every edit, so "
+               "the instrument plays what the panel shows. MIDI chooses the port, the instrument's own USB port by "
+               "default.\n\n"
+               "The Virus TI menu reads the instrument's banks into the presets - A-D, or every bank A-W - and writes "
+               "a bank of presets to one of its RAM banks. Both ask first: reading replaces those presets, writing "
+               "replaces that bank on the instrument.\n\n"
+               "Notes are not sent: play the instrument from its own keyboard or MIDI, or play TiAlike from the host.");
 }
 
 static void open_help_menu(tCoord anchor) {
-    static tMenuItem items[3];
+    static tMenuItem items[7];
 
     items[0] = (tMenuItem){
-        "The Panel...", ITEM, action_panel_help, 0, NULL, 0, 0.0, NULL
+        "The Panel...", ITEM, action_help_panel, 0, NULL, 0, 0.0, NULL
     };
     items[1] = (tMenuItem){
+        "Patches and Presets...", ITEM, action_help_patches, 0, NULL, 0, 0.0, NULL
+    };
+    items[2] = (tMenuItem){
+        "User Wavetables...", ITEM, action_help_tables, 0, NULL, 0, 0.0, NULL
+    };
+    items[3] = (tMenuItem){
+        "Global Settings...", ITEM, action_help_global, 0, NULL, 0, 0.0, NULL
+    };
+    items[4] = (tMenuItem){
+        "The Virus TI...", ITEM, action_help_hardware, 0, NULL, 0, 0.0, NULL
+    };
+    items[5] = (tMenuItem){
         "About TiAlike...", ITEM, action_about, 0, NULL, 0, 0.0, NULL
     };
-    items[2] = END_OF_MENU;
+    items[6] = END_OF_MENU;
     open_context_menu(anchor, items, 0, 0.0);
 }
 

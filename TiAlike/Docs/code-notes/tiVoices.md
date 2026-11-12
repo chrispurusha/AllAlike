@@ -100,7 +100,7 @@ Against a sine of 1, a triangle is 1, a saw 2/3 and a pulse 1/2. Measured with A
 - Osc Volume, up to 64: the amplifier's sustain curve read at twice the dial. Above 64 it no longer changes the level, only the drive. It also scales the sub and Osc 3, which sit in the same group; noise and ring do not.
 - Osc 3's Volume is a straight line, 1.69 of a sine at full, inside Osc Volume and outside Osc Balance. Its Slave mode adds nothing of its own. It takes Osc 2's keyfollow and Detune's curve, but not Osc 2's Semitone.
 - Sub, noise and ring share one mix curve, the sustain curve to the power 1.25.
-- Patch Volume: 0.2513 dB a step down to 48, then steeper (the table).
+- Patch Volume: 0.2513 dB a step down to 48, then steeper (the table), and below 8 a straight line in level down to nothing at 0 - 6 dB for each halving (against the reference at 8, 2 and 1 within 0.3 dB, 2026-11-12; the table ran on towards -90 dB there, 18 dB too low at 2, and N031 Donky, its volume raised from 0 by an LFO, was silent).
 - Panorama: two straight lines; a hard pan is 1.585 of the centre.
 - Osc 2 Detune is piecewise and shrinks with pitch, by 1.393 per two octaves - the sounding pitch, Transpose included.
   Its table above the drift (93-127) is read off reference renders at C4 (17.7 cents at 92, 49.1 at 127); the drifting
@@ -185,7 +185,7 @@ An LFO's pitch amount follows a curve read at the amount / 8, nine points either
 so the top of the dial is 32. The depth is the LFO's swing times this. Within 0.7% of reference pitch tracks at every
 amount from 24 to 104 (2026-11-12; the curve fitted before skipped three of the points and ran 23% deep between them).
 The filter envelope's route to Osc 2 is the same curve doubled. LFO 3 reads its upper half at half the amount, a quarter
-as deep (notes §12b). Trigger Phase 1..127 runs one cycle from the wave's minimum. Pulse Width, Shape and FM's fixed LFO routes are straight lines, 128, 64 and full travel at full amount. Cutoff, Resonance and Panorama's run through the 9-point curve of the linked Cutoff 2 offset, 64 dial units at full. LFO 2's Cutoff 1 route moves Filter 1 alone: with Cutoff Link on, Filter 2 follows Cutoff 1's dial (and what the matrix does to it) but not this route, which is why LFO 2 to Cutoff 1 and to Cutoff 2 sound the same on two equal filters in series (2026-11-12; at full amount ours had closed both). An LFO in Env Mode always restarts with a note. A clocked LFO follows the host's tempo, always: 120 BPM until the host gives one, and the last it gave once it stops. The patch's own tempo byte is kept with the sound but not used.
+as deep (notes §12b). Trigger Phase 1..127 starts the cycle (Trigger Phase - 1)/128 of the way round from the wave's minimum (in 128ths: a square at 65 starts exactly at its half-way edge, as the reference shows, 2026-11-12). Pulse Width, Shape and FM's fixed LFO routes are straight lines, 128, 64 and full travel at full amount. Cutoff, Resonance and Panorama's run through the 9-point curve of the linked Cutoff 2 offset, 64 dial units at full. LFO 2's Cutoff 1 route moves Filter 1 alone: with Cutoff Link on, Filter 2 follows Cutoff 1's dial (and what the matrix does to it) but not this route, which is why LFO 2 to Cutoff 1 and to Cutoff 2 sound the same on two equal filters in series (2026-11-12; at full amount ours had closed both). An LFO in Env Mode always restarts with a note. A clocked LFO follows the host's tempo, always: 120 BPM until the host gives one, and the last it gave once it stops. The patch's own tempo byte is kept with the sound but not used.
 
 Modulation reaches the three pitch depths (Filter Env to Pitch, LFO 1 to Osc 1 and to Osc 2) as it reaches any dial:
 added to the dial in full-amount units (128 dial steps), rounded and held within 0-127, then read through the depth
@@ -220,7 +220,9 @@ A gain on what the oscillators send the filters, from LFO 1. Its depth is a nine
 -0.25, 0, 0.25, 0.375, 0.5, 0.625 at amounts 0, 16 ... 128, straight between. With u the LFO moved to 0..1 (turned
 over for a negative depth) and d the depth: gain = max(0, 2 (S(|d| u) + 1 - |d|) - 1), S the amplifier's sustain curve
 read at 128 |d| u. At 0 depth the gain is 1; at either end it swings from silence to 0.63. Worked out once a block and
-ramped across it. Against reference renders: within a dB at the loud end at every amount (C039 14 -> 3 dB).
+ramped across it. Against reference renders: within a dB at the loud end at every amount (C039 14 -> 3 dB). With LFO 1 in
+Env Mode, whose cycle swings 0..2 from rest (tiLfo notes §2), u is half of it: 0 at rest, so once the cycle is spent
+a full depth leaves silence, as the reference does (B093: it fell to -23 dB here and held there, 2026-11-12).
 
 ## 14. FM
 Osc 2's frequency swings by up to 15.75 times itself at full amount, through zero. The swing is 1, 4, 8 and 16 times the frequency at amounts 32, 64, 96 and 128, a straight line between each. The modulator is Osc 1 as a positive triangle, a triangle, its wave, or noise. The triangle starts from its peak

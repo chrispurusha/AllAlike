@@ -162,6 +162,10 @@ const tSynthLibParam     gSn2Params[kSn2ParamCount] = {
     {kSn2ParamPanSpeed,       "Pan Speed",               "Speed",    eSynthLibUnitGeneric,   0.0,          127.0,                34.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
     {kSn2ParamPanDepth,       "Pan Depth",               "Depth",    eSynthLibUnitGeneric,   0.0,          127.0,                         0.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
     {kSn2ParamPanEffects,     "Pan Effects",             "Effects",  eSynthLibUnitIndexed,   0.0,            1.0,                         1.0,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kSn2ParamAntiAlias,      "Anti-alias",              "AA",       eSynthLibUnitIndexed,   0.0,            1.0,                         1.0,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kSn2ParamFm13,           "FM 1x3",                  "FM 1x3",   eSynthLibUnitIndexed,   0.0,            1.0,                         0.0,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kSn2ParamFm23,           "FM 2x3",                  "FM 2x3",   eSynthLibUnitIndexed,   0.0,            1.0,                         0.0,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kSn2ParamFmNoise,        "FM Noise",                "FM Noise", eSynthLibUnitIndexed,   0.0,            1.0,                         0.0,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
 };
 
 static const char *const kShapes[]          = {"SAW", "SQUARE", "DOUBLE"};
@@ -186,14 +190,18 @@ static const tSn2Control kOsc2[]            = {
     {kSn2ParamOsc2Soften,   "Soften", eTiControlDial,   127,   0.0, NULL   },
     {kSn2ParamOsc2Level,    "Level",  eTiControlDial,   127,   0.0, NULL   },
 };
+static const char *const kFmOnOff[]         = {"OFF", "ON"};
 static const tSn2Control kOsc3[]            = {
-    {kSn2ParamOsc3Shape,    "Shape",  eTiControlChoice,   2,   0.0, kShapes},
-    {kSn2ParamOsc3Octave,   "Octave", eTiControlDial,     4,  -2.0, NULL   },
-    {kSn2ParamOsc3Semitone, "Semi",   eTiControlDial,    24, -12.0, NULL   },
-    {kSn2ParamOsc3Fine,     "Fine",   eTiControlDial,   127, -64.0, NULL   },
-    {kSn2ParamOsc3Width,    "Width",  eTiControlDial,   127,   0.0, NULL   },
-    {kSn2ParamOsc3Soften,   "Soften", eTiControlDial,   127,   0.0, NULL   },
-    {kSn2ParamOsc3Level,    "Level",  eTiControlDial,   127,   0.0, NULL   },
+    {kSn2ParamOsc3Shape,    "Shape",  eTiControlChoice,   2,   0.0, kShapes },
+    {kSn2ParamOsc3Octave,   "Octave", eTiControlDial,     4,  -2.0, NULL    },
+    {kSn2ParamOsc3Semitone, "Semi",   eTiControlDial,    24, -12.0, NULL    },
+    {kSn2ParamOsc3Fine,     "Fine",   eTiControlDial,   127, -64.0, NULL    },
+    {kSn2ParamOsc3Width,    "Width",  eTiControlDial,   127,   0.0, NULL    },
+    {kSn2ParamOsc3Soften,   "Soften", eTiControlDial,   127,   0.0, NULL    },
+    {kSn2ParamOsc3Level,    "Level",  eTiControlDial,   127,   0.0, NULL    },
+    {kSn2ParamFm13,         "FM 1x3", eTiControlChoice,   1,   0.0, kFmOnOff},   // sn2Voices notes §18: Osc 3 is what they modulate
+    {kSn2ParamFm23,         "FM 2x3", eTiControlChoice,   1,   0.0, kFmOnOff},
+    {kSn2ParamFmNoise,      "FM Nse", eTiControlChoice,   1,   0.0, kFmOnOff},
 };
 static const tSn2Control kFilter[]          = {
     {kSn2ParamCutoff,      "Cutoff", eTiControlDial,   127, 0.0, NULL    },
@@ -218,10 +226,12 @@ static const tSn2Control kAmp[]             = {
 };
 static const char *const kPolyModes[]       = {"Poly", "Mono"};
 static const char *const kEnvTriggers[]     = {"Retrigger", "Legato"};
+static const char *const kAntiAlias[]       = {"OFF", "ON"};
 static const tSn2Control kVoices[]          = {
-    {kSn2ParamVoiceLimit, "Limit",   eTiControlDial,   SN2_MAX_VOICES - 1, 1.0, NULL        },
-    {kSn2ParamPolyMode,   "Mode",    eTiControlChoice,                  1, 0.0, kPolyModes  },
-    {kSn2ParamEnvTrigger, "Trigger", eTiControlChoice,                  1, 0.0, kEnvTriggers},
+    {kSn2ParamVoiceLimit, "Limit",      eTiControlDial,   SN2_MAX_VOICES - 1, 1.0, NULL        },
+    {kSn2ParamPolyMode,   "Mode",       eTiControlChoice,                  1, 0.0, kPolyModes  },
+    {kSn2ParamEnvTrigger, "Trigger",    eTiControlChoice,                  1, 0.0, kEnvTriggers},
+    {kSn2ParamAntiAlias,  "Anti-alias", eTiControlChoice,                  1, 0.0, kAntiAlias  },
 };
 static const tSn2Control kMixer[]           = {
     {kSn2ParamNoiseLevel,  "Noise",  eTiControlDial, 127, 0.0, NULL},
@@ -296,11 +306,11 @@ static const tSn2Control kGlide[]           = {
     {kSn2ParamOscTrigger, "Trigger", eTiControlChoice,   1, 0.0, kTriggers   },
 };
 static const tSn2Section kOscillatorsPage[] = {
-    {"OSC 1", {0.30, 0.55, 0.85}, kOsc1,  7},
-    {"MIXER", {0.60, 0.60, 0.65}, kMixer, 4},
-    {"OSC 2", {0.30, 0.70, 0.60}, kOsc2,  7},
-    {"GLIDE", {0.60, 0.60, 0.65}, kGlide, 5},
-    {"OSC 3", {0.85, 0.55, 0.30}, kOsc3,  7},
+    {"OSC 1", {0.30, 0.55, 0.85}, kOsc1,   7},
+    {"MIXER", {0.60, 0.60, 0.65}, kMixer,  4},
+    {"OSC 2", {0.30, 0.70, 0.60}, kOsc2,   7},
+    {"GLIDE", {0.60, 0.60, 0.65}, kGlide,  5},
+    {"OSC 3", {0.85, 0.55, 0.30}, kOsc3,  10},
 };
 static const tSn2Section kFilterPage[]      = {
     {"FILTER", {0.90, 0.55, 0.20}, kFilter, 7},
@@ -391,7 +401,7 @@ static const tSn2Control kPan[]             = {
     {kSn2ParamPanEffects, "Effects", eTiControlChoice,   1, 0.0, kOffOn},
 };
 static const tSn2Section kGlobalPage[]      = {
-    {"PLUG-IN",  {0.65, 0.65, 0.65}, kVoices,   3},
+    {"PLUG-IN",  {0.65, 0.65, 0.65}, kVoices,   4},
     {"EFFECTS",  {0.65, 0.65, 0.65}, kGlobalFx, 3},
     {"HARDWARE", {0.65, 0.65, 0.65}, kHardware, 3},
     {"PAN",      {0.65, 0.65, 0.65}, kPan,      4},
@@ -483,6 +493,9 @@ void sn2_controls_sound(const double * v, tSn2Sound * sound) {
     sound->wheel          = v[kSn2ParamModWheel];
     sound->pedal          = v[kSn2ParamSustainPedal] >= 0.5;
     sound->mono           = v[kSn2ParamPolyMode] > 0.5;
+    sound->fm13           = v[kSn2ParamFm13] > 0.5;      // sn2Voices notes §18
+    sound->fm23           = v[kSn2ParamFm23] > 0.5;
+    sound->fmNoise        = v[kSn2ParamFmNoise] > 0.5;
     sound->legato         = v[kSn2ParamEnvTrigger] > 0.5;
     sound->wheelCutoff    = (v[kSn2ParamWheelCutoff] * 127.0) - 64.0;
     sound->wheelResonance = (v[kSn2ParamWheelResonance] * 127.0) - 64.0;

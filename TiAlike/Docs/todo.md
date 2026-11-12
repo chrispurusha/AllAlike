@@ -9,8 +9,14 @@ One line per item. Measurements and reasoning go in `findings.md`, design in `de
 - Filter 2 band pass at Cutoff 127 (linked): about 5 dB louder than the reference (within 0.5 dB at 64-115); Dgtalrido (C033) still 14.9 after the Split fix - recheck at its own settings. Wired (C127) reduces to four LFO 2 settings (LFO 2 to Osc Shape)
 - Anti-alias Off: a lone HyperSaw saw aliases as the instrument's since 2026-11-12 (tiOsc notes §9); with several saws the energy between the harmonics is about 2 dB more than the instrument's even band-limited - the stack's spacing or levels, to check; FM mixed (ours 12 dB cleaner at C6, 11 dB dirtier at C7)
 - Arpeggiator built 2026-11-11 (tiArp notes): old-format Singles' user pattern (C062), C117 chord mode, Arp>Matrix's matrix source, the host song position as the pattern's phase while playing
+- Arpeggiator user pattern (2026-11-12: lengths in 64ths, 127 a tie): W107 S@y "TI" has one short step on and 31 off - the instrument keeps the note sounding through the off steps (no release at all), yet with only 2 steps it releases on the off step; W115 still cuts to silence near the pattern's restart where the instrument decays
+- O040 FM Sequ jh: LFO 2 on a wave shape (15) into Amp Env Decay - ours dies away within 0.4 s, the instrument lasts 0.75 s; matches with the filter open (Cutoff 28), so look at what the LFO does to the filter path too
+- N031 Donky BC: Patch Volume 0 raised by an LFO, with Distortion on - ours applies the volume's modulation before the distortion (as a ratio to the static volume, which comes after it), so from 0 the distortion is driven 86 dB hard and the result is 47 dB quiet; the instrument plays it as at volume 100. Where the instrument applies modulated volume against Distortion, and whether per voice, to work out
+- Ring with Osc Volume 0: 8-12 dB louder here than on the instrument (Init with Ring 100, at Filter Gain depths 64, 32 and 0) - how Osc Volume scales the ring
+- K019 DesolateBC: a free-running S&H on LFO 1 into Filter Gain at full negative depth; every voice here starts from the same held value, which shuts the gain - on the instrument the value at a note is whatever the free LFO holds, so start each note's S&H from a fresh value
 - Blame tool: longer windows (several seconds) for evolving patches before trusting a short-window score
 - Bank C still apart from the reference after the Serial 6 fix: C001 (analog 4-pole, top octaves 15-30 dB dark), C009 AprilPad, C003 Aeternal, C008 AnlogFeel
+- C074 M@inTheBox and C117 TouchGate (Key Mode Hold, so no arpeggio since 2026-11-12): still 14 dB apart in the first quarter second
 - Synced Osc 2 below Osc 1 with a pulse edge near the restart (C007 at Detune 0): settle where the slave restarts against the edge
 - FM into a Wavetable Osc 2, and Classic at full amount: ours goes inharmonic where the reference stays on the note
 - Grain/Formant models: sweep their own controls against the reference (Shape and Width do not drive them)
@@ -23,9 +29,10 @@ One line per item. Measurements and reasoning go in `findings.md`, design in `de
 - Chorus: the other types, and Feedback checked. 
 - Filter Bank: VariSlope in-between Shapes, Vowel at high resonance, Vowel and shifter Stereo Phase
 - Effects, in order: Chorus (11% with mix on), Character types (13%), Filterbank (12%), and last of all Delay and Reverb
-- Distortion: Mint at Intensity 32 is 3.7 dB low and 7 dB out at 64; Treble Booster, High Cut and Tone
+- Distortion (2026-11-12 survey, one oscillator, Intensity 32/96 at two input levels): Mint and Rectifier fixed; still out - Bit Reducer's cut-off depends on the signal (a quiet saw sounds on the instrument and not here, a quiet sine the other way round); Saffron and Onion: on a quiet input ours rises above the instrument by exactly its level ramp over the first 48 steps (the instrument has none there), while saturated at high Intensity ours is 6.4 and 2.5 dB low - the instrument keeps its small-signal gain and saturates higher, which the shared Wide shape cannot do; Treble Booster, High Cut and Tone
 - Ring at the same pitch: level right, spectrum still out on saws and pulses
 - Saturation curve 5 (Digital): about 4.5 dB hot across five Singles - check with more
+- Draw each oscillator's wave on the panel, with the current position marked (a wavetable's Index, Shape on the classic models) - the window will probably need to grow (CT, 2026-11-12)
 - Level indications at various stages of the voice (oscillators, filters, saturation, output), to help monitor gain staging
 - Fixed point, per the Arithmetic parameter (with only the biquad converted, fixed and float differ 60-110 dB below the signal on 15 of 20 Singles, 31-54 dB on Bumztik LD, RoachLead and Mushi BS - look at those first): the biquad is done. Next oscillators, envelopes, mix, saturation, the ladder. A null needs all of them, with the phases and timing
 - Oscillator models (11-02): Wave PWM, Grain and Formant built (tiOsc notes §6-§8). Open: their F-Shift / F-Spread matrix routes; high Formant or Sync on rich tables keeps too many top partials (up to 2 dB) (Complex + Detune's half-frequency energy matches the instrument within about 2 dB on models 5 and 7, Detune 0-127 - checked 2026-11-08)
@@ -101,13 +108,12 @@ One line per item. Measurements and reasoning go in `findings.md`, design in `de
 - Clocked LFOs: their phase against the host timeline is unchecked
 - Saturation Rate Reducer at full drive, and Bit Reducer above drive 96, are still out
 - Hardware: the USB link could go direct through libusb, bypassing the maker's driver
-- Delay: modulation, Tape types, Pattern timing at other tempos, order against the EQ. Reverb. Chorus types Vintage, Hyper, Air, Vibrato, Rotary
-- Reverb: top octave 4-6 dB hot, tank modulation, Feedback 1 and 2 modes, Reverb Clock
+- Delay: Tape Free against Tape Doppler (built alike, a change of time gliding over 0.2 s - how each moves when Time changes is not measured), Pattern timing at other tempos, order against the EQ. Chorus types Vintage, Hyper, Air, Vibrato, Rotary
+- Reverb: top octave 4-6 dB hot, tank modulation, Feedback 1 and 2 modes
 - Analog filter modes: a high-frequency floor in the reference, 20 dB higher at 44.1 kHz than at 48, not in ours
-- Panel: controls with no effect yet: Tape, Delay LFO, Reverb Clock and Feedback, Quality, Tone (wavetable Sync, Formant, Detune and Smooth act since 11-02, on the models that use them)
+- Panel: controls with no effect yet: Reverb Feedback, Quality, Tone (wavetable Sync, Formant, Detune and Smooth act since 11-02, on the models that use them)
 - Panel: not offered: vocoder and input follower, soft knobs
 - Delay Clock: tempo law built but unverified on our side; the times wander at 60, 120 and 200 BPM, possibly with sample rate; sequencer patterns, whose right channel runs at the exact tempo
-- Reverb Clock: acts as predelay, not built
 - Wave and wavetable images above their top partial (a stored cycle's mirror images, near -65 dB)
 - HyperSaw and oscillators sit 0.3 cents sharp of the reference
 - Oscillators at the very top: about 6 dB down at note 108 on every model - NOT REPRODUCED 2026-11-08: saw, pulse, wave 10 and sine at notes 60/96/102/108 (48 kHz, open filter, Osc 1 alone) match the reference in level within 0.2 dB; delete unless it shows again under other settings

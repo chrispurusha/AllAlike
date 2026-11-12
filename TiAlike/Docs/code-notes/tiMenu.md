@@ -18,3 +18,9 @@ choosing it in either place changes both.
 
 ## 4. Wavetable
 Load Wavetable... for Osc 1 and for Osc 2; Prev and Next are on the panel beside each Wave (tiDraw notes §16).
+
+## 5. Help
+One topic a window, since an alert shows about 32 wrapped lines: The Panel, Patches and Presets, User Wavetables,
+Global Settings (Anti-alias among them) and The Virus TI, then About. Plain ASCII only - the panel's font has nothing
+else. Keep them in step with what is built: until 2026-11-12 the one window still described the first build, a
+single oscillator and the two filters.

@@ -386,11 +386,28 @@ static void load_preset(int number) {
     }
 }
 
-// notes §11: Prev/Next step through 1:001-8:128 and wrap; from no preset, Next is 1:001
-static void step_patch(int direction) {
-    int from = (gPreset != 0) ? gPreset : ((direction > 0) ? 0 : 1);
+static tBankBrowserItem gSlotItems[NL3_PRESETS];
+static void fill_slot_items(void);
 
-    load_preset((((from - 1 + direction) % NL3_PRESETS) + NL3_PRESETS) % NL3_PRESETS + 1);
+// notes §11: Prev/Next step through the presets in the order the browser lists them under the Sort menu, and wrap;
+// from no preset, Next is the first and Prev the last
+static void step_patch(int direction) {
+    static uint32_t order[NL3_PRESETS];
+    int             at   = -1;
+
+    fill_slot_items();
+    bank_browser_sorted_order(gSlotItems, NL3_PRESETS, NULL, 0, bank_browser_sort_mode(), order);
+
+    for (int i = 0; (i < NL3_PRESETS) && (gPreset != 0); i++) {
+        if ((int)order[i] == (gPreset - 1)) {
+            at = i;
+            break;
+        }
+    }
+
+    int             next = (at < 0) ? ((direction > 0) ? 0 : (NL3_PRESETS - 1)) : ((((at + direction) % NL3_PRESETS) + NL3_PRESETS) % NL3_PRESETS);
+
+    load_preset((int)order[next] + 1);
 }
 
 static int gStoreTo;
@@ -428,12 +445,13 @@ void nl3_draw_store_preset(int number) {
     show_confirm("Store Preset", message, "Store", on_store_confirmed);
 }
 
-static tBankBrowserItem gSlotItems[NL3_PRESETS];
-static char             gSlotNames[NL3_PRESETS][NL3_SINGLE_NAME_LENGTH + 8];
+static char              gSlotNames[NL3_PRESETS][NL3_SINGLE_NAME_LENGTH + 8];
 
 // notes §13: a program's Sound Category (byte 23 of its dump), as the instrument names it; 14 is no category
-static const char *const kCategoryNames[] = {"Acoustic", "Arpeggio", "Bass", "Classic", "Drum", "Fantasy", "FX", "Lead",
-                                             "Organ", "Pad", "Piano", "Synth", "User1", "User2", "No Cat"};
+static const char *const kCategoryNames[] = {
+    "Acoustic", "Arpeggio", "Bass",  "Classic", "Drum",  "Fantasy", "FX", "Lead",
+    "Organ",    "Pad",      "Piano", "Synth",   "User1", "User2",   "No Cat"
+};
 #define CATEGORY_COUNT    ((uint32_t)(sizeof(kCategoryNames) / sizeof(kCategoryNames[0])))
 #define CATEGORY_AT       (23)
 

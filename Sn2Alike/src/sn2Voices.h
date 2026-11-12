@@ -27,6 +27,7 @@
 #include "sn2Osc.h"
 
 #define SN2_OSCS            (3)
+#define SN2_CLEAN_TAPS      (48)   // notes §17: the low-pass back from four times the rate
 #define SN2_MOD_ENVS        (2)    // Env 2 and 3
 #define SN2_LFOS            (2)
 #define SN2_MAX_VOICES      (32)
@@ -35,6 +36,9 @@
 // notes §6: how the two filters are put together
 typedef struct {
     bool       active;
+
+    double     cleanHist[SN2_OSCS][SN2_CLEAN_TAPS];   // notes §17: each oscillator at four times the rate
+    uint32_t   cleanAt;
     bool       gate;
     uint8_t    note;
     float      velocity;
@@ -104,6 +108,7 @@ typedef struct {
     tSn2ModEnv   env[SN2_MOD_ENVS];
     double       noiseLevel, noiseSoften;                     // 0..1, 0..127
     double       ring13, ring23;                              // 0..1
+    bool         fm13, fm23, fmNoise;                         // notes §18: each turns its level into FM depth on Osc 3
     double       bend;                                        // -1..1
     double       wheel;                                       // 0..1
     double       wheelCutoff, wheelResonance;                 // -64..63
@@ -156,6 +161,7 @@ typedef struct {
     double     lfoFree[SN2_LFOS]; // the phase of a free running LFO
     bool       pedalled[128];     // keys up while the pedal held them
     double     edge[SN2_EDGE_POINTS];
+    bool       clean;             // notes §17: Anti-alias - the oscillators at four times the rate, filtered back
 } tSn2Voices;
 
 // voices notes §14: from the normalised Volume
@@ -167,6 +173,7 @@ static inline double sn2_volume_gain(double normalized) {
 
 void sn2_voices_init(tSn2Voices * v);
 void sn2_voices_set_limit(tSn2Voices * v, uint32_t limit);
+void sn2_voices_set_clean(tSn2Voices * v, bool clean);   // notes §17: Anti-alias
 void sn2_voices_note_on(tSn2Voices * v, const tSn2Sound * sound, uint8_t note, float velocity);
 void sn2_voices_note_off(tSn2Voices * v, const tSn2Sound * sound, uint8_t note);
 void sn2_voices_all_off(tSn2Voices * v);

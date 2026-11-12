@@ -365,6 +365,9 @@ void sn2_patch_from_single(const uint8_t single[SN2_SINGLE_LENGTH], double norma
     normalized[kSn2ParamPanEffects] = ((single[MAIN(275)] >> 4) & 1) ? 1.0 : 0.0;
     normalized[kSn2ParamLfo1Fade]   = ((single[FADE_AT] >> 3) & 1) ? 1.0 : 0.0;
     normalized[kSn2ParamLfo2Fade]   = ((single[FADE_AT] >> 4) & 1) ? 1.0 : 0.0;
+    normalized[kSn2ParamFm13]       = ((single[FADE_AT] >> 0) & 1) ? 1.0 : 0.0;   // the FM switches share the byte
+    normalized[kSn2ParamFm23]       = ((single[FADE_AT] >> 1) & 1) ? 1.0 : 0.0;
+    normalized[kSn2ParamFmNoise]    = ((single[FADE_AT] >> 2) & 1) ? 1.0 : 0.0;
     normalized[kSn2ParamPolyMode]   = ((single[MAIN(238)] & 0x03) == 1) ? 1.0 : 0.0;    // above these bits, the Unison voices
     normalized[kSn2ParamEnvTrigger] = ((single[MAIN(235)] <= 33) || (single[MAIN(235)] == 38)) ? 1.0 : 0.0;
     normalized[kSn2ParamReverbType] = (double)((single[MAIN(269)] >> 3) & 0x0F) / 15.0; // shares its byte with Early Reflections
@@ -423,7 +426,8 @@ void sn2_patch_to_single(const double normalized[kSn2ParamCount], const uint8_t 
         out[MAIN(269)] = (uint8_t)((out[MAIN(269)] & 0x07) | ((uint8_t)reverbType << 3));
     }
     out[MAIN(275)] = (uint8_t)((out[MAIN(275)] & ~0x10) | ((normalized[kSn2ParamPanEffects] > 0.5) ? 0x10 : 0));
-    out[FADE_AT]   = (uint8_t)((out[FADE_AT] & ~0x18) | ((normalized[kSn2ParamLfo1Fade] > 0.5) ? 0x08 : 0) | ((normalized[kSn2ParamLfo2Fade] > 0.5) ? 0x10 : 0));
+    out[FADE_AT]   = (uint8_t)((out[FADE_AT] & ~0x1F) | ((normalized[kSn2ParamLfo1Fade] > 0.5) ? 0x08 : 0) | ((normalized[kSn2ParamLfo2Fade] > 0.5) ? 0x10 : 0)
+                               | ((normalized[kSn2ParamFm13] > 0.5) ? 0x01 : 0) | ((normalized[kSn2ParamFm23] > 0.5) ? 0x02 : 0) | ((normalized[kSn2ParamFmNoise] > 0.5) ? 0x04 : 0));
 
     if ((base == NULL) || ((normalized[kSn2ParamPolyMode] > 0.5) != (was[kSn2ParamPolyMode] > 0.5))) {
         out[MAIN(238)] = (uint8_t)(((base != NULL) ? (out[MAIN(238)] & 0x7C) : 0x40) | ((normalized[kSn2ParamPolyMode] > 0.5) ? 1 : 2));

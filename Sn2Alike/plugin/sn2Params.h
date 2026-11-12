@@ -163,6 +163,10 @@ enum {
     kSn2ParamPanSpeed,
     kSn2ParamPanDepth,
     kSn2ParamPanEffects,
+    kSn2ParamAntiAlias,   // sn2Voices notes §17
+    kSn2ParamFm13,        // sn2Voices notes §18: Osc 1 frequency-modulates Osc 3, at the 1x3 level
+    kSn2ParamFm23,        // Osc 2 does
+    kSn2ParamFmNoise,     // the noise does, at the noise level
     kSn2ParamCount
 };
 

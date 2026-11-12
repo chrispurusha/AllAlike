@@ -24,6 +24,7 @@
 #include "synthlibTypes.h"
 #include "synthlibVersion.h"
 #include "contextMenu.h"
+#include "bankBrowser.h"
 #include "alertDialog.h"
 
 #include "nl3Draw.h"
@@ -199,15 +200,19 @@ static void action_about(int index) {
 static void action_panel_help(int index) {
     (void)index;
     show_alert("The Panel",
-               "An early build: one oscillator, the two filters, the amplifier envelope (ENV) and the voice limit on the "
-               "GLOBAL page.\n\n"
-               "Patches: < Prev and Next > step through the presets, 1:001-8:128; Load... opens a .syx or .mid file of "
+               "A work in progress: the filter (low and high pass at 12 and 24 dB) and the Saw are the instrument's own; the rest "
+               "plays through an interim engine for now. Maths (GLOBAL page) chooses floating point or the instrument's "
+               "fixed-point arithmetic.\n\n"
+               "Patches: < Prev and Next > step through the presets, 1:001-8:128, in the order the Sort menu sets; Load... opens a .syx or .mid file of "
                "Singles, choosing one when it holds several. The name beside them edits on a click. A Single keeps "
                "every byte it came with, though only what is built so far plays.\n\n"
                "Link (GLOBAL page): the Nord Lead 3 follows this sound. Play it from the host on the instrument's own MIDI channel: Link sends no notes, so a key sounds once. Choose its output in the MIDI menu; Device is the instrument's. Only its edit buffer is written, never a stored program.\n\n"
                "Dials: drag to turn, Shift to turn finely. Controls chooses how a drag turns them: Rotary follows the "
                "pointer round the dial, Vertical and Horizontal count its movement.\n\n"
                "Lists (the oscillator's shape, the filter's mode) open a menu of their values on a click.\n\n"
+               "Anti-alias (PLUG-IN, GLOBAL page): On, the default, keeps the oscillators clean - no tones folding back from above "
+               "the top of the audio band. Off plays them as the instrument makes them, aliases included, for its grittier "
+               "top end.\n\n"
                "For a diagnostic log: in Terminal, touch /tmp/nl3alike-log, then reload the plug-in; the log is "
                "/tmp/nl3alike.log.");
 }
@@ -257,9 +262,30 @@ static void open_midi_menu(tCoord anchor) {
     open_context_menu(anchor, items, 0, 0.0);
 }
 
+// ---- Sort - notes §2: the order the preset browser lists in and Prev/Next step through ---------------------------
+
+static void action_sort(int index) {
+    bank_browser_set_sort_mode((int32_t)gContextMenu.items[index].param);
+}
+
+static void open_sort_menu(tCoord anchor) {
+    static tMenuItem items[3];
+    int32_t          mode = bank_browser_sort_mode();
+
+    items[0] = (tMenuItem){
+        (mode != 2) ? "* Bank / Location" : "Bank / Location", ITEM, action_sort, 0, NULL, 0, 0.0, NULL
+    };
+    items[1] = (tMenuItem){
+        (mode == 2) ? "* A-Z" : "A-Z", ITEM, action_sort, 2, NULL, 0, 0.0, NULL
+    };
+    items[2] = END_OF_MENU;
+    open_context_menu(anchor, items, 0, 0.0);
+}
+
 static const tMenuBarItem gMenuBar[] = {
     {"File",     open_file_menu    },
     {"Presets",  open_presets_menu },
+    {"Sort",     open_sort_menu    },
     {"Controls", open_controls_menu},
     {"MIDI",     open_midi_menu    },
     {"Help",     open_help_menu    },

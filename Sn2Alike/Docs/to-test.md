@@ -14,3 +14,4 @@ Finished work not yet checked against the instrument.
 - Link in a host: MIDI menu, Link HW button (green / amber No port / Link busy), Channel, SysEx ID; notes, bend, wheel, pedal; editing a dial while holding notes
 - GLOBAL page: Limit, Mode, Trigger, Effects, Delay, Reverb and Hardware all fit
 - Presets > Read from Hardware in a host: the Reading count, the confirm, and the instrument's data carrying on after it
+- Anti-alias On and Off on a bright high Saw and Square with Soften up, the Sort menu with Prev/Next, and a note held across a preset change (it stops, no clip lamp) (2026-11-12): in a host

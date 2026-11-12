@@ -94,10 +94,9 @@ Missing everywhere, or built in one and wanted in the others:
 ## TiAlike
 
 **Missing**
-- **Effects:** Chorus types other than Classic; Tape types, and the pattern delays'
-  routing (patterns 2+5 to 5+5 built 2026-11-09, but on the instrument the right is a single tap fed into the left's loop); Reverb's Feedback modes and Clock; the Distortion Wave Shaper; Character types other than Analog Boost.
+- **Effects:** Chorus types other than Classic; the pattern delays'
+  routing (patterns 2+5 to 5+5 built 2026-11-09, but on the instrument the right is a single tap fed into the left's loop); Reverb's Feedback modes; Distortion Quality and Tone; Character types other than Analog Boost.
 - **Vocoder, input follower, soft knobs:** not offered.
-- **Matrix routes:** the oscillator models' F-Shift and F-Spread.
 - **Fixed point** beyond the filter (oscillators, envelopes, mix, saturation, ladder): a sample-exact null needs all of them.
 
 **Needs more work**
@@ -128,7 +127,7 @@ Missing everywhere, or built in one and wanted in the others:
   3.8; what is left is a free-running LFO's phase); RuffBelsBC is HyperSaw's cross-oscillator sync; DRY DRUM is the
   error measure, not the sound (it scores the instrument's noise floor above a 46 Hz sine).
 
-**Built 2026-11-12:** user wavetables - Wave 100 on each oscillator, loaded from a PPG, Serum-style or Waldorf file and stepped through its folder with Prev/Next beside Wave, kept inside the project; delay modulation; Unison Pan Spread as the instrument's; Anti-alias Off for the HyperSaw.
+**Built 2026-11-12:** Tape delay and Reverb Clock (Predelay corrected); user wavetables - Wave 100 on each oscillator, loaded from a PPG, Serum-style or Waldorf file and stepped through its folder with Prev/Next beside Wave, kept inside the project; delay modulation; Unison Pan Spread as the instrument's; Anti-alias Off for the HyperSaw.
 
 **Built, not yet checked** - `to-test.md`: the first build in a host end to end; Link and Filter Link; patch loading and presets; the envelopes and Overdrives by ear; the Virus TI menu's bank backup and restore with the instrument connected; the chorus and effect glides, the pattern
 delays, the sine LFO's Symmetry.
@@ -138,11 +137,13 @@ delays, the sine LFO's Symmetry.
 **Missing**
 - **Oscillator:** Sync, Hardness, Skew, Formant Width; the audio-input types.
 - **Filter:** Special Width.
-- **Modulation:** FM; LFO routes to level, Soften, sync and resonance; LFO speed from Env 3, wheel and pressure; LFO tempo sync; envelope routes to pitch, width, level and resonance; Env 2 Delay; Env 2 and 3 generally.
+- **Modulation:** LFO routes to level, Soften, sync and resonance; LFO speed from Env 3, wheel and pressure; LFO tempo sync; envelope routes to pitch, width, level and resonance; Env 2 Delay; Env 2 and 3 generally.
 - **Effects:** the comb, Pan Type, phaser types, the chorus feedback law, the Gated reverbs' gates.
 - **Performances:** not read at all.
 - **Panel:** only the Filter page is finished; dials for the LFO routes, bend and wheel.
 - **Arithmetic option** as TiAlike's.
+
+**Built 2026-11-12:** FM (Osc 1, Osc 2 or the noise modulating Osc 3, linear through zero, depth the level squared); the Anti-alias switch (GLOBAL page, On by default: the oscillators at four times the rate and filtered back, the instrument's aliases 7-22 dB down with the harmonics unchanged; Off is the instrument's own); the Sort menu with Prev/Next following it; a preset change stops the old notes and keeps the clip lamp out of the fade.
 
 **Needs more work**
 - **Oscillator stretch law:** nulls stop near -31 dB.
@@ -168,7 +169,7 @@ and the four morph groups; its programs read in and write back byte for byte. **
 (2026-11-07), word for word in fixed point, with an Anti-alias switch (On, the default, at about -90 dB, or Off for the instrument's own aliases).
 **Missing**: the other filter modes, the rest of the engine (the other waveforms, FM and sync, Osc Mod, envelopes, LFOs, morph; it plays through an interim
 mapping), single-parameter MIDI to the instrument, and reading its 1024 programs is built but untried. See
-`Nl3Alike/Docs/todo.md`.
+`Nl3Alike/Docs/todo.md`. **2026-11-12:** the Sort menu with Prev/Next following it; a preset change stops the old notes and keeps the clip lamp out of the fade.
 
 
 ## OneShot

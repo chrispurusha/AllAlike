@@ -7,7 +7,11 @@ cycles, 2026-11-11) it is within 1% from 48 to 104 and 2% at 40 and 112, where t
 table it replaces was out by up to 4.4% (at 104).
 
 ## 2. Env Mode
-One cycle, lifted to sit on zero (so it swings 0..2), and then nothing until the next note. It runs at twice the LFO's rate. S&H and S&G are not lifted, and they end holding their value rather than falling to nothing.
+One cycle, lifted to sit on zero (so it swings 0..2), from the Keytrigger phase (the top with Keytrigger off), and
+then it rests where the cycle ended - the value just before that phase, the end of the cycle when it is 0 - until the
+next note. From the top that is the bottom, 0. Against reference renders through Filter Gain, saw and square at
+Keytrigger 1 to 113: a square started in its first half rests high, in its second half low; a saw rests lower the later
+it starts (2026-11-12; K030 FunkMamaBC, Keytrigger 57, was silent here once its cycle was spent). It runs at twice the LFO's rate - unless the LFO is clocked, when its cycle is the clock's note value, as without Env Mode (against reference renders, Clock 6 and 10, 2026-11-12: U076 OfcHell ended its note in half the time here). S&H and S&G are not lifted, and they end holding their value rather than falling to nothing.
 
 ## 3. Contour
 Bends the phase, so a shape's ends stay where they are.

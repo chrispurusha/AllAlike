@@ -393,15 +393,15 @@ typedef struct {
 
 // notes §2: each Overdrive's filter ahead of the shaper
 typedef struct {
-    double gain, lowCut, highCut, q, afterDb, postHz;   // postHz: a pole after the shaper, 0 none
+    double gain, lowCut, highCut, q, afterDb, postHz, out;   // postHz: a pole after the shaper, 0 none; out: its output level
 } tOverdrive;
 
 static const tOverdrive kOverdrive[5] = {
-    {12.8121, 4980.7,  5615.1, 0.1971, -0.24, 350.0},
-    { 0.8958,   87.0, 22808.0, 0.0114,  0.00,   0.0},
-    {40.6764, 6000.0, 18243.1, 0.0200,  8.76, 350.0},
-    { 2.1389,  172.6,  2436.5, 0.2441,  6.48, 350.0},
-    { 2.4389,  959.3,  5654.4, 1.0593, -0.23, 550.0},
+    {12.8121, 4980.7,  5615.1, 0.1971, -0.24, 350.0, 2.0},   // notes §2: Mint twice the others, at every Intensity
+    { 0.8958,   87.0, 22808.0, 0.0114,  0.00,   0.0, 1.0},
+    {40.6764, 6000.0, 18243.1, 0.0200,  8.76, 350.0, 1.0},
+    { 2.1389,  172.6,  2436.5, 0.2441,  6.48, 350.0, 1.0},
+    { 2.4389,  959.3,  5654.4, 1.0593, -0.23, 550.0, 1.0},
 };
 
 static double overdrive_filter(tTiEffects * e, int ch, const tBiquadCoeffs * top, double lowCut, double gain, double x) {
@@ -454,7 +454,7 @@ static void shaped(tTiEffects * e, int ch, uint8_t curve, double intensity, doub
         top.a1   = -2.0 * c / n;
         top.a2   = (1.0 - al) / n;
         lowCut   = 1.0 - exp(-2.0 * M_PI * od->lowCut / e->rate);
-        after    = pow(10.0, od->afterDb * fmin(intensity / 48.0, 1.0) / 20.0);
+        after    = od->out * pow(10.0, od->afterDb * fmin(intensity / 48.0, 1.0) / 20.0);
         postPole = (od->postHz > 0.0) ? (1.0 - exp(-2.0 * M_PI * od->postHz / e->rate)) : 0.0;
     }
 
@@ -495,6 +495,9 @@ static void shaped(tTiEffects * e, int ch, uint8_t curve, double intensity, doub
             e->distAt[ch]                  = (e->distAt[ch] + 1u) % TI_DIST_DELAY;
             e->distHigh[ch]               += a * (out - e->distHigh[ch]);
             y                              = out - e->distHigh[ch];
+        } else if (curve == 7) {
+            e->distHigh[ch] += a * (y - e->distHigh[ch]);   // notes §2: the Rectifier keeps the high-pass, though not the delay
+            y                = y - e->distHigh[ch];
         }
 
         if (useCut) {
@@ -1137,14 +1140,16 @@ static double delay_whole_note(const tTiEffects * e) {
     return DELAY_TEMPO_LAW * 240.0 * e->rate / ((e->bpm > 1.0) ? e->bpm : 120.0);
 }
 
+// notes §11: Delay Clock's and Reverb Clock's note values, in whole notes
+static const double kClockDivision[17] = {
+    0.0,        1.0 / 64.0, 1.0 / 32.0, 1.0 / 16.0, 1.0 / 8.0, 1.0 / 4.0, 1.0 / 2.0, 3.0 / 64.0, 3.0 / 32.0,
+    3.0 / 16.0,  3.0 / 8.0, 1.0 / 24.0, 1.0 / 12.0, 1.0 / 6.0, 1.0 / 3.0, 2.0 / 3.0, 3.0 / 4.0
+};
+
 // notes §11: a clock division replaces the Time dial, folded by octaves into the line
 static double delay_clocked(const tTiEffects * e, uint8_t clock) {
-    static const double kDivision[17] = {
-        0.0,        1.0 / 64.0, 1.0 / 32.0, 1.0 / 16.0, 1.0 / 8.0, 1.0 / 4.0, 1.0 / 2.0, 3.0 / 64.0, 3.0 / 32.0,
-        3.0 / 16.0,  3.0 / 8.0, 1.0 / 24.0, 1.0 / 12.0, 1.0 / 6.0, 1.0 / 3.0, 2.0 / 3.0, 3.0 / 4.0
-    };
-    double              longest       = 32768.0 * e->rate / 48000.0;
-    double              at            = kDivision[(clock <= 16) ? clock : 0] * delay_whole_note(e);
+    double longest = 32768.0 * e->rate / 48000.0;
+    double at      = kClockDivision[(clock <= 16) ? clock : 0] * delay_whole_note(e);
 
     while (at > longest) {
         at *= 0.5;
@@ -1215,38 +1220,105 @@ static double delay_tone(tTiEffects * e, const uint8_t * a, int line, double x) 
     return y;
 }
 
-static void delay(tTiEffects * e, const uint8_t * a, const uint8_t * b, float * left, float * right, uint32_t frames) {
+#define TAPE_STEP          (256.0 / 46875.0)   // notes §8b: seconds a Delay Time step
+#define TAPE_LONGEST       (0.7344)            // seconds: a clocked side stops there
+#define TAPE_KNEE          (0.06)              // the loop's limit: straight up to here,
+#define TAPE_CEILING       (0.10)              // then rounding off towards here
+#define TAPE_TIME_GLIDE    (0.2)               // seconds: a tape's change of speed
+#define TAPE_LOOP_BAND     (0.75)              // the share of Bandwidth again on each trip round the loop
+
+// notes §8b: Tape's two sides in samples - Clocked from Left and Right, Free and Doppler from Time and Ratio
+static void tape_times(const tTiEffects * e, const uint8_t * a, const uint8_t * c, double * left, double * right) {
+    static const double kSixteenths[9] = {0.5, 1, 2, 3, 4, 5, 6, 7, 8};
+
+    if (c[10] == 1) {
+        double sixteenth = 15.0 / ((e->bpm > 1.0) ? e->bpm : 120.0);
+
+        *left  = fmin(kSixteenths[(c[13] <= 8) ? c[13] : 8] * sixteenth, TAPE_LONGEST) * e->rate;
+        *right = fmin(kSixteenths[(c[14] <= 8) ? c[14] : 8] * sixteenth, TAPE_LONGEST) * e->rate;
+        return;
+    }
+    double              t              = fmax((double)a[114], 1.0) * TAPE_STEP * e->rate;
+    int                 ratio          = (c[12] <= 6) ? c[12] : 3;
+
+    *left  = (ratio < 3) ? (t * (ratio + 1) / 4.0) : t;   // 1/4, 2/4, 3/4 shorten the left
+    *right = (ratio > 3) ? (t * (7 - ratio) / 4.0) : t;   // 4/3, 4/2, 4/1 the right
+}
+
+// notes §8b: Bandwidth, a band closing on 1 kHz from both sides - two poles each way, 1.2 octaves in every 32 steps
+static double tape_band(tTiEffects * e, int line, double hp, double lp, double x) {
+    double * s = e->tapeBand[line];
+
+    s[0] += hp * (x - s[0]);
+    x    -= s[0];
+    s[1] += hp * (x - s[1]);
+    x    -= s[1];
+    s[2] += lp * (x - s[2]);
+    s[3] += lp * (s[2] - s[3]);
+    return s[3];
+}
+
+// notes §8b: what the loop sends round again - straight up to the knee, then rounding off below the ceiling
+static double tape_limit(double x) {
+    double m = fabs(x);
+
+    return (m <= TAPE_KNEE) ? x : copysign(TAPE_KNEE + ((TAPE_CEILING - TAPE_KNEE) * tanh((m - TAPE_KNEE) / (TAPE_CEILING - TAPE_KNEE))), x);
+}
+
+static void delay(tTiEffects * e, const uint8_t * a, const uint8_t * b, const uint8_t * c, float * left, float * right, uint32_t frames) {
     if (!e->delayAllowed || (a[112] == 0) || (a[113] == 0)) {
         return;
     }
     double  send      = a[113];
     double  wet       = delay_wet(send);
     double  dry       = (send <= 96.0) ? 1.0 : ((127.0 - send) / 31.0);
-    double  feedback  = 0.00772 * a[115];
+    bool    tape      = (c[10] >= 1) && (c[10] <= 3);   // notes §8b
+    double  feedback  = tape ? (a[115] / 64.0) : (0.00772 * a[115]);
     double  at[2], whole;
 
     delay_times(e, a, b, &at[0], &at[1], &whole);
+
+    if (tape) {   // notes §8b: no delay modulation on a tape
+        tape_times(e, a, c, &at[0], &at[1]);
+        whole = 0.0;
+    }
     double  swing     = DELAY_MOD_DEPTH * (a[117] / 127.0) * whole * delay_lfo(e, a, frames);
 
     at[0] -= swing;                                 // notes §8a: the two sides in antiphase
     at[1] += swing;
 
-    bool    apart     = (a[112] == 1);
+    bool    apart     = tape || (a[112] == 1);
+    double  bw        = c[17];
+    double  hp        = 1.0 - exp(-2.0 * M_PI * 31.0 * exp2(bw / 26.0) / e->rate);
+    double  lp        = 1.0 - exp(-2.0 * M_PI * fmin(29000.0 * exp2(-bw / 26.5), 0.45 * e->rate) / e->rate);
+    double  hpLoop    = 1.0 - exp(-2.0 * M_PI * 31.0 * exp2(TAPE_LOOP_BAND * bw / 26.0) / e->rate);   // notes §8b: the loop at a share of the Bandwidth
+    double  lpLoop    = 1.0 - exp(-2.0 * M_PI * fmin(29000.0 * exp2(-TAPE_LOOP_BAND * bw / 26.5), 0.45 * e->rate) / e->rate);
+    double  timeGlide = tape ? (1.0 - exp(-1.0 / (TAPE_TIME_GLIDE * e->rate))) : 0.0;
     float * lineL     = e->delayLine[0];
     float * lineR     = e->delayLine[apart ? 1 : 0];
     double  target[6] = {wet, dry, feedback, fmin(fmax(at[0], 1.0), TI_DELAY_LINE - 2.0), fmin(fmax(at[1], 1.0), TI_DELAY_LINE - 2.0), delay_color_q(e, a[119])};
 
     for (uint32_t f = 0; f < frames; f++) {
         glide_all(e->delayNow, target, 6, &e->delayGliding, e->rate);   // notes §25: a moving time slides
-        wet        = e->delayNow[0];
-        dry        = e->delayNow[1];
-        feedback   = e->delayNow[2];
+        wet      = e->delayNow[0];
+        dry      = e->delayNow[1];
+        feedback = e->delayNow[2];
         double xl    = left[f];
         double xr    = right[f];
-        double lateL = line_read(lineL, TI_DELAY_LINE, e->delayAt, e->delayNow[3]);
-        double lateR = line_read(lineR, TI_DELAY_LINE, e->delayAt, e->delayNow[4]);
 
-        if (apart) {
+        if (tape) {   // notes §8b: a tape changes speed slowly, not in 10 ms
+            e->tapeAt[0] += (e->tapeSet ? timeGlide : 1.0) * (target[3] - e->tapeAt[0]);
+            e->tapeAt[1] += (e->tapeSet ? timeGlide : 1.0) * (target[4] - e->tapeAt[1]);
+            e->tapeSet    = true;
+        }
+        double lateL = line_read(lineL, TI_DELAY_LINE, e->delayAt, tape ? e->tapeAt[0] : e->delayNow[3]);
+        double lateR = line_read(lineR, TI_DELAY_LINE, e->delayAt, tape ? e->tapeAt[1] : e->delayNow[4]);
+
+        if (tape) {
+            // notes §8b: the whole Bandwidth once on the way in, a share of it again on each trip round
+            lineL[e->delayAt] = (float)(tape_band(e, 2, hp, lp, xl) + tape_band(e, 0, hpLoop, lpLoop, tape_limit(feedback * lateL)));
+            lineR[e->delayAt] = (float)(tape_band(e, 3, hp, lp, xr) + tape_band(e, 1, hpLoop, lpLoop, tape_limit(feedback * lateR)));
+        } else if (apart) {
             lineL[e->delayAt] = (float)delay_tone(e, a, 0, xl + (feedback * lateL));
             lineR[e->delayAt] = (float)delay_tone(e, a, 1, xr + (feedback * lateR));
         } else {                                      // notes §8: one line, the left tap feeding it
@@ -1578,6 +1650,22 @@ static void verb_coefficients(const uint8_t * c, double * k) {
     k[6] = fmin(fmax(0.25 + (0.55 * g), 0.3), 0.48);
 }
 
+#define VERB_PRE_STEP      (256.0 / 46875.0)      // notes §9a: seconds a Predelay step
+#define VERB_CLOCK_FOLD    (25600.0 / 48000.0)    // a clocked pre-delay is halved while longer than this
+
+// notes §9a: the pre-delay in seconds - Reverb Clock's note value at the host's tempo, or the Predelay dial
+static double verb_predelay(const tTiEffects * e, const uint8_t * c) {
+    if ((c[8] == 0) || (c[8] > 16)) {
+        return c[7] * VERB_PRE_STEP;
+    }
+    double t = kClockDivision[c[8]] * 240.0 / ((e->bpm > 1.0) ? e->bpm : 120.0);   // the tempo as it is: Delay's 0.9816 is the delay's own
+
+    while (t > VERB_CLOCK_FOLD) {
+        t *= 0.5;
+    }
+    return t;
+}
+
 // notes §9: half rate in the tank, Color on the way in, Predelay ahead of it
 static void reverb(tTiEffects * e, const uint8_t * c, float * left, float * right, uint32_t frames) {
     if (!e->reverbAllowed || (c[1] == 0) || (c[2] == 0)) {
@@ -1585,10 +1673,11 @@ static void reverb(tTiEffects * e, const uint8_t * c, float * left, float * righ
     }
     int      room   = (c[3] > 3) ? 3 : c[3];
     double   send   = c[2];
+    double   preS   = verb_predelay(e, c);
     double   wet    = VERB_LEVEL * delay_wet(send);
     double   dry    = (send <= 96.0) ? 1.0 : ((127.0 - send) / 31.0);
     uint32_t stride = (e->rate > 50000.0) ? 4u : 2u;   // notes §10
-    double   pre    = fmin(fmax(c[7] * 0.001875 * e->rate / stride, 1.0), TI_REVERB_PRE - 2.0);
+    double   pre    = fmin(fmax(preS * e->rate / stride, 1.0), TI_REVERB_PRE - 2.0);
     double   target[12];
 
     if (e->verbRoom != room + 1) {
@@ -1684,6 +1773,8 @@ static void forget_when_off(tTiEffects * e, const uint8_t * a, const uint8_t * b
     if (!delay_on && e->wasOn[4]) {
         e->delayGliding = false;
         memset(e->delayLine, 0, sizeof(e->delayLine));
+        memset(e->tapeBand, 0, sizeof(e->tapeBand));
+        e->tapeSet      = false;
         ti_lfo_trigger(&e->delayLfo, 0.0, 0u);
     }
 
@@ -1720,6 +1811,6 @@ void ti_effects_render(tTiEffects * e, const uint8_t * a, const uint8_t * b, con
     phaser(e, b, left, right, frames);
     chorus(e, a, left, right, frames);
     equalise(e, b, left, right, frames);
-    delay(e, a, b, left, right, frames);
+    delay(e, a, b, c, left, right, frames);
     reverb(e, c, left, right, frames);
 }

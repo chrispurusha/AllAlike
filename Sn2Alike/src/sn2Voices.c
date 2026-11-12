@@ -49,6 +49,32 @@ void sn2_voices_init(tSn2Voices * v) {
     sn2_edge_build(v->edge);
 }
 
+#define CLEAN_FACTOR    (4)      // notes §17
+#define FM_DEPTH        (5.2e-3) // notes §18: the change in Osc 3's phase step, a fraction of it, per level squared per unit of modulator
+#define FM_SAW          (0.82)   // a saw modulates 0.82 as hard, against the square the depth is measured with
+
+static double gCleanFir[SN2_CLEAN_TAPS];   // a windowed sinc, built once - the same for every instance
+
+void sn2_voices_set_clean(tSn2Voices * v, bool clean) {
+    if (gCleanFir[SN2_CLEAN_TAPS / 2] == 0.0) {
+        double sum = 0.0;
+
+        for (int n = 0; n < SN2_CLEAN_TAPS; n++) {
+            double x = n - ((SN2_CLEAN_TAPS - 1) / 2.0);
+            double c = 0.45 / CLEAN_FACTOR;     // cycles a sample at four times the rate: 0.45 of the engine's
+            double w = 0.42 - (0.5 * cos(2.0 * M_PI * n / (SN2_CLEAN_TAPS - 1))) + (0.08 * cos(4.0 * M_PI * n / (SN2_CLEAN_TAPS - 1)));
+
+            gCleanFir[n] = w * ((x == 0.0) ? (2.0 * c) : (sin(2.0 * M_PI * c * x) / (M_PI * x)));
+            sum         += gCleanFir[n];
+        }
+
+        for (int n = 0; n < SN2_CLEAN_TAPS; n++) {
+            gCleanFir[n] /= sum;
+        }
+    }
+    v->clean = clean;
+}
+
 void sn2_voices_set_limit(tSn2Voices * v, uint32_t limit) {
     limit    = (limit < 1u) ? 1u : ((limit > SN2_MAX_VOICES) ? SN2_MAX_VOICES : limit);
     v->limit = limit;
@@ -224,6 +250,7 @@ static void mono_play(tSn2Voices * v, const tSn2Sound * sound, uint8_t note, flo
 
         if (!sound->oscsFree) {
             memset(vc->phase, 0, sizeof(vc->phase));
+            memset(vc->cleanHist, 0, sizeof(vc->cleanHist));   // notes §17: a restarted wave starts its filter clean
         }
         vc->started   = ++v->clock;
         vc->noiseSeed = vc->noiseSeed ? vc->noiseSeed : (uint32_t)((v->clock * 2654435761u) | 1u);
@@ -286,6 +313,7 @@ void sn2_voices_note_on(tSn2Voices * v, const tSn2Sound * sound, uint8_t note, f
     // voices notes §8
     if (!sound->oscsFree) {
         memset(pick->phase, 0, sizeof(pick->phase));
+        memset(pick->cleanHist, 0, sizeof(pick->cleanHist));   // notes §17: a restarted wave starts its filter clean
     }
     start_glide(v, sound, pick, note, false);
     set_pitch(pick, sound, v->rate);
@@ -470,8 +498,18 @@ static void render_sub_block(tSn2Voices * v, const tSn2Sound * sound, double cut
             oscLevel[o] = fmin(1.0, fmax(0.0, sound->osc[o].level + (sound->wheel * sound->osc[o].wheelLevel)));
         }
 
+        // notes §18: FM depth from each slot's level, squared; a slot set to FM is not heard as ring or noise
+        double           fmD13 = sound->fm13 ? (FM_DEPTH * pow(sound->ring13 * 128.0, 2.0)) : 0.0;
+        double           fmD23 = sound->fm23 ? (FM_DEPTH * pow(sound->ring23 * 128.0, 2.0)) : 0.0;
+        double           fmDN  = sound->fmNoise ? (FM_DEPTH * pow(sound->noiseLevel * 128.0, 2.0)) : 0.0;
+        bool             fm    = (fmD13 != 0.0) || (fmD23 != 0.0) || (fmDN != 0.0);
+
+        fmD13 *= (sound->osc[0].shape == eTiOscSquare) ? 1.0 : FM_SAW;
+        fmD23 *= (sound->osc[1].shape == eTiOscSquare) ? 1.0 : FM_SAW;
+
         for (uint32_t f = 0; f < frames; f++) {
-            double mix = 0.0;
+            double mix      = 0.0;
+            double noiseNow = next_noise(vc, sound->noiseSoften, corner);
 
             for (int e = 0; e < SN2_MOD_ENVS; e++) {
                 (void)sn2_env_next(&vc->env[e], &mods[e]);
@@ -480,23 +518,62 @@ static void render_sub_block(tSn2Voices * v, const tSn2Sound * sound, double cut
             double wave[SN2_OSCS];
 
             for (int o = 0; o < SN2_OSCS; o++) {
-                const tSn2OscSound * os = &sound->osc[o];
+                const tSn2OscSound * os  = &sound->osc[o];
 
-                wave[o]       = sn2_osc_sample(v->edge, os->shape, vc->phase[o], stretch[o], fmin(2.0, fmax(0.0, width[o])));
-                mix          += wave[o] * oscLevel[o];
-                vc->phase[o] += vc->increment[o];
+                double               wid = fmin(2.0, fmax(0.0, width[o]));
 
-                if (vc->phase[o] >= 1.0) {
-                    vc->phase[o] -= 2.0;
+                bool                 fm3 = fm && (o == 2);   // notes §18: Osc 3 is the one modulated
+
+                if (v->clean) {   // notes §17: the same law at four times the rate, then the low-pass back down
+                    double * h  = vc->cleanHist[o];
+
+                    for (int k = 0; k < CLEAN_FACTOR; k++) {
+                        h[(vc->cleanAt + k) % SN2_CLEAN_TAPS] = sn2_osc_sample(v->edge, os->shape, vc->phase[o], stretch[o], wid);
+                        double sub = vc->increment[o];
+
+                        if (fm3) {   // Osc 1's and Osc 2's own sub-steps, not their filtered output
+                            uint32_t at = (vc->cleanAt + k) % SN2_CLEAN_TAPS;
+
+                            sub = fmin(fmax(sub * (1.0 + (fmD13 * vc->cleanHist[0][at]) + (fmD23 * vc->cleanHist[1][at]) + (fmDN * noiseNow)), -1.0), 1.0);
+                        }
+                        vc->phase[o]                         += sub / CLEAN_FACTOR;
+                        vc->phase[o]                         -= (vc->phase[o] >= 1.0) ? 2.0 : 0.0;
+                        vc->phase[o]                         += (vc->phase[o] < -1.0) ? 2.0 : 0.0; // a step through zero runs backwards
+                    }
+
+                    double   y  = 0.0;
+                    uint32_t at = (vc->cleanAt + CLEAN_FACTOR) % SN2_CLEAN_TAPS;   // the oldest sample
+
+                    for (int n = 0; n < SN2_CLEAN_TAPS; n++) {
+                        y += gCleanFir[n] * h[(at + n) % SN2_CLEAN_TAPS];
+                    }
+
+                    wave[o] = y;
+                } else {
+                    wave[o]       = sn2_osc_sample(v->edge, os->shape, vc->phase[o], stretch[o], wid);
+                    double inc = vc->increment[o];
+
+                    if (fm3) {   // through zero, within a cycle a sample
+                        inc = fmin(fmax(inc * (1.0 + (fmD13 * wave[0]) + (fmD23 * wave[1]) + (fmDN * noiseNow)), -1.0), 1.0);
+                    }
+                    vc->phase[o] += inc;
+
+                    if (vc->phase[o] >= 1.0) {
+                        vc->phase[o] -= 2.0;
+                    } else if (vc->phase[o] < -1.0) {
+                        vc->phase[o] += 2.0;
+                    }
                 }
+                mix += wave[o] * oscLevel[o];
             }
 
-            mix    += RING_GAIN * wave[2] * ((wave[0] * sound->ring13) + (wave[1] * sound->ring23));
-            mix    += next_noise(vc, sound->noiseSoften, corner) * sound->noiseLevel;
+            vc->cleanAt = (vc->cleanAt + CLEAN_FACTOR) % SN2_CLEAN_TAPS;
+            mix        += RING_GAIN * wave[2] * ((sound->fm13 ? 0.0 : (wave[0] * sound->ring13)) + (sound->fm23 ? 0.0 : (wave[1] * sound->ring23)));
+            mix        += sound->fmNoise ? 0.0 : (noiseNow * sound->noiseLevel);
 
             double y = sn2_filter_process(&vc->filter, &coeffs, sn2_filter_drive(mix * DRIVE_IN, drive) * FILTER_IN * coeffs.gain);
 
-            out[f] += (float)(y * sn2_env_next(&vc->amp, amp) * level * gain);
+            out[f]     += (float)(y * sn2_env_next(&vc->amp, amp) * level * gain);
         }
 
         if (sn2_env_idle(&vc->amp)) {

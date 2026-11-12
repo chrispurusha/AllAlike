@@ -207,6 +207,7 @@ static void nl3_set_state(void * inst, const void * data, size_t len) {
 static void render_host(tNl3Plugin * t, const tNl3Sound * sound, float * outL, float * outR, uint32_t frames, double gain) {
     if (atomic_exchange(&t->clearEffects, false)) {
         nl3_effects_reset(&t->effects);   // notes §15
+        nl3_voices_all_off(&t->voices);   // the old sound's notes stop too, rather than playing on in the new one
     }
 
     while (frames > 0) {
@@ -220,7 +221,10 @@ static void render_host(tNl3Plugin * t, const tNl3Sound * sound, float * outL, f
 
         if (t->effects.clipped) {
             t->effects.clipped = false;
-            atomic_store(&t->clipped, true);
+
+            if (!atomic_load(&t->fade.holding) && (t->fade.gain >= 1.0f)) {   // notes §15: what leaves the plug-in, not a block the swap fade holds down
+                atomic_store(&t->clipped, true);
+            }
         }
         synthlib_resample_process(&t->resampler, t->engineL, outL, chunk);
         float    discard[HOST_CHUNK];
@@ -475,6 +479,7 @@ static void nl3_load_single(void * user, const uint8_t * single, const char * pa
     // change runs this on the audio thread
     memcpy(values, t->values, sizeof(values));
     nl3_patch_from_single(single, values);
+    atomic_store(&t->clearEffects, true);   // notes §15: before the new values, so the audio thread sees the change of sound first
 
     // The whole sound into the engine now, while the fade holds it silent. The host's copies come back
     // later - a block or more on VST3, and on an Audio Unit only once the main thread is free - so
@@ -486,7 +491,6 @@ static void nl3_load_single(void * user, const uint8_t * single, const char * pa
         }
     }
 
-    atomic_store(&t->clearEffects, true);   // notes §15: the audio thread does it, at its next block
     memcpy(t->base, single, NL3_SINGLE_LENGTH);
     t->haveBase   = true;
     nl3_patch_name(single, t->soundName);

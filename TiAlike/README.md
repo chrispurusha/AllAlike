@@ -6,7 +6,7 @@ One instance plays one Single: patches are loaded per instance, with an adjustab
 is no Multi or performance mode. Each section of the engine is reproduced by measurement and checked against
 reference renders sample by sample (see [`Docs/design.md`](Docs/design.md)).
 
-**Work in progress.** A loaded Single plays through two oscillators and a third, sub, noise, ring, sync and FM, both filters, the envelopes, three LFOs, the matrix, unison and the mono modes, in stereo. Grain and Formant and the effects are not in yet, nor the arpeggiator, so a Single using them plays only in part.
+**Beta.** A loaded Single plays through every oscillator model (Classic, HyperSaw, Wavetable, Wave PWM, Grain and Formant), Osc 3, sub, noise, ring, sync and FM, both filters (the analog modes included), the envelopes, three LFOs, the matrix, unison, the mono modes and the arpeggiator, then Distortion, the Filter Bank, Phaser, Chorus, Delay (Tape included), Reverb and the EQ, in stereo. Each oscillator can also play a wavetable of your own, loaded from a PPG, Serum-style or Waldorf file, and a Global switch turns anti-aliasing off for the instrument's own aliasing. Not yet: the vocoder and input follower, soft knobs, the other Chorus and Character types, Reverb Feedback, Distortion Quality and Tone. What is built but still being matched to the instrument is in [`Docs/todo.md`](Docs/todo.md).
 
 ## Relationship to the sibling projects
 
@@ -42,7 +42,7 @@ them:
 ## Releasing
 
     ./do-release 0.1.0-beta.1     # the first release (there is no tag yet)
-    ./do-release beta             # after that: beta / patch / minor / major / final bump the newest V* tag
+    ./do-release beta             # after that: beta / patch / minor / major / final bump the newest TiAlike-V* tag
 
 Builds both plug-ins (universal, ad-hoc signed) into a `.dmg` on the Desktop with a `Read Me First.txt`, the licence
 and the third-party licences. It never tags: it prints the `git tag` command to run once the `.dmg` has been checked.
