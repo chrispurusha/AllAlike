@@ -76,12 +76,15 @@ typedef struct {
     double       index[2];    // notes §31: the wavetable Index each oscillator last played, ramped from
     bool         indexSet;
     double       hyper[2][TI_HYPER_SAWS];
-    double       twin[2][2];                // notes §28: Wave PWM's two detuned copies of Osc 1 and Osc 2
-    double       grain[2][3];               // notes §29: the Complex models' half-rate phase and two drifts
-    tTiOscPoints points[3];                 // tiOsc notes §9: Anti-alias off, Osc 1, 2 and 3
-    double       detune, pan;               // unison's offsets
-    double       place;                     // 0 at the centre of a stack, 1 at its edge
-    double       stack;                     // -1..1 across a unison stack, signed
+    double       twin[2][2];                    // notes §28: Wave PWM's two detuned copies of Osc 1 and Osc 2
+    double       grain[2][3];                   // notes §29: the Complex models' half-rate phase and two drifts
+    tTiOscPoints points[3];                     // tiOsc notes §9: Anti-alias off, Osc 1, 2 and 3
+    tTiOscPoints hyperPoints[2][TI_HYPER_SAWS]; // tiOsc notes §9: the same for each HyperSaw saw
+    double       detune, pan;                   // unison's offsets
+    double       place;                         // 0 at the centre of a stack, 1 at its edge
+    double       stack;                         // -1..1 across a unison stack, signed
+    double       outL, outR;                    // notes §7c: the pan and level gains the last block ended on
+    bool         outSet;
     double       noiseState;
     uint32_t     noise;
     double       highPass[2];

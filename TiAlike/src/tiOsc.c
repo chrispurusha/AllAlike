@@ -340,6 +340,21 @@ void ti_osc_hyper(double density, double spread, tTiHyper * h) {
     }
 }
 
+// notes §9: Anti-alias off, each saw of the stack made on points of its own, as the classic saw is
+double ti_osc_hyper_points(const tTiHyper * h, tTiOscPoints * g, double * phases, double increment, double rate) {
+    double sum = 0.0;
+
+    for (int i = 0; i < h->count; i++) {
+        double inc = increment * h->ratio[i];
+
+        sum       += h->gain[i] * ti_osc_classic_points(&g[i], ti_osc_points_per_cycle(inc * rate), 0, 63.5, 64.0, phases[i], inc);
+        phases[i] += inc;
+        phases[i] -= floor(phases[i]);
+    }
+
+    return HYPER_LEVEL * sum;
+}
+
 double ti_osc_hyper_sample(const tTiHyper * h, double * phases, double increment) {
     double sum = 0.0;
 
@@ -365,18 +380,26 @@ static atomic_bool     gTablesBuilt;
 static pthread_once_t  gTablesOnce               = PTHREAD_ONCE_INIT;
 
 // notes §5: a version's cycle, no longer than the table's own
-static int version_size(int table, int v) {
-    return (kVersionSize[v] < gTiWavetableSize[table]) ? kVersionSize[v] : gTiWavetableSize[table];
+static int size_version(int tableSize, int v) {
+    return (kVersionSize[v] < tableSize) ? kVersionSize[v] : tableSize;
 }
 
-static int version_at(int table, int v) {
+static int size_version_at(int tableSize, int v) {
     int at = 0;
 
     for (int u = 0; u < v; u++) {
-        at += version_size(table, u) + 1;
+        at += size_version(tableSize, u) + 1;
     }
 
     return at;
+}
+
+static int version_size(int table, int v) {
+    return size_version(gTiWavetableSize[table], v);
+}
+
+static int version_at(int table, int v) {
+    return size_version_at(gTiWavetableSize[table], v);
 }
 
 // A table takes up to ~12 ms to build, and 100 of them ~180 ms: far too long for the audio thread,
@@ -487,10 +510,10 @@ static double wt_read(const float * t, int size, double phase, double m) {
     return t[i] + (w * (t[i + 1] - t[i]));
 }
 
-static int top_version(int table) {
+static int top_version(int tableSize) {
     int v = 0;
 
-    while ((v < WT_VERSIONS - 1) && (kVersionSize[v] > gTiWavetableSize[table])) {
+    while ((v < WT_VERSIONS - 1) && (kVersionSize[v] > tableSize)) {
         v++;
     }
     return v;
@@ -503,45 +526,177 @@ double ti_osc_wavetable_weight(double between, double smooth) {
     return fmin(fmax(0.5 + ((between - 0.5) / (slope * slope)), 0.0), 1.0);
 }
 
-double ti_osc_wavetable(int table, double index, double smooth, double phase, double increment) {
-    table = (table < 0) ? 0 : ((table >= TI_WAVETABLES) ? (TI_WAVETABLES - 1) : table);
-    const float * t      = atomic_load_explicit(&gTable[table], memory_order_acquire);
+// notes §5a: the user tables this thread is rendering with, Osc 1's and Osc 2's
+static _Thread_local const tTiUserTable * tUser[2];
 
-    // not built yet - only in the first moments after the first instance is made
-    if (t == NULL) {
-        return 0.0;
-    }
+void ti_osc_set_user_tables(const tTiUserTable * osc1, const tTiUserTable * osc2) {
+    tUser[0] = osc1;
+    tUser[1] = osc2;
+}
+
+static double table_read(const float * t, int frames, int tableSize, bool sharpTop, double index, double smooth, double phase, double increment) {
     // notes §5: one version an octave, by the increment in half-cycles a sample
-    double        step   = 2.0 * fabs(increment);
-    int           top    = top_version(table);
-    int           v      = top;
+    double step  = 2.0 * fabs(increment);
+    int    top   = top_version(tableSize);
+    int    v     = top;
 
     while ((v < WT_VERSIONS - 1) && (step >= (WT_FIRST_STEP * pow(2.0, v)))) {
         v++;
     }
-    bool          steep  = (v == top) ? (gTiWavetableSharpTop[table] != 0) : (v <= WT_STEEP_LAST);
-    double        m      = 1.0;
+    bool   steep = (v == top) ? sharpTop : (v <= WT_STEEP_LAST);
+    double m     = 1.0;
 
     if (steep && (step > 0.0)) {
         // the next version's threshold over the increment, in 1/128ths
         m = floor(WT_FIRST_STEP * pow(2.0, v) / step * 128.0) / 128.0;
     }
-    int           size   = version_size(table, v);
-    int           at     = version_at(table, v);
-    int           frames = gTiWavetableCount[table];
+    int    size  = size_version(tableSize, v);
+    int    at    = size_version_at(tableSize, v);
 
     if (frames < 2) {
         return wt_read(t + at, size, phase, m);
     }
-    double        p      = fmin(fmax(index, 0.0), 127.0) * (frames - 1) / 127.0;
-    int           k      = (int)p;
+    double p     = fmin(fmax(index, 0.0), 127.0) * (frames - 1) / 127.0;
+    int    k     = (int)p;
 
     k = (k > frames - 2) ? (frames - 2) : k;
-    double        w      = ti_osc_wavetable_weight(p - k, smooth);
-    double        a      = wt_read(t + (k * WT_FRAME) + at, size, phase, m);
-    double        b      = (w > 0.0) ? wt_read(t + ((k + 1) * WT_FRAME) + at, size, phase, m) : a;
+    double w     = ti_osc_wavetable_weight(p - k, smooth);
+    double a     = wt_read(t + (k * WT_FRAME) + at, size, phase, m);
+    double b     = (w > 0.0) ? wt_read(t + ((k + 1) * WT_FRAME) + at, size, phase, m) : a;
 
     return a + (w * (b - a));
+}
+
+double ti_osc_wavetable(int table, double index, double smooth, double phase, double increment) {
+    if (table >= TI_WAVETABLE_USER) {
+        const tTiUserTable * u = tUser[(table > TI_WAVETABLE_USER) ? 1 : 0];
+
+        if (u != NULL) {
+            return table_read(u->data, u->frames, u->size, false, index, smooth, phase, increment);
+        }
+        table = 0;   // notes §5a: no table loaded - the sine table, not silence
+    }
+    table = (table < 0) ? 0 : ((table >= TI_WAVETABLES) ? (TI_WAVETABLES - 1) : table);
+    const float * t = atomic_load_explicit(&gTable[table], memory_order_acquire);
+
+    // not built yet - only in the first moments after the first instance is made
+    if (t == NULL) {
+        return 0.0;
+    }
+    return table_read(t, gTiWavetableCount[table], gTiWavetableSize[table], gTiWavetableSharpTop[table] != 0, index, smooth, phase, increment);
+}
+
+// notes §5a: a table from one cycle per frame - each cycle's partials, then the same versions as the built-in tables
+tTiUserTable * ti_osc_user_table(const float * cycles, int frames, int cycle) {
+    if ((cycles == NULL) || (frames < 1) || (cycle < 8)) {
+        return NULL;
+    }
+    frames   = (frames > TI_USER_TABLE_FRAMES) ? TI_USER_TABLE_FRAMES : frames;
+    int            partials  = (cycle / 2) - 1;
+
+    partials = (partials > (TI_WAVETABLE_PARTIALS - 1)) ? (TI_WAVETABLE_PARTIALS - 1) : partials;   // notes §5a: below the longest cycle's Nyquist, so a saved table rebuilds the same
+    int            tableSize = 64;
+
+    while ((tableSize < WT_SIZE) && ((tableSize / 2) < partials)) {
+        tableSize *= 2;
+    }
+    tTiUserTable * u         = (tTiUserTable *)calloc(1, sizeof(tTiUserTable) + (sizeof(float) * frames * WT_FRAME));
+    double *       re        = (double *)malloc(sizeof(double) * (partials + 1));
+    double *       im        = (double *)malloc(sizeof(double) * (partials + 1));
+    double *       turn      = (double *)malloc(sizeof(double) * 2 * cycle); // cos and sin round the cycle
+    double         cosine[WT_SIZE], sine[WT_SIZE];                           // on the stack: instances may build at once
+
+    if ((u == NULL) || (re == NULL) || (im == NULL) || (turn == NULL)) {
+        free(u);
+        free(re);
+        free(im);
+        free(turn);
+        return NULL;
+    }
+
+    for (int n = 0; n < cycle; n++) {
+        turn[2 * n]       = cos(2.0 * M_PI * n / cycle);
+        turn[(2 * n) + 1] = sin(2.0 * M_PI * n / cycle);
+    }
+
+    for (int i = 0; i < WT_SIZE; i++) {
+        cosine[i] = cos(2.0 * M_PI * i / WT_SIZE);
+        sine[i]   = sin(2.0 * M_PI * i / WT_SIZE);
+    }
+
+    u->frames = frames;
+    u->size   = tableSize;
+    double peak = 0.0;
+
+    for (int k = 0; k < frames; k++) {
+        const float * x = cycles + ((size_t)k * cycle);
+
+        // each partial as c cos + s sin of its own angle: 2/cycle of the transform
+        for (int h = 1; h <= partials; h++) {
+            double c = 0.0, d = 0.0;
+            int    place = 0;
+
+            for (int n = 0; n < cycle; n++) {
+                c     += x[n] * turn[2 * place];
+                d     += x[n] * turn[(2 * place) + 1];
+                place += h;
+                place -= (place >= cycle) ? cycle : 0;
+            }
+
+            re[h] = 2.0 * c / cycle;
+            im[h] = 2.0 * d / cycle;
+        }
+
+        for (int v = 0; v < WT_VERSIONS; v++) {
+            int     size = size_version(tableSize, v);
+            int     top  = TI_WAVETABLE_PARTIALS >> v;
+            float * o    = u->data + ((size_t)k * WT_FRAME) + size_version_at(tableSize, v);
+
+            top     = (top < (size / 2)) ? top : (size / 2);
+            top     = (top < partials) ? top : partials;
+
+            int     step = WT_SIZE / size;
+
+            for (int i = 0; i < size; i++) {
+                double sum = 0.0;
+
+                for (int h = 1; h <= top; h++) {
+                    int place = (h * i * step) & (WT_SIZE - 1);
+
+                    sum += (re[h] * cosine[place]) + (im[h] * sine[place]);
+                }
+
+                o[i] = (float)sum;
+
+                if (v == 0) {
+                    peak = fmax(peak, fabs(sum));
+                }
+            }
+
+            o[size] = o[0];
+        }
+    }
+
+    free(re);
+    free(im);
+    free(turn);
+
+    // notes §5a: the loudest frame's peak at 1, a sine's level
+    if (peak > 0.0) {
+        for (size_t i = 0; i < (size_t)frames * WT_FRAME; i++) {
+            u->data[i] = (float)(u->data[i] / peak);
+        }
+    }
+    return u;
+}
+
+// notes §5a: a frame's cycle as built, u->size samples - what a saved project keeps
+const float * ti_osc_user_table_cycle(const tTiUserTable * u, int frame) {
+    return u->data + ((size_t)frame * WT_FRAME);
+}
+
+void ti_osc_user_table_free(tTiUserTable * u) {
+    free(u);
 }
 
 // notes §6: cents either way; linear up to 32, then rising by about 1.8 every 16

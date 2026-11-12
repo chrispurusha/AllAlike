@@ -22,6 +22,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "tiLfo.h"
+
 #define TI_CHORUS_LINE    (16384)
 
 #define TI_DIST_DELAY     (26)
@@ -90,6 +92,7 @@ typedef struct {
     double    phaserNow[5];    // mix, depth, frequency, feedback, spread - as bytes
     double    delayNow[6];     // wet, dry, feedback, left and right taps in samples, Colour's q
     double    delayTone[2][2]; // notes §25a: Colour's last input and output, each line
+    tTiLfo    delayLfo;        // notes §8a
     double    verbNow[12];     // wet, dry, pre-delay, low pass, high pass, then the tank's seven coefficients
     bool      phaserGliding, delayGliding, verbGliding;
 } tTiEffects;

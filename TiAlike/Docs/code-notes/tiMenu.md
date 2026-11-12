@@ -16,3 +16,5 @@ A top-level menu for the order the preset browser lists in - Bank / Location, Ca
 too (tiDraw notes §11). It is the browser's own setting, remembered across sessions and shared with its buttons, so
 choosing it in either place changes both.
 
+## 4. Wavetable
+Load Wavetable... for Osc 1 and for Osc 2; Prev and Next are on the panel beside each Wave (tiDraw notes §16).

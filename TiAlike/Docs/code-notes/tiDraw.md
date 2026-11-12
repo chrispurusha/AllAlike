@@ -86,3 +86,13 @@ Load Preset and Store Preset sort by category: each single's Category 1 (page B,
 instrument shows (Off, Lead, Bass, Pad, Decay, Pluck, Acid, Classic, Arpeggiator, Effects, Drums, Percussion, Input,
 Vocoder, Favourite 1-3, Organ, Piano, String, FM, Digital). Category 2 is not shown. A value past the list (a few
 presets hold 127) is shown as Off.
+
+## 16. User wavetables
+Beside each oscillator's Wave, Prev above Next step through the folder of its user table: the folder's table files
+(tiUserTable notes §1), sorted by name without regard to case, the one before or after the current file, wrapping round;
+a file that will not load is passed over, and with no table yet either opens the browser. They are live only while
+the oscillator reads a table and its Wave is 100, and greyed otherwise. The Wavetable menu's Load opens the file
+browser in the folder of the current table. A Wave set to 100 shows the table's name in place of "User".
+
+The canvas grew from 780 to 810 units wide for them (2026-11-12), so Osc 1 and Osc 2 still share the first row of
+the OSC page and the page keeps three rows.

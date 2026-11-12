@@ -7,6 +7,8 @@
 #include <string.h>
 
 #include "tiVoices.h"
+#include "tiUserTable.h"
+#include "tiOsc.h"
 
 #define SINGLE_LENGTH    (524)
 #define BLOCK            (64u)
@@ -75,20 +77,36 @@ int main(int argc, char ** argv) {
     if (f != NULL) {
         fclose(f);
     }
-    double   seconds = atof(argv[4]), rate = atof(argv[5]);
-    uint32_t frames = (uint32_t)(seconds * rate);
-    float *  l      = (float *)calloc(frames + BLOCK, sizeof(float));
-    float *  r      = (float *)calloc(frames + BLOCK, sizeof(float));
+    double         seconds = atof(argv[4]), rate = atof(argv[5]);
+    uint32_t       frames  = (uint32_t)(seconds * rate);
+    float *        l       = (float *)calloc(frames + BLOCK, sizeof(float));
+    float *        r       = (float *)calloc(frames + BLOCK, sizeof(float));
 
     ti_voices_init(&gVoices, rate);
     ti_osc_wavetables_wait();
     ti_voices_set_tempo(&gVoices, getenv("TI_TEMPO") ? atof(getenv("TI_TEMPO")) : 120.0);
     ti_voices_set_effects(&gVoices, true, true);
     ti_voices_set_fixed(&gVoices, getenv("TI_FLOAT") == NULL);
-    gVoices.antiAlias = (getenv("TI_ALIASED") == NULL);                           // tiOsc notes §9
+    gVoices.antiAlias = (getenv("TI_ALIASED") == NULL);
+
+    // TI_USER1 / TI_USER2 = a wavetable file for Wave 100 on that oscillator
+    tTiUserTable * user[2] = {NULL, NULL};
+
+    for (int k = 0; k < 2; k++) {
+        tTiUserCycles c;
+        const char *  path = getenv((k == 0) ? "TI_USER1" : "TI_USER2");
+
+        if ((path != NULL) && ti_user_cycles_load(path, &c)) {
+            user[k] = ti_osc_user_table(c.samples, c.frames, c.cycle);
+            fprintf(stderr, "user table %d: %s, %d frames of %d\n", k + 1, c.name, c.frames, c.cycle);
+            ti_user_cycles_free(&c);
+        }
+    }
+
+    ti_osc_set_user_tables(user[0], user[1]);                                     // tiOsc notes §9
     gVoices.seconds   = getenv("TI_LOAD_AT") ? -atof(getenv("TI_LOAD_AT")) : 0.0; // the Single loaded this long before the render starts
     ti_voices_new_sound(&gVoices, &sound);
-    int      next   = 0;
+    int            next    = 0;
 
     for (uint32_t done = 0; done < frames;) {
         uint32_t at = frames;

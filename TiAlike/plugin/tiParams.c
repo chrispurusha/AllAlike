@@ -314,7 +314,7 @@ static const char *const kSaturations[]                 = {"OFF", "LIGHT", "SOFT
 static const char *const kKeyModes[]                    = {"POLY", "MONO 1", "MONO 2", "MONO 3", "MONO 4", "HOLD"};
 
 static const char *const kListWave[128]                 = {"Sine", "Triangle", "Wave 3", "Wave 4", "Wave 5", "Wave 6", "Wave 7", "Wave 8", "Wave 9", "Wave 10", "Wave 11", "Wave 12", "Wave 13", "Wave 14", "Wave 15", "Wave 16", "Wave 17", "Wave 18", "Wave 19", "Wave 20", "Wave 21", "Wave 22", "Wave 23", "Wave 24", "Wave 25", "Wave 26", "Wave 27", "Wave 28", "Wave 29", "Wave 30", "Wave 31", "Wave 32", "Wave 33", "Wave 34", "Wave 35", "Wave 36", "Wave 37", "Wave 38", "Wave 39", "Wave 40", "Wave 41", "Wave 42", "Wave 43", "Wave 44", "Wave 45", "Wave 46", "Wave 47", "Wave 48", "Wave 49", "Wave 50", "Wave 51", "Wave 52", "Wave 53", "Wave 54", "Wave 55", "Wave 56", "Wave 57", "Wave 58", "Wave 59", "Wave 60", "Wave 61", "Wave 62", "Wave 63", "Wave 64"};
-static const char *const kListWavetable[128]            = {"Sine", "HarmncSweep", "Glass Sweep", "Draw Bars", "Clusters", "Insine Out", "Landing", "Liquid Metal", "Opposition", "Overtunes 1", "Overtunes 2", "Scale Trix", "Sine Rider", "Sqr Series", "Upsine Down", "Thumbs Up", "Waterphone", "E-Chime", "Tinkabell", "Bellfizz", "Bellentine", "Robot Wars", "Alternator", "Finger Bass", "Fizzybar", "Flutes", "HP Love", "Majestix", "Hotch Potch", "Resynater", "Smooth Rough", "Sawsalito", "Bells 1", "Bells 2", "SportReport", "Metal Guru", "Bat Cave", "Acetate", "Buzzbizz", "Buzzpartout", "Vanish", "Overbones", "Pulsechecker", "Stratosfear", "Sooty Sweep", "Throaty", "Didgitalis", "Evil", "Chords", "FM Grit", "Bellsarnie", "Octavius", "Eat Pulse", "Sinzin", "Sine System", "Clip Sweep", "Roughage", "Waving", "Pling Saw", "E-Peas", "Bump Sweep", "Filter Sqr", "Fourmant", "Formantera", "Sundial 1", "Sundial 2", "Sundial 3", "Clipdial 1", "Clipdial 2", "Voxonix", "Solenoid", "KlingKlang", "Violator", "Potassium", "Pile Up", "Tincanali", "Sniper", "Squeezy", "Decomposer", "Morfants", "Pingvox", "Adenoids", "Nasal", "Partialism", "TableDance", "Cascade", "Prismism", "Friction", "Robotix", "Whizzfizz", "Spangly", "Fluxbin", "Fiboglide", "Fibonice", "Fibonasty", "Penetrator", "Blinder", "Element 5", "Bad Signs", "Domina7rix"};
+static const char *const kListWavetable[128]            = {"Sine", "HarmncSweep", "Glass Sweep", "Draw Bars", "Clusters", "Insine Out", "Landing", "Liquid Metal", "Opposition", "Overtunes 1", "Overtunes 2", "Scale Trix", "Sine Rider", "Sqr Series", "Upsine Down", "Thumbs Up", "Waterphone", "E-Chime", "Tinkabell", "Bellfizz", "Bellentine", "Robot Wars", "Alternator", "Finger Bass", "Fizzybar", "Flutes", "HP Love", "Majestix", "Hotch Potch", "Resynater", "Smooth Rough", "Sawsalito", "Bells 1", "Bells 2", "SportReport", "Metal Guru", "Bat Cave", "Acetate", "Buzzbizz", "Buzzpartout", "Vanish", "Overbones", "Pulsechecker", "Stratosfear", "Sooty Sweep", "Throaty", "Didgitalis", "Evil", "Chords", "FM Grit", "Bellsarnie", "Octavius", "Eat Pulse", "Sinzin", "Sine System", "Clip Sweep", "Roughage", "Waving", "Pling Saw", "E-Peas", "Bump Sweep", "Filter Sqr", "Fourmant", "Formantera", "Sundial 1", "Sundial 2", "Sundial 3", "Clipdial 1", "Clipdial 2", "Voxonix", "Solenoid", "KlingKlang", "Violator", "Potassium", "Pile Up", "Tincanali", "Sniper", "Squeezy", "Decomposer", "Morfants", "Pingvox", "Adenoids", "Nasal", "Partialism", "TableDance", "Cascade", "Prismism", "Friction", "Robotix", "Whizzfizz", "Spangly", "Fluxbin", "Fiboglide", "Fibonice", "Fibonasty", "Penetrator", "Blinder", "Element 5", "Bad Signs", "Domina7rix", "User"};
 static const char *const kListSource[40]                = {"Off", "Pitch Bend", "Chan Pressure", "Mod Wheel", "Breath", "Controller 3", "Foot Pedal", "Data Entry", "Balance", "Controller 9", "Expression", "Controller 12", "Controller 13", "Controller 14", "Controller 15", "Controller 16", "Hold Pedal", "Portamento Sw", "Sost Pedal", "Amp Envelope", "Filter Envelope", "LFO 1 bipolar", "LFO 2 bipolar", "LFO 3 bipolar", "Velocity On", "Velocity Off", "Key Follow", "Random", "Arp Input", "LFO 1 unipolar", "LFO 2 unipolar", "LFO 3 unipolar", "1% constant", "10% constant", "AnaKey1 Fine", "AnaKey2 Fine", "AnaKey1Coarse", "AnaKey2Coarse", "Envelope 3", "Envelope 4"};
 static const char *const kListDest[128]                 = {"Off", "Patch Volume", "Osc 1 Interpolation", "Panorama", "Transpose", "Portamento", "Osc 1 Shape/Index", "Osc 1 Pulse Width", "Osc 1 Wave Select", "Osc 1 Pitch", "Slot 6 Amount 3", "Osc 2 Shape/Index", "Osc 2 Pulse Width", "Osc 2 Wave Select", "Osc 2 Pitch", "Osc 2 Detune", "Osc 2 FM Amount", "FiltEnv > Osc 2 Pitch", "FiltEnv>FM/Sync", "Osc 2 Interpolation", "Osc Balance", "Sub Osc Volume", "Osc Volume", "Noise Volume", "Filter 1 Cutoff", "Filter 2 Cutoff", "Filter 1 Resonance", "Filter 2 Resonance", "Filter 1 Env Amount", "Filter 2 Env Amount", "Slot 5 Amount 2", "Slot 5 Amount 3", "Filter Balance", "Filter Env Attack", "Filter Env Decay", "Filter Env Sustain", "Filter Env Slope", "Filter Env Release", "Amp Env Attack", "Amp Env Decay", "Amp Env Sustain", "Amp Env Slope", "Amp Env Release", "LFO 1 Rate", "LFO 1 Contour", "LFO 1>Osc 1 Pitch", "LFO 1>Osc 2 Pitch", "LFO 1>Pulse Width", "LFO 1>Resonance", "LFO 1>Filter Gain", "LFO 2 Rate", "LFO 2 Contour", "LFO 2>Shape", "LFO 2>FM Amount", "LFO 2>Cutoff 1", "LFO 2>Cutoff 2", "LFO 2>Panorama", "LFO 3 Rate", "LFO 3 Assign Amt", "Unison Detune", "Pan Spread", "Unison LFO Phase", "Chorus Mix", "Chorus Mod Rate", "Chorus Mod Depth", "Chorus Delay", "Chorus Feedback", "Delay Send", "Delay Time", "Delay Feedback", "Delay Mod Rate", "Delay Mod Depth", "Reverb Send", "Osc 1 Wavetable Index", "Osc 2 Wavetable Index", "Slot 6 Amount 2", "Slot 4 Amount 2", "Slot 4 Amount 3", "Filterbank Reso", "Filterbank Poles", "Slot 2 Amount 3", "Filterbank Slope", "Slot 1 Amount 1", "Slot 2 Amount 1", "Slot 2 Amount 2", "Slot 3 Amount 1", "Slot 3 Amount 2", "Slot 3 Amount 3", "-", "Punch Intensity", "Ring Modulator", "Noise Color", "Delay Coloration", "Slot 1 Amount 2", "Slot 1 Amount 3", "Distortion Intensity", "Filterbank Freq", "Osc 3 Volume", "Osc 3 Pitch", "Osc 3 Detune", "LFO 1 Assign Amt", "LFO 2 Assign Amt", "Phaser Mix", "Phaser Mod Rate", "Phaser Mod Depth", "Phaser Frequency", "Phaser Feedback", "-", "Reverb Time", "Reverb Damping", "Reverb Color", "Reverb PreDelay", "-", "Surround Balance", "Arp Note Length", "Arp Swing Factor", "Arp Pattern", "EQ Mid Gain", "EQ Mid Frequency", "-", "Slot 4 Amount 1", "Slot 5 Amount 1", "Slot 6 Amount 1", "Osc 1 F-Shift", "Osc 2 F-Shift", "Osc 1 F-Spread", "Osc 2 F-Spread", "Distortion Mix"};
 static const char *const kListLfoShape[68]              = {"Sine", "Triangle", "Saw", "Square", "S&H", "S&G", "Wave 3", "Wave 4", "Wave 5", "Wave 6", "Wave 7", "Wave 8", "Wave 9", "Wave 10", "Wave 11", "Wave 12", "Wave 13", "Wave 14", "Wave 15", "Wave 16", "Wave 17", "Wave 18", "Wave 19", "Wave 20", "Wave 21", "Wave 22", "Wave 23", "Wave 24", "Wave 25", "Wave 26", "Wave 27", "Wave 28", "Wave 29", "Wave 30", "Wave 31", "Wave 32", "Wave 33", "Wave 34", "Wave 35", "Wave 36", "Wave 37", "Wave 38", "Wave 39", "Wave 40", "Wave 41", "Wave 42", "Wave 43", "Wave 44", "Wave 45", "Wave 46", "Wave 47", "Wave 48", "Wave 49", "Wave 50", "Wave 51", "Wave 52", "Wave 53", "Wave 54", "Wave 55", "Wave 56", "Wave 57", "Wave 58", "Wave 59", "Wave 60", "Wave 61", "Wave 62", "Wave 63", "Wave 64"};
@@ -468,10 +468,11 @@ static const tTiControl  kNewReverb[]                   = {
     {kTiParamC9ReverbFeedback, "Feedback", eTiControlDial,   127,   0.0, NULL                      },
 };
 static const tTiControl  kOsc[]                         = {
-    {kTiParamOscShape,   "Shape", eTiControlDial,   127,   0.0, NULL     },
-    {kTiParamPulseWidth, "Width", eTiControlDial,   127,   0.0, NULL     },
-    {kTiParamOsc1Wave,   "Wave",  eTiControlChoice, 127,   0.0, kListWave},
-    {kTiParamOsc1Semi,   "Semi",  eTiControlDial,   127, -64.0, NULL     },
+    {kTiParamOscShape,   "Shape", eTiControlDial,      127,   0.0, NULL     },
+    {kTiParamPulseWidth, "Width", eTiControlDial,      127,   0.0, NULL     },
+    {kTiParamOsc1Wave,   "Wave",  eTiControlChoice,    127,   0.0, kListWave},
+    {kTiParamOsc1Wave,   "Table", eTiControlTableStep, 127,   0.0, NULL     },
+    {kTiParamOsc1Semi,   "Semi",  eTiControlDial,      127, -64.0, NULL     },
 };
 static const tTiControl  kFilter[]                      = {
     {kTiParamCutoff,     "Cutoff", eTiControlDial,   127, 0.0, NULL    },
@@ -509,13 +510,14 @@ static const tTiControl  kVoices[]                      = {
 };
 
 static const tTiControl  kOsc2[]                        = {
-    {kTiParamOsc2Shape,  "Shape",  eTiControlDial,   127,   0.0, NULL     },
-    {kTiParamOsc2Width,  "Width",  eTiControlDial,   127,   0.0, NULL     },
-    {kTiParamOsc2Wave,   "Wave",   eTiControlChoice, 127,   0.0, kListWave},
-    {kTiParamOsc2Semi,   "Semi",   eTiControlDial,   127, -64.0, NULL     },
-    {kTiParamOsc2Detune, "Detune", eTiControlDial,   127,   0.0, NULL     },
-    {kTiParamFm,         "FM",     eTiControlDial,   127,   0.0, NULL     },
-    {kTiParamSync,       "Sync",   eTiControlChoice,   1,   0.0, kOffOn   },
+    {kTiParamOsc2Shape,  "Shape",  eTiControlDial,      127,   0.0, NULL     },
+    {kTiParamOsc2Width,  "Width",  eTiControlDial,      127,   0.0, NULL     },
+    {kTiParamOsc2Wave,   "Wave",   eTiControlChoice,    127,   0.0, kListWave},
+    {kTiParamOsc2Wave,   "Table",  eTiControlTableStep, 127,   0.0, NULL     },
+    {kTiParamOsc2Semi,   "Semi",   eTiControlDial,      127, -64.0, NULL     },
+    {kTiParamOsc2Detune, "Detune", eTiControlDial,      127,   0.0, NULL     },
+    {kTiParamFm,         "FM",     eTiControlDial,      127,   0.0, NULL     },
+    {kTiParamSync,       "Sync",   eTiControlChoice,      1,   0.0, kOffOn   },
 };
 static const tTiControl  kMix[]                         = {
     {kTiParamOscBalance, "Balance", eTiControlDial,   127, 0.0, NULL      },
@@ -690,8 +692,8 @@ static const tTiControl  kMod6[]                        = {
 
 // notes §2: Pulse2Alike's page names and section colours, a page only once something on it is built
 static const tTiSection  kOscillatorsPage[]             = {
-    {"OSC 1",       {0.30, 0.55, 0.85}, kOsc,          4},
-    {"OSC 2",       {0.30, 0.55, 0.85}, kOsc2,         7},
+    {"OSC 1",       {0.30, 0.55, 0.85}, kOsc,          5},
+    {"OSC 2",       {0.30, 0.55, 0.85}, kOsc2,         8},
     {"MIX",         {0.30, 0.55, 0.85}, kMix,          8},
     {"OSC 3",       {0.30, 0.55, 0.85}, kOsc3,         4},
     {"MODEL",       {0.30, 0.55, 0.85}, kModelsCtl,    2},

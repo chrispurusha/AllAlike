@@ -48,7 +48,9 @@ with Off as well - the filter's own response to an instant change, not a smoothi
 
 ## 5a. A new sound stops the notes
 Loading a sound stops every voice at once, inside the swap's silence (tiPlugin notes §12): no note of the old sound
-carries on with the new sound's settings. The keys still down are kept, so their releases land as usual.
+carries on with the new sound's settings. The keys still down are kept, so their releases land as usual. Analog Boost's
+smoothed copy of the output is emptied too: it held the old sound and, scaled by the new sound's boost, put a
+clipping-loud transient into the first block (A061 to A112, CT).
 
 ## 6. The two filters: routing, Balance, Link
 Filter 2 has the digital modes only (low, high, band pass, band stop). Balance runs through a centre-detented curve,
@@ -133,6 +135,11 @@ Random gives each note a value across the same span as the bipolar LFOs (-0.5 to
 oscillator's pitch, 24 notes on the reference and on ours spread alike (34 and 35 semitones standard deviation).
 Six slots with up to three destinations each, and each LFO's assign. Sources are 0..1, with an LFO's bipolar source -0.5..0.5, Key Follow (note - 60) / 63, Arp Input -0.5 with the arpeggiator off, and Velocity Off full until a key is released; amounts (byte - 64) / 64. Full amount is 128 dial units, or 128 semitones of pitch: the 10% constant source moves Cutoff by 12.8. Destinations the engine lacks (the effects, for now) are summed and ignored.
 
+## 7c. Pan and level slide across a block
+A voice's pan and level are worked out once a block; the gains slide in a straight line from the last block's to this
+one's across the block, as the amplifier's level does. Held still, a fast LFO into Pan stepped the gains every block and
+ticked (T048, LFO 2 to Pan at full with a 9 Hz triangle, 2026-11-12). A new note starts on its own gains. The reference slides its pan smoothly too, sample by sample, whatever the Anti-alias setting (2026-11-12).
+
 ## 7b. The oscillators' Semitone; Osc 3's Detune
 No oscillator's Semitone is equal-tempered: within each octave it is a just ratio - 1, 17/16, 9/8, 6/5, 5/4, 4/3, 7/5,
 3/2, 8/5, 5/3, 7/4, 15/8 - with octaves exact; the table is in 1/65536ths of a semitone. Osc 1's and Osc 2's stop at 48
@@ -194,6 +201,13 @@ filter sweep out. What a chord does with a Mono LFO in Env Mode was not checked.
 
 ## 13. Unison
 A stack is at most six voices. Each stands at a place from -1 to 1, not quite evenly (four are at -1, -0.5, 0.5, 1), which sets its detune and pan, and its level: 1 at the centre, 0.75 at the edges, with no gain on the stack as a whole. Detune is 24 cents at full, 10 at 96, 4.6 at 64. Unison LFO Phase moves every second voice by (byte - 64) x 2.8125 degrees, so 64 is no offset. With an LFO both clocked and in Env Mode, every second voice of a stack holds that LFO at its top instead of running it. A Single older than the TI format (byte 0 below 12) keeps Unison in page A 97-100.
+
+Pan Spread gives a stack voice an offset o = 2 x place x Spread / 127, at most 1 either way, so it is full from 64 up.
+With p the voice's own pan (Panorama, Pan modulation and Pan Velocity together), the voice sits at p + o + |o| x p,
+p limited to -1..1 in the last term and the whole to -1..1. Towards the far side the offset shrinks by 1 - |p|; towards
+p's own side it grows by 1 + |p|. At Panorama 96 a two-voice stack at Spread 64 sits at the centre and hard right, at 127
+both are hard right, and a deep Pan modulation carries the whole stack to either side. Against reference renders voice
+by voice, from the line pairs a detuned stack splits each harmonic into: within 0.01 of a pan (2026-11-12).
 
 ## 12b. LFO 3's pitch depth
 To the oscillators' pitch LFO 3's amount a gives a quarter of the pitch curve of §12 read at a / 2 above its middle:

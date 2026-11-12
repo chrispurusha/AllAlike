@@ -47,7 +47,7 @@ A program change selects a stored sound: Bank Select picks the bank, as on the i
 A new instance plays A001, whichever comes first of its first audio block and its editor's first frame, so a panel opened before audio runs shows the sound it will play. A project's state cancels this, and with no presets stored it stays on Init.
 
 ## 12. A new sound starts with empty effects
-The delay, reverb, chorus and the other effects kept running across a change of sound, so a long delay left by one Single went on echoing under the next (2026-11-02, as Sn2Alike before it). Loading a sound sets a flag, and the audio thread empties the effects (`ti_effects_reset`, tiEffects §15) before its next block - never the loading thread, which may be the main one. The swap is already faded to silence, so nothing audible is cut. Whether the instrument stops its echoes on a program change has not been checked. The voices are stopped at the same moment (2026-11-12, owner: a note held across a change of sound went on with the new sound and clipped): a held key stays held, so its release lands and a running arpeggiator goes on with the new sound from its next step, but no note carries over.
+The delay, reverb, chorus and the other effects kept running across a change of sound, so a long delay left by one Single went on echoing under the next (2026-11-02, as Sn2Alike before it). Loading a sound sets a flag, and the audio thread empties the effects (`ti_effects_reset`, tiEffects §15) before its next block - never the loading thread, which may be the main one. The swap is already faded to silence, so nothing audible is cut. Whether the instrument stops its echoes on a program change has not been checked. The voices are stopped at the same moment (2026-11-12, owner: a note held across a change of sound went on with the new sound and clipped): a held key stays held, so its release lands and a running arpeggiator goes on with the new sound from its next step, but no note carries over. The order matters: a load flags the swap before it marks the sound changed (both atomic), and the audio thread stops the notes and empties the effects before it takes in the new sound. The other way round, a block could fall between the two and play the old note with the new sound - unheard under the fade, but loud enough to light the clip lamp (A061 to A112 with a note held, CT). The swap is flagged before the first value changes, not after the last, since the host's own copies of the new values can arrive while they are being written; and the clip lamp only counts blocks the swap fade leaves open, as it reports what leaves the plug-in.
 
 ## 13. The rate
 The voices run at the host's rate when the instrument runs at it too - 32, 44.1, 48, 64, 88.2 or 96 kHz, the rates
@@ -58,3 +58,19 @@ they run at the nearest of those in the same family (88.2 or 96 kHz), and SynthL
 The output is 6 dB under the instrument's own level (OUTPUT_HEADROOM 0.5, CT 2026-11-08, as Pulse2Alike's and
 Sn2Alike's), so the loudest sounds stay under a host's full scale. It is applied after the voices' own limit and with Master, so the instrument's clipping is unchanged; `tools/tirender` renders the voices itself
 and so keeps the instrument's level for comparisons.
+
+## 15. User wavetables
+Each instance owns two user tables, Osc 1's and Osc 2's (tiOsc notes §5a). The main thread builds one and swaps it in
+atomically; the audio thread hands both to the oscillators at the start of every block. The table it replaced is kept
+until a block has begun since the swap - the audio thread may still be inside one with it - and then freed; if many
+loads come faster than the blocks, the oldest kept one is freed first.
+
+Loading a table makes it heard at once: the oscillator's model becomes Wavetable if it was Classic or HyperSaw, and
+its Wave becomes 100.
+
+A project keeps the tables themselves, not the files: after the rest of the state, each loaded table as `TIU1`, the
+oscillator, its name, the file's path (for Prev/Next and the browser's starting folder), the frame count and cycle,
+and every frame's built cycle as 16-bit samples. A table rebuilt from those is the same within 16-bit rounding
+(-95 dB). A project without them - saved before user tables existed - loads with none.
+
+A Single keeps only the Wave byte, 100: sent to the instrument or saved as a `.syx`, it carries no table.

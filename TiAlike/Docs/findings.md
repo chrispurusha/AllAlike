@@ -320,3 +320,22 @@ P@rtials 1 (A012) sounded wildly different on the instrument, around its noise. 
 Filter 2 in mode 2 and Split routing. In Split the instrument sends Osc 3 and the noise through Filter 2 with Osc 2, and
 carries no ring; ours sent both through Filter 1 and kept the ring. Fixed (tiVoices notes §6).
 
+## 2026-11-12 Unison Pan Spread; delay modulation
+
+- T048 ticked harder on the reference. Its pan is not stepped there - it moves smoothly, sample by sample - but it swings
+  further: a two-voice stack with Pan Spread 97 kept the whole ±33 dB swing of LFO 2 to Pan, where ours fell to ±11 dB.
+  Measured voice by voice (a detuned stack splits each harmonic into a pair of lines, one per voice), the offset is
+  2 x place x Spread / 127, full from 64, and a voice sits at p + o + |o| p: towards the far side the offset shrinks as
+  the pan moves off centre, towards its own side it grows. Every voice within 0.007 of a pan (tiVoices notes §13).
+- Delay modulation, from the pitch track of a sine's echo (wet only): the voices' LFO at half their rate, the time
+  swinging by 0.104 of itself at full Depth, the two sides in antiphase. The earlier note of 4.2 Hz at Rate 50 was wrong:
+  it is 0.29 Hz (tiEffects notes §8a).
+- A preset change while a note sounds (A061 -> A112): no clip since the voices stop at the change and the lamp counts
+  only once the new sound is in (CT, confirmed).
+
+- User wavetables (tiOsc notes §5a, tiUserTable notes): the PPG WAVs carry no cycle mark and are 22.05 kHz files of
+  64 or 128 cycles of 256 - an autocorrelation finds 256 or a high harmonic of it, never 2048, though 16384 divides by
+  2048 too. The TI2 and Massive sets are Serum-style, `<!>2048` in a `clm ` chunk. A table rebuilt from what a project
+  stores matched the loaded one to -55 dB until the top partial was kept below the 512-sample cycle's Nyquist; since,
+  to -95 dB (16-bit). A lone HyperSaw saw with Anti-alias off, made on points of its own as the classic saw is: -46.6
+  and -42.9 dB between the harmonics at C6 and C7 against the reference's -46.5 and -43.2.

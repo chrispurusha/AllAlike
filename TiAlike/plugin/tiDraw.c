@@ -18,13 +18,16 @@
 // hardware link and arpeggiator steps (notes §1).
 
 #include <ctype.h>
+#include <dirent.h>
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
+#include <strings.h>
 #include <stdlib.h>
 
 #include "tiDraw.h"
 #include "tiParams.h"
+#include "tiUserTable.h"
 
 #include "synthlibDefs.h"
 #include "synthlibGlobals.h"
@@ -49,43 +52,45 @@
 #include <GLFW/glfw3.h>           // the key constants SynthLib's popups speak
 
 #if defined (_WIN32)
-#define FONT_PATH               alike_font_path()     // tools/windows/alikeWin.c: Arial from the Windows fonts folder
+#define FONT_PATH                 alike_font_path()   // tools/windows/alikeWin.c: Arial from the Windows fonts folder
 #else
-#define FONT_PATH               "/System/Library/Fonts/Supplemental/Arial.ttf"
+#define FONT_PATH                 "/System/Library/Fonts/Supplemental/Arial.ttf"
 #endif
-#define FONT_PRELOAD_SIZE       (16.0)
+#define FONT_PRELOAD_SIZE         (16.0)
 
-#define MAX_PARAMS              (320)
-#define MAX_PLACED              (64)
-#define MAX_PAGES               (16)
-#define MARGIN_X                (16.0)
-#define TITLE_Y                 (30.0)       // below the menu bar
-#define TAB_Y                   (58.0)
-#define TAB_H                   (14.0)
-#define TAB_GAP                 (6.0)
-#define TAB_PAD                 (4.0)        // either side of a tab's title
-#define PAGE_Y                  (90.0)
-#define ROW_H                   (112.0)
-#define SECTION_GAP             (16.0)
-#define CONTROL_W               (58.0)
-#define DIAL_SIZE               (40.0)
-#define LABEL_H                 (11.0)
-#define HEADING_TO_DIAL         (34.0)
-#define BUTTON_H                (12.0)
-#define PATCH_BAR_X             (300.0)
-#define PATCH_BUTTON_H          (14.0)
-#define PATCH_BUTTON_GAP        (6.0)
-#define NAME_FIELD_SIZING       "WWWWWWWWWW"     // TI_SINGLE_NAME_LENGTH of the widest capital
-#define MENU_BG                 {0.22, 0.22, 0.25}
-#define MENU_MAX                (128)
-#define LONG_MENU               (32)
-#define MENU_ROWS_LONG          (22)
-#define MODEL_STEPS             (7)
-#define FIRST_TABLE_MODEL       (2)
-#define MENU_CELL_W             (96.0)
-#define MENU_CELL_W_LONG        (118.0)
-#define MENU_ROWS_PER_COLUMN    (8)
-#define OPENING_RELEASE_SLOP    (4.0)     // notes §3: how far the pointer may move and still be the opening click
+#define MAX_PARAMS                (320)
+#define MAX_PLACED                (64)
+#define MAX_PAGES                 (16)
+#define MARGIN_X                  (16.0)
+#define TITLE_Y                   (30.0)     // below the menu bar
+#define TAB_Y                     (58.0)
+#define TAB_H                     (14.0)
+#define TAB_GAP                   (6.0)
+#define TAB_PAD                   (4.0)      // either side of a tab's title
+#define PAGE_Y                    (90.0)
+#define ROW_H                     (112.0)
+#define SECTION_GAP               (16.0)
+#define CONTROL_W                 (58.0)
+#define DIAL_SIZE                 (40.0)
+#define LABEL_H                   (11.0)
+#define HEADING_TO_DIAL           (34.0)
+#define BUTTON_H                  (12.0)
+#define PATCH_BAR_X               (300.0)
+#define PATCH_BUTTON_H            (14.0)
+#define PATCH_BUTTON_GAP          (6.0)
+#define NAME_FIELD_SIZING         "WWWWWWWWWW"   // TI_SINGLE_NAME_LENGTH of the widest capital
+#define MENU_BG                   {0.22, 0.22, 0.25}
+#define MENU_MAX                  (128)
+#define LONG_MENU                 (32)
+#define MENU_ROWS_LONG            (22)
+#define MODEL_STEPS               (7)
+#define FIRST_TABLE_MODEL         (2)
+#define TABLE_STEP_GAP            (6.0)   // notes §16: between Prev and Next
+#define TI_WAVETABLE_USER_STEP    (100)   // notes §16: the Wave entry that is the oscillator's user table
+#define MENU_CELL_W               (96.0)
+#define MENU_CELL_W_LONG          (118.0)
+#define MENU_ROWS_PER_COLUMN      (8)
+#define OPENING_RELEASE_SLOP      (4.0)   // notes §3: how far the pointer may move and still be the opening click
 
 typedef struct {
     const tTiControl * control;
@@ -841,6 +846,94 @@ static bool name_edit_key(int glfwKey, unsigned int codepoint) {
     return true;
 }
 
+// notes §16: user wavetables - a file browser to choose one, then Prev/Next through its folder
+static int gTableOsc;
+
+static void on_table_chosen(const char * path) {
+    char failed[1200];
+
+    if ((path == NULL) || (path[0] == '\0') || (gHost == NULL) || (gUser == NULL)) {
+        return;
+    }
+
+    if (!gHost->loadTable(gUser, gTableOsc, path)) {
+        snprintf(failed, sizeof(failed), "Could not read a wavetable from %s", path);
+        show_alert("Load Wavetable", failed);
+    }
+}
+
+static const char * table_start(void) {
+    static char  folder[1024];
+    const char * path  = ((gHost != NULL) && (gUser != NULL)) ? gHost->tablePath(gUser, gTableOsc) : "";
+
+    snprintf(folder, sizeof(folder), "%s", path);
+    char *       slash = strrchr(folder, '/');
+
+    if (slash != NULL) {
+        *slash = '\0';
+        return folder;
+    }
+    return ti_patch_sounds_folder();
+}
+
+void ti_draw_load_table(int osc) {
+    gTableOsc = osc;
+    set_file_browser_start_directory_provider(table_start);
+    open_file_browser_read(on_table_chosen);
+}
+
+static int compare_names(const void * a, const void * b) {
+    return strcasecmp(*(const char *const *)a, *(const char *const *)b);
+}
+
+void ti_draw_step_table(int osc, int direction) {
+    char            folder[1024];
+    const char *    path  = ((gHost != NULL) && (gUser != NULL)) ? gHost->tablePath(gUser, osc) : "";
+    const char *    slash = strrchr(path, '/');
+    char *          names[4096];
+    int             count = 0, at = -1;
+    DIR *           dir;
+    struct dirent * e;
+
+    if (slash == NULL) {
+        ti_draw_load_table(osc);   // nothing loaded yet: no folder to step through
+        return;
+    }
+    snprintf(folder, sizeof(folder), "%.*s", (int)(slash - path), path);
+
+    if ((dir = opendir(folder)) == NULL) {
+        return;
+    }
+
+    while (((e = readdir(dir)) != NULL) && (count < 4096)) {
+        if ((e->d_name[0] != '.') && ti_user_table_file(e->d_name)) {
+            names[count++] = strdup(e->d_name);
+        }
+    }
+    closedir(dir);
+    qsort(names, (size_t)count, sizeof(names[0]), compare_names);
+
+    for (int i = 0; i < count; i++) {
+        at = (strcmp(names[i], slash + 1) == 0) ? i : at;
+    }
+
+    // a file that will not load is passed over, up to a whole lap of the folder
+    for (int tries = 0; tries < count; tries++) {
+        char next[1300];
+
+        at = (at < 0) ? ((direction > 0) ? 0 : (count - 1)) : ((at + direction + count) % count);
+        snprintf(next, sizeof(next), "%s/%s", folder, names[at]);
+
+        if (gHost->loadTable(gUser, osc, next)) {
+            break;
+        }
+    }
+
+    for (int i = 0; i < count; i++) {
+        free(names[i]);
+    }
+}
+
 static void draw_patch_bar(void) {
     char         label[160];
     const char * base = strrchr(gPatchPath, '/');
@@ -983,6 +1076,16 @@ static void value_text(const tTiControl * c, char * out, size_t len) {
     int32_t             step  = step_of(c);
     const char *const * names = names_of(c);
 
+    // notes §16: the user table's own name in place of "User"
+    if ((names != c->names) && (step == TI_WAVETABLE_USER_STEP) && (gHost != NULL) && (gUser != NULL)) {
+        const char * name = gHost->tableName(gUser, (c->paramId == kTiParamOsc1Wave) ? 0 : 1);
+
+        if ((name != NULL) && (name[0] != '\0')) {
+            snprintf(out, len, "%s", name);
+            return;
+        }
+    }
+
     if ((names != NULL) && (names[step] != NULL)) {
         snprintf(out, len, "%s", names[step]);
     } else {
@@ -1024,6 +1127,8 @@ static void draw_tabs(void) {
         x       += w + TAB_GAP;
     }
 }
+
+static void draw_table_steps(const tPlaced * pc, tRgb colour);
 
 void ti_draw_frame(int pixelWidth, int pixelHeight) {
     char text[64];
@@ -1074,7 +1179,9 @@ void ti_draw_frame(int pixelWidth, int pixelHeight) {
             shown = (shown < 0) ? 0 : ((shown > c->steps) ? c->steps : shown);
         }
 
-        if (c->kind == eTiControlChoice) {
+        if (c->kind == eTiControlTableStep) {
+            draw_table_steps(pc, colour);
+        } else if (c->kind == eTiControlChoice) {
             fitted_button((tRectangle){{pc->x, pc->dial.coord.y + ((DIAL_SIZE - BUTTON_H) / 2.0)}, {CONTROL_W - 6.0, BUTTON_H}}, text, colour);
         } else {
             render_dial(mainArea, pc->dial, (uint32_t)shown, (uint32_t)c->steps + 1u, 0, colour);
@@ -1088,6 +1195,36 @@ void ti_draw_frame(int pixelWidth, int pixelHeight) {
     synthlib_popups_tick();
     synthlib_popups_render();  // menus, the file browser and dialogues, front-most last
     render_backend_flush();
+}
+
+// notes §16: the table buttons, live only while the oscillator reads its user table
+static int table_osc(const tTiControl * c) {
+    return (c->paramId == kTiParamOsc1Wave) ? 0 : 1;
+}
+
+static bool table_steps_live(const tTiControl * c) {
+    uint32_t model = (table_osc(c) == 0) ? kTiParamOsc1Model : kTiParamOsc2Model;
+
+    return (lround(gValue[model] * MODEL_STEPS) >= FIRST_TABLE_MODEL) && (step_of(c) == TI_WAVETABLE_USER_STEP);
+}
+
+static tRectangle table_step_rect(const tPlaced * pc, int which) {
+    double top = pc->dial.coord.y + ((DIAL_SIZE - (2.0 * BUTTON_H) - TABLE_STEP_GAP) / 2.0);
+
+    return (tRectangle){{
+                            pc->x, top + (which * (BUTTON_H + TABLE_STEP_GAP))
+                        }, {
+                            CONTROL_W - 6.0, BUTTON_H
+                        }
+    };
+}
+
+static void draw_table_steps(const tPlaced * pc, tRgb colour) {
+    bool live = table_steps_live(pc->control);
+    tRgb tint = live ? colour : (tRgb)RGB_GREY_3;
+
+    fitted_button(table_step_rect(pc, 0), "< Prev", tint);
+    fitted_button(table_step_rect(pc, 1), "Next >", tint);
 }
 
 static const tPlaced * hit(double x, double y) {
@@ -1183,6 +1320,13 @@ bool ti_draw_press(double x, double y, tTiEdit * edit, bool * grabbed) {
 
     if (pc == NULL) {
         return false;
+    }
+
+    if (pc->control->kind == eTiControlTableStep) {
+        if (table_steps_live(pc->control)) {
+            ti_draw_step_table(table_osc(pc->control), (y < table_step_rect(pc, 1).coord.y) ? -1 : 1);
+        }
+        return true;
     }
 
     if (pc->control->kind == eTiControlChoice) {

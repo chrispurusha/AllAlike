@@ -83,6 +83,14 @@ The sweep is a triangle, straight in octaves, starting at the top. It rises from
 ## 15. Reset
 `ti_effects_reset` empties every line and filter, as a new instance has them, and keeps the rate, the tempo and the plug-in's Delay and Reverb switches. The plug-in calls it on the audio thread when a sound loads (tiPlugin §12).
 
+## 8a. Delay modulation
+Rate, Depth and Shape run an LFO of their own: the voices' LFO (tiLfo notes §1) at half its rate - 0.29 Hz at Rate 50,
+1.14 Hz at 80 - with its first six shapes. It moves the delay time by up to 0.104 of the delay time either way at full
+Depth, straight in Depth, the left side one way and the right the other. In the Ping Pong and Pattern modes the swing is
+a share of the Delay Time (or its clocked length), not of either side's tap. Measured from the pitch track of a sine's echo
+in reference renders, wet only: the rate within 1% at Rate 50 and 80, the swing 10.4% at Depth 127 at both rates. The
+LFO starts its cycle afresh when the delay is switched on.
+
 ## 25. Modulated effects glide
 Modulation reaches the effects by rewriting their bytes once per block (tiVoices notes §22). The phaser (mix, depth,
 frequency, feedback, spread), the delay (send, feedback, both taps) and the reverb (send, pre-delay, the colour's

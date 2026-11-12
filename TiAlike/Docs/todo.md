@@ -3,10 +3,11 @@
 One line per item. Measurements and reasoning go in `findings.md`, design in `design.md`.
 
 ## First
-- Spitter (C110), worse since the matrix reaches the pitch depths at full strength (correct in isolation): cut down, it is Portamento 26 + Cutoff 26 + Velocity into LFO 1's Osc 1 depth; the vibrato tracks the reference, but ours is about 8.7 dB louder - look at the filter's key tracking during a glide. Also LFO 1 at rate 48 drifts a few percent from the reference over 2 s. Phobos (C094) +5.6 from another cause (LFO clocks, Env Mode)
+- T048: a zipper or tick (CT, 2026-11-12) - the pan slides across each block, as the reference's does (tiVoices notes §7c); Unison Pan Spread now follows the reference (§13), which gives back its full pan swing: check the tick by ear
+- Spitter (C110): its oscillators start almost in step and Osc 1 has vibrato, so the beating between them hangs on how their phases build up through the opening glide - each oscillator's pitch and the level at a half-cycle start match the reference, the in-step case does not (the beating peaks about 0.1 s apart). Phobos (C094) +5.6 from another cause (LFO clocks, Env Mode)
 - Sync: the instrument's restart runs about one point late, leaving faint lines at every Osc 1 harmonic at whole-number ratios (-38 dB two octaves up); ours has none. Both Anti-alias modes otherwise done (tiOsc notes §2a, §9)
 - Filter 2 band pass at Cutoff 127 (linked): about 5 dB louder than the reference (within 0.5 dB at 64-115); Dgtalrido (C033) still 14.9 after the Split fix - recheck at its own settings. Wired (C127) reduces to four LFO 2 settings (LFO 2 to Osc Shape)
-- Anti-alias Off: the HyperSaw still about 10 dB cleaner than the instrument (between a box-filtered and a band-limited saw); Osc 3 and the sub within 1-3.5 dB since 2026-11-12; FM mixed
+- Anti-alias Off: a lone HyperSaw saw aliases as the instrument's since 2026-11-12 (tiOsc notes §9); with several saws the energy between the harmonics is about 2 dB more than the instrument's even band-limited - the stack's spacing or levels, to check; FM mixed (ours 12 dB cleaner at C6, 11 dB dirtier at C7)
 - Arpeggiator built 2026-11-11 (tiArp notes): old-format Singles' user pattern (C062), C117 chord mode, Arp>Matrix's matrix source, the host song position as the pattern's phase while playing
 - Blame tool: longer windows (several seconds) for evolving patches before trusting a short-window score
 - Bank C still apart from the reference after the Serial 6 fix: C001 (analog 4-pole, top octaves 15-30 dB dark), C009 AprilPad, C003 Aeternal, C008 AnlogFeel
@@ -27,7 +28,6 @@ One line per item. Measurements and reasoning go in `findings.md`, design in `de
 - Saturation curve 5 (Digital): about 4.5 dB hot across five Singles - check with more
 - Level indications at various stages of the voice (oscillators, filters, saturation, output), to help monitor gain staging
 - Fixed point, per the Arithmetic parameter (with only the biquad converted, fixed and float differ 60-110 dB below the signal on 15 of 20 Singles, 31-54 dB on Bumztik LD, RoachLead and Mushi BS - look at those first): the biquad is done. Next oscillators, envelopes, mix, saturation, the ladder. A null needs all of them, with the phases and timing
-- HyperSaw: cross-oscillator sync frequency (byte 27) and its filter-envelope routes
 - Oscillator models (11-02): Wave PWM, Grain and Formant built (tiOsc notes §6-§8). Open: their F-Shift / F-Spread matrix routes; high Formant or Sync on rich tables keeps too many top partials (up to 2 dB) (Complex + Detune's half-frequency energy matches the instrument within about 2 dB on models 5 and 7, Detune 0-127 - checked 2026-11-08)
 - Wavetables (osc notes §5, the instrument's frames, versions and read built 2026-11-08): still out - between frames the instrument mixes a little of the next frame where Smooth 127 should hold one alone (table 50 frame 2 carries about 6% of frame 3), which looks like the Index-to-frame weighting; table 34 off at C2 and C5 (-7.7 dB); 88 at C2 and 1 at C6 on a few partials; the 8-, 4- and 2-partial versions are not exact truncations on 11% of frames; table 0 still measured
 - Velocity to FM (B50): follows the instrument (spectral centroid with B50 96 within 4%), about 15% short at B50 127 - the FM depth near full. Velocity to Pulse Width (B49) matches within 0.1 dB (checked 2026-11-08). With Osc Balance 64 and FM 0, ours is about 4% darker than the instrument on a saw pair at C3
@@ -44,7 +44,9 @@ One line per item. Measurements and reasoning go in `findings.md`, design in `de
 - Singles drive only what is built (tiPatch notes §3; the amp envelope's 59-63 now carried): add each section's bytes to `kCarried` as it is built - Osc 1 shape/PW (page A 17/18) with the oscillator
 - Changing Sustain while a note holds: glides at 2^-12 a tick (tiEnvelope notes §6) - check against the reference
 - The reference answers a note 1-1.5 ms after its sample: measure the delay and whether it steps with a block of its own
-- Loading of custom wavetables, in various common file formats.
+- User wavetables built 2026-11-12 (tiOsc notes §5a, Wavetable menu): a drop-in onto the panel; more formats as they turn up (Serum's own `.wav` without a `clm ` mark at other cycle lengths, PPG `.wav` at rates other than 22.05 kHz)
+- User wavetables and presets: the tables belong to the instance (kept in the project), so a program change keeps them - but a preset or `.syx` stored with Wave 100 does not say which table it was made with; keep the table's path (or the table) beside each stored preset and Single, and load it with the sound (CT, 2026-11-12)
+- Custom wavetables, formats on hand (ext-ssd), all read by tiUserTable.c since 2026-11-12: `Wavetables2/PPG` - 416 mono 16-bit WAVs at 22.05 kHz, cycles of 256 (64 or 128 frames); `Wavetables2/AC Virus TI2 Wavetables` and `MassiveWaveTablesForSerum` - Serum-style float WAVs marked `<!>2048` in a `clm ` chunk; `Wavetables` - Waldorf user-wavetable dumps (F0 3E 13, 64 waves of 128) as `.syx` and as `.mid`. `Wavetables2/Nicholas Lem MnM Sound Pack` is 16 Monomachine kit dumps (0x52) and 16 pattern dumps (0x67) with no waveform data - its kits use the factory waves; Monomachine DigiPRO waveform dumps would be worth reading if any turn up (one wave a frame, as the Waldorf dumps)
 - Smooth Mode On/Auto/Note: the hardware's Cutoff step takes 2-15 ms (10-90%) - measure Off against On on a clean sound to see whether On has a glide of a few ms
 - Smooth Mode Quantise: measure one held control besides Cutoff (Osc Balance or an LFO amount) and one that lands at once (Filter Mode) on the hardware
 
@@ -71,7 +73,6 @@ One line per item. Measurements and reasoning go in `findings.md`, design in `de
 - A048 an extra tone here
 - A049 much weaker here
 - A053 zipper: the chorus - fixed 2026-11-09 (tiEffects notes §13), confirmed by CT; the phaser, delay and reverb glide their modulated settings too (§25)
-- Delay modulation (A116 rate, A117 depth, A118 shape) is not built: its LFO runs the voices' rate law about 7.35 times faster (4.2 and 6.6 Hz at Rate 50 and 60); the depth is not yet known. When built, read the line interpolated and move the tap per sample, or it will zipper
 - A060 wildly different
 - A062 distortion tonally different
 - A063 sounds like another patch altogether

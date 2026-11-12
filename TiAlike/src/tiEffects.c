@@ -1152,13 +1152,15 @@ static double delay_clocked(const tTiEffects * e, uint8_t clock) {
     return at;
 }
 
-static void delay_times(const tTiEffects * e, const uint8_t * a, const uint8_t * b, double * left, double * right) {
+static void delay_times(const tTiEffects * e, const uint8_t * a, const uint8_t * b, double * left, double * right, double * whole) {
     static const double kRatio[4]       = {0.5, 0.75, 0.25, 0.875};
     // notes §8: Pattern x+y, x sixteenths on the left and y on the right, modes 6-22 in the instrument's order
     static const int    kPattern[17][2] = {{1, 1}, {2, 1}, {3, 1}, {4, 1}, {5, 1}, {2, 3}, {2, 5}, {3, 2}, {3, 3},
                                            {3, 4}, {3, 5}, {4, 3}, {4, 5}, {5, 2}, {5, 3}, {5, 4}, {5, 5}};
     double              base            = (b[20] != 0) ? delay_clocked(e, b[20]) : (fmax((double)a[114], 1.0) * 256.0 * e->rate / 48000.0);
     uint8_t             mode            = a[112];
+
+    *whole = base;
 
     *left  = base;
     *right = base;
@@ -1172,6 +1174,15 @@ static void delay_times(const tTiEffects * e, const uint8_t * a, const uint8_t *
         *left  = p[0] * sixteenth;
         *right = p[1] * sixteenth;
     }
+}
+
+#define DELAY_MOD_DEPTH    (0.104)   // notes §8a: of the delay time, either way, at full Depth
+
+// notes §8a: the voices' LFO at half their rate
+static double delay_lfo(tTiEffects * e, const uint8_t * a, uint32_t frames) {
+    tTiLfoShape shape = {ti_lfo_rate_hz(a[116]) / 2.0, (a[118] <= 5) ? a[118] : 5, 0.0, false, 0.0};
+
+    return ti_lfo_tick(&e->delayLfo, &shape, frames / e->rate);
 }
 
 // notes §25: a line read a fractional number of samples back, between the two samples either side
@@ -1212,9 +1223,13 @@ static void delay(tTiEffects * e, const uint8_t * a, const uint8_t * b, float * 
     double  wet       = delay_wet(send);
     double  dry       = (send <= 96.0) ? 1.0 : ((127.0 - send) / 31.0);
     double  feedback  = 0.00772 * a[115];
-    double  at[2];
+    double  at[2], whole;
 
-    delay_times(e, a, b, &at[0], &at[1]);
+    delay_times(e, a, b, &at[0], &at[1], &whole);
+    double  swing     = DELAY_MOD_DEPTH * (a[117] / 127.0) * whole * delay_lfo(e, a, frames);
+
+    at[0] -= swing;                                 // notes §8a: the two sides in antiphase
+    at[1] += swing;
 
     bool    apart     = (a[112] == 1);
     float * lineL     = e->delayLine[0];
@@ -1669,6 +1684,7 @@ static void forget_when_off(tTiEffects * e, const uint8_t * a, const uint8_t * b
     if (!delay_on && e->wasOn[4]) {
         e->delayGliding = false;
         memset(e->delayLine, 0, sizeof(e->delayLine));
+        ti_lfo_trigger(&e->delayLfo, 0.0, 0u);
     }
 
     if (!reverb_on && e->wasOn[5]) {

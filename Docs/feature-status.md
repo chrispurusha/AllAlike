@@ -1,7 +1,7 @@
 # Feature status
 
 Where each plug-in stands: what is **missing**, what is **built but needs more work**, and what is **built but not
-yet checked** in a host or against the instrument. Updated 2026-11-09 (Pulse2Alike's unison, PARA-8 and thump refitted through the QU-24, P016-P029 heard; TiAlike's Bank A heard against the instrument, its 11-08 oscillator, portamento and LFO work; preset browsers by category).
+yet checked** in a host or against the instrument. Updated 2026-11-12 (TiAlike user wavetables, delay modulation, Pan Spread; Pulse2Alike's unison, PARA-8 and thump refitted through the QU-24, P016-P029 heard; TiAlike's Bank A heard against the instrument, its 11-08 oscillator, portamento and LFO work; preset browsers by category).
 
 This is a summary for planning. The working lists stay in each plug-in's `Docs/todo.md` (one line per item) and
 `Docs/to-test.md`; the reasoning and measurements in `Docs/findings.md` and `Docs/code-notes/`. Work spanning the
@@ -94,11 +94,10 @@ Missing everywhere, or built in one and wanted in the others:
 ## TiAlike
 
 **Missing**
-- **Effects:** Chorus types other than Classic; Delay modulation (rate and depth), Tape types, and the pattern delays'
+- **Effects:** Chorus types other than Classic; Tape types, and the pattern delays'
   routing (patterns 2+5 to 5+5 built 2026-11-09, but on the instrument the right is a single tap fed into the left's loop); Reverb's Feedback modes and Clock; the Distortion Wave Shaper; Character types other than Analog Boost.
-- **Arpeggiator, vocoder, input follower, soft knobs:** not offered (the arpeggiator last, if at all).
-- **Matrix routes:** LFO 1 to Filter Gain, the Unison destinations, Osc 3 Detune, and the oscillator models' F-Shift and F-Spread.
-- **Loading custom wavetables** from common file formats.
+- **Vocoder, input follower, soft knobs:** not offered.
+- **Matrix routes:** the oscillator models' F-Shift and F-Spread.
 - **Fixed point** beyond the filter (oscillators, envelopes, mix, saturation, ladder): a sample-exact null needs all of them.
 
 **Needs more work**
@@ -128,6 +127,8 @@ Missing everywhere, or built in one and wanted in the others:
 - **Worst library Singles**, all now explained: Theory was the LFO rate law below 48 (fixed 2026-11-08, error 18.5 ->
   3.8; what is left is a free-running LFO's phase); RuffBelsBC is HyperSaw's cross-oscillator sync; DRY DRUM is the
   error measure, not the sound (it scores the instrument's noise floor above a 46 Hz sine).
+
+**Built 2026-11-12:** user wavetables - Wave 100 on each oscillator, loaded from a PPG, Serum-style or Waldorf file and stepped through its folder with Prev/Next beside Wave, kept inside the project; delay modulation; Unison Pan Spread as the instrument's; Anti-alias Off for the HyperSaw.
 
 **Built, not yet checked** - `to-test.md`: the first build in a host end to end; Link and Filter Link; patch loading and presets; the envelopes and Overdrives by ear; the Virus TI menu's bank backup and restore with the instrument connected; the chorus and effect glides, the pattern
 delays, the sine LFO's Symmetry.

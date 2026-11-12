@@ -104,6 +104,7 @@ SOURCES=(
     "$HERE/src/tiArp.c"
     "$HERE/src/tiArpPatterns.c"
     "$HERE/src/tiVoices.c"
+    "$HERE/src/tiUserTable.c"
     "$HERE/plugin/tiParams.c"
     "$HERE/plugin/tiPatch.c"
     "$HERE/plugin/tiHardware.c"

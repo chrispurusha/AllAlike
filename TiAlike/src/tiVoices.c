@@ -348,6 +348,7 @@ static void start_voice(tTiVoices * v, tTiVoice * vc, uint8_t note, float veloci
     vc->indexSet          = false; // notes §31: a new note takes its Index at once
     vc->points[0].started = vc->points[1].started = vc->points[2].started = false;
     vc->syncCarry         = 0.0;
+    vc->outSet            = false;
     vc->syncJust          = false;
     const tTiSound * s      = &v->sound;
     bool             silent = !vc->active || (vc->amp.level <= 0.0);
@@ -1327,6 +1328,12 @@ static double noise_sample(tTiVoice * vc, double color, double rate) {
 
 static void render_voice(tTiVoices * v, const tTiSound * s, tTiVoice * vc, const tTiFilterSet * set, const tTiEnvShape * amp, const tTiEnvShape * fenv,
                          const tTiEnvShape * e3, const tTiEnvShape * e4, const double * mod, float * left, float * right, uint32_t frames, double levelL, double levelR) {
+    double          fromL     = vc->outSet ? vc->outL : levelL;
+    double          fromR     = vc->outSet ? vc->outR : levelR;
+
+    vc->outL        = levelL;
+    vc->outR        = levelR;
+    vc->outSet      = true;
     drift_advance(vc, (double)frames / v->rate);
 
     // notes §32: the amplifier reaches its level for the end of the block in a straight line across the block
@@ -1364,6 +1371,8 @@ static void render_voice(tTiVoices * v, const tTiSound * s, tTiVoice * vc, const
     double          width2    = clamp(s->a[23] + (MOD_DEPTH * (mod[kDstWidth2] + mod[kDstLfo1Width] + (bipolar(s->b[49]) * vc->velocity))), -127.0, 127.0); // notes §23
     int             wave1     = (int)clamp(s->a[19] + (63.0 * mod[kDstWave1]), 0.0, 63.0);
     int             wave2     = (int)clamp(s->a[24] + (63.0 * mod[kDstWave2]), 0.0, 63.0);
+    int             wt1       = (s->a[19] == TI_WAVETABLE_USER) ? TI_WAVETABLE_USER : s->a[19];             // tiOsc notes §5a: Wave 100 is the oscillator's own user table
+    int             wt2       = (s->a[24] == TI_WAVETABLE_USER) ? (TI_WAVETABLE_USER + 1) : s->a[24];
     double          bal       = s->a[33] + (MOD_DEPTH * mod[kDstOscBalance]);
     double          g1        = balance_1(bal);
     double          g2        = balance_2(bal);
@@ -1460,15 +1469,15 @@ static void render_voice(tTiVoices * v, const tTiSound * s, tTiVoice * vc, const
         if (!useO1) {
             // silent
         } else if (hyper1) {
-            o1 = ti_osc_hyper_sample(&stack1, vc->hyper[0], inc1);
+            o1 = aliased ? ti_osc_hyper_points(&stack1, vc->hyperPoints[0], vc->hyper[0], inc1, v->rate) : ti_osc_hyper_sample(&stack1, vc->hyper[0], inc1);
         } else if (grain1 & 1) {
-            o1 = ti_osc_grain_pair(s->a[19], index1, smooth1, gk1, vc->grain[0], inc1);
+            o1 = ti_osc_grain_pair(wt1, index1, smooth1, gk1, vc->grain[0], inc1);
         } else if (grain1) {
-            o1 = ti_osc_grain(s->a[19], index1, smooth1, gk1[0], vc->phase[0], inc1);
+            o1 = ti_osc_grain(wt1, index1, smooth1, gk1[0], vc->phase[0], inc1);
         } else if (pwm1) {
-            o1 = ti_osc_wave_pwm(s->a[19], index1, smooth1, vc->twin[0], width1, inc1);
+            o1 = ti_osc_wave_pwm(wt1, index1, smooth1, vc->twin[0], width1, inc1);
         } else if (table1) {
-            o1 = ti_osc_wavetable(s->a[19], index1, smooth1, vc->phase[0], inc1);
+            o1 = ti_osc_wavetable(wt1, index1, smooth1, vc->phase[0], inc1);
         } else if (aliased) {
             o1 = ti_osc_classic_points(&vc->points[0], points1, wave1, shape1, width1, vc->phase[0], inc1);
         } else {
@@ -1493,15 +1502,15 @@ static void render_voice(tTiVoices * v, const tTiSound * s, tTiVoice * vc, const
         if (!useO2) {
             // silent
         } else if (hyper2) {
-            o2 = syncLevel * ti_osc_hyper_sample(&stack2, vc->hyper[1], (syncUp > 0.0) ? (i2 * syncUp) : i2);
+            o2 = syncLevel * ((aliased && (syncUp <= 0.0)) ? ti_osc_hyper_points(&stack2, vc->hyperPoints[1], vc->hyper[1], i2, v->rate) : ti_osc_hyper_sample(&stack2, vc->hyper[1], (syncUp > 0.0) ? (i2 * syncUp) : i2));
         } else if (grain2 & 1) {
-            o2 = ti_osc_grain_pair(s->a[24], index2, smooth2, gk2, vc->grain[1], i2);
+            o2 = ti_osc_grain_pair(wt2, index2, smooth2, gk2, vc->grain[1], i2);
         } else if (grain2) {
-            o2 = ti_osc_grain(s->a[24], index2, smooth2, gk2[0], vc->phase[1], i2);
+            o2 = ti_osc_grain(wt2, index2, smooth2, gk2[0], vc->phase[1], i2);
         } else if (pwm2) {
-            o2 = ti_osc_wave_pwm(s->a[24], index2, smooth2, vc->twin[1], width2, i2);
+            o2 = ti_osc_wave_pwm(wt2, index2, smooth2, vc->twin[1], width2, i2);
         } else if (table2) {
-            o2 = ti_osc_wavetable(s->a[24], index2, smooth2, vc->phase[1], i2);
+            o2 = ti_osc_wavetable(wt2, index2, smooth2, vc->phase[1], i2);
         } else if (aliased && sync) {
             o2 = ti_osc_classic_points_synced(&vc->points[1], points1, wave2, shape2, width2, vc->phase[0], inc1, i2 / inc1);   // tiOsc notes §9
         } else if (aliased) {
@@ -1602,8 +1611,12 @@ static void render_voice(tTiVoices * v, const tTiSound * s, tTiVoice * vc, const
         double gain = y * OUTPUT_GAIN;
         double l = y1, r = (set->routing == eTiRoutingSplit) ? r2 : y1;
 
-        left[f]       += (float)(l * gain * levelL);
-        right[f]      += (float)(r * gain * levelR);
+        double ramp = (double)(f + 1) / (double)frames;   // notes §7c: pan and level slide across the block
+
+
+        left[f]       += (float)(l * gain * (fromL + ((levelL - fromL) * ramp)));
+
+        right[f]      += (float)(r * gain * (fromR + ((levelR - fromR) * ramp)));
 
         vc->phase[0]  += inc1;
         vc->phase[1]  += i2;
@@ -1951,10 +1964,12 @@ static void render_block(tTiVoices * v, const tTiSound * given, float * left, fl
             double       ampVel  = bipolar(s->b[60]);
             double       velDial = (ampVel >= 0.0) ? (127.0 - (ampVel * 127.0 * (1.0 - vel))) : (127.0 + (ampVel * 127.0 * vel)); // notes §11
             double       level   = (patch_volume(s->a[91] + (MOD_DEPTH * mod[kDstVolume])) / patch_volume(fmax(s->a[91], 1.0))) * ((ampVel == 0.0) ? 1.0 : mix_level(velDial));
-            double       pan     = clamp(bipolar(s->a[10]) + (2.0 * mod[kDstPan]) + (vc->stack * modded(unison_bytes(s)[2], mod[kDstUnisonSpread]) / 127.0) + (bipolar(s->b[61]) * vel), -1.0, 1.0);
-            double       pl      = (pan <= 0.0) ? (1.0 - (PAN_HARD * pan)) : (1.0 - pan); // notes §7: two lines, meeting at the centre
+            double       pan     = bipolar(s->a[10]) + (2.0 * mod[kDstPan]) + (bipolar(s->b[61]) * vel);
+            double       spread  = clamp(vc->stack * 2.0 * modded(unison_bytes(s)[2], mod[kDstUnisonSpread]) / 127.0, -1.0, 1.0); // notes §13
+            pan           = clamp(pan + spread + (fabs(spread) * clamp(pan, -1.0, 1.0)), -1.0, 1.0);
+            double       pl      = (pan <= 0.0) ? (1.0 - (PAN_HARD * pan)) : (1.0 - pan);                                         // notes §7: two lines, meeting at the centre
             double       pr      = (pan >= 0.0) ? (1.0 + (PAN_HARD * pan)) : (1.0 + pan);
-            level        *= 1.0 - (0.25 * vc->place);                                     // notes §13: 1 at the centre of a stack, 0.75 at its edges
+            level        *= 1.0 - (0.25 * vc->place);                                                                             // notes §13: 1 at the centre of a stack, 0.75 at its edges
 
             render_voice(v, s, vc, &set, &amp, &fenv, &e3, &e4, mod, left + done, right + done, n, level * pl, level * pr);
         }

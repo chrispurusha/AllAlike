@@ -29,4 +29,5 @@ Built but not yet checked by ear or in a host. Confirmed: delete the line. Faile
 - Attack 0 sounds (plucks, arps) start at full level on the first sample now: listen for the click against the instrument
 - Global Anti-alias switch (On by default): Off sounds grittier on high saw/pulse notes, On unchanged; saved with the project, not with a Single (2026-11-12)
 - Arp Mode, Unison and Ring on an older factory Single (banks A-D): the panel now changes them; and the sustain pedal with the arpeggiator holds the keys as Hold does, without sustaining the arp's notes (2026-11-12)
-- A note held while another preset loads: it stops, with no clipping, and the next key plays the new sound; with the arpeggiator running it carries on in the new sound (2026-11-12)
+- Delay modulation built 2026-11-12 (tiEffects notes §8a; rate, depth, antiphase within 0.4 dB of the reference on a sine's echo): listen to a Single with Depth up (A006, A116-A118) against the hardware
+- User wavetables (2026-11-12, Wavetable menu): load a PPG, a TI2/Serum and a Waldorf .syx table on each oscillator, step with Prev/Next beside Wave (greyed for the built-in tables), sweep Index, save the project and reopen it with the files moved away

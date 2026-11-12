@@ -23,12 +23,13 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define TI_CANVAS_W    (780.0)
+#define TI_CANVAS_W    (810.0)   // notes §16: wide enough for each oscillator's table buttons beside its Wave
 #define TI_CANVAS_H    (440.0)
 
 typedef enum {
     eTiControlDial = 0,
-    eTiControlChoice        // a button that opens a list of its values
+    eTiControlChoice,       // a button that opens a list of its values
+    eTiControlTableStep     // notes §16: Prev above Next through the user wavetable's folder; paramId is the Wave
 } tTiControlKind;
 
 typedef struct {
@@ -92,11 +93,14 @@ void ti_draw_scroll(double dy);
 typedef struct {
     // a Single chosen: from a file (path, its index there) or a preset (path "", preset 1..TI_PRESETS)
     void (*load)(void * user, const uint8_t * single, const char * path, int index, int preset);
-    bool (*save)(void * user, const char * path);              // the sound as it is now; false if not written
-    bool (*storePreset)(void * user, int number);              // the same, into a preset
-    void (*init)(void * user);                                 // every sound parameter to its default
+    bool (*save)(void * user, const char * path);               // the sound as it is now; false if not written
+    bool (*storePreset)(void * user, int number);               // the same, into a preset
+    void (*init)(void * user);                                  // every sound parameter to its default
     const char * (*name)(void * user);
-    void (*rename)(void * user, const char * name);            // notes §10: an edited name, on commit
+    void (*rename)(void * user, const char * name);             // notes §10: an edited name, on commit
+    bool (*loadTable)(void * user, int osc, const char * path); // notes §16: a user wavetable for Osc 1 (0) or 2 (1)
+    const char * (*tableName)(void * user, int osc);            // "" none loaded
+    const char * (*tablePath)(void * user, int osc);
 } tTiPatchHost;
 
 void ti_draw_set_host(const tTiPatchHost * host);     // static storage
@@ -117,6 +121,8 @@ void ti_draw_import_presets(bool folder);           // notes §12: all 512, afte
 void ti_draw_export_presets(void);
 void ti_draw_read_hardware(bool all);               // notes §14: A-D, or every bank A-W; then the import's confirm
 void ti_draw_write_hardware(int bank);              // notes §14: a RAM bank 1-4 from the presets, after a confirm
-void ti_draw_transfer_tick(void);                   // on the editor's frame
+void ti_draw_transfer_tick(void);
+void ti_draw_load_table(int osc);                   // notes §16: a file browser; the file's folder is then the one
+void ti_draw_step_table(int osc, int direction);    // the next (+1) or previous (-1) table file in that folder, wrapping                   // on the editor's frame
 
 #endif // __TI_DRAW_H__

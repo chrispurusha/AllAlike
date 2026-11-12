@@ -170,6 +170,25 @@ static void open_sort_menu(tCoord anchor) {
     open_context_menu(anchor, items, 0, 0.0);
 }
 
+// ---- Wavetable - notes §4: a user wavetable for each oscillator; Prev/Next are beside its Wave on the panel ---
+
+static void action_table_load(int index) {
+    ti_draw_load_table((int)gContextMenu.items[index].param);
+}
+
+static void open_table_menu(tCoord anchor) {
+    static tMenuItem items[3];
+
+    items[0] = (tMenuItem){
+        "Osc 1 Load Wavetable...", ITEM, action_table_load, 0, NULL, 0, 0.0, NULL
+    };
+    items[1] = (tMenuItem){
+        "Osc 2 Load Wavetable...", ITEM, action_table_load, 1, NULL, 0, 0.0, NULL
+    };
+    items[2] = END_OF_MENU;
+    open_context_menu(anchor, items, 0, 0.0);
+}
+
 // ---- Virus TI - notes §2 ----------------------------------------------------------------------------------
 
 static void action_read_hardware(int index) {
@@ -310,14 +329,15 @@ static void open_midi_menu(tCoord anchor) {
 }
 
 static const tMenuBarItem gMenuBar[] = {
-    {"File",     open_file_menu    },
-    {"Presets",  open_presets_menu },
-    {"Sort",     open_sort_menu    },
-    {"Virus TI", open_hardware_menu},
-    {"Controls", open_controls_menu},
-    {"MIDI",     open_midi_menu    },
-    {"Help",     open_help_menu    },
-    {NULL,       NULL              },
+    {"File",      open_file_menu    },
+    {"Presets",   open_presets_menu },
+    {"Sort",      open_sort_menu    },
+    {"Wavetable", open_table_menu   },
+    {"Virus TI",  open_hardware_menu},
+    {"Controls",  open_controls_menu},
+    {"MIDI",      open_midi_menu    },
+    {"Help",      open_help_menu    },
+    {NULL,        NULL              },
 };
 
 const tMenuBarItem * ti_menu_bar(void) {

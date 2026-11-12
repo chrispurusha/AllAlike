@@ -60,6 +60,20 @@ double ti_osc_box_saw(double phase, double increment);
 double ti_osc_box_pulse(double phase, double increment, double duty);
 double ti_osc_classic_box(int wave, double shape, double width, double phase, double increment);
 
+// notes §5a: a wavetable loaded by the user, built as the instrument's are; Wave 100 on Osc 1 or Osc 2 reads it
+#define TI_WAVETABLE_USER       (100)     // Osc 1's; Osc 2's is the next
+#define TI_USER_TABLE_FRAMES    (256)
+
+typedef struct {
+    int   frames, size;
+    float data[];
+} tTiUserTable;
+
+tTiUserTable * ti_osc_user_table(const float * cycles, int frames, int cycle);
+void ti_osc_user_table_free(tTiUserTable * u);
+const float * ti_osc_user_table_cycle(const tTiUserTable * u, int frame);
+void ti_osc_set_user_tables(const tTiUserTable * osc1, const tTiUserTable * osc2);
+
 // notes §4: the HyperSaw, up to nine saws set against one another
 #define TI_HYPER_SAWS    (9)
 
@@ -71,6 +85,7 @@ typedef struct {
 
 void ti_osc_hyper(double density, double spread, tTiHyper * h);
 double ti_osc_hyper_sample(const tTiHyper * h, double * phases, double increment);
+double ti_osc_hyper_points(const tTiHyper * h, tTiOscPoints * g, double * phases, double increment, double rate);
 
 // notes §5: the Wavetable oscillator. index 0..127 runs through the table's frames, smooth 0..127 (Smooth)
 // The tables are built once, on a thread of their own that ti_osc_init() starts; until a table is ready

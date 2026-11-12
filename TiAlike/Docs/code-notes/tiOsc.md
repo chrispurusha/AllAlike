@@ -50,6 +50,17 @@ frames, so the count is the one whose steps fit, never fewer steps than are seen
 Until 2026-11-02 every table was read as 16 positions at 127/15; between them it drifted from the crossfade (table 1
 at Index 13 had the wrong partials).
 
+## 5a. User wavetables
+Wave 100 on Osc 1 or Osc 2 is that oscillator's own table, loaded from a file (tiUserTable.md), and every model
+that reads a wavetable reads it: Wavetable, Wave PWM, Grain and Formant. It is built as the instrument's tables are:
+each frame's cycle turned into its partials (a discrete Fourier transform, below the 512-sample cycle's Nyquist), the
+table's cycle the shortest of 64 to 512 that holds them, the same nine band-limited versions, the same reading and the
+same crossfade between frames, Index spreading the frames evenly. The loudest frame's peak is set to 1, a sine's level.
+Up to 256 frames. With no table loaded Wave 100 plays the sine table rather than silence.
+
+The tables a voice reads are set per thread at the start of each block (`ti_osc_set_user_tables`), so every instance
+plays its own.
+
 ## 6. Wave PWM
 The Wavetable oscillator read twice and subtracted, over the square root of two: (wave(a) - wave(b + offset)) / 1.414,
 with the same frames and Smooth as the Wavetable model. Pulse Width sets the offset, (127 - PW) / 254 of a cycle: half
@@ -97,7 +108,7 @@ The aliases are those of the N-point saw (folding about N/2 harmonics), of the s
 points' rate) and of keeping only every second pass. The same steps also roll the top harmonics off: at C7 harmonics 8
 to 10 come out 4-8 dB below the band-limited saw. Against the instrument's oscillator output at C7, every alias
 line within about 1 dB. N follows the note the pitch rounds to and is held for a block; FM and sync move the place as
-they move the phase. Osc 1, Osc 2 and Osc 3's classic, saw and square modes use it; the other models are unchanged.
+they move the phase. Osc 1, Osc 2 and Osc 3's classic, saw and square modes use it, and each saw of a HyperSaw on points of its own (a lone HyperSaw saw aliases within 0.3 dB of the instrument's at C6 and C7, against 9-11 dB cleaner band-limited; a synced HyperSaw stays band-limited); the other models are unchanged.
 
 With Sync on, Osc 2 is made on Osc 1's points: the same count per cycle, chosen by Osc 1's note, and clocked by Osc 1's
 place in its cycle, with Osc 2's place the ratio of their frequencies times Osc 1's - so Osc 2 restarts exactly on one

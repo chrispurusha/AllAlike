@@ -36,6 +36,8 @@
 #include "tiHardware.h"
 #include "tiPatch.h"
 #include "tiPrefs.h"
+#include "tiOsc.h"
+#include "tiUserTable.h"
 #include "tiVoices.h"
 
 // touch /tmp/tialike-log, read /tmp/tialike.log - see SynthLib's plugin/synthlibLog.h.
@@ -68,6 +70,8 @@ static const uint8_t gControllerUid[16] = {0x30, 0x99, 0xDF, 0x1B, 0xE1, 0x40, 0
 #define OUTPUT_HEADROOM        (0.5f)  // notes §14: 6 dB under the instrument's level, after its limit
 #define ENGINE_FRAMES          (1024u) // HOST_CHUNK at any host rate the voices fall back from
 
+#define RETIRED_TABLES         (16)
+
 typedef struct {
     uint32_t offset;
     uint8_t  note;
@@ -76,37 +80,44 @@ typedef struct {
 } tTiEvent;
 
 typedef struct {
-    tTiVoices          voices;
-    tTiEvent           events[MAX_EVENTS];
-    float              mono[MAX_MONO_FRAMES]; // notes §8: the right side, when the host gives one output
-    uint32_t           eventCount;
-    double             values[kTiParamCount]; // normalized
-    tTiSound           sound;                 // notes §8: the Single as the voices read it
-    bool               soundStale;
+    tTiVoices              voices;
+    tTiEvent               events[MAX_EVENTS];
+    float                  mono[MAX_MONO_FRAMES]; // notes §8: the right side, when the host gives one output
+    uint32_t               eventCount;
+    double                 values[kTiParamCount]; // normalized
+    tTiSound               sound;                 // notes §8: the Single as the voices read it
+    _Atomic bool           soundStale;            // set after clearEffects on a load, so the swap is seen first
     // notes §5: the sound, beyond its parameters - main thread, and the host's state calls
-    char               soundName[TI_SINGLE_NAME_LENGTH + 1];
-    bool               haveBase;
-    uint8_t            base[TI_SINGLE_LENGTH]; // the Single it came from, whose bytes a save keeps
-    char               patchPath[1024];
-    int                patchIndex;             // its place in that file
-    int                preset;                 // 1..TI_PRESETS, 0 none
-    double             presetsChecked;
+    char                   soundName[TI_SINGLE_NAME_LENGTH + 1];
+    bool                   haveBase;
+    uint8_t                base[TI_SINGLE_LENGTH]; // the Single it came from, whose bytes a save keeps
+    char                   patchPath[1024];
+    int                    patchIndex;             // its place in that file
+    int                    preset;                 // 1..TI_PRESETS, 0 none
+    double                 presetsChecked;
     // notes §9: Link, on the editor's frame
-    int                hwLock;
-    bool               hwSent;
-    double             hwSentAt;
-    uint8_t            hwLast[TI_SINGLE_LENGTH];
-    tSynthLibSwapFade  fade;
-    _Atomic bool       clipped;      // the audio thread saw full scale; the panel holds the lamp
-    double             clipUntil;
-    _Atomic bool       startPreset;  // notes §11
-    _Atomic int        wantPreset;   // a program change waiting for the fade
-    _Atomic bool       clearEffects; // notes §12: a new sound starts with empty effects, the old one's echoes gone
-    tSynthLibResampler resampler;    // notes §13: only when the host runs at a rate the instrument does not
-    tSynthLibResampler resamplerR;
-    double             hostRate;
-    bool               resampling;
-    float              engineL[ENGINE_FRAMES], engineR[ENGINE_FRAMES];
+    int                    hwLock;
+    bool                   hwSent;
+    double                 hwSentAt;
+    uint8_t                hwLast[TI_SINGLE_LENGTH];
+    tSynthLibSwapFade      fade;
+    _Atomic bool           clipped;      // the audio thread saw full scale; the panel holds the lamp
+    double                 clipUntil;
+    _Atomic bool           startPreset;  // notes §11
+    _Atomic int            wantPreset;   // a program change waiting for the fade
+    _Atomic bool           clearEffects; // notes §12: a new sound starts with empty effects, the old one's echoes gone
+    tSynthLibResampler     resampler;    // notes §13: only when the host runs at a rate the instrument does not
+    tSynthLibResampler     resamplerR;
+    double                 hostRate;
+    bool                   resampling;
+    float                  engineL[ENGINE_FRAMES], engineR[ENGINE_FRAMES];
+    // notes §15: the user wavetables, Wave 100 on Osc 1 and Osc 2 - swapped in by the main thread, read by the audio
+    tTiUserTable * _Atomic userTable[2];
+    tTiUserTable *         retired[RETIRED_TABLES];
+    uint64_t               retiredAt[RETIRED_TABLES];
+    _Atomic uint64_t       blocks;   // audio blocks begun, so a retired table is freed only once none can read it
+    char                   userName[2][64];
+    char                   userPath[2][1024];
 } tTiPlugin;
 
 static uint32_t voice_limit(const tTiPlugin * t) {
@@ -132,7 +143,7 @@ static void * ti_create(const tSynthLibPluginDesc * desc) {
 
     snprintf(t->soundName, sizeof(t->soundName), "Init");
     t->hwLock      = -1;
-    t->soundStale  = true;
+    atomic_store(&t->soundStale, true);
     ti_voices_init(&t->voices, 48000.0);
     t->hostRate    = 48000.0;
     ti_voices_set_limit(&t->voices, voice_limit(t));
@@ -142,6 +153,16 @@ static void * ti_create(const tSynthLibPluginDesc * desc) {
 }
 
 static void ti_destroy(void * inst) {
+    tTiPlugin * t = (tTiPlugin *)inst;
+
+    for (int k = 0; k < 2; k++) {
+        ti_osc_user_table_free(atomic_load(&t->userTable[k]));
+    }
+
+    for (int k = 0; k < RETIRED_TABLES; k++) {
+        ti_osc_user_table_free(t->retired[k]);
+    }
+
     ti_hardware_release(&((tTiPlugin *)inst)->hwLock);
     synthlib_resample_free(&((tTiPlugin *)inst)->resampler);
     synthlib_resample_free(&((tTiPlugin *)inst)->resamplerR);
@@ -157,13 +178,104 @@ static void current_single_of(const tTiPlugin * t, uint8_t * single) {
     ti_patch_to_single(t->values, t->haveBase ? t->base : NULL, t->soundName, single);
 }
 
-static size_t ti_get_state(void * inst, void * out, size_t len) {
-    tTiPlugin * t = (tTiPlugin *)inst;
-    uint8_t *   o = (uint8_t *)out;
+// notes §15: each user table after it, as its cycles - the sound, not a file that may move
+#define TABLE_MAGIC     "TIU1"
+#define TABLE_HEADER    (4 + 1 + 64 + 1024 + 2 + 2)
 
-    if ((out == NULL) || (len < STATE_LENGTH)) {
-        return STATE_LENGTH;
+static void install_table(tTiPlugin * t, int osc, tTiUserTable * u, const char * name, const char * path);
+
+static size_t tables_length(tTiPlugin * t) {
+    size_t n = 0;
+
+    for (int k = 0; k < 2; k++) {
+        const tTiUserTable * u = atomic_load(&t->userTable[k]);
+
+        n += (u != NULL) ? (TABLE_HEADER + ((size_t)u->frames * (size_t)u->size * 2u)) : 0u;
     }
+
+    return n;
+}
+
+static void put_tables(tTiPlugin * t, uint8_t * o) {
+    for (int k = 0; k < 2; k++) {
+        const tTiUserTable * u = atomic_load(&t->userTable[k]);
+
+        if (u == NULL) {
+            continue;
+        }
+        memcpy(o, TABLE_MAGIC, 4);
+        o[4]    = (uint8_t)k;
+        memcpy(o + 5, t->userName[k], 64);
+        memcpy(o + 69, t->userPath[k], 1024);
+        o[1093] = (uint8_t)(u->frames >> 8);
+        o[1094] = (uint8_t)(u->frames & 0xFF);
+        o[1095] = (uint8_t)(u->size >> 8);
+        o[1096] = (uint8_t)(u->size & 0xFF);
+        o      += TABLE_HEADER;
+
+        for (int f = 0; f < u->frames; f++) {
+            const float * c = ti_osc_user_table_cycle(u, f);
+
+            for (int i = 0; i < u->size; i++) {
+                long v = lround(fmax(-1.0, fmin(1.0, c[i])) * 32767.0);
+
+                *o++ = (uint8_t)((v >> 8) & 0xFF);
+                *o++ = (uint8_t)(v & 0xFF);
+            }
+        }
+    }
+}
+
+static void take_tables(tTiPlugin * t, const uint8_t * d, size_t len) {
+    bool found[2] = {false, false};
+
+    while (len >= TABLE_HEADER && (memcmp(d, TABLE_MAGIC, 4) == 0)) {
+        int     k      = d[4] & 1;
+        int     frames = (d[1093] << 8) | d[1094];
+        int     size   = (d[1095] << 8) | d[1096];
+        size_t  body   = (size_t)frames * (size_t)size * 2u;
+
+        if ((frames < 1) || (size < 8) || (len < TABLE_HEADER + body)) {
+            break;
+        }
+        float * cycles = (float *)malloc(sizeof(float) * (size_t)frames * (size_t)size);
+
+        if (cycles != NULL) {
+            const uint8_t * b = d + TABLE_HEADER;
+            char            name[64], path[1024];
+
+            for (size_t i = 0; i < (size_t)frames * (size_t)size; i++) {
+                cycles[i] = (float)(int16_t)((b[2 * i] << 8) | b[(2 * i) + 1]) / 32767.0f;
+            }
+
+            memcpy(name, d + 5, 64);
+            memcpy(path, d + 69, 1024);
+            name[63]   = '\0';
+            path[1023] = '\0';
+            install_table(t, k, ti_osc_user_table(cycles, frames, size), name, path);
+            free(cycles);
+            found[k]   = true;
+        }
+        d   += TABLE_HEADER + body;
+        len -= TABLE_HEADER + body;
+    }
+
+    for (int k = 0; k < 2; k++) {
+        if (!found[k]) {
+            install_table(t, k, NULL, "", "");
+        }
+    }
+}
+
+static size_t ti_get_state(void * inst, void * out, size_t len) {
+    tTiPlugin * t     = (tTiPlugin *)inst;
+    uint8_t *   o     = (uint8_t *)out;
+    size_t      total = STATE_LENGTH + tables_length(t);
+
+    if ((out == NULL) || (len < total)) {
+        return total;
+    }
+    put_tables(t, o + STATE_LENGTH);
     memcpy(o, STATE_MAGIC, 4);
     o   += 4;
     memcpy(o, t->soundName, TI_SINGLE_NAME_LENGTH + 1);
@@ -177,7 +289,7 @@ static size_t ti_get_state(void * inst, void * out, size_t len) {
     *o++ = (uint8_t)(t->patchIndex & 0xFF);
     *o++ = (uint8_t)(t->preset >> 8);
     *o   = (uint8_t)(t->preset & 0xFF);
-    return STATE_LENGTH;
+    return total;
 }
 
 static void ti_set_state(void * inst, const void * data, size_t len) {
@@ -187,6 +299,7 @@ static void ti_set_state(void * inst, const void * data, size_t len) {
     if ((data == NULL) || (len < STATE_LENGTH) || (memcmp(d, STATE_MAGIC, 4) != 0)) {
         return;
     }
+    take_tables(t, d + STATE_LENGTH, len - STATE_LENGTH);
     atomic_store(&t->startPreset, false);   // a project's sound, not A001
     d                                  += 4;
     memcpy(t->soundName, d, TI_SINGLE_NAME_LENGTH + 1);
@@ -201,7 +314,7 @@ static void ti_set_state(void * inst, const void * data, size_t len) {
     t->patchIndex                       = (d[0] << 8) | d[1];
     t->preset                           = (d[2] << 8) | d[3];
     t->preset                           = ((t->preset >= 1) && (t->preset <= TI_PRESETS)) ? t->preset : 0;
-    t->soundStale                       = true;
+    atomic_store(&t->soundStale, true);
 
     // notes §8: a project from before a parameter existed has no value for it; its Single does
     if (t->haveBase) {
@@ -272,11 +385,84 @@ static void ti_note_off(void * inst, uint8_t channel, uint8_t note, float veloci
 }
 
 // notes §8: the host's values written over the Single they came from, when anything changed
+// notes §15: a table the audio thread may still be reading waits here until a block has begun since
+static void retire_table(tTiPlugin * t, tTiUserTable * old) {
+    uint64_t now    = atomic_load(&t->blocks);
+    int      oldest = 0;
+
+    for (int k = 0; k < RETIRED_TABLES; k++) {
+        if ((t->retired[k] != NULL) && (now > t->retiredAt[k] + 1u)) {
+            ti_osc_user_table_free(t->retired[k]);
+            t->retired[k] = NULL;
+        }
+    }
+
+    if (old == NULL) {
+        return;
+    }
+
+    for (int k = 0; k < RETIRED_TABLES; k++) {
+        if (t->retired[k] == NULL) {
+            oldest = k;
+            break;
+        }
+        oldest = (t->retiredAt[k] < t->retiredAt[oldest]) ? k : oldest;
+    }
+
+    ti_osc_user_table_free(t->retired[oldest]);   // full: the oldest is many loads behind the audio thread
+    t->retired[oldest]   = old;
+    t->retiredAt[oldest] = now;
+}
+
+static void install_table(tTiPlugin * t, int osc, tTiUserTable * u, const char * name, const char * path) {
+    snprintf(t->userName[osc], sizeof(t->userName[osc]), "%s", (u != NULL) ? name : "");
+    snprintf(t->userPath[osc], sizeof(t->userPath[osc]), "%s", (u != NULL) ? path : "");
+    retire_table(t, atomic_exchange(&t->userTable[osc], u));
+}
+
+static bool ti_load_table(void * user, int osc, const char * path) {
+    tTiPlugin *    t = (tTiPlugin *)user;
+    tTiUserCycles  c;
+
+    if ((t == NULL) || (osc < 0) || (osc > 1) || !ti_user_cycles_load(path, &c)) {
+        return false;
+    }
+    tTiUserTable * u = ti_osc_user_table(c.samples, c.frames, c.cycle);
+
+    if (u != NULL) {
+        uint32_t model = (osc == 0) ? kTiParamOsc1Model : kTiParamOsc2Model;
+        uint32_t wave  = (osc == 0) ? kTiParamOsc1Wave : kTiParamOsc2Wave;
+
+        install_table(t, osc, u, c.name, path);
+
+        // notes §15: heard at once - the oscillator reads a table, and Wave is its user table
+        if (lround(t->values[model] * 7.0) < 2) {
+            synthlib_plugin_param_edited(user, model, 2.0 / 7.0);
+        }
+        synthlib_plugin_param_edited(user, wave, (double)TI_WAVETABLE_USER / 127.0);
+        atomic_store(&t->soundStale, true);
+        synthlib_log_line("osc %d table %s: %d frames of %d", osc + 1, c.name, c.frames, c.cycle);
+    }
+    ti_user_cycles_free(&c);
+    return u != NULL;
+}
+
+static const char * ti_table_name(void * user, int osc) {
+    tTiPlugin * t = (tTiPlugin *)user;
+
+    return ((t != NULL) && (osc >= 0) && (osc <= 1)) ? t->userName[osc] : "";
+}
+
+static const char * ti_table_path(void * user, int osc) {
+    tTiPlugin * t = (tTiPlugin *)user;
+
+    return ((t != NULL) && (osc >= 0) && (osc <= 1)) ? t->userPath[osc] : "";
+}
+
 static void refresh_sound(tTiPlugin * t) {
     uint8_t single[TI_SINGLE_LENGTH];
 
-    if (t->soundStale) {
-        t->soundStale = false;
+    if (atomic_exchange(&t->soundStale, false)) {
         ti_patch_to_single(t->values, t->haveBase ? t->base : NULL, t->soundName, single);
         ti_patch_sound(single, &t->sound);
         ti_voices_hear(&t->voices, &t->sound);   // tiVoices notes §5
@@ -311,17 +497,23 @@ static void render_host(tTiPlugin * t, float * left, float * right, uint32_t fra
 
 static void ti_process(void * inst, const float *const * in, uint32_t numIn, float ** out, uint32_t numOut,
                        uint32_t frames, const tSynthLibTransport * transport) {
-    tTiPlugin * t = (tTiPlugin *)inst;
+    tTiPlugin * t        = (tTiPlugin *)inst;
 
     (void)in;
     (void)numIn;
+    atomic_fetch_add(&t->blocks, 1u);
+    ti_osc_set_user_tables(atomic_load(&t->userTable[0]), atomic_load(&t->userTable[1]));   // notes §15
     take_start_preset(t);
     take_program_change(t);
+    bool        newSound = atomic_exchange(&t->clearEffects, false);
+
+    if (newSound) {   // notes §12: the old sound's notes and echoes stop before anything of the new sound is heard
+        ti_effects_reset(&t->voices.effects);
+        ti_voices_silence(&t->voices);
+    }
     refresh_sound(t);
 
-    if (atomic_exchange(&t->clearEffects, false)) {
-        ti_effects_reset(&t->voices.effects);       // notes §12
-        ti_voices_silence(&t->voices);              // notes §12: a held note does not carry over into the new sound
+    if (newSound) {
         ti_voices_new_sound(&t->voices, &t->sound); // tiVoices notes §5
     }
     ti_voices_set_effects(&t->voices, t->values[kTiParamDelayOn] >= 0.5, t->values[kTiParamReverbOn] >= 0.5);
@@ -369,9 +561,13 @@ static void ti_process(void * inst, const float *const * in, uint32_t numIn, flo
         render_host(t, left + done, right + done, frames - done);
     }
 
+    // notes §12: the lamp reports what leaves the plug-in - not a block the swap fade is holding down
     if (t->voices.clipped) {
         t->voices.clipped = false;
-        atomic_store(&t->clipped, true);
+
+        if (!atomic_load(&t->fade.holding) && (t->fade.gain >= 1.0f)) {
+            atomic_store(&t->clipped, true);
+        }
     }
 
     // after the ceiling: it turns the output down and never saves the sound from it
@@ -444,7 +640,7 @@ static void ti_set_param(void * inst, uint32_t id, double normalized) {
     } else if ((id >= kTiParamBend) && (id <= kTiParamSostenuto)) {
         ti_voices_control(&t->voices, (tTiControlId)(id - kTiParamBend), (id == kTiParamBend) ? ((2.0 * normalized) - 1.0) : normalized);
     } else {
-        t->soundStale = true;
+        atomic_store(&t->soundStale, true);
     }
 }
 
@@ -523,6 +719,8 @@ static void ti_load_single(void * user, const uint8_t * single, const char * pat
 
     // the instance's own values, not the host's: asking the host takes a lock on VST3, and a program
     // change runs this on the audio thread
+    atomic_store(&t->clearEffects, true);   // notes §12: before any value changes - the old notes stop before they
+                                            // can be heard with any part of the new sound
     memcpy(values, t->values, sizeof(values));
     ti_patch_from_single(single, values);
     memcpy(t->base, single, TI_SINGLE_LENGTH);
@@ -538,8 +736,8 @@ static void ti_load_single(void * user, const uint8_t * single, const char * pat
         }
     }
 
-    t->soundStale = true;
-    atomic_store(&t->clearEffects, true);   // notes §12: the audio thread does it, at its next block
+    atomic_store(&t->clearEffects, true);   // notes §12: the audio thread does it, at its next block - flagged first,
+    atomic_store(&t->soundStale, true);     // so no block can play the old notes with the new sound
     ti_patch_name(single, t->soundName);
     snprintf(t->patchPath, sizeof(t->patchPath), "%s", path);
     t->patchIndex = index;
@@ -601,7 +799,7 @@ static void ti_init_patch(void * user) {
     }
 
     t->haveBase     = false;
-    t->soundStale   = true;
+    atomic_store(&t->soundStale, true);
     t->patchPath[0] = '\0';
     t->patchIndex   = 0;
     t->preset       = 0;
@@ -649,8 +847,9 @@ static double now_seconds(void) {
 }
 
 static const tTiPatchHost gPatchHost = {
-    .load = ti_load_faded, .save   = ti_save_patch, .storePreset = ti_store_preset, .init = ti_init_patch,
-    .name = ti_sound_name, .rename = ti_rename,
+    .load      = ti_load_faded, .save      = ti_save_patch, .storePreset = ti_store_preset, .init = ti_init_patch,
+    .name      = ti_sound_name, .rename    = ti_rename,
+    .loadTable = ti_load_table, .tableName = ti_table_name, .tablePath   = ti_table_path,
 };
 
 static void ti_panel_init(void) {
