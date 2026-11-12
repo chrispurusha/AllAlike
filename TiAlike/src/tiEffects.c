@@ -24,15 +24,16 @@
 #include "tiLfo.h"
 #include "tiVoices.h"
 
-#define SHELF_SLOPE       (0.5)      // notes §1
-#define LOW_CORNER        (1.75)
-#define DIST_UNIT         (0.54)
-#define DIST_HIGH_PASS    (14.7)
-#define DIST_QUANTISED    (1.026)
-#define VERB_LEVEL        (0.87)
-#define BANK_LEVEL        (1.0)
-#define BANK_FLAT         (1.0) // a section\'s damping at its lowest Q
-#define PHASER_TICK       (32u)
+#define DELAY_COLOR_OFFSET    (0.5)  // notes §25a: third-octave points, fitted to reference renders at 44.1 kHz
+#define SHELF_SLOPE           (0.5)  // notes §1
+#define LOW_CORNER            (1.75)
+#define DIST_UNIT             (0.54)
+#define DIST_HIGH_PASS        (14.7)
+#define DIST_QUANTISED        (1.026)
+#define VERB_LEVEL            (0.87)
+#define BANK_LEVEL            (1.0)
+#define BANK_FLAT             (1.0) // a section\'s damping at its lowest Q
+#define PHASER_TICK           (32u)
 
 void ti_effects_init(tTiEffects * e, double rate) {
     memset(e, 0, sizeof(*e));
@@ -534,10 +535,10 @@ static double chorus_rate(double dial) {
     return (dial >= 100.0) ? (0.5 * ti_lfo_rate_hz(dial)) : breakpoints(kAt, kTo, 9, dial);
 }
 
-#define PHASER_RIGHT    (1.11)   // notes §14
+#define PHASER_RIGHT        (1.11) // notes §14
 
 // notes §14: an octave-straight triangle up from the Frequency, starting at the top
-#define FX_GLIDE_SECONDS        (0.01)   // notes §25
+#define FX_GLIDE_SECONDS    (0.01)       // notes §25
 
 // notes §25: each value one step of a 10 ms glide toward its target - or onto it, the first time
 static void glide_all(double * now, const double * target, int n, bool * gliding, double rate) {
@@ -546,6 +547,7 @@ static void glide_all(double * now, const double * target, int n, bool * gliding
     for (int i = 0; i < n; i++) {
         now[i] += g * (target[i] - now[i]);
     }
+
     *gliding = true;
 }
 
@@ -575,8 +577,8 @@ static void phaser(tTiEffects * e, const uint8_t * b, float * left, float * righ
     if (b[85] == 0) {
         return;
     }
-    int    sections = 2 * (((b[84] > 5) ? 5 : b[84]) + 1);
-    int    tap      = (sections <= 2) ? 2 : ((sections >= 10) ? 8 : (sections - 2));   // notes §14
+    int    sections  = 2 * (((b[84] > 5) ? 5 : b[84]) + 1);
+    int    tap       = (sections <= 2) ? 2 : ((sections >= 10) ? 8 : (sections - 2));  // notes §14
     double target[5] = {b[85], b[87], b[88], b[89], b[90]};
 
     for (uint32_t f = 0; f < frames; f++) {
@@ -671,9 +673,9 @@ static void chorus(tTiEffects * e, const uint8_t * a, float * left, float * righ
             io[f]                          = (float)((dry * x) + (wet * y));
         }
 
-        e->chorusAt   = (e->chorusAt + 1u) % TI_CHORUS_LINE;
-        e->chorusLfo += rate / e->rate;
-        e->chorusLfo -= floor(e->chorusLfo);
+        e->chorusAt     = (e->chorusAt + 1u) % TI_CHORUS_LINE;
+        e->chorusLfo   += rate / e->rate;
+        e->chorusLfo   -= floor(e->chorusLfo);
     }
 }
 
@@ -1151,12 +1153,12 @@ static double delay_clocked(const tTiEffects * e, uint8_t clock) {
 }
 
 static void delay_times(const tTiEffects * e, const uint8_t * a, const uint8_t * b, double * left, double * right) {
-    static const double kRatio[4]      = {0.5, 0.75, 0.25, 0.875};
+    static const double kRatio[4]       = {0.5, 0.75, 0.25, 0.875};
     // notes §8: Pattern x+y, x sixteenths on the left and y on the right, modes 6-22 in the instrument's order
     static const int    kPattern[17][2] = {{1, 1}, {2, 1}, {3, 1}, {4, 1}, {5, 1}, {2, 3}, {2, 5}, {3, 2}, {3, 3},
                                            {3, 4}, {3, 5}, {4, 3}, {4, 5}, {5, 2}, {5, 3}, {5, 4}, {5, 5}};
-    double              base           = (b[20] != 0) ? delay_clocked(e, b[20]) : (fmax((double)a[114], 1.0) * 256.0 * e->rate / 48000.0);
-    uint8_t             mode           = a[112];
+    double              base            = (b[20] != 0) ? delay_clocked(e, b[20]) : (fmax((double)a[114], 1.0) * 256.0 * e->rate / 48000.0);
+    uint8_t             mode            = a[112];
 
     *left  = base;
     *right = base;
@@ -1181,38 +1183,59 @@ static double line_read(const float * line, uint32_t size, uint32_t at, double b
     return line[i % size] + (frac * (line[(i + 1u) % size] - line[i % size]));
 }
 
+// notes §25a: Colour's corner, on the third-octave points the filters use: low pass below 64, high pass above
+static double delay_color_q(const tTiEffects * e, uint8_t color) {
+    double x = 2.0 * ((0.75 * color / 128.0) - 0.375);
+    double p = (31.0 * ((color < 64) ? (x + 1.0) : x)) + DELAY_COLOR_OFFSET;
+    double t = tan(M_PI * fmin(19.7 * pow(2.0, p / 3.0), 0.49 * e->rate) / e->rate);
+
+    return t / (1.0 + t);
+}
+
+// notes §25a: Colour on what goes into the line, so each repeat is coloured again - a bilinear one-pole
+static double delay_tone(tTiEffects * e, const uint8_t * a, int line, double x) {
+    double q    = e->delayNow[5];
+    double last = e->delayTone[line][0];
+    double y    = (a[119] < 64) ? ((q * (x + last)) + ((1.0 - (2.0 * q)) * e->delayTone[line][1]))
+                                : ((a[119] > 64) ? (((1.0 - q) * (x - last)) + ((1.0 - (2.0 * q)) * e->delayTone[line][1])) : x);
+
+    e->delayTone[line][0] = x;
+    e->delayTone[line][1] = y;
+    return y;
+}
+
 static void delay(tTiEffects * e, const uint8_t * a, const uint8_t * b, float * left, float * right, uint32_t frames) {
     if (!e->delayAllowed || (a[112] == 0) || (a[113] == 0)) {
         return;
     }
-    double   send     = a[113];
-    double   wet      = delay_wet(send);
-    double   dry      = (send <= 96.0) ? 1.0 : ((127.0 - send) / 31.0);
-    double   feedback = 0.00772 * a[115];
-    double   at[2];
+    double  send      = a[113];
+    double  wet       = delay_wet(send);
+    double  dry       = (send <= 96.0) ? 1.0 : ((127.0 - send) / 31.0);
+    double  feedback  = 0.00772 * a[115];
+    double  at[2];
 
     delay_times(e, a, b, &at[0], &at[1]);
 
-    bool     apart    = (a[112] == 1);
-    float *  lineL    = e->delayLine[0];
-    float *  lineR    = e->delayLine[apart ? 1 : 0];
-    double   target[5] = {wet, dry, feedback, fmin(fmax(at[0], 1.0), TI_DELAY_LINE - 2.0), fmin(fmax(at[1], 1.0), TI_DELAY_LINE - 2.0)};
+    bool    apart     = (a[112] == 1);
+    float * lineL     = e->delayLine[0];
+    float * lineR     = e->delayLine[apart ? 1 : 0];
+    double  target[6] = {wet, dry, feedback, fmin(fmax(at[0], 1.0), TI_DELAY_LINE - 2.0), fmin(fmax(at[1], 1.0), TI_DELAY_LINE - 2.0), delay_color_q(e, a[119])};
 
     for (uint32_t f = 0; f < frames; f++) {
-        glide_all(e->delayNow, target, 5, &e->delayGliding, e->rate);   // notes §25: a moving time slides
-        wet      = e->delayNow[0];
-        dry      = e->delayNow[1];
-        feedback = e->delayNow[2];
+        glide_all(e->delayNow, target, 6, &e->delayGliding, e->rate);   // notes §25: a moving time slides
+        wet        = e->delayNow[0];
+        dry        = e->delayNow[1];
+        feedback   = e->delayNow[2];
         double xl    = left[f];
         double xr    = right[f];
         double lateL = line_read(lineL, TI_DELAY_LINE, e->delayAt, e->delayNow[3]);
         double lateR = line_read(lineR, TI_DELAY_LINE, e->delayAt, e->delayNow[4]);
 
         if (apart) {
-            lineL[e->delayAt] = (float)(xl + (feedback * lateL));
-            lineR[e->delayAt] = (float)(xr + (feedback * lateR));
+            lineL[e->delayAt] = (float)delay_tone(e, a, 0, xl + (feedback * lateL));
+            lineR[e->delayAt] = (float)delay_tone(e, a, 1, xr + (feedback * lateR));
         } else {                                      // notes §8: one line, the left tap feeding it
-            lineL[e->delayAt] = (float)((0.5 * (xl + xr)) + (feedback * lateL));
+            lineL[e->delayAt] = (float)delay_tone(e, a, 0, (0.5 * (xl + xr)) + (feedback * lateL));
         }
         left[f]    = (float)((dry * xl) + (wet * lateL));
         right[f]   = (float)((dry * xr) + (wet * lateR));
@@ -1567,8 +1590,8 @@ static void reverb(tTiEffects * e, const uint8_t * c, float * left, float * righ
 
     for (uint32_t f = 0; f < frames; f++) {
         glide_all(e->verbNow, target, 12, &e->verbGliding, e->rate);   // notes §25
-        wet = e->verbNow[0];
-        dry = e->verbNow[1];
+        wet             = e->verbNow[0];
+        dry             = e->verbNow[1];
         double         lp = e->verbNow[3];
         double         hp = e->verbNow[4];
         const double * k  = e->verbNow + 5;
@@ -1655,7 +1678,7 @@ static void forget_when_off(tTiEffects * e, const uint8_t * a, const uint8_t * b
         memset(e->verbTone, 0, sizeof(e->verbTone));
         memset(e->verbLast, 0, sizeof(e->verbLast));
         memset(e->verbMid, 0, sizeof(e->verbMid));
-        e->verbRoom = 0u;
+        e->verbRoom    = 0u;
     }
     e->wasOn[5] = reverb_on;
     e->wasOn[4] = delay_on;

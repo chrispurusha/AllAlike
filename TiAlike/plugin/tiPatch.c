@@ -164,6 +164,13 @@ static const struct {
     {kTiParamA30FmFiltEnvAmt,                 PAGE_A + 30,  0x7F},
     {kTiParamB34OscFmMode,                    PAGE_B + 34,  0x7F},
     {kTiParamB35OscInitPhase,                 PAGE_B + 35,  0x7F},
+    {kTiParamB15ArpMode,                      PAGE_B + 15,  0x07},
+    {kTiParamB2ArpPattern,                    PAGE_B + 2,   0x3F},
+    {kTiParamB3ArpOctaves,                    PAGE_B + 3,   0x03},
+    {kTiParamB4ArpHold,                       PAGE_B + 4,   0x01},
+    {kTiParamB5ArpNoteLength,                 PAGE_B + 5,   0x7F},
+    {kTiParamB6ArpSwing,                      PAGE_B + 6,   0x7F},
+    {kTiParamB17ArpClock,                     PAGE_B + 17,  0x1F},
     {kTiParamB30Filter1EnvPolarity,           PAGE_B + 30,  0x7F},
     {kTiParamB31Filter2EnvPolarity,           PAGE_B + 31,  0x7F},
     {kTiParamB33FilterKeytrackBase,           PAGE_B + 33,  0x7F},
@@ -502,10 +509,30 @@ int ti_patch_read_file(const char * path, uint8_t(*singles)[TI_SINGLE_LENGTH], i
     return count;
 }
 
+// notes §3a: a Single older than the TI format keeps a few settings where its format had them
+#define TI_FORMAT    (12)
+
+static uint16_t carried_at(size_t k, const uint8_t single[TI_SINGLE_LENGTH]) {
+    uint16_t at = kCarried[k].at;
+
+    if (single[PAGE_A] >= TI_FORMAT) {
+        return at;
+    }
+
+    if (at == (PAGE_B + 15)) {
+        return PAGE_B + 1;                      // Arp Mode
+    }
+
+    if ((at >= (PAGE_D + 120)) && (at <= (PAGE_D + 123))) {
+        return (uint16_t)(PAGE_A + 97 + (at - (PAGE_D + 120)));   // Unison voices, detune, spread, phase
+    }
+    return (at == (PAGE_A + 50)) ? (PAGE_A + 38) : at;   // Ring
+}
+
 void ti_patch_from_single(const uint8_t single[TI_SINGLE_LENGTH], double normalized[kTiParamCount]) {
     for (size_t k = 0; k < sizeof(kCarried) / sizeof(kCarried[0]); k++) {
         int32_t steps = gTiParams[kCarried[k].paramId].stepCount;
-        int32_t value = single[kCarried[k].at] & kCarried[k].mask;
+        int32_t value = single[carried_at(k, single)] & kCarried[k].mask;
 
         value                           = (value > steps) ? steps : value;
         normalized[kCarried[k].paramId] = (double)value / steps;
@@ -562,14 +589,16 @@ void ti_patch_to_single(const double normalized[kTiParamCount], const uint8_t * 
     out[TI_SINGLE_LENGTH - 1] = 0xF7;
 
     for (size_t k = 0; k < sizeof(kCarried) / sizeof(kCarried[0]); k++) {
-        int32_t steps = gTiParams[kCarried[k].paramId].stepCount;
-        long    value = lround(fmin(1.0, fmax(0.0, normalized[kCarried[k].paramId])) * steps);
+        int32_t  steps = gTiParams[kCarried[k].paramId].stepCount;
+        long     value = lround(fmin(1.0, fmax(0.0, normalized[kCarried[k].paramId])) * steps);
 
         // notes §4: a byte is kept as it came unless its parameter changed - it may hold more than the panel shows
         if ((base != NULL) && (value == lround(was[kCarried[k].paramId] * steps))) {
             continue;
         }
-        out[kCarried[k].at] = (uint8_t)((out[kCarried[k].at] & ~kCarried[k].mask) | ((uint8_t)value & kCarried[k].mask));
+        uint16_t at    = carried_at(k, out);
+
+        out[at] = (uint8_t)((out[at] & ~kCarried[k].mask) | ((uint8_t)value & kCarried[k].mask));
     }
 
     for (size_t i = 0; (base == NULL || strcmp(wasName, (name != NULL) ? name : "") != 0) && (i < TI_SINGLE_NAME_LENGTH); i++) {

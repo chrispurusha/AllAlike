@@ -98,8 +98,10 @@ The filter leaves a quarter of its input at DC on every mode, as the instrument'
 by 4 to keep the level it had. Where the oscillators stand on the instrument's full scale is not measured yet; the
 filter's non-linear damping depends on it.
 
-## 20. Aliasing
-The Aliasing parameter, per instance like Arithmetic: Instrument plays the oscillators band-limited as the instrument
-does, its aliases included; Clean uses the longer correction of `nl3Osc.md` §7. The Saw takes its phase advanced
+## 20. Anti-alias
+The Anti-alias switch, per instance like Arithmetic, On by default (owner, 2026-11-12): On uses the longer correction
+of `nl3Osc.md` §7; Off plays the oscillators band-limited as the instrument does, its aliases included. Stored as
+0 = Off, 1 = On, so a project saved before the rename (0 = Instrument, 1 = Clean) sounds as it did. The plug-in sets
+the engine from the default when it starts, before the host sends anything. The Saw takes its phase advanced
 before it is read, as the instrument's does; the placeholder shapes still read before advancing.
 

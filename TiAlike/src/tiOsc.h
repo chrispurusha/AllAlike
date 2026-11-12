@@ -19,6 +19,7 @@
 #ifndef __TI_OSC_H__
 #define __TI_OSC_H__
 
+#include <stdbool.h>
 #include <stdint.h>
 
 #define TI_WAVE_SIZE     (2048)
@@ -33,6 +34,31 @@ double ti_osc_wave(int wave, double phase, double increment);
 
 // notes §1: the classic oscillator. shape 0..127 runs wave > saw > pulse, width 0..127
 double ti_osc_classic(int wave, double shape, double width, double phase, double increment);
+
+// notes §9: the classic oscillator with Anti-alias off - the instrument's own points, filter and interpolation
+typedef struct {
+    double point[5];     // the newest point first
+    double out[2];       // the filter's last two outputs, older first
+    double place;        // points into the cycle, last pass
+    int    points;       // per cycle, frozen while a cycle plays
+    double ratio;        // synced: the slave's frequency over the master's, whose phase drives it; 0 when free
+    double subPoint[5];  // notes §9: the sub square on the same points, flipping at each wrap
+    double subOut[2];
+    double subSign;
+    bool   started;
+} tTiOscPoints;
+
+int ti_osc_points_per_cycle(double frequency);
+double ti_osc_classic_points(tTiOscPoints * g, int points, int wave, double shape, double width, double phase, double increment);
+// notes §9: Osc 2 synced to Osc 1, made on Osc 1's points from Osc 1's phase and increment
+double ti_osc_classic_points_synced(tTiOscPoints * g, int points, int wave, double shape, double width, double phase, double increment, double ratio);
+// notes §9: the sub square made on the same points as the last call, -1..1
+double ti_osc_points_sub(const tTiOscPoints * g);
+
+// notes §10: Osc 3 with Anti-alias off - the plain wave averaged over each sample's span of phase
+double ti_osc_box_saw(double phase, double increment);
+double ti_osc_box_pulse(double phase, double increment, double duty);
+double ti_osc_classic_box(int wave, double shape, double width, double phase, double increment);
 
 // notes §4: the HyperSaw, up to nine saws set against one another
 #define TI_HYPER_SAWS    (9)

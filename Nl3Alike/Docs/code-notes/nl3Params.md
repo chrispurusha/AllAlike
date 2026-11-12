@@ -1,7 +1,7 @@
 # nl3Params.c - the parameters and the panel's pages
 
 ## 1. What the parameters are
-The plug-in's own settings (voice limit, master, arithmetic, aliasing, program and bank, bend, wheel, pedal, the hardware link),
+The plug-in's own settings (voice limit, master, arithmetic, anti-alias, program and bank, bend, wheel, pedal, the hardware link),
 then **one parameter per field of the Nord Lead 3's Program**, in the order the instrument dumps them, then the four
 morph groups (wheel, aftertouch, velocity, keyboard), 26 offsets each. A dial's plain range is the field's own:
 0..127 for a knob, -128..127 for a morph offset, 0..n-1 for a switch. The defaults are the instrument's Init sound.

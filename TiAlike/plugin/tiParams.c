@@ -292,6 +292,14 @@ const tSynthLibParam     gTiParams[kTiParamCount] = {
     {kTiParamProgram,                         "Program",                 "Program",           eSynthLibUnitGeneric,   0.0,         127.0,                   0.000000,               127, SYNTHLIB_MIDI_NONE,       SYNTHLIB_PARAM_PROGRAM | SYNTHLIB_PARAM_HIDDEN | SYNTHLIB_PARAM_NO_SAVE},
     {kTiParamBank,                            "Bank Select",             "Bank",              eSynthLibUnitGeneric,   0.0,         127.0,                   0.000000,               127,                       32, SYNTHLIB_PARAM_HIDDEN | SYNTHLIB_PARAM_NO_SAVE                         },
     {kTiParamMaster,                          "Master Volume",           "Master",            eSynthLibUnitGeneric,   0.0,         127.0,                        1.0,               127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kTiParamB15ArpMode,                      "Arp Mode",                "Mode",              eSynthLibUnitIndexed,   0.0,           7.0,                   0.000000,                 7, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kTiParamB2ArpPattern,                    "Arp Pattern",             "Pattern",           eSynthLibUnitGeneric,   0.0,          63.0,                   0.000000,                63, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kTiParamB3ArpOctaves,                    "Arp Octaves",             "Octaves",           eSynthLibUnitIndexed,   0.0,           3.0,                   0.000000,                 3, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kTiParamB4ArpHold,                       "Arp Hold",                "Hold",              eSynthLibUnitIndexed,   0.0,           1.0,                   0.000000,                 1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kTiParamB5ArpNoteLength,                 "Arp Note Length",         "Length",            eSynthLibUnitGeneric,   0.0,         127.0,                   0.503937,               127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kTiParamB6ArpSwing,                      "Arp Swing",               "Swing",             eSynthLibUnitGeneric,   0.0,         127.0,                   0.000000,               127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kTiParamB17ArpClock,                     "Arp Clock",               "Clock",             eSynthLibUnitIndexed,   0.0,          17.0,                   0.235294,                17, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kTiParamAntiAlias,                       "Anti-alias",              "AA",                eSynthLibUnitIndexed,   0.0,           1.0,                        1.0,                 1, SYNTHLIB_MIDI_NONE,       SYNTHLIB_PARAM_LIST                                                    },
 };
 
 static const char *const kFilters[]                     = {"LP", "HP", "BP", "BS", "A1", "A2", "A3", "A4"};
@@ -492,11 +500,12 @@ static const tTiControl  kAmp[]                         = {
     {kTiParamMaster, "Master", eTiControlDial, 127, 0.0, NULL},
 };
 static const tTiControl  kVoices[]                      = {
-    {kTiParamVoiceLimit, "Limit",  eTiControlDial,   TI_MAX_VOICES - 1, 1.0, NULL       },
-    {kTiParamArithmetic, "Maths",  eTiControlChoice,                 1, 0.0, kArithmetic},
-    {kTiParamHwLink,     "Link",   eTiControlChoice,                 1, 0.0, kOffOn     },
-    {kTiParamDelayOn,    "Delay",  eTiControlChoice,                 1, 0.0, kOffOn     },
-    {kTiParamReverbOn,   "Reverb", eTiControlChoice,                 1, 0.0, kOffOn     },
+    {kTiParamVoiceLimit, "Limit",      eTiControlDial,   TI_MAX_VOICES - 1, 1.0, NULL       },
+    {kTiParamArithmetic, "Maths",      eTiControlChoice,                 1, 0.0, kArithmetic},
+    {kTiParamHwLink,     "Link",       eTiControlChoice,                 1, 0.0, kOffOn     },
+    {kTiParamDelayOn,    "Delay",      eTiControlChoice,                 1, 0.0, kOffOn     },
+    {kTiParamReverbOn,   "Reverb",     eTiControlChoice,                 1, 0.0, kOffOn     },
+    {kTiParamAntiAlias,  "Anti-alias", eTiControlChoice,                 1, 0.0, kOffOn     },
 };
 
 static const tTiControl  kOsc2[]                        = {
@@ -603,6 +612,21 @@ static const tTiControl  kEnv4[]                        = {
     {kTiParamEnv4SustainTime, "Time",    eTiControlDial, 127, -64.0, NULL},
     {kTiParamEnv4Release,     "Release", eTiControlDial, 127,   0.0, NULL},
 };
+static const char *const kListArpMode[8]                = {"Off", "Up", "Down", "Up&Down", "As Played", "Random", "Chord", "Arp>Matrix"};
+static const char *const kListArpOctaves[4]             = {"1", "2", "3", "4"};
+static const char *const kListArpHold[2]                = {"Off", "On"};
+static const char *const kListArpClock[18]              = {"1/16", "1/128", "1/64", "1/32", "1/16", "1/8", "1/4", "3/128", "3/64", "3/32", "3/16", "1/48", "1/24", "1/12", "1/6", "1/3", "3/8", "1/2"};
+static const tTiControl  kArpCtl[]                      = {
+    {kTiParamB15ArpMode,   "Mode",    eTiControlChoice,  7, 0.0, kListArpMode   },
+    {kTiParamB2ArpPattern, "Pattern", eTiControlDial,   63, 0.0, NULL           },
+    {kTiParamB3ArpOctaves, "Octaves", eTiControlChoice,  3, 0.0, kListArpOctaves},
+    {kTiParamB17ArpClock,  "Clock",   eTiControlChoice, 17, 0.0, kListArpClock  },
+};
+static const tTiControl  kArpRhythm[]                   = {
+    {kTiParamB5ArpNoteLength, "Length", eTiControlDial,   127, -64.0, NULL        },
+    {kTiParamB6ArpSwing,      "Swing",  eTiControlDial,   127,   0.0, NULL        },
+    {kTiParamB4ArpHold,       "Hold",   eTiControlChoice,   1,   0.0, kListArpHold},
+};
 static const tTiControl  kUnisonCtl[]                   = {
     {kTiParamUnisonVoices, "Voices", eTiControlChoice,  15,   0.0, kUnison},
     {kTiParamUnisonDetune, "Detune", eTiControlDial,   127,   0.0, NULL   },
@@ -707,10 +731,15 @@ static const tTiSection  kModPage2[]                    = {
     {"SLOT 6", {0.70, 0.45, 0.80}, kMod6, 7},
 };
 static const tTiSection  kGlobalPage[]                  = {
-    {"PLUG-IN", {0.65, 0.65, 0.65}, kVoices,     5},
+    {"PLUG-IN", {0.65, 0.65, 0.65}, kVoices,     6},
     {"PLAY",    {0.65, 0.65, 0.65}, kPlay,       4},
     {"UNISON",  {0.65, 0.65, 0.65}, kUnisonCtl,  4},
     {"CONTROL", {0.65, 0.65, 0.65}, kNewControl, 4},
+};
+
+static const tTiSection  kArpPage[]                     = {
+    {"ARPEGGIATOR", {0.55, 0.75, 0.40}, kArpCtl,    4},
+    {"RHYTHM",      {0.55, 0.75, 0.40}, kArpRhythm, 3},
 };
 
 static const tTiSection  kTablesPage[]                  = {
@@ -748,6 +777,7 @@ const tTiPage            gTiPages[]                     = {
     {"DRIVE",   kDistortionPage,  3},
     {"MOD FX",  kModulationPage,  3},
     {"EFFECTS", kDelayPage,       3},
+    {"ARP",     kArpPage,         2},
     {"GLOBAL",  kGlobalPage,      4},
 };
 const uint32_t           gTiPageCount                   = sizeof(gTiPages) / sizeof(gTiPages[0]);

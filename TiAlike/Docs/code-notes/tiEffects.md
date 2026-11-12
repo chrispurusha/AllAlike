@@ -91,3 +91,12 @@ delay's taps and the reverb's pre-delay are read between samples, so a moving ti
 target, and again whenever its effect is switched off, so a sound that does not modulate them is unchanged; 13 of 20
 Bank A Singles render identically, the rest differ only where a clocked delay time falls between samples, which had
 been rounded down (2026-11-09).
+
+## 25a. Delay Colour
+A bilinear one-pole on what goes into the line (the input with the feedback), so every repeat is coloured again: a low
+pass below 64, a high pass above, nothing at 64. The corner sits on the digital filters' third-octave points (19.7 Hz
+x 2^(p/3)): with x = 2 (0.75 Colour / 128 - 0.375), p = 31 (x + 1) for the low pass and 31 x for the high pass, half a
+point added (fitted at 44.1 kHz) - about 133 Hz at 0, 1.9 kHz at 32, 320 Hz at 96 and 4.4 kHz at 127. Against reference
+renders, octave bands of a saw's echo against Colour 64: within about 1 dB from 125 Hz to 8 kHz at 0, 32 and 96 (at 0
+the reference levels off near -29 dB above 4 kHz where ours keeps falling); at 127 the lowest band is 9 dB short.
+

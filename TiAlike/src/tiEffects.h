@@ -88,7 +88,8 @@ typedef struct {
     bool      chorusGliding;
     // notes §25: the other modulated effects' settings, glided per sample from their per-block bytes
     double    phaserNow[5];    // mix, depth, frequency, feedback, spread - as bytes
-    double    delayNow[5];     // wet, dry, feedback, left and right taps in samples
+    double    delayNow[6];     // wet, dry, feedback, left and right taps in samples, Colour's q
+    double    delayTone[2][2]; // notes §25a: Colour's last input and output, each line
     double    verbNow[12];     // wet, dry, pre-delay, low pass, high pass, then the tank's seven coefficients
     bool      phaserGliding, delayGliding, verbGliding;
 } tTiEffects;

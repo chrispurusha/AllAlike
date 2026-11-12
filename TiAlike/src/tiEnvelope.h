@@ -20,6 +20,7 @@
 #define __TI_ENVELOPE_H__
 
 #include <stdbool.h>
+#include <stdint.h>
 
 typedef enum {
     eTiEnvIdle = 0,
@@ -32,26 +33,38 @@ typedef enum {
 
 // notes §1: the five controls as per-sample steps at one sample rate
 typedef struct {
-    double attackStep;     // added
-    double decayMul;       // multiplied, down to sustain
-    double sustain;        // level
-    double slopeStep;      // notes §4: rising, added up to the top; 0 when falling or held
-    double slopeMul;       // falling, multiplied down to the floor; 1 when rising or held
-    double releaseMul;
-    double glideStep;
+    double  attackStep;    // added
+    double  decayMul;      // multiplied, down to sustain
+    double  sustain;       // level
+    double  slopeStep;     // notes §4: rising, added up to the top; 0 when falling or held
+    double  slopeMul;      // falling, multiplied down to the floor; 1 when rising or held
+    double  releaseMul;
+    double  glideStep;
+    // notes §7: Fixed - the instrument's own arithmetic, every 16 samples
+    bool    fixed;
+    int64_t attackRate, decayRate, slopeRate, releaseRate;  // per update, in the level's high word
+    int64_t sustainWord;
+    int64_t startWord, topWord;                             // where a note from silence starts; where Attack stops
 } tTiEnvShape;
 
 typedef struct {
     tTiEnvStage stage;
     double      level;     // 0..1, the amplifier's gain
     double      held;      // the sustain level the sustain stage started from
+    int64_t     acc;       // notes §7: Fixed - the level as a 48-bit word
+    uint32_t    count;     // samples since the last update
+    double      from, to;  // notes §7: the levels of the last two updates, a line between them sample by sample
+    bool        started;
 } tTiEnv;
 
 // The panel's 0..127 for Attack, Decay, Sustain, Sustain Time (64 holds) and Release
 void ti_env_shape(double attack, double decay, double sustain, double sustainTime, double release, double sampleRate, tTiEnvShape * shape);
-double ti_env_sustain_level(double dial);                    // notes §4, the curve Osc Volume and the mix levels also use
-void ti_env_gate(tTiEnv * env, bool on);                     // on: attack from where it is; off: release
-double ti_env_next(tTiEnv * env, const tTiEnvShape * shape); // one sample on
+void ti_env_shape_fixed(double attack, double decay, double sustain, double sustainTime, double release, double sampleRate, bool amplifier, tTiEnvShape * shape); // notes §7: amplifier false for the filter's and envelopes 3 and 4
+int64_t ti_env_fall_curve(int64_t position);                                                                                                                      // tiLfo notes §1
+double ti_env_sustain_level(double dial);                                                                                                                         // notes §4, the curve Osc Volume and the mix levels also use
+double ti_env_mix_level(double dial);                                                                                                                             // notes §4a
+void ti_env_gate(tTiEnv * env, bool on);                                                                                                                          // on: attack from where it is; off: release
+double ti_env_next(tTiEnv * env, const tTiEnvShape * shape);                                                                                                      // one sample on
 
 static inline bool ti_env_idle(const tTiEnv * env) {
     return env->stage == eTiEnvIdle;

@@ -140,6 +140,7 @@ static void * nl3_create(const tSynthLibPluginDesc * desc) {
     synthlib_resample_init(&t->resampler, NL3_ENGINE_HZ, t->hostRate);
     synthlib_resample_init(&t->resamplerR, NL3_ENGINE_HZ, t->hostRate);
     nl3_voices_set_limit(&t->voices, voice_limit(t));
+    nl3_voices_set_clean(&t->voices, t->values[kNl3ParamAliasing] >= 0.5);   // voices notes §20: On unless the host says otherwise
     nl3_prefs_init();
     synthlib_log_line("created - Nl3Alike %s", NL3_VERSION_STRING);
     return t;

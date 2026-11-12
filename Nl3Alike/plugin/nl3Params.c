@@ -30,7 +30,7 @@ const tSynthLibParam     gNl3Params[kNl3ParamCount] = {
     {kNl3ParamVoiceLimit,                       "Voice Limit",                            "Voices",   eSynthLibUnitGeneric,    1.0, NL3_MAX_VOICES, 23.0 / (NL3_MAX_VOICES - 1), NL3_MAX_VOICES - 1, SYNTHLIB_MIDI_NONE,                                                                             0},
     {kNl3ParamMaster,                           "Master Volume",                          "Master",   eSynthLibUnitGeneric,    0.0,          127.0,                         1.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
     {kNl3ParamArithmetic,                       "Arithmetic",                             "Maths",    eSynthLibUnitIndexed,    0.0,            1.0,                         0.0,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
-    {kNl3ParamAliasing,                         "Aliasing",                               "Alias",    eSynthLibUnitIndexed,    0.0,            1.0,                         0.0,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kNl3ParamAliasing,                         "Anti-alias",                             "AA",       eSynthLibUnitIndexed,    0.0,            1.0,                         1.0,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
     {kNl3ParamProgram,                          "Program",                                "Program",  eSynthLibUnitGeneric,    0.0,          127.0,                         0.0,                127, SYNTHLIB_MIDI_NONE,       SYNTHLIB_PARAM_PROGRAM | SYNTHLIB_PARAM_HIDDEN | SYNTHLIB_PARAM_NO_SAVE},
     {kNl3ParamBank,                             "Bank Select",                            "Bank",     eSynthLibUnitGeneric,    0.0,          127.0,                         0.0,                127,                       32, SYNTHLIB_PARAM_HIDDEN | SYNTHLIB_PARAM_NO_SAVE                         },
     {kNl3ParamPitchBend,                        "Pitch Bend",                             "Bend",     eSynthLibUnitGeneric,    0.0,            1.0,                         0.5,                  0, SYNTHLIB_MIDI_PITCH_BEND, SYNTHLIB_PARAM_HIDDEN | SYNTHLIB_PARAM_NO_SAVE                         },
@@ -446,7 +446,7 @@ const uint32_t           gNl3FieldCount      = sizeof(gNl3Fields) / sizeof(gNl3F
 
 // notes §4: the names of each switch's positions
 static const char *const kChoiceArithmetic[] = {"FLOAT", "FIXED"};
-static const char *const kChoiceAliasing[]   = {"INSTRUMENT", "CLEAN"};
+static const char *const kChoiceAliasing[]   = {"OFF", "ON"};
 static const char *const kChoiceWave[]       = {"SAW", "PULSE", "TRI", "SINE", "NOISE", "DUAL SINE"};
 static const char *const kChoiceOffon[]      = {"OFF", "ON"};
 static const char *const kChoiceOscmod[]     = {"DM", "DIST", "FILT", "FM", "DFM", "RM"};
@@ -887,9 +887,9 @@ static const tNl3Control kOutput[]              = {
     {kNl3ParamMaster, "Master", eTiControlDial, 127, 0.0, NULL},
 };
 static const tNl3Control kPlugin[]              = {
-    {kNl3ParamVoiceLimit, "Limit", eTiControlDial,   NL3_MAX_VOICES - 1, 1.0, NULL                  },
-    {kNl3ParamArithmetic, "Maths", eTiControlChoice,                  1, 0.0, nl3_choices_Arithmetic},
-    {kNl3ParamAliasing,   "Alias", eTiControlChoice,                  1, 0.0, nl3_choices_Aliasing  },
+    {kNl3ParamVoiceLimit, "Limit",      eTiControlDial,   NL3_MAX_VOICES - 1, 1.0, NULL                  },
+    {kNl3ParamArithmetic, "Maths",      eTiControlChoice,                  1, 0.0, nl3_choices_Arithmetic},
+    {kNl3ParamAliasing,   "Anti-alias", eTiControlChoice,                  1, 0.0, nl3_choices_Aliasing  },
 };
 static const tNl3Control kHardware[]            = {
     {kNl3ParamHwLink,    "Link",    eTiControlChoice,   1, 0.0, nl3_choices_HwLink},

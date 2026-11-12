@@ -31,6 +31,11 @@ Sustain Time (the panel's -64..+63; 64 on the wire is 0) moves the level once it
 - at the centre it holds.
 So -32 falls with a 0.99 s time constant, -48 0.19 s; +16 rises 0.097 a second, +32 0.51.
 
+
+## 4a. The mix levels
+Sub, Noise and Ring take their level from the same table as the amplifier's sustain, mixed differently: a quarter of the
+dial (over 127) and three quarters of the table read there, `ti_env_mix_level()`. Full at 127, 0.247 at 64. It replaced
+a fitted curve (the sustain level to the power 1.25) that was within 0.2 dB of it everywhere (2026-11-12).
 ## 5. The end of a note
 A release ends, and frees its voice, once the level is below 2^-16 (-96 dB). Where the instrument itself lets a voice go
 is not known; this is far enough down not to be heard.
@@ -44,3 +49,37 @@ Against reference renders with the Init Single (oscillator 2 out, filter open, A
 peak: Attack 64 and 96, Decay 48 / Sustain 0, Decay 80 / Sustain 64, Sustain Time -32 and +32, Release 4, 16 and 64,
 the shape within 0.1 dB from 20 ms on; times as §2-4 within 1% (Release 0 to 127). The level does not follow
 velocity in the Init Single - its velocity to volume is 0 (tiVoices notes §7).
+
+## 7. Fixed: the instrument's own arithmetic
+With Arithmetic at Fixed (and in tools/tirender) all four envelopes - amplifier, filter, 3 and 4 - are computed as the
+instrument computes them, word for word at 44.1 kHz. The update, the level and the Decay, Release and Sustain Time rates
+are the same for all four; the amplifier differs from the other three in its Attack, its sustain level, where it starts
+and where Attack stops (see the end of this section). The amplifier's:
+- The level is a 48-bit word, updated once every 16 samples. Attack adds its rate to the level's high word and stops
+  at $7F0000; Decay, Release and a falling Sustain Time take the level's high word times their rate off the whole
+  48-bit level, so the bits below the word carry from update to update; Decay stops exactly on the sustain level, a
+  falling Sustain Time on $100, a rising one on $7F0000. A note from silence starts at $1000.
+- The rates: the curve's points (33 for Attack, 37 for the falls), read at dial / 4 with a straight line between points
+  (the fraction as a word, the product's lower bits dropped), times a scale of 0.5 x 46875 / the sample rate, doubled,
+  the product's lower bits dropped towards minus; four times that per update. Sustain Time reads the fall curve at
+  9/8 of twice its distance from 64, halved for a fall, quartered for a rise.
+- The sustain level: the dial over 127 as a word (dial x 66052); half the sustain curve there, half that word, plus $100,
+  limited at full scale - so Sustain 127 is full scale, above the attack's $7F0000, and holds there.
+Checked against reference renders: every rate for every dial value 0-127 the same word; a whole note (Attack, Decay,
+Sustain, Sustain Time 40 and Release 64) the same level word at all 1944 updates; all 128 sustain levels. Sustain Time
+now starts falling as the note does (it waited 150 ms behind a sustain level 2% low), and Sustain Time 0 sits on the
+floor instead of 12 dB over it. At other sample rates the scale follows the rate; the update stays 16 samples.
+The filter's envelope and envelopes 3 and 4:
+- Attack reads the fall curve, not the attack curve: its rate there (as above, before the four) halved, plus that half
+  times the curve's point as a fraction; Attack 0 jumps straight to the top. About eight times slower than the
+  amplifier's at 64, the same at 120.
+- The sustain level is the dial over 127 as a word, plus $100: a straight line, no curve.
+- A note from silence starts at 0, and Attack rises to full scale ($7FFFFF).
+Checked: Attack and sustain words for all 128 dial values, all three envelopes; three whole notes (filter, envelope 3,
+envelope 4, different settings each) the same level word at every update. Filter-envelope sweep against the reference:
+Attack 0 band error 6.3 -> 0.5 dB; what is left is common to every setting, the filter's answer to the envelope.
+Between updates the level moves in a straight line, sample by sample, from one update's level to the next's, as the
+reference's does (an attack measured sample by sample rises at a constant 0.002 a sample); a note from silence takes
+its first update at once, so Attack 0 starts at full level on the first sample. The amplifier uses it directly in Fixed
+(voices §32's block-wide line remains for Float). Amp envelope sweep: worst level 2.16 -> 0.43 dB.
+Float keeps the closed forms of §2-§4.

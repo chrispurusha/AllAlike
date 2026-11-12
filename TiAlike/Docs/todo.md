@@ -3,11 +3,21 @@
 One line per item. Measurements and reasoning go in `findings.md`, design in `design.md`.
 
 ## First
-- Matrix push past a dial's end: the instrument caps it at the end too (voices notes §22) - DO NOT lift. Env Mode before Mono built 2026-11-08 (voices notes §12a; CuttaD6 gap 11.4/27.0 -> 3.3/10.0 dB). Next against the firmware probe, bank C: AnlogBD's tail (23.5 dB late), Acidica's LFOs (22.7 early), 3-Dumm's tail (15.0), Bombers' effects
+- Spitter (C110), worse since the matrix reaches the pitch depths at full strength (correct in isolation): cut down, it is Portamento 26 + Cutoff 26 + Velocity into LFO 1's Osc 1 depth; the vibrato tracks the reference, but ours is about 8.7 dB louder - look at the filter's key tracking during a glide. Also LFO 1 at rate 48 drifts a few percent from the reference over 2 s. Phobos (C094) +5.6 from another cause (LFO clocks, Env Mode)
+- Sync: the instrument's restart runs about one point late, leaving faint lines at every Osc 1 harmonic at whole-number ratios (-38 dB two octaves up); ours has none. Both Anti-alias modes otherwise done (tiOsc notes §2a, §9)
+- Filter 2 band pass at Cutoff 127 (linked): about 5 dB louder than the reference (within 0.5 dB at 64-115); Dgtalrido (C033) still 14.9 after the Split fix - recheck at its own settings. Wired (C127) reduces to four LFO 2 settings (LFO 2 to Osc Shape)
+- Anti-alias Off: the HyperSaw still about 10 dB cleaner than the instrument (between a box-filtered and a band-limited saw); Osc 3 and the sub within 1-3.5 dB since 2026-11-12; FM mixed
+- Arpeggiator built 2026-11-11 (tiArp notes): old-format Singles' user pattern (C062), C117 chord mode, Arp>Matrix's matrix source, the host song position as the pattern's phase while playing
+- Blame tool: longer windows (several seconds) for evolving patches before trusting a short-window score
+- Bank C still apart from the reference after the Serial 6 fix: C001 (analog 4-pole, top octaves 15-30 dB dark), C009 AprilPad, C003 Aeternal, C008 AnlogFeel
+- Synced Osc 2 below Osc 1 with a pulse edge near the restart (C007 at Detune 0): settle where the slave restarts against the edge
+- FM into a Wavetable Osc 2, and Classic at full amount: ours goes inharmonic where the reference stays on the note
+- Grain/Formant models: sweep their own controls against the reference (Shape and Width do not drive them)
+- Matrix push past a dial's end: the instrument caps it at the end too (voices notes §22) - DO NOT lift. Env Mode before Mono built 2026-11-08 (voices notes §12a; CuttaD6 gap 11.4/27.0 -> 3.3/10.0 dB). Next against the instrument, bank C: AnlogBD's tail (23.5 dB late), Acidica's LFOs (22.7 early), 3-Dumm's tail (15.0), Bombers' effects
 - Osc 2 Detune drift built 2026-11-08 (voices notes §7a: a per-voice triangle, ±27%, up to Detune 92): check by ear against the hardware with two oscillators at equal level
-- Portamento by key mode built 2026-11-08 (Poly/Mono 1/Mono 3 from the last key, Mono 2/Mono 4 legato only; voices notes §10) - every mode matches the reference separated and legato; the glide's tail is a little slow (192 Hz against 196 at 300 ms on C3 -> G3, Portamento 80): check the time law on the hardware
+- Portamento by key mode built 2026-11-08 (Poly/Mono 1/Mono 3 from the last key, Mono 2/Mono 4 legato only; voices notes §10) - every mode matches the reference separated and legato; its time law is the reference's since 2026-11-12 (a share of the gap plus 1/32 of the interval per step): check a legato glide that starts mid-glide
 - Smooth Mode On glides Shape (Wavetable Index) changes: a dial swept through a table is smoother on the instrument (5 dB less between the harmonics with On than Off, where ours matches Off). Find which controls it glides, and the rate per step (one-step changes did not resolve against noise; try a high note, On against Off)
-- Reference caveat: the reference emulator is buggy when stepping through presets - program changes and anything carried across a change of sound are checked on the hardware Virus TI, not the emulator
+- Reference caveat: the reference is buggy when stepping through presets - program changes and anything carried across a change of sound are checked on the hardware Virus TI, not the reference
 - Phaser: Spread between 0 and 96, the LFO's depth and shape, and matrix routes to it
 - Chorus: the other types, and Feedback checked. 
 - Filter Bank: VariSlope in-between Shapes, Vowel at high resonance, Vowel and shifter Stereo Phase
@@ -29,7 +39,7 @@ One line per item. Measurements and reasoning go in `findings.md`, design in `de
 - Soft knobs, the wheel-side ones, and bender scale
 - Oscillator phase and drift: why free-running ones sit a cent flat
 - Oscillator upper harmonics at note 72: about 2.9 dB harmonic error against the reference with the saturation curve doing nothing (Osc Volume 72); none at note 48
-- Osc Volume on the panel: its upper half drives the analog filter (filter notes §5, `drive`) and the Saturation curves; then re-fit the ladder's input level (filter notes §6)
+- Osc Volume above 64 drives the analog filter and the Saturation curves (built; the matrix moves the drive too since 2026-11-12): re-fit the ladder's input level (filter notes §6)
 - Analog modes: self-oscillation 0.3-0.5% sharp at Cutoff 90-105 (within 0.05% from 30 to 70)
 - Singles drive only what is built (tiPatch notes §3; the amp envelope's 59-63 now carried): add each section's bytes to `kCarried` as it is built - Osc 1 shape/PW (page A 17/18) with the oscillator
 - Changing Sustain while a note holds: glides at 2^-12 a tick (tiEnvelope notes §6) - check against the reference
@@ -40,6 +50,8 @@ One line per item. Measurements and reasoning go in `findings.md`, design in `de
 
 
 ## Bank A against the hardware (CT, 2026-11-09)
+
+- Atx Bass (a factory bank, third, 8): far below the instrument above 2.5 kHz (20-50 dB) and at 40-80 Hz (42 dB)
 
 - Start with those that use no distortion: A012 A016 A019 A021 A048 A053 A063 A067 A071 A086, and C007
 - A076 and A064 (Rectifier) are not the distortion: with it off on both, the TI and the engine differ as much (A076 octave shape 3.8 -> 4.1 dB rms, the same pattern)
@@ -59,8 +71,7 @@ One line per item. Measurements and reasoning go in `findings.md`, design in `de
 - A048 an extra tone here
 - A049 much weaker here
 - A053 zipper: the chorus - fixed 2026-11-09 (tiEffects notes §13), confirmed by CT; the phaser, delay and reverb glide their modulated settings too (§25)
-- Delay modulation (A116 rate, A117 depth) is not built: `delay_times()` takes neither, and the tap is a whole sample set once per block - when it is built, read the line interpolated and move the tap per sample, or it will zipper
-- Delay Colour (A119): check it is applied (A053's bright feedback)
+- Delay modulation (A116 rate, A117 depth, A118 shape) is not built: its LFO runs the voices' rate law about 7.35 times faster (4.2 and 6.6 Hz at Rate 50 and 60); the depth is not yet known. When built, read the line interpolated and move the tap per sample, or it will zipper
 - A060 wildly different
 - A062 distortion tonally different
 - A063 sounds like another patch altogether
@@ -89,11 +100,11 @@ One line per item. Measurements and reasoning go in `findings.md`, design in `de
 - Clocked LFOs: their phase against the host timeline is unchecked
 - Saturation Rate Reducer at full drive, and Bit Reducer above drive 96, are still out
 - Hardware: the USB link could go direct through libusb, bypassing the maker's driver
-- Delay: Color, modulation, Tape types, Pattern timing at other tempos, order against the EQ. Reverb. Chorus types Vintage, Hyper, Air, Vibrato, Rotary
+- Delay: modulation, Tape types, Pattern timing at other tempos, order against the EQ. Reverb. Chorus types Vintage, Hyper, Air, Vibrato, Rotary
 - Reverb: top octave 4-6 dB hot, tank modulation, Feedback 1 and 2 modes, Reverb Clock
 - Analog filter modes: a high-frequency floor in the reference, 20 dB higher at 44.1 kHz than at 48, not in ours
-- Panel: controls with no effect yet: Delay Color, Tape, Delay LFO, Reverb Clock and Feedback, Quality, Tone (wavetable Sync, Formant, Detune and Smooth act since 11-02, on the models that use them)
-- Panel: not offered: arpeggiator, vocoder and input follower, soft knobs
+- Panel: controls with no effect yet: Tape, Delay LFO, Reverb Clock and Feedback, Quality, Tone (wavetable Sync, Formant, Detune and Smooth act since 11-02, on the models that use them)
+- Panel: not offered: vocoder and input follower, soft knobs
 - Delay Clock: tempo law built but unverified on our side; the times wander at 60, 120 and 200 BPM, possibly with sample rate; sequencer patterns, whose right channel runs at the exact tempo
 - Reverb Clock: acts as predelay, not built
 - Wave and wavetable images above their top partial (a stored cycle's mirror images, near -65 dB)
@@ -101,8 +112,8 @@ One line per item. Measurements and reasoning go in `findings.md`, design in `de
 - Oscillators at the very top: about 6 dB down at note 108 on every model - NOT REPRODUCED 2026-11-08: saw, pulse, wave 10 and sine at notes 60/96/102/108 (48 kHz, open filter, Osc 1 alone) match the reference in level within 0.2 dB; delete unless it shows again under other settings
 - Stored waves alias near -50 dB, by note range; ours are cleaner. Saw and pulse are 6 dB cleaner than PolyBLEP
 - Analog filter modes at high resonance; Osc 3 sine (blamed in real patches)
-- Aliasing setting (optional), per instance and held by the host, not in the sound: Faithful (default) or Clean - its saw and square alias most of the Alikes (-32 dB at C7, 44.1 kHz); Clean from Nl3Alike's correction (`../Docs/feature-status.md`, anti-aliasing)
-- Matrix: LFO 1 to Filter Gain, Unison destinations, Osc 3 Detune; effect modulation is by block
+- Anti-alias On should keep the instrument's top-octave roll-off without its aliases (tiOsc notes §9: harmonics 8-10 at C7 4-8 dB down on the instrument, not in the band-limited saw); also Anti-alias Off for the wavetable models and the HyperSaw, and N at sample rates other than 44.1 kHz (taken as the same by note)
+- Matrix: the new destinations (Contours, Interpolation, F-Shift/Spread, Unison, arp) not yet checked against the reference; effect modulation is by block. Osc 3 Detune's curve 3-7% deep above dial 96 (tiVoices notes §7b)
 - Filterbank Frequency Shifter driven by the matrix swings too far
 - Chorus: types other than Classic, sample and hold LFO shapes, the first cycle about 0.1 s ahead
 - Phaser feedback at the extremes, 4-6 dB in a static test
@@ -117,3 +128,7 @@ One line per item. Measurements and reasoning go in `findings.md`, design in `de
 - Filter Attack 1 to 8: a smooth curve on the instrument, a single value here
 - Distortion: Wave Shaper; Bounces and Folds at high Amount; Rate Reducer at Intensity 96 depends on phase
 - Matrix to effects: routes built but not yet measured or heard
+- Fixed-point residues the reference leaves and ours does not: a trace of the harmonics with the filter collapsed (Cutoff 10 and below, about -50 dB of the fundamental at 16) and a DC of about -83 dB with an envelope at its floor (Sustain Time 0)
+- LFO 3 to pitch at 112 and 127: 3.8% and 5.8% shallower than the reference (voices notes §12b); LFO 1 at the same depth is not
+- FM into a Wavetable Osc 2, modes 4-6 (audio in), and Wave PWM at Width 127: still far apart in the mode sweep (2026-11-12)
+

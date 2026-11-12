@@ -25,6 +25,7 @@
 #include "synthlibVersion.h"
 #include "contextMenu.h"
 #include "alertDialog.h"
+#include "bankBrowser.h"
 
 #include "tiDraw.h"
 #include "tiHardware.h"
@@ -146,6 +147,29 @@ static void open_presets_menu(tCoord anchor) {
     open_context_menu(anchor, items, 0, 0.0);
 }
 
+// ---- Sort - notes §3: the order the preset browser lists in and Prev/Next step through -------------------------
+
+static void action_sort(int index) {
+    bank_browser_set_sort_mode((int32_t)gContextMenu.items[index].param);
+}
+
+static void open_sort_menu(tCoord anchor) {
+    static tMenuItem         items[4];
+    static const char *const kLabels[3][2] = {
+        {"Bank / Location", "* Bank / Location"}, {"Category", "* Category"}, {"A-Z", "* A-Z"}
+    };
+    int32_t                  mode          = bank_browser_sort_mode();
+
+    for (int i = 0; i < 3; i++) {
+        items[i] = (tMenuItem){
+            kLabels[i][mode == i], ITEM, action_sort, (uint32_t)i, NULL, 0, 0.0, NULL
+        };
+    }
+
+    items[3] = END_OF_MENU;
+    open_context_menu(anchor, items, 0, 0.0);
+}
+
 // ---- Virus TI - notes §2 ----------------------------------------------------------------------------------
 
 static void action_read_hardware(int index) {
@@ -227,7 +251,7 @@ static void action_panel_help(int index) {
     show_alert("The Panel",
                "An early build: one oscillator, the two filters, the amplifier envelope (ENV) and the voice limit on the "
                "GLOBAL page.\n\n"
-               "Patches: < Prev and Next > step through the presets, A001-W128; Load... opens a .syx or .mid file of "
+               "Patches: < Prev and Next > step through the presets, A001-W128, in the order the Sort menu sets; Load... opens a .syx or .mid file of "
                "Singles, choosing one when it holds several. The name beside them edits on a click. A Single keeps "
                "every byte it came with, though only what is built so far plays.\n\n"
                "Dials: drag to turn, Shift to turn finely. Controls chooses how a drag turns them: Rotary follows the "
@@ -288,6 +312,7 @@ static void open_midi_menu(tCoord anchor) {
 static const tMenuBarItem gMenuBar[] = {
     {"File",     open_file_menu    },
     {"Presets",  open_presets_menu },
+    {"Sort",     open_sort_menu    },
     {"Virus TI", open_hardware_menu},
     {"Controls", open_controls_menu},
     {"MIDI",     open_midi_menu    },

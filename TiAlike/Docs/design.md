@@ -57,7 +57,7 @@ Every comparison starts from a known Single sent as SysEx into the edit buffer, 
    kept but do nothing until their section is built - so real patches play, partly, from the start.
 5. Section by section, each confirmed against the reference renders before the next: the oscillator, the
    envelopes, the LFOs and the modulation matrix, then the rest of the voice.
-6. **Effects next to last, the arpeggiator last - if at all** (CT 2026-10-26).
+6. **Effects next to last, the arpeggiator last - if at all** (CT 2026-10-26). Built 2026-11-11 at CT's request.
 7. The hardware link (§6), further down the line.
 
 ## 5. The project's infrastructure (2026-10-26)

@@ -65,8 +65,9 @@ Drawn as a button, grey with black text like the tabs, wide enough for ten W's (
 name a Single holds; it lightens while being edited.
 
 ## 11. Presets
-A001-W128 through SynthLib's bank browser, banks A-W of 128 (tiPatch notes §5). Prev/Next wrap through all 512; from
-no preset, Next is A001. Store always confirms, naming what the slot holds; Revert loads the stored preset again.
+A001-W128 through SynthLib's bank browser, banks A-W of 128 (tiPatch notes §5). Prev/Next wrap through all 512 in the
+order the browser lists them under the Sort menu (SynthLib bankBrowser.cpp notes §11, the same sort as the list); from
+no preset, Next is the first in that order and Prev the last. Store always confirms, naming what the slot holds; Revert loads the stored preset again.
 
 ## 12. Import and export
 Import replaces all 512 after a confirm naming how many were found (tiPatch notes §6). Export writes the 512 as one

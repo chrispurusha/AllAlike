@@ -188,3 +188,135 @@ own tempo, 135 BPM (the instrument alone runs at the patch tempo; the plug-in al
   the left only 5, 10 - the shape to rebuild: the right a single 3-sixteenth tap of the input, its output into the left's
   5-sixteenth loop. Check the rule on a second pattern (e.g. 2+5, 4+3) before building it.
 
+## 2026-11-11 - W010's ticks: the amplifier, a block at a time
+
+W010 (At@riKart, Mono 1, Attack 0, Filter 1 near shut with resonance 125) ticked on every key struck again while the
+last note was still releasing. The instrument does not. Narrowed by switching parts off in turn: not the effects,
+noise, LFOs, matrix or saturation; it went with Poly, with a slower amp Attack, or with the amplifier's restart
+skipped. The envelope does the same thing on both - back to full on the new note - but ours put that jump into the
+output within one sample; the instrument carries the amplifier's level to the output once a block and goes there in a
+straight line. Built (voices notes §32), the 32-sample block the filters use. Against the instrument:
+- W010's re-strikes: the burst above 6 kHz, 10-14 dB over the sound around it, is now 0-2 dB (none on the instrument).
+- A plain tone through a dark filter, struck again from a low sustain: the re-strike's burst -30 / -33 dB against the
+  note before, -53 / -50 now; the instrument -60 / -51. Shorter glides fell short (8 samples -40 / -36, 16 -44 / -40).
+- Release 0's fall keeps its shape: within 0.026 of the instrument sample for sample (0.033 before).
+- Onsets of a factory bank's first 16 moved towards the instrument where they moved at all (high band in the first
+  3 ms: Atx Bass -16.3 -> -29.8, instrument -26.0; Bad Pop -14.7 -> -19.9, -19.0; Bomber -33.3 -> -39.5, -38.2). Held
+  notes unchanged within 0.1 dB except content 50 dB and more below the note.
+
+## 2026-11-11 - The amplifier envelope in the instrument's arithmetic
+
+A sweep of every page A and B parameter against the reference (one at a time on a plain sound, compared cycle by
+cycle) left the amp envelope's Sustain Time worst: at 0 ours 12 dB loud, at 32 its fall 150 ms late. The cause was the
+sustain level - 2% low at the top of the dial, full scale on the instrument at 127 - so a Decay 127 sound took 150 ms
+to reach it before Sustain Time could begin. Rather than fit the curve again, the envelope now runs on the
+instrument's own arithmetic in Fixed mode (tiEnvelope notes §7): 48-bit level, 16-sample updates, the curves' points,
+and the same rounding; every rate and every sustain level is the same word as the reference's, and a whole note's
+level matches at every update. Sweep of A59-A63 after: worst level difference 12.2 -> 2.2 dB (Sustain Time 0, where
+both sit at the floor), Sustain Time 32 falling with the reference from the first frame.
+The filter's envelope and envelopes 3 and 4 share the update and the Decay, Release and Sustain Time rates word for word;
+their Attack reads the fall curve (about eight times slower than the amplifier's at 64), their sustain is a straight
+line, and they start at 0 and rise to full scale. All four now run on it in Fixed mode; filter-envelope Attack 0 went
+from 6.3 dB of band error against the reference to 0.5.
+
+## 2026-11-11 - Bank C's analog patches; pitch laws; FM under sync
+
+Bank C's Anaklav patches (C005-C007) sounded dull against the instrument. Switching stages off one at a time on both
+sides found it: with an analog Filter 1, Serial 6 routing added a resonance-free section after the ladder, 9-30 dB off
+the top octaves, where on the reference Serial 6 is exactly Serial 4 (tiVoices notes §6). C007 went from 6.2 to 2.2 dB
+mean error across octave bands, C005 7.4 -> 3.3. Not a regression: the last committed engine renders them the same.
+Also from the run-through, each checked against reference renders: Osc 3's Semitone is a just-intonation table and
+its Detune lowers the pitch (§7b); both detunes shrink with Transpose; Osc 2's detune table read 13-16% low; the
+free-running tuning offset (§7); portamento's time constant above 64 and the first glide from note 84 (§10); LFO 3's
+pitch depth curve (§12b); the HyperSaw's spacing at small Spread and its tuning (tiOsc §4); FM's triangle modulator
+starts from its peak, which fixes a synced Osc 2 with FM (§14); a legato mono note keeps its phase (§7).
+Measurement trap: the reference renderer's output holds short runs of exact zeros; any window longer than ~80 ms
+must skip them, or a plain saw reads 10 dB wrong in places.
+Still open: a synced Osc 2 below Osc 1 whose pulse edge falls near where the restart cuts it (C007 at Detune 0) -
+where the reference restarts the slave against the pulse's edge is not settled.
+
+## 2026-11-11 (night) - bank C ranked; Filter Gain built; Random's span; cutoffs stop at the top
+
+All 128 of bank C against the reference, effects and arpeggiator off: median 3.4 dB per octave band. The worst, by
+reverting one setting at a time: the arpeggiator (not built), LFO 1 to Filter Gain (not built - now built, notes
+§12c; C039 14 -> 3 dB), Random twice the bipolar sources' span (notes §9), a cutoff carried past 127 (§11). Still apart:
+C052 Flangepad (Filter 2 high pass with a strong envelope), C029 CrstlCave (Split, low cutoff), C074 (FM mode 3).
+
+## 2026-11-11 (late night) - The arpeggiator
+
+Built from the instrument's own: the note choice of each mode, the 63 preset patterns (each a list of steps with a
+length, duration and velocity), the 96-a-quarter clock and the Arp Clock divisions, Note Length, Swing and the step
+velocity rule (tiArp notes). Against the reference plug-in: Up, Down, Up&Down, As Played over chords played in and out
+of order and one to four octaves, note for note; 63 of 64 patterns onset for onset within 6 ms; swing at 0, 64 and 127
+and six clock divisions within 2 ms; the velocity contour of a crescendo pattern step for step. A pattern starts from
+its first step on the clock's next tick after the first key (renders that play a note straight after loading seemed
+to start from the second step - an artefact of that). Bank C's C057 now plays its arpeggio as the reference does.
+Checked again with every key at its own time: the first step plays at the first key (keys 1 ms apart miss it),
+and all 64 patterns, pattern 59 included, match onset for onset. Open: old-format Singles' user pattern (C062) and
+C117's chord mode.
+Also: the amplifier's level now moves sample by sample between envelope updates, as the reference's (tiEnvelope §7).
+
+## 2026-11-11 (late night) - LFO rate law and the free-running start
+
+The LFO rate now follows the instrument's own law (the envelope's fall curve, tiLfo §1), within 1% of reference renders
+from 48 to 104 where the old table was out by up to 4.4%. A free-running LFO starts half a cycle in at load (tiLfo §4).
+With the reference renders' timing matched (they play the note just after loading), the LFO section of the sweep
+halved its mean error (4.8 -> 2.4); LFO 2 to Cutoff at 0 went from 90 to 16, LFO 1 to Osc 1 at 127 from 40 to 8. The
+bank-ranking entry A035 (LFO 2 to Cutoff 1) was this timing, not the instrument.
+
+## 2026-11-11 (night) - Filter keyfollow takes an upward Transpose too
+
+The bank-A blame on A062 led to it: keyfollow ignored an upward Transpose (notes §10 said so). Reference renders at
+Transpose -24 to +24 with keyfollow 96 and 127 now agree within 1 Hz of spectral centroid; A062 28.8 -> 8.1.
+
+## 2026-11-12 - Pitch: the LFO curve, just Semitones, Portamento's law
+
+A fresh parameter sweep on the current build, then the voice rows worst first:
+- **LFO pitch curve** (Osc 1/2 LFO 1 Amount, Filter Env to Osc 2): nine points either side of zero, 32 semitones at
+  full (notes §12). Pitch depth against reference renders within 0.7% at amounts 24-104, where the old curve was 23%
+  deep at 24 and 104. LFO 3 to pitch reads the same curve (§12b): within 0.5% to 96, a few percent shallow above (open).
+- **Osc 1 and Osc 2 Semitone are just intervals**, like Osc 3's (§7b): +32 and +44 semitones 13.7 cents sharp, +40 flat,
+  now within 0.3 cents; the dial stops at +-48.
+- **Portamento** (§10): a share of the gap plus 1/32 of the interval every 1.45 ms, so a glide lands on its note; the
+  old exponential crept in (0.3 semitones out at 0.7 s at 96, where the reference has arrived).
+- Rows that are the sweep's own measure, not a difference: Osc 1 Semitone at 112 and Portamento at 127 (the harmonic
+  analysis assumes the base note's pitch), Osc 1 LFO 1 Amount at 0 (a 64-semitone swing).
+- Still open from the sweep: Amp Sustain Time 0 (spectrum, not level), Ring at 95 (+3.9 dB), Transpose 0, Osc Balance 64,
+  Cutoff 1 LFO 2 Amount at full (the curve is right; how the modulation lands on the cutoff is not), Cutoff 0 (ours
+  silent, the reference sounds), then the effects.
+
+## 2026-11-12 (later) - Cutoff 1's LFO route and the link; what the rest of the sweep was
+
+- **LFO 2 to Cutoff 1 no longer reaches Filter 2 through the link** (voices notes §12). At full amount ours closed both
+  filters of a Serial pair, 15 dB too deep at the bottom of the swing; now the same as LFO 2 to Cutoff 2, as the
+  reference has it (envelope score 5.4 -> 1.8, bands 5.5 -> 0.2).
+- **Ring and Osc Balance rows were Osc 2's detune drift.** The sweep's base Single has Osc 2 Detune 32, whose random
+  wander (notes §7a) moves the two oscillators' phase apart differently on each side. With Detune 0 Ring matches at
+  every amount (level 0.0-0.1 dB, bands at most 0.6) and Osc Balance 64 too (harmonics 0.2). The static Detune law is
+  the reference's to within 1%. Two-oscillator checks need Detune 0 (validation.md).
+- **Cutoff 10 and below, Sustain Time 0**: both instruments end in fixed-point residue there, 74 dB or more below the
+  normal level - the filter collapses at the same dial on both sides, but the reference keeps a trace of the harmonics
+  (ours a little DC), and an envelope held at its floor leaves the reference a DC of about -83 dB. Left for the fixed
+  point work.
+- **Transpose 0** puts the note near 6.5 Hz; the frames are the onset finder landing on different cycles.
+
+## 2026-11-12 Anti-alias switch; the classic oscillator's own way of working
+The classic oscillator, as the instrument makes it: a whole number of points per cycle chosen by note, the
+classic mix unfiltered at each point, a five-point filter and a straight-line interpolation at two passes a sample,
+the second heard (tiOsc notes §9). That is the Global Anti-alias switch's Off position, matching the reference's
+oscillator output line for line at C7. On, the default, keeps the band-limited oscillators. The same work gave
+the Shape crossfade's exact law (tiOsc notes §1: no setting is a pure saw). Trap: the reference's final audio is a
+poor place to measure alias lines - its pitch estimate moves them out of the search window at the 40th harmonic and
+its capture has its own sidebands; measure the oscillator's own output instead.
+
+## 2026-11-12 Pitch depths under modulation
+ImpOsc02HS (A016) sounded like a detuned unison on the instrument and not here: its LFO 1 Assign drives LFO 1's own
+depth to Osc 2 Pitch, and with a square LFO that leaves Osc 2 a constant +38 cents above Osc 1. Ours gave +11: the
+three pitch depths took their modulation at half strength (tiVoices notes §12). Now the same to a cent at every
+amount, and ImpOsc02HS's two oscillators sit where the reference's do.
+
+## 2026-11-12 Split routing
+P@rtials 1 (A012) sounded wildly different on the instrument, around its noise. Cut down to its fault it was noise,
+Filter 2 in mode 2 and Split routing. In Split the instrument sends Osc 3 and the noise through Filter 2 with Osc 2, and
+carries no ring; ours sent both through Filter 1 and kept the ring. Fixed (tiVoices notes §6).
+

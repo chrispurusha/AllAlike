@@ -292,6 +292,14 @@ enum {
     kTiParamProgram,
     kTiParamBank,
     kTiParamMaster,
+    kTiParamB15ArpMode,          // the arpeggiator (voices notes §33), after the rest so no saved id moves
+    kTiParamB2ArpPattern,
+    kTiParamB3ArpOctaves,
+    kTiParamB4ArpHold,
+    kTiParamB5ArpNoteLength,
+    kTiParamB6ArpSwing,
+    kTiParamB17ArpClock,
+    kTiParamAntiAlias,           // tiOsc notes §9: Global, after the rest so no saved id moves
     kTiParamCount
 };
 

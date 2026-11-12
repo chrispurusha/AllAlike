@@ -82,9 +82,11 @@ int main(int argc, char ** argv) {
 
     ti_voices_init(&gVoices, rate);
     ti_osc_wavetables_wait();
-    ti_voices_set_tempo(&gVoices, 120.0);
+    ti_voices_set_tempo(&gVoices, getenv("TI_TEMPO") ? atof(getenv("TI_TEMPO")) : 120.0);
     ti_voices_set_effects(&gVoices, true, true);
     ti_voices_set_fixed(&gVoices, getenv("TI_FLOAT") == NULL);
+    gVoices.antiAlias = (getenv("TI_ALIASED") == NULL);                           // tiOsc notes §9
+    gVoices.seconds   = getenv("TI_LOAD_AT") ? -atof(getenv("TI_LOAD_AT")) : 0.0; // the Single loaded this long before the render starts
     ti_voices_new_sound(&gVoices, &sound);
     int      next   = 0;
 

@@ -101,6 +101,8 @@ SOURCES=(
     "$HERE/src/tiEffects.c"
     "$HERE/src/tiEnvelope.c"
     "$HERE/src/tiFilter.c"
+    "$HERE/src/tiArp.c"
+    "$HERE/src/tiArpPatterns.c"
     "$HERE/src/tiVoices.c"
     "$HERE/plugin/tiParams.c"
     "$HERE/plugin/tiPatch.c"

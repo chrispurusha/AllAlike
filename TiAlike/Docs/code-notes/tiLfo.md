@@ -1,11 +1,10 @@
 # tiLfo.c - the LFOs
 
 ## 1. Rate
-Measured at every sixteenth step of the dial and joined geometrically, roughly doubling each step until the top. The
-lower half was measured again over long notes (2026-11-08): the instrument is much slower there than a doubling
-suggests - 0.074 Hz at 16, 0.222 at 32, 0.52 at 48, against 0.12, 0.25 and 0.51 before - and 0 is set at 0.0206 Hz,
-the geometric step below 16 (too slow to measure in a minute). The midpoints between the anchors, 8 to 56, then fall
-within 1.5% of their own measurements. From 64 up the law was already right (0.927 s at 64, 0.204 s at 96).
+The envelope's fall curve (tiEnvelope §7) read at (127 - dial) x 15/16 + 8, that scaled by 128/127 and taken at 9/32,
+times 0.0008918 Hz a unit - the instrument's own law. Against reference renders (the saw's jumps timed over several
+cycles, 2026-11-11) it is within 1% from 48 to 104 and 2% at 40 and 112, where the measurement has few cycles; the
+table it replaces was out by up to 4.4% (at 104).
 
 ## 2. Env Mode
 One cycle, lifted to sit on zero (so it swings 0..2), and then nothing until the next note. It runs at twice the LFO's rate. S&H and S&G are not lifted, and they end holding their value rather than falling to nothing.
@@ -20,4 +19,6 @@ middle it stays a sine (at 0 the instrument's is slightly skewed; not modelled).
 against the instrument at 64, 96 and 127 and matches.
 
 ## 4. Where a cycle starts
-Sine and triangle start at their minimum, saw and square at their top.
+Sine and triangle start at their minimum, saw and square at their top. A free-running LFO (Keytrigger off) starts half
+a cycle in when the Single is loaded (voices §20): a note straight after loading finds the saw halfway down and the
+sine at its top, at every rate, on the reference.

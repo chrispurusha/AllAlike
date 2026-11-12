@@ -26,9 +26,14 @@
 #include "tiOsc.h"
 #include "tiWaves.h"
 
-#define SAW_LEVEL      (2.0 / 3.0)   // notes §1: against a sine's 1
-#define PULSE_LEVEL    (0.5)
-#define HYPER_LEVEL    (1.066)       // notes §4: a lone saw of the stack, against the classic saw
+#define SAW_LEVEL         (2.0 / 3.0)                                                // notes §1: against a sine's 1
+#define PULSE_LEVEL       (0.5)
+#define HYPER_LEVEL       (1.066)                                                    // notes §4: a lone saw of the stack, against the classic saw
+#define HYPER_AT_64       (3.50)                                                     // notes §4: cents between saws at Spread 64
+#define HYPER_PER_16      (1.79)                                                     // and the growth every 16 steps above the knee
+#define HYPER_KNEE        (32.0)
+#define HYPER_TUNE        (-0.27)                                                    // notes §4: cents, the stack against the classic oscillator
+#define HYPER_PER_STEP    (HYPER_AT_64 / (HYPER_PER_16 * HYPER_PER_16 * HYPER_KNEE)) // below it a straight line from 0
 
 static float *        gMips[TI_WAVE_COUNT];   // TI_WAVE_MIPS tables of TI_WAVE_SIZE, each with half the harmonics
 static pthread_once_t gOnce = PTHREAD_ONCE_INIT;
@@ -133,17 +138,178 @@ double ti_osc_square(double phase, double increment) {
     return ti_osc_pulse(phase, increment, 0.5);
 }
 
+// notes §1: the share of the wave (below 64) or the pulse (above), the rest saw
+static double classic_mix(double shape) {
+    return fabs(127.0 - (2.0 * fmin(fmax(shape, 0.0), 127.0))) / 127.0;
+}
+
+static double classic_duty(double width) {
+    return 0.5 + (0.5 * fmin(fmax(width, -127.0), 127.0) / 127.0);
+}
+
 double ti_osc_classic(int wave, double shape, double width, double phase, double increment) {
-    if (shape <= 64.0) {
-        double f = shape / 64.0;
-        double w = (f < 1.0) ? ti_osc_wave(wave, phase, increment) : 0.0;
+    double f = classic_mix(shape);
 
-        return ((1.0 - f) * w) + (f * ti_osc_saw(phase, increment));
+    if (shape < 63.5) {
+        double w = (f > 0.0) ? ti_osc_wave(wave, phase, increment) : 0.0;
+
+        return (f * w) + ((1.0 - f) * ti_osc_saw(phase, increment));
     }
-    double f    = (shape - 64.0) / 63.0;
-    double duty = 0.5 + (0.5 * fmin(fmax(width, -127.0), 127.0) / 127.0);
+    return ((1.0 - f) * ti_osc_saw(phase, increment)) + (f * ti_osc_pulse(phase, increment, classic_duty(width)));
+}
 
-    return ((1.0 - f) * ti_osc_saw(phase, increment)) + (f * ti_osc_pulse(phase, increment, duty));
+double ti_osc_points_sub(const tTiOscPoints * g) {
+    double u = g->place - floor(g->place);
+
+    return g->subOut[0] + (u * (g->subOut[1] - g->subOut[0]));
+}
+
+// notes §10: Osc 3 with Anti-alias off - each sample the plain wave's average over the phase it spans, from its integral
+static double saw_integral(double p) {   // of 1 - 2p over 0..p
+    return p - (p * p);
+}
+
+static double pulse_integral(double p, double duty) {   // of +1 below duty, -1 above, over 0..p
+    return (p < duty) ? p : ((2.0 * duty) - p);
+}
+
+static double box_average(double ( *integral )(double, double), double arg, double phase, double increment) {
+    double from  = phase - floor(phase);
+    double to    = from + increment;
+
+    if (increment <= 1e-12) {
+        return (integral(from + 1e-9, arg) - integral(from, arg)) / 1e-9;
+    }
+
+    if (to <= 1.0) {
+        return (integral(to, arg) - integral(from, arg)) / increment;
+    }
+    double whole = integral(1.0, arg);
+    double turns = floor(to);
+
+    return ((whole - integral(from, arg)) + ((turns - 1.0) * whole) + integral(to - turns, arg)) / increment;
+}
+
+static double saw_integral_arg(double p, double unused) {
+    (void)unused;
+    return saw_integral(p);
+}
+
+double ti_osc_box_saw(double phase, double increment) {
+    return SAW_LEVEL * box_average(saw_integral_arg, 0.0, phase, increment);
+}
+
+double ti_osc_box_pulse(double phase, double increment, double duty) {
+    return PULSE_LEVEL * (box_average(pulse_integral, duty, phase, increment) + 1.0 - (2.0 * duty));
+}
+
+double ti_osc_classic_box(int wave, double shape, double width, double phase, double increment) {
+    double f = classic_mix(shape);
+
+    if (shape < 63.5) {
+        return ((1.0 - f) * ti_osc_box_saw(phase, increment)) + ((f > 0.0) ? (f * ti_osc_wave(wave, phase + (0.5 * increment), 1e-9)) : 0.0);
+    }
+    return ((1.0 - f) * ti_osc_box_saw(phase, increment)) + (f * ti_osc_box_pulse(phase, increment, classic_duty(width)));
+}
+
+// notes §9: points per cycle by note, base x 2^(10 - octave) counting octaves from A
+int ti_osc_points_per_cycle(double frequency) {
+    static const double kBase[12] = {5.0, 5.0, 5.0, 5.0, 4.0, 4.0, 4.0, 4.0, 3.5, 3.5, 3.0, 3.0};
+    int                 note      = (int)lround(69.0 + (12.0 * log2(fmax(frequency, 1.0) / 440.0))) - 9;
+    int                 octave    = (int)floor(note / 12.0);
+    double              points    = kBase[note - (12 * octave)] * ldexp(1.0, 10 - octave);
+
+    return (int)fmin(fmax(points, 2.0), 1 << 20);
+}
+
+// notes §9: one point - the saw at its own place, the wave and the pulse at the point before
+// notes §9: synced, the points are the master's and the slave's place is the ratio times the master's, so it
+// restarts on the master's wrap
+static double point_place(int k, int points, double ratio) {
+    double place = (double)(((k % points) + points) % points) / points;
+
+    place *= (ratio > 0.0) ? ratio : 1.0;
+    return place - floor(place);
+}
+
+static double classic_point(int wave, double shape, double width, int k, int points, double ratio) {
+    double here = point_place(k, points, ratio);
+    double back = point_place(k - 1, points, ratio);
+    double f    = classic_mix(shape);
+    double saw  = SAW_LEVEL * (1.0 - (2.0 * here));
+
+    if (shape < 63.5) {
+        return ((1.0 - f) * saw) + ((f > 0.0) ? (f * ti_osc_wave(wave, back, 1e-9)) : 0.0);
+    }
+    double duty = classic_duty(width);
+
+    return ((1.0 - f) * saw) + (f * PULSE_LEVEL * (((back < duty) ? 1.0 : -1.0) + 1.0 - (2.0 * duty)));
+}
+
+static void points_take(tTiOscPoints * g, int wave, double shape, double width, int k) {
+    double p = classic_point(wave, shape, width, k, g->points, g->ratio);
+
+    g->point[4]    = g->point[3];
+    g->point[3]    = g->point[2];
+    g->point[2]    = g->point[1];
+    g->point[1]    = g->point[0];
+    g->point[0]    = p;
+    g->out[0]      = g->out[1];
+    g->out[1]      = (g->point[0] + (4.0 * g->point[1]) + (5.0 * g->point[2]) + (4.0 * g->point[3]) + g->point[4]) / 16.0;
+
+    if ((((k % g->points) + g->points) % g->points) == 0) {
+        g->subSign = (g->subSign > 0.0) ? -1.0 : 1.0;   // notes §9: the sub flips on the wrap's own point
+    }
+    g->subPoint[4] = g->subPoint[3];
+    g->subPoint[3] = g->subPoint[2];
+    g->subPoint[2] = g->subPoint[1];
+    g->subPoint[1] = g->subPoint[0];
+    g->subPoint[0] = g->subSign;
+    g->subOut[0]   = g->subOut[1];
+    g->subOut[1]   = (g->subPoint[0] + (4.0 * g->subPoint[1]) + (5.0 * g->subPoint[2]) + (4.0 * g->subPoint[3]) + g->subPoint[4]) / 16.0;
+}
+
+static void points_pass(tTiOscPoints * g, int wave, double shape, double width, double phase) {
+    double place = phase * g->points;
+    double moved = place - g->place;
+
+    if (moved < 0.0) {
+        moved += g->points;   // the cycle wrapped, or a sync restarted it
+    }
+
+    for (int k = (int)floor(g->place) + 1; (k <= (int)floor(g->place + moved)) && (k <= (int)floor(g->place) + g->points); k++) {
+        points_take(g, wave, shape, width, k);
+    }
+
+    g->place = place;
+}
+
+double ti_osc_classic_points(tTiOscPoints * g, int points, int wave, double shape, double width, double phase, double increment) {
+    if (g->ratio != 0.0) {
+        g->ratio   = 0.0;
+        g->started = false;
+    }
+    return ti_osc_classic_points_synced(g, points, wave, shape, width, phase, increment, 0.0);
+}
+
+double ti_osc_classic_points_synced(tTiOscPoints * g, int points, int wave, double shape, double width, double phase, double increment, double ratio) {
+    g->ratio = ratio;
+
+    if (!g->started || (points != g->points)) {
+        g->points  = points;
+        g->place   = (phase - floor(phase)) * points;
+        g->started = true;
+    }
+    double half  = phase + (0.5 * increment);
+
+    points_pass(g, wave, shape, width, half - floor(half));   // two passes a sample, the second one heard
+    double whole = phase + increment;
+
+    whole   -= floor(whole);
+    points_pass(g, wave, shape, width, whole);
+    double u     = g->place - floor(g->place);
+
+    return g->out[0] + (u * (g->out[1] - g->out[0]));
 }
 
 // notes §4: the voices at each breakpoint of Density
@@ -152,7 +318,8 @@ static const double kHyperWiden[10] = {0, 2.9, 2.9, 1.81, 1.46, 1.26, 1.16, 1.09
 
 void ti_osc_hyper(double density, double spread, tTiHyper * h) {
     double d     = fmin(fmax(density, 0.0), 127.0);
-    double base  = 3.47 * pow(2.0, (fmin(fmax(spread, 0.0), 127.0) - 64.0) / 19.0);
+    double sp    = fmin(fmax(spread, 0.0), 127.0);
+    double base  = (sp <= HYPER_KNEE) ? (HYPER_PER_STEP * sp) : (HYPER_AT_64 * pow(HYPER_PER_16, (sp - 64.0) / 16.0));   // notes §4
     int    n     = 1;
 
     while ((n < 8) && (d >= kHyperDial[n])) {
@@ -168,7 +335,7 @@ void ti_osc_hyper(double density, double spread, tTiHyper * h) {
     h->count = (f > 0.0) ? (n + 1) : n;
 
     for (int i = 0; i < h->count; i++) {
-        h->ratio[i] = pow(2.0, (first + (i * step)) / 1200.0);
+        h->ratio[i] = pow(2.0, (first + (i * step) + HYPER_TUNE) / 1200.0);
         h->gain[i]  = (i < n) ? (l0 + (f * (l1 - l0))) : (pow(f, 0.78) * l1);
     }
 }

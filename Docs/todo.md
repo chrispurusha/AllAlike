@@ -12,3 +12,12 @@ Work that spans the plug-ins. One line per item; each product's own list is in i
 - Import no longer replaces the presets: becomes "Replace All Presets..." (confirmed, the presets file backed up first) once the browse folder exists
 - If import stays as an add: append from the first empty bank, a file per bank, skip singles identical apart from their address, report what was added - and the fixed preset counts (TiAlike 23 banks) would have to grow
 - TiAlike tiPatch notes §6 still says "past 512": the set is 23 banks of 128
+
+## Panels, every Alike
+
+- Double-click on a dial returns it to its default; a keyboard-tracking dial's default is its one-to-one setting
+
+## New plug-ins
+
+- ModAlike: a standalone effect plug-in with G2Alike's Phaser, Chorus and Flanger, one chosen on the panel, presented as the other Alikes
+

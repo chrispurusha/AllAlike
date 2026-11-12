@@ -45,8 +45,9 @@ Missing everywhere, or built in one and wanted in the others:
 - **Master Tune** (per instance, held by the host, not in the sound, on GLOBAL): Pulse2Alike has it (A4 420-460 Hz);
   TiAlike, Sn2Alike and Nl3Alike are fixed (Nl3Alike at its instrument's 439.89 Hz). Each takes its instrument's own form
   where it has one - the Nord Lead 3's is ±6 semitones and ±100 cents, applied to its tuning word (osc notes §8).
-- **Anti-aliasing setting, optional, for every Alike** (Pulse2Alike included; per instance, held by the host, not in the
-  sound): Instrument, the instrument's own band-limiting and its aliases, or Clean. Nl3Alike has it for the Saw (Clean about -90 dB at A4, -76 dB at C7). Measured on
+- **Anti-alias switch, for every Alike** (Pulse2Alike included; per instance, held by the host, not in the sound, on
+  GLOBAL; owner 2026-11-12): On (the default) is clean; Off plays the instrument's own band-limiting and its aliases.
+  Nl3Alike has it for the Saw (On about -90 dB at A4, -76 dB at C7); TiAlike has it for the classic oscillators (Off within about 1 dB of the instrument's alias lines at C7). Measured on
   the plug-ins' own oscillators (2026-11-07): TiAlike's saw and square alias at -44 dB at A4 and -32 dB at C7 (44.1 kHz), so it
   would gain most; Sn2Alike's saw is at -57 to -84 dB, and more Soften aliases more - to check against the instrument;
   Pulse2Alike not measured. Clean's correction (a longer step, summed over every jump in reach) belongs in SynthLib once a
@@ -56,6 +57,9 @@ Missing everywhere, or built in one and wanted in the others:
   Preset by category - built, not yet tried in a host; Sn2Alike to follow. Planned for all (`Docs/todo.md`): a browse
   folder listing every single under one root, Store to the next empty slot, and import becoming a confirmed Replace
   All Presets.
+- **Sort menu** (2026-11-12): the preset browser's order (Bank / Location, Category, A-Z) as a top-level menu, and
+  Prev/Next stepping in that order (SynthLib `bank_browser_sort_mode()`, `bank_browser_sorted_order()`). TiAlike has it -
+  built, not yet tried in a host; Pulse2Alike, Sn2Alike and Nl3Alike to follow.
 - **Panel pages, in common** (CT 2026-11-06): OSC, FILTER, AMP, ENV, LFO, MOD, then the instrument's own pages (ARP, TABLES beside OSC, the effects), GLOBAL always last. Short names as on the instruments' panels; a new Alike follows the same.
 - **The panel code** (`p2Draw.c`, copied as `tiDraw.c` and `sn2Draw.c`) is three near-copies: a fix in one probably belongs in all three until it moves into SynthLib.
 
@@ -99,7 +103,7 @@ Missing everywhere, or built in one and wanted in the others:
 
 **Needs more work**
 - **Smooth Mode settled on the hardware (2026-11-06):** no mode glides; Off/On/Auto/Note act at once, the Quantise values hold a change to the next tempo division - built.
-- **Next against the firmware probe, bank C:** AnlogBD's tail (23.5 dB late), Acidica's LFOs, 3-Dumm's tail, Bombers'
+- **Next against the reference, bank C:** AnlogBD's tail (23.5 dB late), Acidica's LFOs, 3-Dumm's tail, Bombers'
   effects. Env Mode before Mono built (2026-11-08; CuttaD6's gap 11.4 -> 3.3 dB).
 - **Oscillator models** (Wave PWM, Grain, Formant, built 2026-11-02): the Complex models' half-frequency energy with
   Detune matches the instrument within about 2 dB (checked 2026-11-08); high Formant or Sync on rich tables keeps up to
@@ -144,7 +148,7 @@ delays, the sine LFO's Symmetry.
 - **Level and peaks:** voices peak about 3 dB over the instrument and chords about 1.7x lower in crest factor, so Distortion and the output ceiling are driven differently; A001 22-26 dB dark above 3 kHz; Distortion at low Volume too clean; Volume 127 with Distortion on 2.5 dB short.
 - **Envelopes:** the amp envelope's Sustain Rate measured (64 and up flat; below 64 it falls, doubling about every 4.7
   steps) and Time 127 holds; Sustain Time's curve still to measure. Env 2 Delay seen on the hardware (64 arrives
-  between 0.1 and 1.2 s, 2026-11-08), its law not yet measured; the reference emulator ignores it, so LFO Delay's law
+  between 0.1 and 1.2 s, 2026-11-08), its law not yet measured; the reference ignores it, so LFO Delay's law
   wants rechecking on the hardware too. The Trigger values beyond Retrigger and Legato; Glissando and the fixed Glide types.
 - **Glide** (2026-11-02, from the instrument by ear): Normal glides with a note held and starts from the pitch reached, mid-glide or not - built. In poly each voice seems to glide from its own last pitch: built that way, still to confirm.
 - **Odd sounds:** SuperStrings1 about 18 dB loud and decaying while held; the Vanilla group 3 dB quiet; a handful of outliers (TB1, BubbleArp, China Cymbal, Ride 2, Timpani and others).
@@ -160,7 +164,7 @@ Sn2Alike's engine as a placeholder. **The filter is the Nord Lead 3's** (2026-11
 coefficient laws and level compensation, at the instrument's 44.1 kHz, in its own fixed-point arithmetic (word for word
 against the instrument's) or floating point. **Parameters are the instrument's Program** (2026-11-07): one per field
 and the four morph groups; its programs read in and write back byte for byte. **The Saw is the instrument's**
-(2026-11-07), word for word in fixed point, with an Aliasing setting (Instrument, or Clean at about -90 dB).
+(2026-11-07), word for word in fixed point, with an Anti-alias switch (On, the default, at about -90 dB, or Off for the instrument's own aliases).
 **Missing**: the other filter modes, the rest of the engine (the other waveforms, FM and sync, Osc Mod, envelopes, LFOs, morph; it plays through an interim
 mapping), single-parameter MIDI to the instrument, and reading its 1024 programs is built but untried. See
 `Nl3Alike/Docs/todo.md`.

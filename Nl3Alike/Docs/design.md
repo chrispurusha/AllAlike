@@ -52,7 +52,7 @@ chorus, delay and reverb, which the Nord Lead 3 does not have). The plan:
    the instrument takes a program written from parameters. The voice still plays through an interim mapping
    (`code-notes/nl3Params.md` §5).
 2. **Voice:** oscillators (each waveform, Shape, sync) - **the Saw is built (2026-11-07)**, word for word in
-   fixed point, with an Aliasing setting (Instrument / Clean) - Osc Mod types, mixer and Noise3, the filter's remaining
+   fixed point, with an Anti-alias switch (On, the default, or Off for the instrument's own aliases) - Osc Mod types, mixer and Noise3, the filter's remaining
    modes, envelopes, LFOs and Mod Env with their destinations, then morph.
 3. **Play:** glide, vibrato, mono/legato/unison, arpeggiator, chord memory, slots last if at all.
 

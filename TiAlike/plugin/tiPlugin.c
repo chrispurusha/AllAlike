@@ -321,9 +321,11 @@ static void ti_process(void * inst, const float *const * in, uint32_t numIn, flo
 
     if (atomic_exchange(&t->clearEffects, false)) {
         ti_effects_reset(&t->voices.effects);       // notes §12
+        ti_voices_silence(&t->voices);              // notes §12: a held note does not carry over into the new sound
         ti_voices_new_sound(&t->voices, &t->sound); // tiVoices notes §5
     }
     ti_voices_set_effects(&t->voices, t->values[kTiParamDelayOn] >= 0.5, t->values[kTiParamReverbOn] >= 0.5);
+    t->voices.antiAlias = (t->values[kTiParamAntiAlias] >= 0.5);   // tiOsc notes §9
 
     if ((transport != NULL) && transport->tempoValid) {
         ti_voices_set_tempo(&t->voices, transport->tempo);
@@ -496,7 +498,7 @@ static bool ti_dial_display(uint32_t paramId, const double * values, int32_t * s
 
 // What a sound carries: everything but the plug-in's own settings
 static bool sound_param(uint32_t id) {
-    return (id != kTiParamProgram) && (id != kTiParamBank) && (id != kTiParamMaster) && (id != kTiParamVoiceLimit) && (id != kTiParamArithmetic) && (id != kTiParamHwLink) && (id != kTiParamDelayOn) && (id != kTiParamReverbOn) && ((id < kTiParamBend) || (id > kTiParamSostenuto));
+    return (id != kTiParamProgram) && (id != kTiParamBank) && (id != kTiParamMaster) && (id != kTiParamVoiceLimit) && (id != kTiParamArithmetic) && (id != kTiParamHwLink) && (id != kTiParamDelayOn) && (id != kTiParamReverbOn) && (id != kTiParamAntiAlias) && ((id < kTiParamBend) || (id > kTiParamSostenuto));
 }
 
 static void current_values(void * user, double values[kTiParamCount]) {

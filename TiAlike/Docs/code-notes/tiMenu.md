@@ -10,3 +10,9 @@ comes with the hardware link (design.md §6).
 ## 2. Virus TI
 Read Banks A-D, or all of A-W, into the presets, and Write Presets A-D to the same bank on the instrument. ROM banks
 cannot be written (tiHardware notes §5).
+
+## 3. Sort
+A top-level menu for the order the preset browser lists in - Bank / Location, Category or A-Z - which Prev/Next follow
+too (tiDraw notes §11). It is the browser's own setting, remembered across sessions and shared with its buttons, so
+choosing it in either place changes both.
+

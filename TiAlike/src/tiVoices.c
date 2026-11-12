@@ -34,16 +34,20 @@
 #define PAN_HARD              (0.585)            // notes §7
 #define DC_BLOCK_HZ           (15.0)             // notes §7
 #define KEY_CENTRE            (60.0)             // notes §7
-#define TUNE_CENTS            (-0.951)           // notes §7
-#define TUNE_SLOPE            (1.576)
+#define TUNE_CENTS            (-1.12)            // notes §7
+#define TUNE_SLOPE            (1.55)
 #define DETUNE_SLOPE          (1.393)
+#define FIRST_LAST_NOTE       (84)              // notes §10
+#define CUTOFF_TOP            (127.0)           // notes §11: a cutoff pushed past the top stays there
 #define DRIFT_DEPTH           (0.273)           // notes §7a
 #define DRIFT_RAMP_SECONDS    (128.0 * 0.0058057)
 #define DRIFT_LAST_DIAL       (92.0)
+#define OSC3_DETUNE_FULL      (46.5)            // notes §7b: the depth the curve scales, fitted to reference renders
 #define MOD_DEPTH             (128.0)           // notes §9: full amount, in dial units
 #define KEY_DIAL_PER_SEMI     (1.08)            // notes §11
 #define PITCH_MOD_DEPTH       (128.0)           // notes §9: full amount, in semitones
 #define PITCH_MOD_LIMIT       (48.0)            // notes §24
+#define GLIDE_STEP            (64.0 / 44100.0)  // notes §10: seconds between the glide's steps
 #define PUNCH_SECONDS         (0.03)
 #define PUNCH_TAU             (0.0004)
 #define PUNCH_LEVEL           (3.376)
@@ -108,6 +112,17 @@ enum {
     kDstIndex1        = 73,
     kDstIndex2        = 74,
     kDstLfo2Assign    = 101,
+    kDstInterp1       = 2,      // notes §22a: the destinations below re-read their dial, moved by the matrix
+    kDstInterp2       = 19,
+    kDstUnisonDetune  = 59,
+    kDstUnisonSpread  = 60,
+    kDstArpLength     = 114,
+    kDstArpSwing      = 115,
+    kDstArpPattern    = 116,
+    kDstFShift1       = 123,
+    kDstFShift2       = 124,
+    kDstFSpread1      = 125,
+    kDstFSpread2      = 126,
     kDstCount         = 128
 };
 
@@ -155,6 +170,11 @@ static double bipolar(uint8_t byte) {
     return ((double)byte - 64.0) / 64.0;
 }
 
+// notes §22a: a matrix amount, 127 counted as 128 so the top of the dial is full
+static double amount_byte(uint8_t byte) {
+    return ((byte == 127) ? 64.0 : ((double)byte - 64.0)) / 64.0;
+}
+
 static double clamp(double x, double lo, double hi) {
     return (x < lo) ? lo : ((x > hi) ? hi : x);
 }
@@ -183,9 +203,11 @@ double ti_voices_engine_rate(double hostRate) {
 void ti_voices_init(tTiVoices * v, double rate) {
     memset(v, 0, sizeof(*v));
     v->limit      = 16;
-    v->tempo      = 120.0;    // notes §12: until the host gives one
-    v->lastNote   = -1;
+    v->tempo      = 120.0;           // notes §12: until the host gives one
+    v->lastNote   = FIRST_LAST_NOTE; // notes §10: a voice that has never played glides from here
     v->fixedPoint = false;
+    v->antiAlias  = true;
+    ti_arp_reset(&v->arp);
     ti_osc_init();
     ti_voices_set_rate(v, rate);
 
@@ -256,10 +278,16 @@ void ti_voices_set_limit(tTiVoices * v, uint32_t limit) {
     }
 }
 
+static bool arp_on(const tTiVoices * v);
+
 void ti_voices_control(tTiVoices * v, tTiControlId id, double value) {
-    bool lifted = (id == eTiCtlHold) && (v->control[id] >= 0.5) && (value < 0.5);
+    bool lifted = (id == eTiCtlHold) && (v->control[id] >= 0.5) && (value < 0.5) && !arp_on(v);   // notes §33: with the arpeggiator the pedal is its Hold
 
     v->control[id] = value;
+
+    if (id == eTiCtlHold) {
+        v->arp.pedal = (value >= 0.5);   // tiArp notes §1: at once, for the keys let go before the next block
+    }
 
     // notes §10: the pedal up releases every voice whose key is no longer down
     for (uint32_t i = 0; lifted && (i < TI_MAX_VOICES); i++) {
@@ -300,7 +328,7 @@ static tTiVoice * pick_voice(tTiVoices * v) {
 }
 
 // notes §9: a note's voice from silence or stolen
-#define FREE_LFO_PHASE    (0.0)   // notes §20
+#define FREE_LFO_PHASE    (0.5)   // notes §20
 
 static void lfo_shape(const tTiVoices * v, const tTiSound * s, int l, const double * mod, tTiLfoShape * out);
 
@@ -317,7 +345,10 @@ static bool lfo_is_mono(const tTiSound * s, int l) {
 }
 
 static void start_voice(tTiVoices * v, tTiVoice * vc, uint8_t note, float velocity, double detune, double pan, double place, double lfoPhase, bool oddVoice, bool retrigger) {
-    vc->indexSet        = false; // notes §31: a new note takes its Index at once
+    vc->indexSet          = false; // notes §31: a new note takes its Index at once
+    vc->points[0].started = vc->points[1].started = vc->points[2].started = false;
+    vc->syncCarry         = 0.0;
+    vc->syncJust          = false;
     const tTiSound * s      = &v->sound;
     bool             silent = !vc->active || (vc->amp.level <= 0.0);
 
@@ -329,17 +360,23 @@ static void start_voice(tTiVoices * v, tTiVoice * vc, uint8_t note, float veloci
     } else if (silent || !mono) {
         vc->pitch = (double)v->lastNote;
     }
-    vc->active          = true;
-    vc->gate            = true;
-    vc->note            = note;
-    vc->velocity        = velocity;
-    vc->releaseVelocity = 1.0f;
-    vc->detune          = detune;
-    vc->place           = fabs(place);
-    vc->pan             = pan;
-    vc->started         = ++v->clock;
-    vc->noise           = (vc->noise * 1664525u) + 1013904223u;
-    vc->random          = ((double)(int32_t)vc->noise) / 2147483648.0;
+
+    if (silent) {
+        vc->filtGainSet = false;   // notes §12c: a voice from silence takes its first block's gain at once
+    }
+    vc->glideFrom         = vc->pitch;
+    vc->active            = true;
+    vc->gate              = true;
+    vc->note              = note;
+    vc->velocity          = velocity;
+    vc->releaseVelocity   = 1.0f;
+    vc->detune            = detune;
+    vc->place             = fabs(place);
+    vc->stack             = place;
+    vc->pan               = pan;
+    vc->started           = ++v->clock;
+    vc->noise             = (vc->noise * 1664525u) + 1013904223u;
+    vc->random            = ((double)(int32_t)vc->noise) / 2147483648.0;
 
     if (retrigger || silent) {
         gate_voice(vc, true);
@@ -380,8 +417,8 @@ static void start_voice(tTiVoices * v, tTiVoice * vc, uint8_t note, float veloci
     }
     double init = s->b[35];
 
-    // notes §7: a fixed phase restarts on every note, sounding or not
-    if (silent || (retrigger && (init > 0.0))) {
+    // notes §7: a fixed phase restarts on every new note, sounding or not - but not on a legato one
+    if (silent || (retrigger && !v->legatoNow && (init > 0.0))) {
         vc->highPass[0] = 0.0;
         vc->highPass[1] = 0.0;
         // notes §7: Init Phase places Osc 2 against Osc 1; at 0 the oscillators run free of each other
@@ -395,7 +432,7 @@ static void start_voice(tTiVoices * v, tTiVoice * vc, uint8_t note, float veloci
         vc->grain[1][0] = 0.5 * vc->phase[1];
         vc->grain[0][1] = vc->grain[0][2] = vc->grain[1][1] = vc->grain[1][2] = 0.0;
 
-        for (int k = 0; k < TI_HYPER_SAWS; k++) {
+        for (int k = 0; k < TI_HYPER_SAWS; k++) {   // tiOsc notes §4: the saws run free, whatever Init Phase says
             vc->hyper[0][k] = fmod(0.618034 * (k + 1) * (vc->random + 2.0), 1.0);
             vc->hyper[1][k] = fmod(0.414214 * (k + 1) * (vc->random + 2.0), 1.0);
         }
@@ -464,7 +501,7 @@ static void trigger_note(tTiVoices * v, uint8_t note, float velocity, bool retri
     }
 }
 
-void ti_voices_note_on(tTiVoices * v, uint8_t note, float velocity) {
+static void play_note_on(tTiVoices * v, uint8_t note, float velocity) {
     bool mono       = (v->sound.a[94] >= 1) && (v->sound.a[94] <= 4);
     bool legato     = mono && (v->heldCount > 0u);
 
@@ -474,12 +511,13 @@ void ti_voices_note_on(tTiVoices * v, uint8_t note, float velocity) {
     // notes §10: Mono 2 and Mono 4 glide only from a key still held; the other modes from the last key whenever there is one
     bool legatoOnly = (v->sound.a[94] == 2) || (v->sound.a[94] == 4);
 
-    v->glideNow = (v->sound.a[5] > 0) && (v->lastNote >= 0) && (!legatoOnly || legato);
+    v->glideNow  = (v->sound.a[5] > 0) && (v->lastNote >= 0) && (!legatoOnly || legato);
+    v->legatoNow = legato;
     trigger_note(v, note, velocity, !legato || (v->sound.a[94] == 1) || (v->sound.a[94] == 3));
-    v->lastNote = note;
+    v->lastNote  = note;
 }
 
-void ti_voices_note_off(tTiVoices * v, uint8_t note, float velocity) {
+static void play_note_off(tTiVoices * v, uint8_t note, float velocity) {
     bool mono = (v->sound.a[94] >= 1) && (v->sound.a[94] <= 4);
 
     for (uint32_t i = 0; i < v->heldCount; i++) {
@@ -497,7 +535,7 @@ void ti_voices_note_off(tTiVoices * v, uint8_t note, float velocity) {
         return;
     }
 
-    if ((v->sound.a[94] == 5) || (v->control[eTiCtlHold] >= 0.5)) {   // notes §10: Hold, and the pedal
+    if ((v->sound.a[94] == 5) || ((v->control[eTiCtlHold] >= 0.5) && !arp_on(v))) {   // notes §10: Hold, and the pedal (notes §33: not the arpeggiator's notes)
         return;
     }
 
@@ -510,8 +548,40 @@ void ti_voices_note_off(tTiVoices * v, uint8_t note, float velocity) {
     }
 }
 
+// notes §33: the arpeggiator runs in modes 1-6; Arp>Matrix (7) plays the keys as they are
+static bool arp_on(const tTiVoices * v) {
+    int mode = ti_arp_mode(v->sound.a, v->sound.b);
+
+    return (mode >= 1) && (mode <= 6);
+}
+
+void ti_voices_note_on(tTiVoices * v, uint8_t note, float velocity) {
+    if (arp_on(v)) {
+        ti_arp_key(&v->arp, v->sound.b, note, velocity, true);
+    } else {
+        play_note_on(v, note, velocity);
+    }
+}
+
+void ti_voices_note_off(tTiVoices * v, uint8_t note, float velocity) {
+    if (arp_on(v)) {
+        ti_arp_key(&v->arp, v->sound.b, note, velocity, false);
+    } else {
+        play_note_off(v, note, velocity);
+    }
+}
+
 void ti_voices_all_off(tTiVoices * v) {
+    ti_arp_reset(&v->arp);
+
     v->heldCount = 0u;
+    ti_voices_silence(v);
+}
+
+// notes §5a: every voice stopped where it stands - a new sound starts no note of its own and continues none of the
+// last one's. The keys still down are remembered, so their releases still land.
+void ti_voices_silence(tTiVoices * v) {
+    v->boostState[0] = v->boostState[1] = 0.0;   // Analog Boost's held signal would otherwise follow into the new sound
 
     for (uint32_t i = 0; i < TI_MAX_VOICES; i++) {
         tTiVoice * vc = &v->voice[i];
@@ -795,6 +865,10 @@ static void filter_set(const tTiVoices * v, const tTiSound * s, double c1, doubl
                        tTiFilterSet * set) {
     tTiRouting    routing = (tTiRouting)(s->a[53] & 3);
     tTiFilterMode mode1   = filter_mode(s->a[51], eTiFilterAnalog4);
+
+    if ((routing == eTiRoutingSerial6) && (mode1 >= eTiFilterAnalog1)) {
+        routing = eTiRoutingSerial4;   // notes §6: after an analog Filter 1, Serial 6 is Serial 4
+    }
     tTiFilterMode mode2   = filter_mode(s->a[52], eTiFilterBandStop);
     double        bal     = curve9(kBalanceCurve, balance);
     bool          serial  = (routing == eTiRoutingSerial4) || (routing == eTiRoutingSerial6);
@@ -828,8 +902,6 @@ static void filter_set(const tTiVoices * v, const tTiSound * s, double c1, doubl
     } else if (six) {
         scale_numerator(&set->f1, ti_filter_row_gain(mode1, res) / ti_filter_row_gain(mode1, res1));
         scale_numerator(&set->f1b, 1.0 / ti_filter_row_gain(mode1, res1));
-    } else if (routing == eTiRoutingSerial6) {
-        ti_filter_coeffs(&v->filterTables, mode1, c1, 0.0, drive, &set->f1b);   // notes §6: the analog modes as before
     }
     set->curve   = s->a[49];
     set->drive   = drive;
@@ -917,7 +989,7 @@ static double patch_volume(double dial) {
 
 // notes §7
 static double mix_level(double dial) {
-    return (dial <= 0.0) ? 0.0 : pow(ti_env_sustain_level(clamp(dial, 0.0, 127.0)), 1.25);
+    return (dial <= 0.0) ? 0.0 : ti_env_mix_level(dial);
 }
 
 static double osc_volume(double dial) {
@@ -937,18 +1009,43 @@ static double balance_2(double b) {
 
 // notes §7: Osc 2 Detune in cents at note 60, the centre of the drift below
 static double detune_cents(double dial) {
-    static const double kAt[18] = {0, 8, 16, 24, 32, 40, 48, 56, 64, 72, 80, 84, 88, 92, 96, 100, 112, 127};
-    static const double kCt[18] = {0, 0.335, 0.665, 1.70, 2.71, 4.10, 5.45, 6.82, 8.19, 9.55, 10.91, 12.63, 14.32, 16.03, 17.76, 20.11, 27.29, 43.29};
+    static const double kAt[23] = {0, 8, 16, 24, 32, 40, 48, 56, 64, 72, 80, 84, 88, 92, 96, 100, 104, 108, 112, 116, 120, 124, 127};
+    static const double kCt[23] = {0.0, 0.388, 0.77, 1.969, 3.138, 4.748, 6.311, 7.898, 9.484, 11.059, 12.634, 14.626, 16.583, 18.563, 20.62, 23.38, 26.12, 28.89, 31.63, 36.29, 40.96, 45.6, 49.08};
 
     dial = clamp(dial, 0.0, 127.0);
 
-    for (int i = 1; i < 18; i++) {
+    for (int i = 1; i < 23; i++) {
         if (dial <= kAt[i]) {
             return kCt[i - 1] + ((kCt[i] - kCt[i - 1]) * (dial - kAt[i - 1]) / (kAt[i] - kAt[i - 1]));
         }
     }
 
-    return kCt[17];
+    return kCt[22];
+}
+
+static double lfo_pitch_amount(double amount);
+
+// notes §12b: LFO 3's pitch depth, cents at the top of its swing - the pitch curve's upper half at half the amount, a quarter as deep
+static double lfo3_pitch_cents(double amount) {
+    return 100.0 * lfo_pitch_amount(clamp(amount, 0.0, 127.0) / 128.0) / 4.0;
+}
+
+// notes §7b: an oscillator's Semitone - a just ratio for each interval within the octave, in 1/65536ths of a semitone
+static double semitone_interval(double byte) {
+    static const int32_t kJust[12] = {0, 68784, 133634, 206859, 253175, 326399, 381755, 460033, 533257, 579573, 634930, 713208};
+    int                  steps     = (int)lround(byte) - 64;
+    int                  octave    = (steps >= 0) ? (steps / 12) : -((11 - steps) / 12);
+
+    return (12.0 * octave) + (kJust[steps - (12 * octave)] / 65536.0);
+}
+
+// notes §7b: Osc 3's Detune, in cents at note 60 - it lowers the pitch
+static double osc3_detune_cents(double dial) {
+    static const double kShare[9] = {0.0, 1.0 / 64, 1.0 / 16, 1.0 / 8, 3.0 / 16, 1.0 / 4, 13.0 / 32, 5.0 / 8, 1.0};   // Osc 2 Detune's
+    double              x         = clamp(dial, 0.0, 127.0) / 16.0;
+    int                 i         = (int)fmin(floor(x), 7.0);
+
+    return OSC3_DETUNE_FULL * (kShare[i] + ((x - i) * (kShare[i + 1] - kShare[i])));
 }
 
 // notes §7a: the voice's triangle; at each limit it turns back at a new random speed
@@ -1026,7 +1123,7 @@ static double velocity_scale(uint8_t byte, double velocity) {
 
 // notes §24
 static double pitch_offset(uint8_t semi, double amount) {
-    return clamp(((double)semi - 64.0) + (PITCH_MOD_DEPTH * amount), -PITCH_MOD_LIMIT, PITCH_MOD_LIMIT);
+    return clamp(semitone_interval(clamp((double)semi, 16.0, 112.0)) + (PITCH_MOD_DEPTH * amount), -PITCH_MOD_LIMIT, PITCH_MOD_LIMIT);
 }
 
 static double key_pitch(double pitch, uint8_t keyfollow) {
@@ -1035,7 +1132,7 @@ static double key_pitch(double pitch, uint8_t keyfollow) {
 
 // notes §7: free-running oscillators sit a shade flat of a fixed starting phase's
 static double semitones_to_increment(const tTiVoices * v, double semitones, double note) {
-    double cents = (v->sound.b[35] > 0) ? 0.29 : (TUNE_CENTS * pow(TUNE_SLOPE, -(note - KEY_CENTRE) / 24.0));
+    double cents = (v->sound.b[35] > 0) ? 0.31 : (TUNE_CENTS * pow(TUNE_SLOPE, -(note - KEY_CENTRE) / 24.0));
 
     return 440.0 * pow(2.0, (semitones - 69.0 + (cents / 100.0)) / 12.0) / v->rate;
 }
@@ -1068,7 +1165,7 @@ static double source_value(const tTiVoices * v, const tTiVoice * vc, const doubl
 
         case kSrcKey:        return ((double)vc->note - 60.0) / 63.0;
 
-        case kSrcRandom:     return vc->random;
+        case kSrcRandom:     return 0.5 * vc->random;   // notes §9: the bipolar sources' span
 
         case kSrcLfo1Uni:    return 0.5 + (0.5 * lfo[0]);
 
@@ -1088,6 +1185,9 @@ static double source_value(const tTiVoices * v, const tTiVoice * vc, const doubl
     }
 }
 
+static uint8_t modded(uint8_t byte, double amount);
+static double dial_moved(uint8_t byte, double amount);
+
 static void lfo_shape(const tTiVoices * v, const tTiSound * s, int l, const double * mod, tTiLfoShape * out) {
     static const double kDivide[22] = {
         0,        1.0 / 64, 1.0 / 32, 1.0 / 16, 1.0 / 8, 1.0 / 4, 1.0 / 2, 3.0 / 64, 3.0 / 32, 3.0 / 16, 3.0 / 8,
@@ -1095,7 +1195,7 @@ static void lfo_shape(const tTiVoices * v, const tTiSound * s, int l, const doub
     };
     uint8_t             rate        = (l == 0) ? s->a[67] : ((l == 1) ? s->a[79] : s->b[7]);
     uint8_t             shape       = (l == 0) ? s->a[68] : ((l == 1) ? s->a[80] : s->b[8]);
-    uint8_t             cont        = (l == 0) ? s->a[71] : ((l == 1) ? s->a[83] : 64);
+    uint8_t             cont        = (l == 0) ? modded(s->a[71], mod[kDstLfo1Contour]) : ((l == 1) ? modded(s->a[83], mod[kDstLfo2Contour]) : 64);
     uint8_t             env         = (l == 0) ? s->a[69] : ((l == 1) ? s->a[81] : 0);
     uint8_t             clock       = (l == 0) ? s->b[18] : ((l == 1) ? s->b[19] : s->b[21]);
     int                 dstR        = (l == 0) ? kDstLfo1Rate : ((l == 1) ? kDstLfo2Rate : kDstLfo3Rate);
@@ -1134,6 +1234,11 @@ static uint8_t modded(uint8_t byte, double amount) {
     return (uint8_t)lround(clamp(byte + (MOD_DEPTH * amount), 0.0, 127.0));
 }
 
+// notes §22a: the dial as the matrix moves it, not rounded - for a law read between table points
+static double dial_moved(uint8_t byte, double amount) {
+    return clamp(byte + (MOD_DEPTH * amount), 0.0, 127.0);
+}
+
 // The matrix and the fixed LFO routes; mod[] holds each destination's sum, -1..1 of full travel
 static void voice_mods(const tTiVoices * v, const tTiSound * s, const tTiVoice * vc, const double * lfo, double * mod) {
     memset(mod, 0, sizeof(double) * kDstCount);
@@ -1156,7 +1261,7 @@ static void voice_mods(const tTiVoices * v, const tTiSound * s, const tTiVoice *
                 if ((dst == 0) || (dst >= kDstCount)) {
                     continue;
                 }
-                double  amount = bipolar(page_byte(s, kSlots[p].slot[d][1]));
+                double  amount = amount_byte(page_byte(s, kSlots[p].slot[d][1]));
 
                 if (pass == 0) {
                     extra[dst] += slot_amount_dst(dst) ? (value * amount) : 0.0;
@@ -1168,29 +1273,27 @@ static void voice_mods(const tTiVoices * v, const tTiSound * s, const tTiVoice *
     }
 
     if ((s->b[79] != 0) && (s->b[79] < kDstCount)) {
-        mod[s->b[79]] += 0.5 * lfo[0] * (bipolar(s->b[80]) + mod[kDstLfo1Assign]);
+        mod[s->b[79]] += 0.5 * lfo[0] * (amount_byte(s->b[80]) + mod[kDstLfo1Assign]);
     }
 
     if ((s->b[81] != 0) && (s->b[81] < kDstCount)) {
-        mod[s->b[81]] += 0.5 * lfo[1] * (bipolar(s->b[82]) + mod[kDstLfo2Assign]);
+        mod[s->b[81]] += 0.5 * lfo[1] * (amount_byte(s->b[82]) + mod[kDstLfo2Assign]);
     }
 }
 
-// notes §12: semitones of pitch at an amount, the same curve either side of zero
+// notes §12: a pitch amount byte as -1..1, with 127 counted as 128 so the top of the dial is the curve's end
+static double pitch_amount_byte(double dial) {
+    return ((dial >= 127.0) ? 64.0 : (dial - 64.0)) / 64.0;
+}
+
+// notes §12: semitones of pitch at an amount (-1..1), nine points either side of zero, straight between
 static double lfo_pitch_amount(double amount) {
-    static const double kAt[6] = {0, 0.125, 0.25, 0.5, 0.75, 0.984};
-    static const double kTo[6] = {0, 0.092, 0.307, 1.987, 7.886, 31.27};
-    double              a      = fabs(amount);
+    static const double kTo[9] = {0.0, 0.09375, 0.3125, 0.8125, 2.0, 4.0, 8.0, 16.0, 32.0};
+    double              x      = fmin(fabs(amount), 1.0) * 8.0;
+    int                 i      = (int)fmin(floor(x), 7.0);
+    double              v      = kTo[i] + ((kTo[i + 1] - kTo[i]) * (x - (double)i));
 
-    for (int i = 1; i < 6; i++) {
-        if (a <= kAt[i]) {
-            double v = kTo[i - 1] + ((kTo[i] - kTo[i - 1]) * (a - kAt[i - 1]) / (kAt[i] - kAt[i - 1]));
-
-            return (amount < 0.0) ? -v : v;
-        }
-    }
-
-    return (amount < 0.0) ? -kTo[5] : kTo[5];
+    return (amount < 0.0) ? -v : v;
 }
 
 static double wrap1(double p) {
@@ -1225,51 +1328,68 @@ static double noise_sample(tTiVoice * vc, double color, double rate) {
 static void render_voice(tTiVoices * v, const tTiSound * s, tTiVoice * vc, const tTiFilterSet * set, const tTiEnvShape * amp, const tTiEnvShape * fenv,
                          const tTiEnvShape * e3, const tTiEnvShape * e4, const double * mod, float * left, float * right, uint32_t frames, double levelL, double levelR) {
     drift_advance(vc, (double)frames / v->rate);
-    double   note1     = key_pitch(vc->pitch, s->a[21]) + ((double)s->a[93] - 64.0) + (mod[kDstTranspose] * 48.0);
-    double   note2     = key_pitch(vc->pitch, s->a[31]) + ((double)s->a[93] - 64.0) + (mod[kDstTranspose] * 48.0);
-    double   scale     = pow(DETUNE_SLOPE, -(vc->pitch - KEY_CENTRE) / 24.0);
-    double   unison    = vc->detune;
-    double   bend      = fabs(v->control[eTiCtlBend]) * ((v->control[eTiCtlBend] >= 0.0) ? bipolar(s->b[26]) : bipolar(s->b[27])) * 64.0;
-    double   env       = vc->filterEnv.level;
-    double   semi1     = note1 + bend + unison + pitch_offset(s->a[20], mod[kDstPitch1]);
-    double   semi2     = note2 + bend + unison + pitch_offset(s->a[25], mod[kDstPitch2]) + ((detune2_cents(vc, s->a[26] + (127.0 * mod[kDstDetune])) * scale) / 100.0)
-                         + (2.0 * lfo_pitch_amount(bipolar(s->a[29]) + mod[kDstEnvPitch]) * env);
-    double   semi3     = key_pitch(vc->pitch, s->a[31]) + ((double)s->a[93] - 64.0) + (mod[kDstTranspose] * 48.0) + bend + unison + ((double)s->b[43] - 64.0) + ((detune_cents(s->b[44]) * scale) / 100.0) + (PITCH_MOD_DEPTH * mod[kDstOsc3Pitch]);
-    double   inc1      = semitones_to_increment(v, semi1, semi1);
-    double   inc2      = semitones_to_increment(v, semi2, semi2);
-    double   inc3      = semitones_to_increment(v, semi3, semi3);
-    double   shape1    = clamp(s->a[17] + (MOD_DEPTH * (mod[kDstShape1] + mod[kDstIndex1] + mod[kDstLfo2Shape] + (bipolar(s->b[47]) * vc->velocity))), 0.0, 127.0);
-    double   shape2    = clamp(s->a[22] + (MOD_DEPTH * (mod[kDstShape2] + mod[kDstIndex2] + mod[kDstLfo2Shape] + (bipolar(s->b[48]) * vc->velocity))), 0.0, 127.0);
-    double   width1    = clamp(s->a[18] + (MOD_DEPTH * (mod[kDstWidth1] + mod[kDstLfo1Width] + (bipolar(s->b[49]) * vc->velocity))), -127.0, 127.0);   // notes §23
-    double   width2    = clamp(s->a[23] + (MOD_DEPTH * (mod[kDstWidth2] + mod[kDstLfo1Width] + (bipolar(s->b[49]) * vc->velocity))), -127.0, 127.0);   // notes §23
-    int      wave1     = (int)clamp(s->a[19] + (63.0 * mod[kDstWave1]), 0.0, 63.0);
-    int      wave2     = (int)clamp(s->a[24] + (63.0 * mod[kDstWave2]), 0.0, 63.0);
-    double   bal       = s->a[33] + (MOD_DEPTH * mod[kDstOscBalance]);
-    double   g1        = balance_1(bal);
-    double   g2        = balance_2(bal);
-    double   oscLvl    = osc_volume(s->a[36] + (MOD_DEPTH * mod[kDstOscVolume]));
-    double   subLvl    = mix_level(s->a[34] + (MOD_DEPTH * mod[kDstSub]));
-    double   noise     = mix_level(s->a[37] + (MOD_DEPTH * mod[kDstNoise]));
-    double   color     = clamp(s->a[39] + (MOD_DEPTH * mod[kDstNoiseColor]), 0.0, 127.0);
-    double   ring      = RING_GAIN * mix_level((double)((s->a[0] < TI_FORMAT) ? s->a[38] : s->a[50]) + (MOD_DEPTH * mod[kDstRing]));
-    double   fmAmt     = fmax((double)s->a[27] / 127.0 + mod[kDstFm] + (bipolar(s->b[50]) * vc->velocity) + mod[kDstLfo2Fm] + ((bipolar(s->a[30]) + mod[kDstEnvFm]) * env), 0.0);
-    double   fm        = (s->c[35] == 1) ? 0.0 : fm_depth(fmAmt); // notes §21: a HyperSaw Osc 2 reads it as sync
-    double   syncUp    = ((s->c[35] == 1) && (fmAmt > 0.0)) ? pow(2.0, fmin(fmAmt * 127.0, 128.0) / 32.0) : 0.0;
-    uint8_t  mode3     = s->b[41];
-    double   lvl3      = (mode3 == 1) ? 0.0 : (OSC3_GAIN * clamp(s->b[42] + (MOD_DEPTH * mod[kDstOsc3Volume]), 0.0, 127.0));
-    bool     sync      = (s->a[28] != 0);
-    bool     sqSub     = (s->a[35] == 0);
-    uint8_t  fmode     = (s->b[34] > 3) ? 0 : s->b[34];
-    double   hp        = 1.0 - exp(-2.0 * M_PI * DC_BLOCK_HZ / v->rate);
-    double   pAmt      = clamp((s->b[36] + (MOD_DEPTH * mod[kDstPunch])) / 127.0, 0.0, 1.0);
-    double   punch     = PUNCH_LEVEL * pow(pAmt, 1.6);
-    double   punchTau  = PUNCH_TAU * pow(2.0, (36.0 - (double)vc->note) / PUNCH_OCTAVE);
 
-    bool     table1    = (s->c[30] == 2);
-    bool     table2    = (s->c[35] == 2);
-    bool     pwm1      = (s->c[30] == 3);   // notes §28: Wave PWM
-    bool     pwm2      = (s->c[35] == 3);
-    double   twinDown1 = 0.0, twinUp1 = 0.0, twinDown2 = 0.0, twinUp2 = 0.0;
+    // notes §32: the amplifier reaches its level for the end of the block in a straight line across the block
+    tTiEnv          ampAhead  = vc->amp;
+
+    for (uint32_t k = 0; k < frames; k++) {
+        (void)ti_env_next(&ampAhead, amp);
+    }
+
+    double          ampFrom   = vc->amp.level;
+    double          ampTo     = ampAhead.level;
+    double          gainFrom  = vc->filtGainSet ? vc->filtGain : vc->filtGainTo; // notes §12c: a ramp across the block
+
+    vc->filtGain    = vc->filtGainTo;
+    vc->filtGainSet = true;
+    double          note1     = key_pitch(vc->pitch, s->a[21]) + ((double)s->a[93] - 64.0) + (mod[kDstTranspose] * 48.0);
+    double          note2     = key_pitch(vc->pitch, s->a[31]) + ((double)s->a[93] - 64.0) + (mod[kDstTranspose] * 48.0);
+    double          scale     = pow(DETUNE_SLOPE, -(vc->pitch + ((double)s->a[93] - 64.0) - KEY_CENTRE) / 24.0); // notes §7: Transpose included
+    const uint8_t * uni       = unison_bytes(s);                                                                 // notes §13, §22a: the stack's detune and spread follow the matrix
+    double          unison    = vc->stack * unison_cents(modded(uni[1], mod[kDstUnisonDetune])) / 100.0;
+    uint8_t         smooth1   = modded(s->c[44], mod[kDstInterp1]);
+    uint8_t         smooth2   = modded(s->c[64], mod[kDstInterp2]);
+    double          bend      = fabs(v->control[eTiCtlBend]) * ((v->control[eTiCtlBend] >= 0.0) ? bipolar(s->b[26]) : bipolar(s->b[27])) * 64.0;
+    double          env       = vc->filterEnv.level;
+    double          semi1     = note1 + bend + unison + pitch_offset(s->a[20], mod[kDstPitch1]);
+    double          semi2     = note2 + bend + unison + pitch_offset(s->a[25], mod[kDstPitch2]) + ((detune2_cents(vc, s->a[26] + (127.0 * mod[kDstDetune])) * scale) / 100.0)
+                                + (2.0 * lfo_pitch_amount(pitch_amount_byte(dial_moved(s->a[29], mod[kDstEnvPitch]))) * env);
+    double          semi3     = key_pitch(vc->pitch, s->a[31]) + ((double)s->a[93] - 64.0) + (mod[kDstTranspose] * 48.0) + bend + unison + semitone_interval(s->b[43]) - ((osc3_detune_cents(dial_moved(s->b[44], mod[kDstOsc3Detune])) * scale) / 100.0) + (PITCH_MOD_DEPTH * mod[kDstOsc3Pitch]);
+    double          inc1      = semitones_to_increment(v, semi1, semi1);
+    double          inc2      = semitones_to_increment(v, semi2, semi2);
+    double          inc3      = semitones_to_increment(v, semi3, semi3);
+    double          shape1    = clamp(s->a[17] + (MOD_DEPTH * (mod[kDstShape1] + mod[kDstIndex1] + mod[kDstLfo2Shape] + (bipolar(s->b[47]) * vc->velocity))), 0.0, 127.0);
+    double          shape2    = clamp(s->a[22] + (MOD_DEPTH * (mod[kDstShape2] + mod[kDstIndex2] + mod[kDstLfo2Shape] + (bipolar(s->b[48]) * vc->velocity))), 0.0, 127.0);
+    double          width1    = clamp(s->a[18] + (MOD_DEPTH * (mod[kDstWidth1] + mod[kDstLfo1Width] + (bipolar(s->b[49]) * vc->velocity))), -127.0, 127.0); // notes §23
+    double          width2    = clamp(s->a[23] + (MOD_DEPTH * (mod[kDstWidth2] + mod[kDstLfo1Width] + (bipolar(s->b[49]) * vc->velocity))), -127.0, 127.0); // notes §23
+    int             wave1     = (int)clamp(s->a[19] + (63.0 * mod[kDstWave1]), 0.0, 63.0);
+    int             wave2     = (int)clamp(s->a[24] + (63.0 * mod[kDstWave2]), 0.0, 63.0);
+    double          bal       = s->a[33] + (MOD_DEPTH * mod[kDstOscBalance]);
+    double          g1        = balance_1(bal);
+    double          g2        = balance_2(bal);
+    double          oscLvl    = osc_volume(s->a[36] + (MOD_DEPTH * mod[kDstOscVolume]));
+    double          subLvl    = mix_level(s->a[34] + (MOD_DEPTH * mod[kDstSub]));
+    double          noise     = mix_level(s->a[37] + (MOD_DEPTH * mod[kDstNoise]));
+    double          color     = clamp(s->a[39] + (MOD_DEPTH * mod[kDstNoiseColor]), 0.0, 127.0);
+    double          ring      = RING_GAIN * mix_level((double)((s->a[0] < TI_FORMAT) ? s->a[38] : s->a[50]) + (MOD_DEPTH * mod[kDstRing]));
+    double          fmAmt     = fmax((double)s->a[27] / 127.0 + mod[kDstFm] + (bipolar(s->b[50]) * vc->velocity) + mod[kDstLfo2Fm] + ((bipolar(s->a[30]) + mod[kDstEnvFm]) * env), 0.0);
+    double          fm        = (s->c[35] == 1) ? 0.0 : fm_depth(fmAmt); // notes §21: a HyperSaw Osc 2 reads it as sync
+    double          syncUp    = ((s->c[35] == 1) && (fmAmt > 0.0)) ? pow(2.0, fmin(fmAmt * 127.0, 128.0) / 32.0) : 0.0;
+    uint8_t         mode3     = s->b[41];
+    double          lvl3      = (mode3 == 1) ? 0.0 : (OSC3_GAIN * clamp(s->b[42] + (MOD_DEPTH * mod[kDstOsc3Volume]), 0.0, 127.0));
+    bool            sync      = (s->a[28] != 0);
+    bool            sqSub     = (s->a[35] == 0);
+    uint8_t         fmode     = (s->b[34] > 3) ? 0 : s->b[34];
+    double          hp        = 1.0 - exp(-2.0 * M_PI * DC_BLOCK_HZ / v->rate);
+    double          pAmt      = clamp((s->b[36] + (MOD_DEPTH * mod[kDstPunch])) / 127.0, 0.0, 1.0);
+    double          punch     = PUNCH_LEVEL * pow(pAmt, 1.6);
+    double          punchTau  = PUNCH_TAU * pow(2.0, (36.0 - (double)vc->note) / PUNCH_OCTAVE);
+
+    bool            table1    = (s->c[30] == 2);
+    bool            table2    = (s->c[35] == 2);
+    bool            pwm1      = (s->c[30] == 3); // notes §28: Wave PWM
+    bool            pwm2      = (s->c[35] == 3);
+    double          twinDown1 = 0.0, twinUp1 = 0.0, twinDown2 = 0.0, twinUp2 = 0.0;
 
     if (pwm1) {
         ti_osc_pwm_detune(s->c[43], &twinDown1, &twinUp1);
@@ -1279,24 +1399,24 @@ static void render_voice(tTiVoices * v, const tTiSound * s, tTiVoice * vc, const
         ti_osc_pwm_detune(s->c[63], &twinDown2, &twinUp2);
     }
     // notes §29: Grain (4, 5) and Formant (6, 7); the Complex ones (5, 7) run two streams
-    int      grain1    = ((s->c[30] >= 4) && (s->c[30] <= 7)) ? s->c[30] : 0;
-    int      grain2    = ((s->c[35] >= 4) && (s->c[35] <= 7)) ? s->c[35] : 0;
-    double   gk1[2], gk2[2], gDown1 = 1.0, gUp1 = 1.0, gDown2 = 1.0, gUp2 = 1.0;
+    int             grain1    = ((s->c[30] >= 4) && (s->c[30] <= 7)) ? s->c[30] : 0;
+    int             grain2    = ((s->c[35] >= 4) && (s->c[35] <= 7)) ? s->c[35] : 0;
+    double          gk1[2], gk2[2], gDown1 = 1.0, gUp1 = 1.0, gDown2 = 1.0, gUp2 = 1.0;
 
     if (grain1) {
-        grain_ratios(grain1, s->c[42], s->c[37], semi1, gk1);
+        grain_ratios(grain1, modded(s->c[42], mod[kDstFShift1]), modded(s->c[37], mod[kDstFSpread1]), semi1, gk1);
         ti_osc_pwm_detune(s->c[43], &gDown1, &gUp1);
         gDown1 = 1.0 / gUp1;    // notes §29: the streams part evenly, unlike Wave PWM's copies
     }
 
     if (grain2) {
-        grain_ratios(grain2, s->c[62], s->c[57], semi2, gk2);
+        grain_ratios(grain2, modded(s->c[62], mod[kDstFShift2]), modded(s->c[57], mod[kDstFSpread2]), semi2, gk2);
         ti_osc_pwm_detune(s->c[63], &gDown2, &gUp2);
         gDown2 = 1.0 / gUp2;
     }
-    bool     hyper1    = (s->c[30] == 1);
-    bool     hyper2    = (s->c[35] == 1);
-    tTiHyper stack1, stack2;
+    bool            hyper1    = (s->c[30] == 1);
+    bool            hyper2    = (s->c[35] == 1);
+    tTiHyper        stack1, stack2;
 
     // notes §4: Shape and Pulse Width are Density and Spread here
     if (hyper1) {
@@ -1306,7 +1426,7 @@ static void render_voice(tTiVoices * v, const tTiSound * s, tTiVoice * vc, const
     if (hyper2) {
         ti_osc_hyper(shape2, width2, &stack2);
     }
-    double   syncLevel = 1.0;
+    double          syncLevel = 1.0;
 
     // notes §21: restarting together the saws add in step; the stack keeps the level of one
     if (hyper2 && (syncUp > 0.0)) {
@@ -1319,14 +1439,17 @@ static void render_voice(tTiVoices * v, const tTiSound * s, tTiVoice * vc, const
         syncLevel = 1.0 / sum;
     }
     // notes §7: what cannot be heard is not computed; the phases run on regardless
-    bool     split     = (set->routing == eTiRoutingSplit);
-    bool     useFm     = (fm != 0.0);
-    bool     useO2     = (g2 != 0.0) || (ring > 0.0);
-    bool     useO1     = (g1 != 0.0) || (ring > 0.0) || (useFm && (fmode == 2));
-    bool     useO3     = (mode3 != 0) && (lvl3 != 0.0);
+    bool            split     = (set->routing == eTiRoutingSplit);
+    bool            useFm     = (fm != 0.0);
+    bool            useO2     = (g2 != 0.0) || (ring > 0.0);
+    bool            useO1     = (g1 != 0.0) || (ring > 0.0) || (useFm && (fmode == 2)) || (!v->antiAlias && (subLvl > 0.0) && (s->a[35] == 0));   // tiOsc notes §9: the sub rides on Osc 1's points
+    bool            useO3     = (mode3 != 0) && (lvl3 != 0.0);
 
-    double   from1     = vc->indexSet ? vc->index[0] : shape1;   // notes §31
-    double   from2     = vc->indexSet ? vc->index[1] : shape2;
+    bool            aliased   = !v->antiAlias; // tiOsc notes §9
+    int             points1   = aliased ? ti_osc_points_per_cycle(inc1 * v->rate) : 0;
+    int             points2   = aliased ? ti_osc_points_per_cycle(inc2 * v->rate) : 0;
+    double          from1     = vc->indexSet ? vc->index[0] : shape1; // notes §31
+    double          from2     = vc->indexSet ? vc->index[1] : shape2;
 
     for (uint32_t f = 0; f < frames; f++) {
         double o1        = 0.0;
@@ -1339,20 +1462,22 @@ static void render_voice(tTiVoices * v, const tTiSound * s, tTiVoice * vc, const
         } else if (hyper1) {
             o1 = ti_osc_hyper_sample(&stack1, vc->hyper[0], inc1);
         } else if (grain1 & 1) {
-            o1 = ti_osc_grain_pair(s->a[19], index1, s->c[44], gk1, vc->grain[0], inc1);
+            o1 = ti_osc_grain_pair(s->a[19], index1, smooth1, gk1, vc->grain[0], inc1);
         } else if (grain1) {
-            o1 = ti_osc_grain(s->a[19], index1, s->c[44], gk1[0], vc->phase[0], inc1);
+            o1 = ti_osc_grain(s->a[19], index1, smooth1, gk1[0], vc->phase[0], inc1);
         } else if (pwm1) {
-            o1 = ti_osc_wave_pwm(s->a[19], index1, s->c[44], vc->twin[0], width1, inc1);
+            o1 = ti_osc_wave_pwm(s->a[19], index1, smooth1, vc->twin[0], width1, inc1);
         } else if (table1) {
-            o1 = ti_osc_wavetable(s->a[19], index1, s->c[44], vc->phase[0], inc1);
+            o1 = ti_osc_wavetable(s->a[19], index1, smooth1, vc->phase[0], inc1);
+        } else if (aliased) {
+            o1 = ti_osc_classic_points(&vc->points[0], points1, wave1, shape1, width1, vc->phase[0], inc1);
         } else {
             o1 = ti_osc_classic(wave1, shape1, width1, vc->phase[0], inc1);
         }
         double modulator = 0.0;
 
         switch (useFm ? fmode : 4) {
-            case 1:  modulator = ti_osc_triangle(vc->phase[0]);
+            case 1:  modulator = ti_osc_triangle(vc->phase[0] + 0.25);   // notes §14: from its peak at Osc 1's restart
                 break;
             case 2:  modulator = o1;
                 break;
@@ -1370,25 +1495,41 @@ static void render_voice(tTiVoices * v, const tTiSound * s, tTiVoice * vc, const
         } else if (hyper2) {
             o2 = syncLevel * ti_osc_hyper_sample(&stack2, vc->hyper[1], (syncUp > 0.0) ? (i2 * syncUp) : i2);
         } else if (grain2 & 1) {
-            o2 = ti_osc_grain_pair(s->a[24], index2, s->c[64], gk2, vc->grain[1], i2);
+            o2 = ti_osc_grain_pair(s->a[24], index2, smooth2, gk2, vc->grain[1], i2);
         } else if (grain2) {
-            o2 = ti_osc_grain(s->a[24], index2, s->c[64], gk2[0], vc->phase[1], i2);
+            o2 = ti_osc_grain(s->a[24], index2, smooth2, gk2[0], vc->phase[1], i2);
         } else if (pwm2) {
-            o2 = ti_osc_wave_pwm(s->a[24], index2, s->c[64], vc->twin[1], width2, i2);
+            o2 = ti_osc_wave_pwm(s->a[24], index2, smooth2, vc->twin[1], width2, i2);
         } else if (table2) {
-            o2 = ti_osc_wavetable(s->a[24], index2, s->c[64], vc->phase[1], i2);
+            o2 = ti_osc_wavetable(s->a[24], index2, smooth2, vc->phase[1], i2);
+        } else if (aliased && sync) {
+            o2 = ti_osc_classic_points_synced(&vc->points[1], points1, wave2, shape2, width2, vc->phase[0], inc1, i2 / inc1);   // tiOsc notes §9
+        } else if (aliased) {
+            o2 = ti_osc_classic_points(&vc->points[1], points2, wave2, shape2, width2, vc->phase[1], i2);
         } else {
-            o2 = ti_osc_classic(wave2, shape2, width2, vc->phase[1], i2);
+            // tiOsc notes §2a: just after a restart the phase is small but no wrap happened - no wrap correction there
+            o2            = ti_osc_classic(wave2, shape2, width2, vc->phase[1], vc->syncJust ? 1e-12 : i2) + vc->syncCarry;
+            vc->syncCarry = 0.0;
+            vc->syncJust  = false;
+
+            if (sync && ((vc->phase[0] + inc1) >= 1.0) && (inc1 > 0.0)) {   // tiOsc notes §2a: Osc 1 wraps within this sample
+                double at     = (1.0 - vc->phase[0]) / inc1;                // where, 0..1 of the sample
+                double before = vc->phase[1] + (at * i2);
+                double step   = ti_osc_classic(wave2, shape2, width2, 1e-9, 1e-12) - ti_osc_classic(wave2, shape2, width2, before - floor(before), 1e-12);
+
+                o2           += step * (1.0 - at) * (1.0 - at) * 0.5;
+                vc->syncCarry = -step * at * at * 0.5;
+            }
         }
-        double o3        = 0.0;
+        double o3   = 0.0;
 
         if (useO3) {
             switch (mode3) {
-                case 1:  o3 = ti_osc_classic(wave2, shape2, width2, vc->phase[2], inc3);
+                case 1:  o3 = aliased ? ti_osc_classic_box(wave2, shape2, width2, vc->phase[2], inc3) : ti_osc_classic(wave2, shape2, width2, vc->phase[2], inc3);   // tiOsc notes §10
                     break;
-                case 2:  o3 = ti_osc_saw(vc->phase[2], inc3);
+                case 2:  o3 = aliased ? ti_osc_box_saw(vc->phase[2], inc3) : ti_osc_saw(vc->phase[2], inc3);
                     break;
-                case 3:  o3 = ti_osc_square(vc->phase[2], inc3);
+                case 3:  o3 = aliased ? ti_osc_box_pulse(vc->phase[2], inc3, 0.5) : ti_osc_square(vc->phase[2], inc3);
                     break;
                 case 4:  o3 = ti_osc_sine(vc->phase[2]);
                     break;
@@ -1398,14 +1539,15 @@ static void render_voice(tTiVoices * v, const tTiSound * s, tTiVoice * vc, const
                     break;
             }
         }
-        double sub       = 0.0;
+        double sub  = 0.0;
 
         if (subLvl > 0.0) {
-            sub = sqSub ? (SUB_SQUARE * ti_osc_square(vc->subPhase, 0.5 * inc1) * 2.0) : (SUB_TRIANGLE * ti_osc_triangle(vc->subPhase));
+            sub = sqSub ? (SUB_SQUARE * ((aliased && vc->points[0].started) ? ti_osc_points_sub(&vc->points[0]) : (2.0 * ti_osc_square(vc->subPhase, 0.5 * inc1)))) : (SUB_TRIANGLE * ti_osc_triangle(vc->subPhase));   // tiOsc notes §9: on Osc 1's points
         }
-        double side      = split ? 0.0 : 1.0;
-        double raw       = oscLvl * ((g1 * o1) + (side * g2 * o2) + (subLvl * sub) + (lvl3 * o3));
-        double raw2      = oscLvl * g2 * o2;
+        double side = split ? 0.0 : 1.0;
+        // notes §6: in Split, Filter 1 takes Osc 1 and the sub, Filter 2 Osc 2, Osc 3 and the noise
+        double raw  = oscLvl * ((g1 * o1) + (side * g2 * o2) + (subLvl * sub) + (side * lvl3 * o3));
+        double raw2 = oscLvl * ((g2 * o2) + ((1.0 - side) * lvl3 * o3));
 
         // notes §15: Punch, a click at the start of a note, ahead of the high pass and the filters
         if (vc->punchLeft > 0.0) {
@@ -1434,18 +1576,25 @@ static void render_voice(tTiVoices * v, const tTiSound * s, tTiVoice * vc, const
         raw             -= vc->highPass[0];
 
         if (noise > 0.0) {
-            raw += noise * NOISE_LEVEL * noise_sample(vc, color, v->rate);
+            double n = noise * NOISE_LEVEL * noise_sample(vc, color, v->rate);
+
+            raw  += side * n;
+            raw2 += (1.0 - side) * n;
         }
 
-        if (ring > 0.0) {
+        if ((ring > 0.0) && !split) {   // notes §6: Split carries no ring
             double product = o1 * o2;
 
             vc->ringDc += RING_DC * (product - vc->ringDc);   // notes §7: the product carries no DC
             raw        += ring * (product - vc->ringDc);
         }
         double r2;
-        double y1   = filters_process(vc, set, raw, raw2, &r2, v->rate);
-        double y    = ti_env_next(&vc->amp, amp);
+        double fg   = gainFrom + ((vc->filtGainTo - gainFrom) * (double)(f + 1) / (double)frames);
+        double y1   = filters_process(vc, set, fg * raw, fg * raw2, &r2, v->rate);
+        double y    = ampFrom + ((ampTo - ampFrom) * (double)(f + 1) / (double)frames);   // notes §32
+        double now  = ti_env_next(&vc->amp, amp);
+
+        y              = amp->fixed ? now : y;   // tiEnvelope notes §7: Fixed has the instrument's own line between updates
 
         (void)ti_env_next(&vc->filterEnv, fenv);
         (void)ti_env_next(&vc->env3, e3);
@@ -1471,6 +1620,7 @@ static void render_voice(tTiVoices * v, const tTiSound * s, tTiVoice * vc, const
             vc->phase[0] -= 1.0;
 
             if (sync) {
+                vc->syncJust   = true;
                 vc->phase[1]   = vc->phase[0] * (i2 / inc1);  // notes §7: hard, at the sample's own fraction
                 vc->twin[1][0] = vc->twin[1][1] = vc->phase[1];
             }
@@ -1496,12 +1646,57 @@ static void render_voice(tTiVoices * v, const tTiSound * s, tTiVoice * vc, const
     }
 }
 
-// notes §10: Portamento, an exponential approach whose time constant triples every 32 steps
-static double glide_share(double dial, double frames, double rate) {
-    return (dial <= 0.0) ? 1.0 : (1.0 - exp(-(frames / rate) / (0.00565 * pow(3.0, dial / 32.0))));
+// notes §10: Portamento's share of the gap per step, a nine-point table read at the dial / 16
+static double glide_coefficient(double dial) {
+    static const double kShare[9] = {1.0, 1.0 / 4.0, 1.0 / 16.0, 5.0 / 128.0, 3.0 / 128.0, 1.0 / 64.0, 1.0 / 128.0, 1.0 / 256.0, 1.0 / 512.0};
+    double              x         = clamp(dial, 0.0, 127.0) / 16.0;
+    int                 i         = (int)fmin(floor(x), 7.0);
+
+    return kShare[i] + ((kShare[i + 1] - kShare[i]) * (x - (double)i));
 }
 
-static void env_shape_mod(const uint8_t * base, const double * mod, int first, double rate, tTiEnvShape * shape) {
+// notes §10: the glide steps every GLIDE_STEP seconds by its share of the gap plus 1/32 of the whole interval, and
+// stops on the note
+static void glide_advance(tTiVoice * vc, double dial, double seconds) {
+    double target = (double)vc->note;
+    double share  = glide_coefficient(dial);
+    double lead   = (target - vc->glideFrom) / 32.0;
+
+    if (vc->pitch == target) {
+        vc->glideClock = 0.0;
+        return;
+    }
+
+    for (vc->glideClock += seconds; vc->glideClock >= GLIDE_STEP; vc->glideClock -= GLIDE_STEP) {
+        double next = vc->pitch + (share * ((target - vc->pitch) + lead));
+
+        vc->pitch = (vc->pitch < target) ? fmin(next, target) : fmax(next, target);
+
+        if (vc->pitch == target) {
+            vc->glideClock = 0.0;
+            break;
+        }
+    }
+}
+
+// notes §12c: LFO 1's Filter Gain - its depth from a nine-point table, the LFO moved to 0..1 (turned over for a
+// negative depth), through the sustain curve, offset and doubled, never below 0
+static double filter_gain(uint8_t amount, double lfo) {
+    static const double kDepth[9] = {-0.625, -0.5, -0.375, -0.25, 0.0, 0.25, 0.375, 0.5, 0.625};
+    double              p         = amount / 16.0;
+    int                 i         = (p >= 8.0) ? 7 : (int)p;
+    double              d         = kDepth[i] + ((p - i) * (kDepth[i + 1] - kDepth[i]));
+    double              u         = clamp(0.5 + (0.5 * lfo), 0.0, 1.0);
+    double              a         = fabs(d);
+
+    if (d == 0.0) {
+        return 1.0;
+    }
+    u = (d < 0.0) ? (1.0 - u) : u;
+    return fmax(0.0, (2.0 * (ti_env_sustain_level(128.0 * a * u) + 1.0 - a)) - 1.0);
+}
+
+static void env_shape_mod(const uint8_t * base, const double * mod, int first, double rate, bool fixed, bool amplifier, tTiEnvShape * shape) {
     double m[5] = {0, 0, 0, 0, 0};
 
     if (first != 0) {
@@ -1509,8 +1704,14 @@ static void env_shape_mod(const uint8_t * base, const double * mod, int first, d
             m[i] = MOD_DEPTH * mod[first + i];
         }
     }
-    ti_env_shape(clamp(base[0] + m[0], 0.0, 127.0), clamp(base[1] + m[1], 0.0, 127.0), clamp(base[2] + m[2], 0.0, 127.0),
-                 clamp(base[3] + m[3], 0.0, 127.0), clamp(base[4] + m[4], 0.0, 127.0), rate, shape);
+    double a = clamp(base[0] + m[0], 0.0, 127.0), d = clamp(base[1] + m[1], 0.0, 127.0), s = clamp(base[2] + m[2], 0.0, 127.0);
+    double t = clamp(base[3] + m[3], 0.0, 127.0), r = clamp(base[4] + m[4], 0.0, 127.0);
+
+    if (fixed) {
+        ti_env_shape_fixed(a, d, s, t, r, rate, amplifier, shape);   // tiEnvelope notes §7: the instrument's own arithmetic
+    } else {
+        ti_env_shape(a, d, s, t, r, rate, shape);
+    }
 }
 
 // notes §16: Analog Boost, a low shelf at the output; its corner follows Tune and its lift falls as the corner rises
@@ -1544,7 +1745,47 @@ static const struct {
     { 96, 2,  21}, { 78, 2,  25}, { 79, 2,  23}, {81, 2,  24},
 };
 
+static void render_block(tTiVoices * v, const tTiSound * given, float * left, float * right, uint32_t frames);
+
+// notes §33: the arpeggiator's notes, each at its own frame of the block
 void ti_voices_render(tTiVoices * v, const tTiSound * given, float * left, float * right, uint32_t frames) {
+    tTiArpEvent events[TI_ARP_EVENTS];
+    uint32_t    n    = 0;
+    uint32_t    done = 0;
+
+    if (arp_on(v)) {
+        v->arp.pedal = (v->control[eTiCtlHold] >= 0.5); // tiArp notes §1
+        uint8_t pageB[TI_PAGE];                         // notes §22a: Note Length, Swing and Pattern as the newest voice's matrix moves them
+
+        memcpy(pageB, v->sound.b, sizeof(pageB));
+        pageB[5]     = modded(pageB[5], v->fxMod[kDstArpLength]);
+        pageB[6]     = modded(pageB[6], v->fxMod[kDstArpSwing]);
+        pageB[2]     = (uint8_t)fmin(63.0, modded(pageB[2], v->fxMod[kDstArpPattern]));
+        n            = ti_arp_run(&v->arp, v->sound.a, pageB, v->sound.c, v->sound.d, frames, v->rate, v->tempo, events);
+    } else if (v->arp.soundingCount > 0) {
+        n = ti_arp_stop(&v->arp, events);
+        ti_arp_reset(&v->arp);
+    }
+
+    for (uint32_t i = 0; i <= n; i++) {
+        uint32_t at = (i < n) ? events[i].frame : frames;
+
+        if (at > done) {
+            render_block(v, given, left + done, right + done, at - done);
+            done = at;
+        }
+
+        if (i < n) {
+            if (events[i].on) {
+                play_note_on(v, events[i].note, events[i].velocity);
+            } else {
+                play_note_off(v, events[i].note, 0.0f);
+            }
+        }
+    }
+}
+
+static void render_block(tTiVoices * v, const tTiSound * given, float * left, float * right, uint32_t frames) {
     // notes §5: no Smooth Mode glides; the Quantise values hold a change to the next division of the tempo, then step
     const tTiSound * s         = &v->sound;
     bool             quantise  = quantise_mode(given);
@@ -1632,14 +1873,15 @@ void ti_voices_render(tTiVoices * v, const tTiSound * given, float * left, float
             }
 
             // the fixed routes
-            mod[kDstPitch1]    += lfo[0] * lfo_pitch_amount(bipolar(s->a[74]) + mod[kDstLfo1Pitch1]) / PITCH_MOD_DEPTH;
-            mod[kDstPitch2]    += lfo[0] * lfo_pitch_amount(bipolar(s->a[75]) + mod[kDstLfo1Pitch2]) / PITCH_MOD_DEPTH;
+            mod[kDstPitch1]    += lfo[0] * lfo_pitch_amount(pitch_amount_byte(dial_moved(s->a[74], mod[kDstLfo1Pitch1]))) / PITCH_MOD_DEPTH;
+            mod[kDstPitch2]    += lfo[0] * lfo_pitch_amount(pitch_amount_byte(dial_moved(s->a[75], mod[kDstLfo1Pitch2]))) / PITCH_MOD_DEPTH;
             mod[kDstLfo1Width] += lfo[0] * bipolar(s->a[76]);
+            vc->filtGainTo      = filter_gain(modded(s->a[78], mod[kDstLfo1Gain]), lfo[0]);
             mod[kDstRes1]      += 0.5 * lfo[0] * curve9(kOffsetCurve, modded(s->a[77], mod[kDstLfo1Res]));
             mod[kDstRes2]      += 0.5 * lfo[0] * curve9(kOffsetCurve, modded(s->a[77], mod[kDstLfo1Res]));
             mod[kDstLfo2Shape] += 0.5 * lfo[1] * bipolar(s->a[86]);
             mod[kDstLfo2Fm]    += lfo[1] * bipolar(s->a[87]);
-            mod[kDstCutoff1]   += 0.5 * lfo[1] * curve9(kOffsetCurve, modded(s->a[88], mod[kDstLfo2Cut1])); // notes §12
+            double lfoCut1 = 0.5 * lfo[1] * curve9(kOffsetCurve, modded(s->a[88], mod[kDstLfo2Cut1]));        // notes §12: Filter 1's alone, not carried by the link
             mod[kDstCutoff2]   += 0.5 * lfo[1] * curve9(kOffsetCurve, modded(s->a[89], mod[kDstLfo2Cut2]));
             mod[kDstPan]       += 0.5 * lfo[1] * curve9(kOffsetCurve, modded(s->a[90], mod[kDstLfo2Pan]));
 
@@ -1647,7 +1889,7 @@ void ti_voices_render(tTiVoices * v, const tTiSound * given, float * left, float
                 static const int kPitch[7][3] = {{kDstPitch1,          0, 0}, {kDstPitch1, kDstPitch2, 0}, {kDstPitch2, 0, 0}, {kDstWidth1, 0, 0},
                                                  {kDstWidth1, kDstWidth2, 0}, {kDstWidth2,          0, 0}, {         0, 0, 0}};
                 double           raw          = fmin(fmax((s->b[12] / 127.0) + mod[kDstLfo3Amount], 0.0), 1.0);
-                double           amount       = lfo[2] * ((s->b[11] < 3) ? ((8.0 * raw * raw * raw * raw) / PITCH_MOD_DEPTH) : raw);
+                double           amount       = lfo[2] * ((s->b[11] < 3) ? (lfo3_pitch_cents(127.0 * raw) / (100.0 * PITCH_MOD_DEPTH)) : raw);
 
                 for (int k = 0; k < 2; k++) {
                     if (kPitch[s->b[11]][k] != 0) {
@@ -1661,15 +1903,15 @@ void ti_voices_render(tTiVoices * v, const tTiSound * given, float * left, float
                 memcpy(v->fxMod, mod, sizeof(v->fxMod));
             }
             // the pitch glide
-            vc->pitch          += ((double)vc->note - vc->pitch) * glide_share(s->a[5] + (MOD_DEPTH * mod[kDstPortamento]), n, v->rate);
+            glide_advance(vc, s->a[5] + (MOD_DEPTH * mod[kDstPortamento]), (double)n / v->rate);
 
             // notes §6: the filters, each from its own controls for this voice
             // notes §26: the filters take the envelope as it will stand at the end of the block
             tTiEnvShape  fenv;
 
-            env_shape_mod(&s->a[54], mod, kDstFAttack, v->rate, &fenv);
-            fenv.sustain        = clamp(s->a[56] + (MOD_DEPTH * mod[kDstFAttack + 2]), 0.0, 127.0) / 127.0;
-            fenv.attackStep     = attack_rate(s->a[54] + (MOD_DEPTH * mod[kDstFAttack])) / v->rate;
+            env_shape_mod(&s->a[54], mod, kDstFAttack, v->rate, v->fixedPoint, false, &fenv);
+            fenv.sustain    = clamp(s->a[56] + (MOD_DEPTH * mod[kDstFAttack + 2]), 0.0, 127.0) / 127.0;
+            fenv.attackStep = attack_rate(s->a[54] + (MOD_DEPTH * mod[kDstFAttack])) / v->rate;
             tTiEnv       ahead   = vc->filterEnv;
 
             for (uint32_t k = 0; k < n; k++) {
@@ -1677,7 +1919,7 @@ void ti_voices_render(tTiVoices * v, const tTiSound * given, float * left, float
             }
 
             double       env     = ahead.level;
-            double       keyAmt  = KEY_DIAL_PER_SEMI * ((double)vc->pitch + fmin((double)s->a[93] - 64.0, 0.0) - s->b[33]);   // notes §10
+            double       keyAmt  = KEY_DIAL_PER_SEMI * ((double)vc->pitch + ((double)s->a[93] - 64.0) - s->b[33]);   // notes §10
             double       sign1   = (s->b[30] == 0) ? -1.0 : 1.0;
             double       sign2   = (s->b[31] == 0) ? -1.0 : 1.0;
             double       vel     = vc->velocity;
@@ -1685,21 +1927,21 @@ void ti_voices_render(tTiVoices * v, const tTiSound * given, float * left, float
             double       amt2    = sign2 * env_amount(s->a[45] + (MOD_DEPTH * mod[kDstEnvAmt2])) * velocity_scale(s->b[55], vel) * env;
             double       key1    = keyAmt * ((double)s->a[46] - 64.0) / 63.0;
             double       key2    = keyAmt * ((double)s->a[47] - 64.0) / 63.0;
-            double       c1      = cutoff + (MOD_DEPTH * mod[kDstCutoff1]) + amt1 + key1;
+            double       c1      = cutoff + (MOD_DEPTH * (mod[kDstCutoff1] + lfoCut1)) + amt1 + key1;
             double       c2      = (s->b[32] != 0) ? (ti_voices_cutoff2(cutoff + (MOD_DEPTH * mod[kDstCutoff1]), cutoff2, true) + (MOD_DEPTH * mod[kDstCutoff2]) + amt2 + key2)
                                             : (cutoff2 + (MOD_DEPTH * mod[kDstCutoff2]) + amt2 + key2);
             double       r1      = res + (MOD_DEPTH * mod[kDstRes1]) + (128.0 * curve9(kOffsetCurve, s->b[56]) * vel);
             double       r2      = res2 + (MOD_DEPTH * mod[kDstRes2]) + (128.0 * curve9(kOffsetCurve, s->b[57]) * vel);
-            double       drive   = fmax(0.0, ((double)s->a[36] - 64.0) / 64.0);
+            double       drive   = fmax(0.0, ((double)modded(s->a[36], mod[kDstOscVolume]) - 64.0) / 64.0);   // notes §22a: the matrix moves the drive too
             tTiFilterSet set;
 
-            filter_set(v, s, fmax(c1, 0.0), fmax(r1, 0.0), fmax(c2, 0.0), fmax(r2, 0.0), balance + (MOD_DEPTH * mod[kDstFilterBalance]), drive, &set);
+            filter_set(v, s, clamp(c1, 0.0, CUTOFF_TOP), fmax(r1, 0.0), clamp(c2, 0.0, CUTOFF_TOP), fmax(r2, 0.0), balance + (MOD_DEPTH * mod[kDstFilterBalance]), drive, &set);
 
             tTiEnvShape  amp, e3, e4;
 
-            env_shape_mod(&s->a[59], mod, kDstAAttack, v->rate, &amp);
-            env_shape_mod(&s->c[80], mod, 0, v->rate, &e3);
-            env_shape_mod(&s->c[85], mod, 0, v->rate, &e4);
+            env_shape_mod(&s->a[59], mod, kDstAAttack, v->rate, v->fixedPoint, true, &amp);
+            env_shape_mod(&s->c[80], mod, 0, v->rate, v->fixedPoint, false, &e3);
+            env_shape_mod(&s->c[85], mod, 0, v->rate, v->fixedPoint, false, &e4);
             // notes §11: only the amplifier's sustain is curved; the others' are straight lines
             e3.sustain    = s->c[82] / 127.0;
             e4.sustain    = s->c[87] / 127.0;
@@ -1709,7 +1951,7 @@ void ti_voices_render(tTiVoices * v, const tTiSound * given, float * left, float
             double       ampVel  = bipolar(s->b[60]);
             double       velDial = (ampVel >= 0.0) ? (127.0 - (ampVel * 127.0 * (1.0 - vel))) : (127.0 + (ampVel * 127.0 * vel)); // notes §11
             double       level   = (patch_volume(s->a[91] + (MOD_DEPTH * mod[kDstVolume])) / patch_volume(fmax(s->a[91], 1.0))) * ((ampVel == 0.0) ? 1.0 : mix_level(velDial));
-            double       pan     = clamp(bipolar(s->a[10]) + (2.0 * mod[kDstPan]) + vc->pan + (bipolar(s->b[61]) * vel), -1.0, 1.0);
+            double       pan     = clamp(bipolar(s->a[10]) + (2.0 * mod[kDstPan]) + (vc->stack * modded(unison_bytes(s)[2], mod[kDstUnisonSpread]) / 127.0) + (bipolar(s->b[61]) * vel), -1.0, 1.0);
             double       pl      = (pan <= 0.0) ? (1.0 - (PAN_HARD * pan)) : (1.0 - pan); // notes §7: two lines, meeting at the centre
             double       pr      = (pan >= 0.0) ? (1.0 + (PAN_HARD * pan)) : (1.0 + pan);
             level        *= 1.0 - (0.25 * vc->place);                                     // notes §13: 1 at the centre of a stack, 0.75 at its edges

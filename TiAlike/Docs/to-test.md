@@ -21,3 +21,12 @@ Built but not yet checked by ear or in a host. Confirmed: delete the line. Faile
 - A053's zipper gone with the chorus's delay and depth glided (2026-11-09)
 - Delay Patterns 2+5 to 5+5 (2026-11-09): A006 (5+3) against the instrument
 - Modulated phaser, delay and reverb glide (2026-11-09): sounds that move them, no zipper and nothing else changed
+- W010 by ear in Live: repeated notes and fast phrases without the ticks; other Attack 0 Singles' first notes (the amp now reaches its level over 32 samples)
+- Fixed-point amp envelope: Attack/Decay/Sustain/Release by ear, Fixed against Float; Sustain Time patches (falls start with the note now); Sustain 127 holds full; filter-envelope sweeps (Attack 0 and slow attacks) and envelope 3/4 modulation, Fixed against Float
+- Bank C Anaklav1-3 (C005-C007) and other analog-filter patches in Serial 6: brighter now, should match the instrument
+- Osc 3 Semitone intervals (just ratios) and Osc 3 Detune going flat; portamento lengths above 64; LFO 3 vibrato depth
+- Arpeggiator (ARP page): modes with chords, patterns, Clock, Swing, Note Length, Hold, in a host at different tempi; arp patches in banks A-D
+- Attack 0 sounds (plucks, arps) start at full level on the first sample now: listen for the click against the instrument
+- Global Anti-alias switch (On by default): Off sounds grittier on high saw/pulse notes, On unchanged; saved with the project, not with a Single (2026-11-12)
+- Arp Mode, Unison and Ring on an older factory Single (banks A-D): the panel now changes them; and the sustain pedal with the arpeggiator holds the keys as Hold does, without sustaining the arp's notes (2026-11-12)
+- A note held while another preset loads: it stops, with no clipping, and the next key plays the new sound; with the arpeggiator running it carries on in the new sound (2026-11-12)

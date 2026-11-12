@@ -12,4 +12,5 @@ Two words multiply as fractions, so the product is doubled.
 Convergent: exact halves go to the even word. Moving a word out limits it, rather than wrapping.
 
 ## 7. Stages converted
-The digital biquad: coefficients held at half scale in words, scaled up when read, state in words. Everything else still runs in doubles.
+The digital biquad: coefficients held at half scale in words, scaled up when read, state in words. All four
+envelopes (tiEnvelope §7). Everything else still runs in doubles.

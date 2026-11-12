@@ -18,17 +18,19 @@
 
 #include <math.h>
 
+#include "tiEnvelope.h"
 #include "tiLfo.h"
 #include "tiOsc.h"
 
-// notes §1: Hz at each sixteenth step of the dial, in between geometrically
-double ti_lfo_rate_hz(double dial) {
-    static const double kHz[9] = {0.0206, 0.0741, 0.2218, 0.5215, 1.075, 2.242, 4.93, 13.16, 60.0};
-    double              p      = fmin(fmax(dial, 0.0), 127.0) / 16.0;
-    int                 i      = (int)p;
+#define RATE_HZ_PER_POINT    (0.00089180)   // notes §1: Hz for each unit of the fall curve
 
-    i = (i > 7) ? 7 : i;
-    return kHz[i] * pow(kHz[i + 1] / kHz[i], (p - i) / ((i == 7) ? (15.0 / 16.0) : 1.0));
+// notes §1: the envelope's fall curve, read at (127 - dial) x 15/16 + 8, scaled by 128/127 and taken at 9/32 of that
+double ti_lfo_rate_hz(double dial) {
+    double  a = ((127.0 - fmin(fmax(dial, 0.0), 127.0)) * 0.9375) + 8.0;
+    int64_t v = llround(a * 65536.0);
+
+    v += (v >> 7) + (v >> 14);
+    return RATE_HZ_PER_POINT * (double)ti_env_fall_curve(((v >> 2) + (v >> 5)) << 2);
 }
 
 static double random_bipolar(uint32_t * s) {

@@ -45,10 +45,10 @@ equal, the other 11 one apart, all of them through the 10 table words above.
 Float runs the same law in doubles, with the exact distance and a straight line between table points; it differs from
 the fixed path by less than 0.008 on the samples next to a jump.
 
-## 7. Clean
-The Aliasing setting's other position, not the instrument's: a step 16 samples each side, its sinc cut off at 0.92 of
+## 7. Anti-alias On
+The Anti-alias switch's default position, not the instrument's: a step 16 samples each side, its sinc cut off at 0.92 of
 the Nyquist frequency, and every jump within reach corrected, not only the nearest. Aliases fall to about -90 dB at
-A4 and -76 dB at C7 through the engine; the harmonics stay within 0.1 dB to 15 kHz. Clean always runs in floating
+A4 and -76 dB at C7 through the engine; the harmonics stay within 0.1 dB to 15 kHz. Anti-alias On always runs in floating
 point, whatever the Arithmetic setting.
 
 ## 8. Pitch

@@ -23,6 +23,13 @@ amplifier envelope's Attack, Decay, Sustain, Sustain Time and Release (59-63). E
 parameter keeps its value when a Single loads. A value past a list's end (some older patches hold 64 in a mode byte)
 shows as the list's last entry.
 
+## 3a. Older Singles
+A Single older than the TI format (page A byte 0 below 12) keeps three settings where its format had them, and the
+voices read them there: Arp Mode in page B 1 (not 15), Unison's voices, detune, spread and phase in page A 97-100 (not
+page D 120-123) and Ring in page A 38 (not 50). The panel reads and writes those bytes for such a Single, so its
+controls change what is heard and the Single stays in its own format (2026-11-12: Arp Mode, Unison and Ring did
+nothing on factory Singles of that age).
+
 ## 4. Writing one back
 Over the Single it came from, so every byte the panel does not show survives a save. A carried parameter's byte is
 rewritten only if the parameter changed, and the name only if it was edited - otherwise an out-of-range mode, or a

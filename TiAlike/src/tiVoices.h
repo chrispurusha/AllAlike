@@ -22,6 +22,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "tiArp.h"
 #include "tiEffects.h"
 #include "tiEnvelope.h"
 #include "tiFilter.h"
@@ -64,33 +65,41 @@ typedef enum {
 } tTiControlId;
 
 typedef struct {
-    bool      active;
-    bool      gate;
-    uint8_t   note;
-    float     velocity, releaseVelocity;
-    double    pitch;          // semitones, gliding to note
-    double    phase[3], subPhase;
-    double    index[2];       // notes §31: the wavetable Index each oscillator last played, ramped from
-    bool      indexSet;
-    double    hyper[2][TI_HYPER_SAWS];
-    double    twin[2][2];                   // notes §28: Wave PWM's two detuned copies of Osc 1 and Osc 2
-    double    grain[2][3];                  // notes §29: the Complex models' half-rate phase and two drifts
-    double    detune, pan;                  // unison's offsets
-    double    place;                        // 0 at the centre of a stack, 1 at its edge
-    double    noiseState;
-    uint32_t  noise;
-    double    highPass[2];
-    double    random;
-    double    drift, driftStep;             // notes §7a: Osc 2 Detune's triangle, -1..1, and its step per second
-    uint32_t  driftSeed;
-    double    ringDc;
-    double    satState[2];
-    double    punchLeft;                    // samples
-    double    punchSign;
-    tTiEnv    amp, filterEnv, env3, env4;
-    tTiLfo    lfo[3];
-    tTiFilter filter, filter2, filterB;     // filterB: Filter 1's second section in Serial 6
-    uint64_t  started;                      // for stealing the oldest
+    bool         active;
+    bool         gate;
+    uint8_t      note;
+    float        velocity, releaseVelocity;
+    double       pitch;       // semitones, gliding to note
+    double       glideFrom;   // notes §10: where the glide started, which sets its straight-line part
+    double       glideClock;  // notes §10: seconds since the glide's last step
+    double       phase[3], subPhase;
+    double       index[2];    // notes §31: the wavetable Index each oscillator last played, ramped from
+    bool         indexSet;
+    double       hyper[2][TI_HYPER_SAWS];
+    double       twin[2][2];                // notes §28: Wave PWM's two detuned copies of Osc 1 and Osc 2
+    double       grain[2][3];               // notes §29: the Complex models' half-rate phase and two drifts
+    tTiOscPoints points[3];                 // tiOsc notes §9: Anti-alias off, Osc 1, 2 and 3
+    double       detune, pan;               // unison's offsets
+    double       place;                     // 0 at the centre of a stack, 1 at its edge
+    double       stack;                     // -1..1 across a unison stack, signed
+    double       noiseState;
+    uint32_t     noise;
+    double       highPass[2];
+    double       random;
+    double       drift, driftStep;          // notes §7a: Osc 2 Detune's triangle, -1..1, and its step per second
+    uint32_t     driftSeed;
+    double       ringDc;
+    double       satState[2];
+    double       punchLeft;            // samples
+    double       punchSign;
+    double       syncCarry;            // tiOsc notes §2a: the restart's correction still due on the next sample
+    bool         syncJust;             // the restart came at the end of the last sample
+    tTiEnv       amp, filterEnv, env3, env4;
+    double       filtGain, filtGainTo; // voices notes §12c: LFO 1's Filter Gain, last block's and this one's
+    bool         filtGainSet;
+    tTiLfo       lfo[3];
+    tTiFilter    filter, filter2, filterB;  // filterB: Filter 1's second section in Serial 6
+    uint64_t     started;                   // for stealing the oldest
 } tTiVoice;
 
 // A Single as the voices read it: pages A, B and C (notes §3)
@@ -117,6 +126,7 @@ typedef struct {
     bool            releaseHeld; // notes §5: the transport started - held controls land now
     bool            heard;       // sound holds a Single
     bool            glideNow;    // notes §10: the note being started glides
+    tTiArp          arp;         // notes §33: while it runs, the keys go to it
     double          fxMod[128];  // the newest voice's modulation, for the effects
     double          control[eTiCtlCount];
     tTiFilterTables filterTables;
@@ -125,7 +135,9 @@ typedef struct {
     uint8_t         held[128];   // notes §10: keys down, oldest first, for the mono modes
     uint32_t        heldCount;
     int             lastNote;
+    bool            legatoNow;   // the note being started follows a held key (mono)
     bool            fixedPoint;  // notes §19: the arithmetic the instrument uses
+    bool            antiAlias;   // tiOsc notes §9: off plays the instrument's own aliases
     double          boostState[2];
     tTiEffects      effects;
     tTiSound        sound;       // as the voices play it: a Quantise-held byte keeps its old value (notes §5)
@@ -146,6 +158,7 @@ void ti_voices_note_on(tTiVoices * v, uint8_t note, float velocity);
 void ti_voices_note_off(tTiVoices * v, uint8_t note, float velocity);
 void ti_voices_control(tTiVoices * v, tTiControlId id, double value);
 void ti_voices_all_off(tTiVoices * v);
+void ti_voices_silence(tTiVoices * v);                                        // notes §5a: a new sound stops the old one's notes
 // notes §6: Filter 2's cutoff, 0..127 and beyond, from Cutoff, Cutoff 2 and Link
 double ti_voices_cutoff2(double cutoff, double cutoff2, bool link);
 // Adds frames of every voice into left and right

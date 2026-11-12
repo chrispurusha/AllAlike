@@ -49,43 +49,43 @@
 #include <GLFW/glfw3.h>           // the key constants SynthLib's popups speak
 
 #if defined (_WIN32)
-#define FONT_PATH                 alike_font_path()   // tools/windows/alikeWin.c: Arial from the Windows fonts folder
+#define FONT_PATH               alike_font_path()     // tools/windows/alikeWin.c: Arial from the Windows fonts folder
 #else
-#define FONT_PATH                 "/System/Library/Fonts/Supplemental/Arial.ttf"
+#define FONT_PATH               "/System/Library/Fonts/Supplemental/Arial.ttf"
 #endif
-#define FONT_PRELOAD_SIZE         (16.0)
+#define FONT_PRELOAD_SIZE       (16.0)
 
-#define MAX_PARAMS                (320)
-#define MAX_PLACED                (64)
-#define MAX_PAGES                 (16)
-#define MARGIN_X                  (16.0)
-#define TITLE_Y                   (30.0)     // below the menu bar
-#define TAB_Y                     (58.0)
-#define TAB_H                     (14.0)
-#define TAB_GAP                   (6.0)
-#define TAB_PAD                   (4.0)      // either side of a tab's title
-#define PAGE_Y                    (90.0)
-#define ROW_H                     (112.0)
-#define SECTION_GAP               (16.0)
-#define CONTROL_W                 (58.0)
-#define DIAL_SIZE                 (40.0)
-#define LABEL_H                   (11.0)
-#define HEADING_TO_DIAL           (34.0)
-#define BUTTON_H                  (12.0)
-#define PATCH_BAR_X               (300.0)
-#define PATCH_BUTTON_H            (14.0)
-#define PATCH_BUTTON_GAP          (6.0)
-#define NAME_FIELD_SIZING         "WWWWWWWWWW"   // TI_SINGLE_NAME_LENGTH of the widest capital
-#define MENU_BG                   {0.22, 0.22, 0.25}
-#define MENU_MAX                  (128)
-#define LONG_MENU                 (32)
-#define MENU_ROWS_LONG            (22)
-#define MODEL_STEPS               (7)
-#define FIRST_TABLE_MODEL         (2)
-#define MENU_CELL_W               (96.0)
-#define MENU_CELL_W_LONG          (118.0)
-#define MENU_ROWS_PER_COLUMN      (8)
-#define OPENING_RELEASE_SLOP      (4.0)   // notes §3: how far the pointer may move and still be the opening click
+#define MAX_PARAMS              (320)
+#define MAX_PLACED              (64)
+#define MAX_PAGES               (16)
+#define MARGIN_X                (16.0)
+#define TITLE_Y                 (30.0)       // below the menu bar
+#define TAB_Y                   (58.0)
+#define TAB_H                   (14.0)
+#define TAB_GAP                 (6.0)
+#define TAB_PAD                 (4.0)        // either side of a tab's title
+#define PAGE_Y                  (90.0)
+#define ROW_H                   (112.0)
+#define SECTION_GAP             (16.0)
+#define CONTROL_W               (58.0)
+#define DIAL_SIZE               (40.0)
+#define LABEL_H                 (11.0)
+#define HEADING_TO_DIAL         (34.0)
+#define BUTTON_H                (12.0)
+#define PATCH_BAR_X             (300.0)
+#define PATCH_BUTTON_H          (14.0)
+#define PATCH_BUTTON_GAP        (6.0)
+#define NAME_FIELD_SIZING       "WWWWWWWWWW"     // TI_SINGLE_NAME_LENGTH of the widest capital
+#define MENU_BG                 {0.22, 0.22, 0.25}
+#define MENU_MAX                (128)
+#define LONG_MENU               (32)
+#define MENU_ROWS_LONG          (22)
+#define MODEL_STEPS             (7)
+#define FIRST_TABLE_MODEL       (2)
+#define MENU_CELL_W             (96.0)
+#define MENU_CELL_W_LONG        (118.0)
+#define MENU_ROWS_PER_COLUMN    (8)
+#define OPENING_RELEASE_SLOP    (4.0)     // notes §3: how far the pointer may move and still be the opening click
 
 typedef struct {
     const tTiControl * control;
@@ -390,11 +390,47 @@ static void load_preset(int number) {
     }
 }
 
-// notes §11: Prev/Next step through A001-W128 and wrap; from no preset, Next is A001
-static void step_patch(int direction) {
-    int from = (gPreset != 0) ? gPreset : ((direction > 0) ? 0 : 1);
+static tBankBrowserItem  gSlotItems[TI_PRESETS];
+static char              gSlotNames[TI_PRESETS][TI_SINGLE_NAME_LENGTH + 8];
 
-    load_preset((((from - 1 + direction) % TI_PRESETS) + TI_PRESETS) % TI_PRESETS + 1);
+// notes §15: a single's Category 1 (page B, byte 123), as the instrument names it
+static const char *const kCategoryNames[] = {
+    "Off",         "Lead",        "Bass",        "Pad",        "Decay", "Pluck",   "Acid", "Classic",
+    "Arpeggiator", "Effects",     "Drums",       "Percussion", "Input", "Vocoder",
+    "Favourite 1", "Favourite 2", "Favourite 3", "Organ",      "Piano", "String",
+    "FM",          "Digital"
+};
+#define CATEGORY_COUNT    ((uint32_t)(sizeof(kCategoryNames) / sizeof(kCategoryNames[0])))
+#define CATEGORY_AT       (9 + 128 + 123)   // the dump's header, page A, then page B's byte 123
+
+static uint8_t slot_category(int n) {
+    const uint8_t * single = ti_presets_single(n);
+    uint8_t         c      = (single != NULL) ? single[CATEGORY_AT] : 0;
+
+    return (c < CATEGORY_COUNT) ? c : 0;   // out of range is shown as Off
+}
+
+static void fill_slot_items(void);
+
+// notes §11: Prev/Next step through the presets in the order the browser lists them under the Sort menu, and wrap;
+// from no preset, Next is the first and Prev the last
+static void step_patch(int direction) {
+    static uint32_t order[TI_PRESETS];
+    int             at   = -1;
+
+    fill_slot_items();
+    bank_browser_sorted_order(gSlotItems, TI_PRESETS, kCategoryNames, CATEGORY_COUNT, bank_browser_sort_mode(), order);
+
+    for (int i = 0; (i < TI_PRESETS) && (gPreset != 0); i++) {
+        if ((int)order[i] == (gPreset - 1)) {
+            at = i;
+            break;
+        }
+    }
+
+    int             next = (at < 0) ? ((direction > 0) ? 0 : (TI_PRESETS - 1)) : ((((at + direction) % TI_PRESETS) + TI_PRESETS) % TI_PRESETS);
+
+    load_preset((int)order[next] + 1);
 }
 
 static int gStoreTo;
@@ -432,24 +468,6 @@ void ti_draw_store_preset(int number) {
     show_confirm("Store Preset", message, "Store", on_store_confirmed);
 }
 
-static tBankBrowserItem gSlotItems[TI_PRESETS];
-static char             gSlotNames[TI_PRESETS][TI_SINGLE_NAME_LENGTH + 8];
-
-// notes §15: a single's Category 1 (page B, byte 123), as the instrument names it
-static const char *const kCategoryNames[] = {"Off", "Lead", "Bass", "Pad", "Decay", "Pluck", "Acid", "Classic",
-                                             "Arpeggiator", "Effects", "Drums", "Percussion", "Input", "Vocoder",
-                                             "Favourite 1", "Favourite 2", "Favourite 3", "Organ", "Piano", "String",
-                                             "FM", "Digital"};
-#define CATEGORY_COUNT    ((uint32_t)(sizeof(kCategoryNames) / sizeof(kCategoryNames[0])))
-#define CATEGORY_AT       (9 + 128 + 123)   // the dump's header, page A, then page B's byte 123
-
-static uint8_t slot_category(int n) {
-    const uint8_t * single = ti_presets_single(n);
-    uint8_t         c      = (single != NULL) ? single[CATEGORY_AT] : 0;
-
-    return (c < CATEGORY_COUNT) ? c : 0;   // out of range is shown as Off
-}
-
 static void fill_slot_items(void) {
     (void)ti_presets_refresh();
 
@@ -485,7 +503,7 @@ void ti_draw_load_preset_browser(void) {
 void ti_draw_store_preset_browser(void) {
     fill_slot_items();
     open_bank_browser_lettered("Store Preset", "The slot to store the sound as it is now into.", "Store...", gSlotItems, TI_PRESETS, kCategoryNames, CATEGORY_COUNT, 1,
-                      on_store_slot);
+                               on_store_slot);
 }
 
 static void on_revert_confirmed(bool confirmed) {
@@ -975,11 +993,11 @@ static void value_text(const tTiControl * c, char * out, size_t len) {
 // Each title is measured at the height draw_button draws it (TAB_H), centred with TAB_PAD each side; if the tabs
 // would run past the panel, the padding shrinks so they fit (TiAlike has twelve)
 static void draw_tabs(void) {
-    double   x       = MARGIN_X;
+    double   x     = MARGIN_X;
     double   textW[MAX_PAGES];
-    double   total   = 0.0;
-    double   pad     = TAB_PAD;
-    uint32_t p       = 0;
+    double   total = 0.0;
+    double   pad   = TAB_PAD;
+    uint32_t p     = 0;
 
     for (p = 0; (p < gPageCount) && (p < MAX_PAGES); p++) {
         textW[p] = get_text_width(gPages[p].title, TAB_H, eNoCache);
