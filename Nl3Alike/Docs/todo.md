@@ -9,7 +9,7 @@
 - Filter: how modulation reaches the cutoff word (envelope amount, key track, velocity), measured
 - Filter: check against the instrument on the rig (QU-24 9/10) - responses and self-oscillation level
 - Fixed point beyond the filter, per the Arithmetic parameter
-- Oscillators: Pulse, Triangle, Sine, Noise, Dual Sine, then sync and Shape (the Saw is built)
+- Oscillators: Pulse, Noise, Dual Sine, then sync and Shape (the Saw, Triangle and Sine are built); the Sine's feedback (osc notes §10)
 - Pitch (osc notes §8): fractions of a semitone - their resolution; whether the tuning word follows Master Tune
 - Master Tune per instance (GLOBAL): ±6 semitones and ±100 cents, as the instrument's, scaling the tuning word
 - The voice delay stage after the filter: Unison detune by a delay ramp, and the 6-tap fractional-delay kernel

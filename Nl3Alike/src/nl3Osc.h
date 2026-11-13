@@ -36,6 +36,8 @@ typedef enum {
     eNl3OscSaw = 0,
     eNl3OscSquare,
     eNl3OscDoubleSaw,
+    eNl3OscTriangle,
+    eNl3OscSine,
     eNl3OscShapes
 } tNl3OscShape;
 
@@ -44,6 +46,8 @@ typedef struct {
     double   step[NL3_STEP_POINTS + 1];
     double   clean[NL3_CLEAN_POINTS + 1];
     tNl3Word stepWord[NL3_STEP_POINTS];
+    double   corner[NL3_STEP_POINTS + 1];      // notes §9: what is left of a band-limited corner, per unit of increment
+    tNl3Word cornerWord[NL3_STEP_POINTS];
 } tNl3Steps;
 
 void nl3_steps_build(tNl3Steps * s);
@@ -52,6 +56,12 @@ void nl3_steps_build(tNl3Steps * s);
 double nl3_saw(const tNl3Steps * s, double phase, double increment, bool clean);
 // notes §6
 tNl3Word nl3_saw_fixed(const tNl3Steps * s, tNl3Word phase, tNl3Word increment);
+// notes §9: the triangle, likewise
+double nl3_triangle(const tNl3Steps * s, double phase, double increment);
+tNl3Word nl3_triangle_fixed(const tNl3Steps * s, tNl3Word phase, tNl3Word increment);
+// notes §10: the sine, from the phase alone
+double nl3_sine(double phase);
+tNl3Word nl3_sine_fixed(tNl3Word phase);
 // notes §8: a pitch (MIDI notes, fractions allowed) as the increment, in both arithmetics
 double nl3_pitch_increment(double note);
 tNl3Word nl3_pitch_increment_fixed(double note);

@@ -37,16 +37,24 @@ typedef struct {
     double sustain;        // level
     double releaseMul;
     double glideStep;
+    double gapMul;         // notes §8: the decay's own approach, which starts the hold
+    double gapSustain;
+    double holdSamples;    // INFINITY: held until the key is let go
+    double fallMul;        // 1: a level sustain
+    double riseStep;       // 0: no rise
 } tSn2EnvShape;
 
 typedef struct {
     tSn2EnvStage stage;
     double       level;    // 0..1, the amplifier's gain
     double       held;     // the sustain level the sustain stage started from
+    double       gap;      // notes §8: decay distance still to close before the hold starts
+    double       left;     // samples of hold to go, once it has started
+    bool         holding;
 } tSn2Env;
 
-// The panel's 0..127 for Attack, Decay, Sustain and Release; squared: the amplifier's Sustain (notes §3)
-void sn2_env_shape(double attack, double decay, double sustain, double release, bool squared, double sampleRate, tSn2EnvShape * shape);
+// The panel's 0..127 for Attack, Decay, Sustain, Release, Sustain Time and Rate; squared: the amplifier's Sustain (notes §3)
+void sn2_env_shape(double attack, double decay, double sustain, double release, double sustainTime, double sustainRate, bool squared, double sampleRate, tSn2EnvShape * shape);
 void sn2_env_gate(tSn2Env * env, bool on);                      // on: attack from where it is; off: release
 double sn2_env_next(tSn2Env * env, const tSn2EnvShape * shape); // one sample on
 

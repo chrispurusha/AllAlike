@@ -17,13 +17,17 @@
 // Notes: Docs/code-notes/nl3Osc.md - "// notes §k" refers there.
 
 #include <math.h>
+#include <stdlib.h>
 
 #include "nl3Osc.h"
 
-#define STEP_OVERSAMPLE    (64)      // notes §5: integration points a table point
-#define CLEAN_CUTOFF       (0.92)    // notes §7: of the Nyquist frequency
-#define SAW_TILT           (256.0)   // notes §5
+#define STEP_OVERSAMPLE    (64)       // notes §5: integration points a table point
+#define CLEAN_CUTOFF       (0.92)     // notes §7: of the Nyquist frequency
+#define SAW_TILT           (256.0)    // notes §5
 #define INDEX_LAST         (NL3_STEP_POINTS - 1)
+#define CORNER_SCALE       (4.0)      // notes §9
+#define CORNER_AT_ZERO     (0x3750DA) // notes §9: the instrument's own word at the corner
+#define TRIANGLE_LIFT      (0x0D5F85) // notes §9: times the increment squared
 
 static double blackman(double u) {
     return 0.42 + (0.5 * cos(M_PI * u)) + (0.08 * cos(2.0 * M_PI * u));
@@ -57,13 +61,51 @@ static void step_build(double * table, int samples, double cutoff) {
     table[points] = 0.0;
 }
 
+// notes §9: four times the integral, from each table point on, of what is left of the jump - in samples
+static void corner_build(double * table) {
+    int           points = NL3_STEP_POINTS;
+    int           half   = points * STEP_OVERSAMPLE;
+    double        total = 0.0, below = 0.0, after = 0.0;
+    static double left[NL3_STEP_POINTS * STEP_OVERSAMPLE];
+
+    for (int j = -half; j < half; j++) {
+        double x = (j + 0.5) / STEP_OVERSAMPLE;
+
+        total += sinc(x / NL3_STEP_RESOLUTION) * blackman(x / points);
+    }
+
+    for (int j = -half; j < half; j++) {
+        double x = (j + 0.5) / STEP_OVERSAMPLE;
+
+        below += sinc(x / NL3_STEP_RESOLUTION) * blackman(x / points);
+
+        if (j >= 0) {
+            left[j] = 1.0 - (below / total);
+        }
+    }
+
+    for (int j = half - 1; j >= 0; j--) {
+        after += left[j];
+
+        if ((j % STEP_OVERSAMPLE) == 0) {
+            table[j / STEP_OVERSAMPLE] = CORNER_SCALE * after / (STEP_OVERSAMPLE * NL3_STEP_RESOLUTION);
+        }
+    }
+
+    table[points] = 0.0;
+}
+
 void nl3_steps_build(tNl3Steps * s) {
     step_build(s->step, NL3_STEP_SAMPLES, 1.0);
     step_build(s->clean, NL3_CLEAN_SAMPLES, CLEAN_CUTOFF);
+    corner_build(s->corner);
 
     for (int i = 0; i < NL3_STEP_POINTS; i++) {
-        s->stepWord[i] = nl3_word(s->step[i]);
+        s->stepWord[i]   = nl3_word(s->step[i]);
+        s->cornerWord[i] = nl3_word(s->corner[i]);
     }
+
+    s->cornerWord[0] = CORNER_AT_ZERO;
 }
 
 static double step_at(const double * table, int points, double distance) {
@@ -102,6 +144,77 @@ double nl3_saw(const tNl3Steps * s, double phase, double increment, bool clean) 
         }
     }
     return (0.5 * (phase + step)) - (clean ? 0.0 : (increment / SAW_TILT));
+}
+
+// notes §9: falls from 1 at phase -1 to -1 at 0 and back; the corner nearer the phase is band-limited
+double nl3_triangle(const tNl3Steps * s, double phase, double increment) {
+    double other  = phase - 1.0;
+
+    other = (other < -1.0) ? (other + 2.0) : other;
+    double raw    = fabs(phase) - fabs(other);
+
+    if (increment <= 0.0) {
+        return 0.5 * raw;
+    }
+    bool   valley = fabs(phase) < fabs(other);
+    double place  = fmin(fabs(valley ? phase : other) / increment * NL3_STEP_RESOLUTION, INDEX_LAST);
+    int    i      = (int)place;
+    double corner = s->corner[i] + ((place - i) * (s->corner[i + 1] - s->corner[i]));
+
+    return (0.5 * (raw - ((valley ? -corner : corner) * increment))) + (increment * increment * nl3_word_value(TRIANGLE_LIFT));
+}
+
+tNl3Word nl3_triangle_fixed(const tNl3Steps * s, tNl3Word phase, tNl3Word increment) {
+    int64_t other  = nl3_phase_advance(phase, 0x800000);
+    int64_t raw    = llabs((int64_t)phase) - llabs(other);
+
+    if (increment <= 0) {
+        return (tNl3Word)(raw / 2);
+    }
+    int     shift  = 0;
+
+    while ((increment << shift) < 0x400000) {
+        shift++;
+    }
+    int64_t scale  = (INT64_C(0x200000) << 9) / ((int64_t)increment << shift);   // notes §6, as the saw's
+    bool    valley = llabs((int64_t)phase) < llabs(other);
+    int64_t near   = valley ? llabs((int64_t)phase) : llabs(other);
+    // notes §9: on the valley's side the index is formed negative, so the shift rounds it up
+    int64_t index  = valley ? -((-2 * near * scale) >> (24 - shift)) : ((2 * near * scale) >> (24 - shift));
+
+    index = (index > INDEX_LAST) ? INDEX_LAST : index;
+    int64_t corner = (valley && (index > 0)) ? -s->cornerWord[index] : s->cornerWord[index];
+    tNl3Acc acc    = (raw * (INT64_C(1) << 24)) - nl3_mul((tNl3Word)corner, increment);
+
+    acc >>= 1;
+    acc  += nl3_mul((tNl3Word)(nl3_mul(increment, increment) >> 24), TRIANGLE_LIFT);
+
+    return nl3_move(acc);
+}
+
+#define SINE_C1    (0x648035)    // notes §10: u, u^3, u^5
+#define SINE_C3    (-0x522B2B)
+#define SINE_C5    (0x092AA9)
+
+// notes §10: -cos(pi phase) / 2, as an odd polynomial in 2|phase| - 1
+double nl3_sine(double phase) {
+    double u  = (2.0 * fabs(phase)) - 1.0;
+    double u2 = u * u;
+
+    return u * (nl3_word_value(SINE_C1) + (0.5 * u2 * (nl3_word_value(SINE_C3) + (u2 * nl3_word_value(SINE_C5)))));
+}
+
+tNl3Word nl3_sine_fixed(tNl3Word phase) {
+    tNl3Word u  = nl3_move(nl3_acc(phase < 0 ? -phase : phase) * 2 - NL3_ACC_ONE);
+    tNl3Word u2 = nl3_move(nl3_mul(u, u));
+    tNl3Word u3 = nl3_move(nl3_mul(u2, u));
+    tNl3Word u5 = nl3_move(nl3_mul(u2, u3));
+    tNl3Acc  b  = nl3_mul(u, SINE_C1) * 2;
+
+    b += nl3_mul(u3, SINE_C3);
+    b  = nl3_round(b + nl3_mul(u5, SINE_C5));
+
+    return nl3_move(b >> 1);
 }
 
 #define TUNE_WORD         (0x3D376D)  // notes §8: the instrument's tuning word

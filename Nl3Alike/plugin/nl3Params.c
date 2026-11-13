@@ -939,7 +939,9 @@ static bool on(const double * v, uint32_t id) {
 }
 
 static tNl3OscShape osc_shape(int waveform) {
-    return (waveform == 1) ? eNl3OscSquare : eNl3OscSaw;    // Saw is the instrument's; Pulse is close; the rest play as Saw for now
+    static const tNl3OscShape kShapes[] = {eNl3OscSaw, eNl3OscSquare, eNl3OscTriangle, eNl3OscSine}; // Saw, Triangle and Sine are the instrument's; Pulse is close
+
+    return ((waveform >= 0) && (waveform < 4)) ? kShapes[waveform] : eNl3OscSaw;                     // Noise and Dual Sine play as Saw for now
 }
 
 void nl3_sound_from_values(const double * v, tNl3Sound * s) {

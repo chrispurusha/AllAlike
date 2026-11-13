@@ -163,10 +163,44 @@ enum {
     kSn2ParamPanSpeed,
     kSn2ParamPanDepth,
     kSn2ParamPanEffects,
-    kSn2ParamAntiAlias,   // sn2Voices notes §17
-    kSn2ParamFm13,        // sn2Voices notes §18: Osc 1 frequency-modulates Osc 3, at the 1x3 level
-    kSn2ParamFm23,        // Osc 2 does
-    kSn2ParamFmNoise,     // the noise does, at the noise level
+    kSn2ParamAntiAlias,      // sn2Voices notes §17
+    kSn2ParamFm13,           // sn2Voices notes §18: Osc 1 frequency-modulates Osc 3, at the 1x3 level
+    kSn2ParamFm23,           // Osc 2 does
+    kSn2ParamFmNoise,        // the noise does, at the noise level
+    kSn2ParamAmpSustainRate, // sn2Envelope notes §8
+    kSn2ParamEnv2SustainTime,
+    kSn2ParamEnv2SustainRate,
+    kSn2ParamEnv3SustainTime,
+    kSn2ParamEnv3SustainRate,
+    kSn2ParamOneShot,          // sn2Envelope notes §9
+    kSn2ParamOscsBypass,       // sn2Voices notes §20
+    kSn2ParamRing13WheelLevel, // sn2Voices notes §19: the mixer levels' own routes
+    kSn2ParamRing23WheelLevel,
+    kSn2ParamNoiseWheelLevel,
+    kSn2ParamOsc1Env2Level,
+    kSn2ParamOsc2Env2Level,
+    kSn2ParamOsc3Env2Level,
+    kSn2ParamRing13Env2Level,
+    kSn2ParamRing23Env2Level,
+    kSn2ParamNoiseEnv2Level,
+    kSn2ParamOsc1Env3Level,
+    kSn2ParamOsc2Env3Level,
+    kSn2ParamOsc3Env3Level,
+    kSn2ParamRing13Env3Level,
+    kSn2ParamRing23Env3Level,
+    kSn2ParamNoiseEnv3Level,
+    kSn2ParamOsc1Lfo1Level,
+    kSn2ParamOsc2Lfo1Level,
+    kSn2ParamOsc3Lfo1Level,
+    kSn2ParamRing13Lfo1Level,
+    kSn2ParamRing23Lfo1Level,
+    kSn2ParamNoiseLfo1Level,
+    kSn2ParamOsc1Lfo2Level,
+    kSn2ParamOsc2Lfo2Level,
+    kSn2ParamOsc3Lfo2Level,
+    kSn2ParamRing13Lfo2Level,
+    kSn2ParamRing23Lfo2Level,
+    kSn2ParamNoiseLfo2Level,
     kSn2ParamCount
 };
 

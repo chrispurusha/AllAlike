@@ -76,7 +76,7 @@ Polyphony 1 in a program. One voice and a list of the keys down, last note prior
 A program's Volume is part of the sound. Measured: gain is Volume/84, and 127 plays as 84, not as the loudest; the Supernova II gives 18.6 dB between 9 and 127, against 19.4 from this law. The output saturates hard at 0.97675 of full scale: flat tops, with no gain reduction, whatever the voice count, with the effects on or bypassed.
 
 ## 15. LFOs
-Two per voice, stepped every sub-block. Rate 2.5 Hz x (Speed/64)^2, Range x1, x10, x100. Square, rising saw from -1, triangle rising from 0 and sample and hold, all +-1; Offset adds Offset/127 of the amount. Key restarts the phase with a note, Free runs on. Delay is a straight fade in: 0.125 s at 40, 0.34 s at 64, 1.33 s at 90. Pitch and cutoff go as amount^2/57.6 semitones, width in step with the amount, one unit in the panel's 64 a unit. Measured.
+Two per voice, stepped every sub-block. Rate 2.5 Hz x (Speed/64)^2, Range x1, x10, x100. Square, rising saw from -1, triangle rising from 0 and sample and hold, all +-1; Offset adds Offset/127 of the amount, and the Delay fades the offset in with the wave (measured through a level route: with Offset 127 and Delay 66 the whole output rises from 0 over about 0.4 s). Key restarts the phase with a note, Free runs on - but a note that finds no voice sounding restarts it: a saw from its middle (phase 0.5), a triangle from -1 rising (0.75), a square high as Key does (0) - the same trace whatever time the note starts. Whether it also restarts under held notes is not measured. Delay is a straight fade in: 0.125 s at 40, 0.34 s at 64, 1.33 s at 90. Pitch and cutoff go as amount^2/57.6 semitones, width in step with the amount, one unit in the panel's 64 a unit. Measured.
 Fade Out, in place of the fade in: from full, an exponential fall after 12.5 ms, time constant the fade in's time over 5.7. A square at Speed 0 this way is a pitch or filter blip at the note's start.
 
 ## 16. Pan
@@ -115,3 +115,19 @@ voice best matched within 0.06-0.13 of the depth squared from 8 to 127 (square) 
 factor; 808 Cow Bell 2 (FM 2x3) 5.3 -> 0.8 in spectrum error. With Anti-alias on, Osc 3's sub-steps take Osc 1's and
 Osc 2's own sub-steps (2026-11-12).
 
+
+## 19. Mixer level routes
+Every mixer slot - Osc 1-3, ring 1x3 and 2x3, noise - has five routes onto its level, each bipolar about 64: the
+wheel, Env 2, Env 3, LFO 1 and LFO 2 (program bytes 124 + 6 x slot + 1..5, the slot's level at + 0). The law is the
+wheel's: level + 2 x (route - 64) x source, in the slot's 0..127, clamped. Measured with Env 2 held at its top on
+Osc 1: route 72 plays as level 16, 96 as 63, 127 as 124, and 32 over a level of 64 silences it. An LFO counts half here:
++-0.5, plus 0.5 x Offset/127, so Offset 127 makes it 0..1 - measured at Speed 0 and on a moving saw and triangle.
+A moving square through a level route measured louder than full level on the reference; not understood, not modelled. Env 2 and 3 are scaled by their own Velocity, as on the cutoff (§9) - it brought the Open High Hats from silence to
+close. The levels are worked out once a sub-block. The FM depths (§18) take the moved levels.
+Many programs play only through these - all levels 0, the sound coming in on Env 2 or an LFO.
+
+## 20. Filter Oscs Bypass
+The program's switch (ext byte 3, bit 5, beside the FM switches): Osc 1-3 go around the filter and its Overdrive and
+join its output at 0.771 of the level they would have through a fully open filter (-2.3 dB), so a closed filter
+leaves them untouched. Noise still goes through the filter. The ring products are sent with the noise; not
+measured - two squares at one pitch ring down to mostly DC, which a closed filter passes anyway.

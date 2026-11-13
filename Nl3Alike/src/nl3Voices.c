@@ -432,7 +432,7 @@ static double next_noise(tNl3Voice * vc, double soften, double corner) {
 }
 
 // voices notes §8: Overdrive 0..127 as the drive word, and the saturator on the filter's input
-#define DRIVE_LEAST    (0.98447)
+#define DRIVE_LEAST    (1.0)      // voices notes §8: linear at 0, as the instrument's path is
 #define DRIVE_TRIM     (0.012)
 
 static double drive_word(double overdrive) {
@@ -511,17 +511,30 @@ static void render_sub_block(tNl3Voices * v, const tNl3Sound * sound, double cut
             for (int o = 0; o < NL3_OSCS; o++) {
                 const tNl3OscSound * os = &sound->osc[o];
 
-                if (os->shape == eNl3OscSaw) {
-                    // osc notes §5-7: the saw takes its phase advanced
+                if (os->shape == eNl3OscSine) {   // osc notes §10
+                    if (v->fixedPoint) {
+                        tNl3Word p = nl3_phase_advance((tNl3Word)llround(vc->phase[o] * NL3_Q23), incrementWord[o]);
+
+                        vc->phase[o] = nl3_word_value(p);
+                        wave[o]      = nl3_word_value(nl3_sine_fixed(p));
+                    } else {
+                        vc->phase[o] += vc->increment[o];
+                        vc->phase[o] -= (vc->phase[o] >= 1.0) ? 2.0 : 0.0;
+                        wave[o]       = nl3_sine(vc->phase[o]);
+                    }
+                } else if ((os->shape == eNl3OscSaw) || (os->shape == eNl3OscTriangle)) {
+                    // osc notes §5-7, §9: the saw and the triangle take their phase advanced
+                    bool tri = os->shape == eNl3OscTriangle;
+
                     if (v->fixedPoint && !v->clean) {
                         tNl3Word p = nl3_phase_advance((tNl3Word)llround(vc->phase[o] * NL3_Q23), incrementWord[o]);
 
                         vc->phase[o] = nl3_word_value(p);
-                        wave[o]      = nl3_word_value(nl3_saw_fixed(&v->steps, p, incrementWord[o]));
+                        wave[o]      = nl3_word_value(tri ? nl3_triangle_fixed(&v->steps, p, incrementWord[o]) : nl3_saw_fixed(&v->steps, p, incrementWord[o]));
                     } else {
                         vc->phase[o] += vc->increment[o];
                         vc->phase[o] -= (vc->phase[o] >= 1.0) ? 2.0 : 0.0;
-                        wave[o]       = nl3_saw(&v->steps, vc->phase[o], vc->increment[o], v->clean);
+                        wave[o]       = tri ? nl3_triangle(&v->steps, vc->phase[o], vc->increment[o]) : nl3_saw(&v->steps, vc->phase[o], vc->increment[o], v->clean);
                     }
                 } else {
                     wave[o]       = nl3_osc_sample(v->edge, os->shape, vc->phase[o], stretch[o], fmin(2.0, fmax(0.0, width[o])));

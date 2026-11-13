@@ -29,6 +29,8 @@
 #define SN2_OSCS            (3)
 #define SN2_CLEAN_TAPS      (48)   // notes §17: the low-pass back from four times the rate
 #define SN2_MOD_ENVS        (2)    // Env 2 and 3
+#define SN2_LEVEL_SLOTS     (6)    // Osc 1-3, ring 1x3 and 2x3, noise
+#define SN2_LEVEL_ROUTES    (5)
 #define SN2_LFOS            (2)
 #define SN2_MAX_VOICES      (32)
 #define SN2_VOLUME_UNITY    (83.2) // voices notes §14: the Volume that plays at unity
@@ -53,6 +55,7 @@ typedef struct {
     tSn2Filter filter;
     double     lfoPhase[SN2_LFOS]; // 0..1
     double     lfoHeld[SN2_LFOS];  // sample and hold
+    double     lfoValue[SN2_LFOS]; // this sub-block's, for the level routes
     double     lfoAge;             // seconds since the note began
     double     lfoSemis[SN2_OSCS];
     uint64_t   started;            // for stealing the oldest
@@ -79,7 +82,6 @@ typedef struct {
     double       level;              // 0..1
     double       bendRange;          // semitones at full bend, negative inverts the wheel
     double       wheelPitch;         // semitones at full wheel
-    double       wheelLevel;         // added to level at full wheel
     double       lfoPitch[SN2_LFOS]; // semitones at full swing
     double       lfoWidth[SN2_LFOS]; // in width units
 } tSn2OscSound;
@@ -87,57 +89,64 @@ typedef struct {
 // Env 2 or 3, in the panel's units
 typedef struct {
     double attack, decay, sustain, release, velocity, amount;
+    double sustainTime, sustainRate;   // 0..127 (envelope notes §8)
 } tSn2ModEnv;
 
 // The sound as the voices play it, in the panel's units (notes §3)
 typedef struct {
     tSn2OscSound osc[SN2_OSCS];
-    double       cutoff;                                      // 0..127
-    double       resonance;                                   // 0..127
-    double       tracking;                                    // 0..1
-    double       overdrive;                                   // 0..127
-    double       normalise;                                   // 0..127, Q Normalise
-    bool         oscsFree;                                    // Ensemble: phases run on between notes
-    double       glideTime;                                   // 0..127
-    int          glideStyle;                                  // 0 Portamento, 1 Glissando
-    int          glideCurve;                                  // 0 Linear, 1 Exponential
-    int          glideType;                                   // 0 Normal, 1 Auto, then the fixed intervals
-    double       ampVelocity;                                 // 0..127, 64 none
+    double       cutoff;                                        // 0..127
+    double       resonance;                                     // 0..127
+    double       tracking;                                      // 0..1
+    double       overdrive;                                     // 0..127
+    double       normalise;                                     // 0..127, Q Normalise
+    bool         oscsFree;                                      // Ensemble: phases run on between notes
+    double       glideTime;                                     // 0..127
+    int          glideStyle;                                    // 0 Portamento, 1 Glissando
+    int          glideCurve;                                    // 0 Linear, 1 Exponential
+    int          glideType;                                     // 0 Normal, 1 Auto, then the fixed intervals
+    double       ampVelocity;                                   // 0..127, 64 none
     uint32_t     filterType, filterSlope;
-    double       ampAttack, ampDecay, ampSustain, ampRelease; // 0..127 (envelope notes)
+    double       ampAttack, ampDecay, ampSustain, ampRelease;   // 0..127 (envelope notes)
+    double       ampSustainTime, ampSustainRate;                // 0..127 (envelope notes §8)
     tSn2ModEnv   env[SN2_MOD_ENVS];
-    double       noiseLevel, noiseSoften;                     // 0..1, 0..127
-    double       ring13, ring23;                              // 0..1
-    bool         fm13, fm23, fmNoise;                         // notes §18: each turns its level into FM depth on Osc 3
-    double       bend;                                        // -1..1
-    double       wheel;                                       // 0..1
-    double       wheelCutoff, wheelResonance;                 // -64..63
-    bool         mono;                                        // one voice, last note priority
-    bool         pedal;                                       // the sustain pedal is down
+    double       noiseLevel, noiseSoften;                       // 0..1, 0..127
+    double       ring13, ring23;                                // 0..1
+    bool         fm13, fm23, fmNoise;                           // notes §18: each turns its level into FM depth on Osc 3
+    double       bend;                                          // -1..1
+    double       wheel;                                         // 0..1
+    double       wheelCutoff, wheelResonance;                   // -64..63
+    bool         mono;                                          // one voice, last note priority
+    bool         pedal;                                         // the sustain pedal is down
+    double       levelRoute[SN2_LEVEL_SLOTS][SN2_LEVEL_ROUTES]; // notes §19: full level per unit of Wheel, Env 2, Env 3, LFO 1, LFO 2
+    bool         oscsAround;                                    // voices notes §20: the oscillators skip the filter
+    bool         oneShot;                                       // envelope notes §9: the key's release is ignored
     tSn2LfoSound lfo[SN2_LFOS];
-    double       lfoCutoff[SN2_LFOS];                         // semitones at full swing
-    bool         legato;                                      // mono: a change of note does not restart the envelopes
+    double       lfoCutoff[SN2_LFOS];                           // semitones at full swing
+    bool         legato;                                        // mono: a change of note does not restart the envelopes
 } tSn2Sound;
 
 // One oscillator's sound from normalised parameters
-#define OSC_SOUND(values, shape_, width_, soften_, level_, octave_, semitone_, fine_)     { \
-       .shape     = (tSn2OscShape)lround((values)[shape_] * 2.0),                           \
-       .octaves   = ((values)[octave_] * 4.0) - 2.0,                                        \
-       .semitones = ((values)[semitone_] * 24.0) - 12.0,                                    \
-       .cents     = ((values)[fine_] * 127.0) - 64.0,                                       \
-       .width     = (values)[width_] * 127.0 / 64.0,                                        \
-       .soften    = (values)[soften_] * 127.0,                                              \
-       .level     = (values)[level_] * 127.0 / 128.0,                                       \
+#define OSC_SOUND(values, shape_, width_, soften_, level_, octave_, semitone_, fine_)                   { \
+       .shape     = (tSn2OscShape)lround((values)[shape_] * 2.0),                                         \
+       .octaves   = ((values)[octave_] * 4.0) - 2.0,                                                      \
+       .semitones = ((values)[semitone_] * 24.0) - 12.0,                                                  \
+       .cents     = ((values)[fine_] * 127.0) - 64.0,                                                     \
+       .width     = (values)[width_] * 127.0 / 64.0,                                                      \
+       .soften    = (values)[soften_] * 127.0,                                                            \
+       .level     = (values)[level_] * 127.0 / 128.0,                                                     \
 }
 
 // A modulation envelope from normalised parameters
-#define MOD_ENV_SOUND(values, attack_, decay_, sustain_, release_, velocity_, amount_)    { \
-       .attack   = (values)[attack_] * 127.0,                                               \
-       .decay    = (values)[decay_] * 127.0,                                                \
-       .sustain  = (values)[sustain_] * 127.0,                                              \
-       .release  = (values)[release_] * 127.0,                                              \
-       .velocity = (values)[velocity_] * 127.0,                                             \
-       .amount   = ((values)[amount_] * 127.0) - 64.0,                                      \
+#define MOD_ENV_SOUND(values, attack_, decay_, sustain_, release_, velocity_, amount_, time_, rate_)    { \
+       .attack      = (values)[attack_] * 127.0,                                                          \
+       .decay       = (values)[decay_] * 127.0,                                                           \
+       .sustain     = (values)[sustain_] * 127.0,                                                         \
+       .release     = (values)[release_] * 127.0,                                                         \
+       .velocity    = (values)[velocity_] * 127.0,                                                        \
+       .amount      = ((values)[amount_] * 127.0) - 64.0,                                                 \
+       .sustainTime = (values)[time_] * 127.0,                                                            \
+       .sustainRate = (values)[rate_] * 127.0,                                                            \
 }
 
 // notes §5: a control gliding to its new value as the instrument's Smooth On does

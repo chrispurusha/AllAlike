@@ -14,7 +14,8 @@
 - `Docs/code-notes/` came across from TiAlike with the code: rewrite each as its file changes
 - Panel: named drop-downs for modulation sources and destinations, waves and other numbered choices
 - Resampler: uses SynthLib `audio/synthlibResample.c` for now; to merge with GenBridge's (SynthLib TODO)
-- Envelopes: Sustain Time and Rate on the amp envelope, measured: Time 127 holds, a lower Time ends in Release; Rate 64 and up is flat, below 64 falls steadily, 10 dB/s at 50, 108 at 34, doubling about every 4.7 steps. Time's curve still to measure. Env 2 and 3, then filter and pitch routes
+- Envelopes: Env 2 and 3 Sustain Time and Rate are built on the amplifier's law, not checked on their own; then filter and pitch routes
+- Release 0 ends about 4 ms later than the instrument's
 - Arithmetic option, FLOAT or FIXED per instance, as TiAlike: filter first, as its words are known
 - Effects: comb; Pan Type; phaser type; chorus feedback law
 - Effects orders in Performance mode, if performances are ever built: on the instrument a program ignores its order
@@ -39,5 +40,10 @@
 - Panel dials for LFO routes to pitch and width
 - Link: the SysEx ID from the identity reply (hardware notes §4, built 2026-11-08): check on the instrument that choosing the port sets it
 - Outliers after the LFOs: Vanilla group -3 dB, TB1, BubbleArp, China Cymbal, Ride 2, A Syncy Feeling, RainPicks, Timpani
-- FM built 2026-11-12 (voices notes §18). Still out: Elect Hi Tom 2 and Ride 2 (square modulators at 111 and 66) are no closer with FM on - look at what else they use; the 1x3/2x3 levels' own modulation (ModKnob ... Mix1x3) not applied to the depth yet
-- Amp envelope Sustain Time: with Sustain 127 and Sustain Time 0 or 27 the instrument decays to silence (FM GarageSnare, FM 909 Kick and other drums) where ours holds - the law to measure
+- FM built 2026-11-12 (voices notes §18). Still out: Elect Hi Tom 2 and Ride 2 (square modulators at 111 and 66) are no closer with FM on - look at what else they use; look at whether the level routes (voices notes §19) scale the depth as the level does
+- Arpeggiator: 58 of the backup's programs use it and play without it here; the ranking lists them apart
+- Mixer level routes (voices notes §19): checked on Env 2 to Osc 1 only; the LFO and Env 3 routes and the ring and noise slots take the same law untested
+- Filter Oscs Bypass: whether the ring products go round the filter with the oscillators
+- Self Osc (6:85): Resonance 127, Q Normalise 127, a short Env 2 noise burst - ours starts self-oscillating from 33 dB lower and reaches full 0.3 s late; the filter words match ours, the cause is elsewhere
+- Free LFO restart: whether it restarts under held notes too, and S+H's start
+

@@ -15,3 +15,8 @@ Finished work not yet checked against the instrument.
 - GLOBAL page: Limit, Mode, Trigger, Effects, Delay, Reverb and Hardware all fit
 - Presets > Read from Hardware in a host: the Reading count, the confirm, and the instrument's data carrying on after it
 - Anti-alias On and Off on a bright high Saw and Square with Soften up, the Sort menu with Prev/Next, and a note held across a preset change (it stops, no clip lamp) (2026-11-12): in a host
+- Sustain Time and Sustain Rate on all three envelopes (new Time and Rate dials on the ENVELOPES page): drums with a short Time now die away
+- One Shot (AMP ENV "1 Shot"): a short note plays its whole attack and decay, then releases; a held one releases after the decay
+- LEVELS page (Env 2, Env 3, LFO 1, LFO 2 to each mixer level) and the three new WHEEL LEVEL dials: WineGlass, Down Osc, Noise Sweep 3-6, Gated Pad now sound
+- Filter "Osc Byp": oscillators heard unfiltered with the filter closed, about 2 dB below an open filter; the Disco and 909 Toms
+- Free-running LFOs start the same way on every note from silence (Whiteout)

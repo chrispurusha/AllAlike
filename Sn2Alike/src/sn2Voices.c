@@ -49,9 +49,12 @@ void sn2_voices_init(tSn2Voices * v) {
     sn2_edge_build(v->edge);
 }
 
-#define CLEAN_FACTOR    (4)      // notes §17
-#define FM_DEPTH        (5.2e-3) // notes §18: the change in Osc 3's phase step, a fraction of it, per level squared per unit of modulator
-#define FM_SAW          (0.82)   // a saw modulates 0.82 as hard, against the square the depth is measured with
+#define CLEAN_FACTOR      (4)      // notes §17
+#define BYPASS_GAIN       (0.249)  // notes §20: 0.771 of the open filter's level
+#define FREE_LFO_START    (0.5)    // notes §15: a free LFO restarts half a cycle in when a note finds no voice sounding
+#define LFO_TO_LEVEL      (0.5)    // notes §19: an LFO moves a level half as far as the wheel
+#define FM_DEPTH          (5.2e-3) // notes §18: the change in Osc 3's phase step, a fraction of it, per level squared per unit of modulator
+#define FM_SAW            (0.82)   // a saw modulates 0.82 as hard, against the square the depth is measured with
 
 static double gCleanFir[SN2_CLEAN_TAPS];   // a windowed sinc, built once - the same for every instance
 
@@ -175,7 +178,9 @@ static void lfo_advance(tSn2Voices * v, tSn2Voice * vc, const tSn2Sound * sound,
             vc->lfoHeld[l] = next_random(&vc->noiseSeed);
         }
         vc->lfoPhase[l] = next;
-        double               value = (lfo_wave(lfo->shape, next, vc->lfoHeld[l]) * fade) + lfo->offset;
+        double               value = (lfo_wave(lfo->shape, next, vc->lfoHeld[l]) + lfo->offset) * fade;   // notes §15: the offset fades in too
+
+        vc->lfoValue[l] = value;
 
         *cutoff        += value * sound->lfoCutoff[l];
 
@@ -269,9 +274,20 @@ static void mono_play(tSn2Voices * v, const tSn2Sound * sound, uint8_t note, flo
 }
 
 void sn2_voices_note_on(tSn2Voices * v, const tSn2Sound * sound, uint8_t note, float velocity) {
-    tSn2Voice * pick = NULL;
+    tSn2Voice * pick   = NULL;
+    bool        silent = true;
 
     v->pedalled[note & 0x7F] = false;
+
+    for (uint32_t i = 0; i < SN2_MAX_VOICES; i++) {
+        silent = silent && !v->voice[i].active;
+    }
+
+    for (int l = 0; (l < SN2_LFOS) && silent; l++) {
+        static const double kFreeStart[4] = {0.0, 0.5, 0.75, 0.0};   // notes §15: square, saw, triangle, S+H
+
+        v->lfoFree[l] = kFreeStart[sound->lfo[l].shape & 3];
+    }
 
     if (sound->mono) {
         held_remove(v, note);
@@ -344,6 +360,8 @@ void sn2_voices_note_off(tSn2Voices * v, const tSn2Sound * sound, uint8_t note) 
 }
 
 static void release_note(tSn2Voices * v, const tSn2Sound * sound, uint8_t note) {
+    bool letGo = !sound->oneShot;   // sn2Envelope notes §9
+
     if (sound->mono) {
         held_remove(v, note);
 
@@ -360,10 +378,13 @@ static void release_note(tSn2Voices * v, const tSn2Sound * sound, uint8_t note) 
     for (uint32_t i = 0; i < SN2_MAX_VOICES; i++) {
         if (v->voice[i].active && (v->voice[i].note == note)) {
             v->voice[i].gate = false;
-            sn2_env_gate(&v->voice[i].amp, false);
 
-            for (int e = 0; e < SN2_MOD_ENVS; e++) {
-                sn2_env_gate(&v->voice[i].env[e], false);
+            if (letGo) {
+                sn2_env_gate(&v->voice[i].amp, false);
+
+                for (int e = 0; e < SN2_MOD_ENVS; e++) {
+                    sn2_env_gate(&v->voice[i].env[e], false);
+                }
             }
         }
     }
@@ -464,7 +485,7 @@ static void render_sub_block(tSn2Voices * v, const tSn2Sound * sound, double cut
     double corner = fmin(1.0, 2.0 * M_PI * NOISE_CORNER_HZ * pow(2.0, sound->noiseSoften / 15.0) / v->rate);
 
     for (uint32_t i = 0; i < SN2_MAX_VOICES; i++) {
-        tSn2Voice *      vc    = &v->voice[i];
+        tSn2Voice *      vc                       = &v->voice[i];
 
         if (!vc->active) {
             continue;
@@ -479,11 +500,11 @@ static void render_sub_block(tSn2Voices * v, const tSn2Sound * sound, double cut
         }
         set_pitch(vc, sound, v->rate);
         double           stretch[SN2_OSCS];
-        double           level = velocity_level(vc->velocity, sound->ampVelocity);
+        double           level                    = velocity_level(vc->velocity, sound->ampVelocity);
         tSn2FilterCoeffs coeffs;
 
         // voices notes §9
-        double           moved = (((double)vc->note - 60.0) * sound->tracking) + (sound->wheel * sound->wheelCutoff * ENV_TO_CUTOFF) + lfoCut;
+        double           moved                    = (((double)vc->note - 60.0) * sound->tracking) + (sound->wheel * sound->wheelCutoff * ENV_TO_CUTOFF) + lfoCut;
 
         for (int e = 0; e < SN2_MOD_ENVS; e++) {
             moved += vc->env[e].level * sound->env[e].amount * ENV_TO_CUTOFF * velocity_level(vc->velocity, sound->env[e].velocity);
@@ -491,18 +512,37 @@ static void render_sub_block(tSn2Voices * v, const tSn2Sound * sound, double cut
 
         sn2_filter_coeffs(sound->filterType, sound->filterSlope, cutoff + moved, fmin(127.0, fmax(0.0, res + (sound->wheel * sound->wheelResonance))), sound->normalise, &coeffs);
 
+        // notes §19: each mixer level moved by the wheel, Env 2, Env 3 and the LFOs
+        const double     source[SN2_LEVEL_ROUTES] = {sound->wheel, vc->env[0].level * velocity_level(vc->velocity, sound->env[0].velocity), vc->env[1].level * velocity_level(vc->velocity, sound->env[1].velocity), LFO_TO_LEVEL * vc->lfoValue[0], LFO_TO_LEVEL * vc->lfoValue[1]};
+        const double     base[SN2_LEVEL_SLOTS]    = {sound->osc[0].level, sound->osc[1].level, sound->osc[2].level, sound->ring13, sound->ring23, sound->noiseLevel};
+        double           slot[SN2_LEVEL_SLOTS];
+
+        for (int s = 0; s < SN2_LEVEL_SLOTS; s++) {
+            slot[s] = base[s];
+
+            for (int r = 0; r < SN2_LEVEL_ROUTES; r++) {
+                slot[s] += source[r] * sound->levelRoute[s][r];
+            }
+
+            slot[s] = fmin(1.0, fmax(0.0, slot[s]));
+        }
+
         double           oscLevel[SN2_OSCS];
 
         for (int o = 0; o < SN2_OSCS; o++) {
             stretch[o]  = sn2_osc_stretch(vc->increment[o], sound->osc[o].soften);
-            oscLevel[o] = fmin(1.0, fmax(0.0, sound->osc[o].level + (sound->wheel * sound->osc[o].wheelLevel)));
+            oscLevel[o] = slot[o];
         }
 
+        double           ring13                   = slot[3];
+        double           ring23                   = slot[4];
+        double           noiseLevel               = slot[5];
+
         // notes §18: FM depth from each slot's level, squared; a slot set to FM is not heard as ring or noise
-        double           fmD13 = sound->fm13 ? (FM_DEPTH * pow(sound->ring13 * 128.0, 2.0)) : 0.0;
-        double           fmD23 = sound->fm23 ? (FM_DEPTH * pow(sound->ring23 * 128.0, 2.0)) : 0.0;
-        double           fmDN  = sound->fmNoise ? (FM_DEPTH * pow(sound->noiseLevel * 128.0, 2.0)) : 0.0;
-        bool             fm    = (fmD13 != 0.0) || (fmD23 != 0.0) || (fmDN != 0.0);
+        double           fmD13                    = sound->fm13 ? (FM_DEPTH * pow(ring13 * 128.0, 2.0)) : 0.0;
+        double           fmD23                    = sound->fm23 ? (FM_DEPTH * pow(ring23 * 128.0, 2.0)) : 0.0;
+        double           fmDN                     = sound->fmNoise ? (FM_DEPTH * pow(noiseLevel * 128.0, 2.0)) : 0.0;
+        bool             fm                       = (fmD13 != 0.0) || (fmD23 != 0.0) || (fmDN != 0.0);
 
         fmD13 *= (sound->osc[0].shape == eTiOscSquare) ? 1.0 : FM_SAW;
         fmD23 *= (sound->osc[1].shape == eTiOscSquare) ? 1.0 : FM_SAW;
@@ -567,11 +607,17 @@ static void render_sub_block(tSn2Voices * v, const tSn2Sound * sound, double cut
                 mix += wave[o] * oscLevel[o];
             }
 
-            vc->cleanAt = (vc->cleanAt + CLEAN_FACTOR) % SN2_CLEAN_TAPS;
-            mix        += RING_GAIN * wave[2] * ((sound->fm13 ? 0.0 : (wave[0] * sound->ring13)) + (sound->fm23 ? 0.0 : (wave[1] * sound->ring23)));
-            mix        += sound->fmNoise ? 0.0 : (noiseNow * sound->noiseLevel);
+            double around = 0.0;   // notes §20: Filter OSCs Bypass
 
-            double y = sn2_filter_process(&vc->filter, &coeffs, sn2_filter_drive(mix * DRIVE_IN, drive) * FILTER_IN * coeffs.gain);
+            if (sound->oscsAround) {
+                around = mix;
+                mix    = 0.0;
+            }
+            vc->cleanAt = (vc->cleanAt + CLEAN_FACTOR) % SN2_CLEAN_TAPS;
+            mix        += RING_GAIN * wave[2] * ((sound->fm13 ? 0.0 : (wave[0] * ring13)) + (sound->fm23 ? 0.0 : (wave[1] * ring23)));
+            mix        += sound->fmNoise ? 0.0 : (noiseNow * noiseLevel);
+
+            double y      = sn2_filter_process(&vc->filter, &coeffs, sn2_filter_drive(mix * DRIVE_IN, drive) * FILTER_IN * coeffs.gain) + (around * BYPASS_GAIN);
 
             out[f]     += (float)(y * sn2_env_next(&vc->amp, amp) * level * gain);
         }
@@ -598,13 +644,13 @@ void sn2_voices_render(tSn2Voices * v, const tSn2Sound * sound, float * out, uin
     smooth_toward(&v->resonance, sound->resonance, v->rate);
     tSn2EnvShape amp;
 
-    sn2_env_shape(sound->ampAttack, sound->ampDecay, sound->ampSustain, sound->ampRelease, true, v->rate, &amp);
+    sn2_env_shape(sound->ampAttack, sound->ampDecay, sound->ampSustain, sound->ampRelease, sound->oneShot ? -1.0 : sound->ampSustainTime, sound->ampSustainRate, true, v->rate, &amp);
     tSn2EnvShape mods[SN2_MOD_ENVS];
 
     for (int e = 0; e < SN2_MOD_ENVS; e++) {
         const tSn2ModEnv * m = &sound->env[e];
 
-        sn2_env_shape(m->attack, m->decay, m->sustain, m->release, false, v->rate, &mods[e]);
+        sn2_env_shape(m->attack, m->decay, m->sustain, m->release, sound->oneShot ? -1.0 : m->sustainTime, m->sustainRate, false, v->rate, &mods[e]);
     }
 
     // notes §4: the coefficients every sub-block, the same for every voice until keyfollow and envelopes come

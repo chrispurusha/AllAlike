@@ -1,7 +1,8 @@
 # nl3Osc.c - the oscillator
 
-The Saw is the Nord Lead 3's own (§5-7). Square and Double Saw (§1-4) are the placeholder engine's, inherited from
-Sn2Alike, and stand in for Pulse until it is built; Triangle, Sine, Noise and Dual Sine play as Saw for now.
+The Saw (§5-7), Triangle (§9) and Sine (§10) are the Nord Lead 3's own. Square and Double Saw (§1-4) are the
+placeholder engine's, inherited from Sn2Alike, and stand in for Pulse until it is built; Noise and Dual Sine play as
+Saw for now.
 
 ## 1. Shape
 Phase runs -1..1. A saw is that ramp multiplied by a curve (§4) of the distance from the jump, which gives the edge its band limit and its ripple. A square is two such saws subtracted, the second offset by Width, so Width 64 is square and 0 silence. Double Saw adds them, the offset counted from Width 64. The curve stops at point 1007, which is the level of the body of the wave.
@@ -62,3 +63,27 @@ increment = (0x3D376D / 2²³) · 2^((note − 64)/12 − 5), within 5·10⁻⁷
 
 Not yet known: the resolution for fractions of a semitone (assumed the same formula), and whether the tuning word
 follows the instrument's Master Tune.
+
+## 9. The Triangle
+The same phase as the Saw, -1..1 a cycle and advanced before use. The wave is |p| - |p - 1|, with p - 1 wrapped back
+into -1..1: +1 at phase -1, -1 at phase 0, +1 again at 1. The corner nearer the phase is band-limited: its distance,
+counted in table points as the Saw's jump is (128 a sample, through the same reciprocal of the increment, §6), picks
+a correction that is multiplied by the increment and taken away, negated at the valley. Then the whole is halved and
+increment squared x 0x0D5F85 is added.
+- The correction table is four times the integral, from each point to the end, of what remains of the Saw's jump
+  (§5): a band-limited corner from a band-limited step. 511 of its 512 words come out within 1 LSB of the
+  instrument's; the first, the corner itself, is the instrument's word 0x3750DA.
+- At the valley the index is formed as a negative number and shifted, which rounds it up; at the peaks it rounds
+  down. Without that the fixed-point wave is off by up to 1000 LSB beside the valley.
+- Checked sample by sample at A4: the fixed-point wave is exact on 990 of 1052 samples and within 10 LSB on all;
+  floating point within 0.0001. A rendered note matches the instrument's harmonics to 0.1 dB up to the 25th, and its
+  level beside the Saw's to 0.01 dB.
+- Anti-alias On uses this same wave: a triangle's aliases are already low.
+
+## 10. The Sine
+-cos(pi phase) / 2, as an odd polynomial in u = 2|phase| - 1: u c1 + (u^3 c3 + u^5 c5) / 2, with c1 = 0x648035
+(pi/4 to 0.03%), c3 = -0x522B2B, c5 = 0x092AA9. Its third harmonic sits at -107 dB, the fifth at -82, the seventh at
+-101 - the instrument's own impurity, kept. Each power is truncated to a word and the last sum rounded; the
+fixed-point wave is exact on every sample checked (1111 at A4), floating point within 1 LSB.
+Not built: the Sine's feedback - each sample moves the phase by 0.69 x a per-oscillator amount x (an earlier output -
+this one). That amount is 0 in the Init program; which control sets it, and which earlier sample, are still to read.
