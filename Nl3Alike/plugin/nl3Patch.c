@@ -420,7 +420,7 @@ static bool    gPresetsRead;
 static time_t  gPresetsModified;
 
 void nl3_preset_label(int number, char * out, size_t len) {
-    snprintf(out, len, "%d:%03d", 1 + ((number - 1) / NL3_BANK_SIZE), 1 + ((number - 1) % NL3_BANK_SIZE));   // as the instrument shows them
+    snprintf(out, len, "%d:%d", 1 + ((number - 1) / NL3_BANK_SIZE), 1 + ((number - 1) % NL3_BANK_SIZE));   // bank:program from 1, as the instrument shows them
 }
 
 const char * nl3_presets_path(void) {

@@ -24,7 +24,7 @@ long-used instrument's) have the same layout. Checked on a whole instrument's 10
 over themselves.
 
 ## 5. Presets
-1:001 to 8:128, as the instrument's eight banks, in one file read when it changes. Other instances' stores are kept.
+1:1 to 8:128, as the instrument's eight banks, in one file read when it changes. Other instances' stores are kept.
 Number 0 addresses Slot A.
 
 ## 6. Importing

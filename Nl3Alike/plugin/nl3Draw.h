@@ -98,7 +98,7 @@ typedef struct {
 void nl3_draw_set_host(const tNl3PatchHost * host);    // static storage
 void nl3_draw_set_user(void * user);
 void nl3_draw_set_patch(const char * path, int index); // this instance's file and its place in it; "" none
-void nl3_draw_set_preset(int number, bool edited);     // shown as A012, A012* once edited; 0 none
+void nl3_draw_set_preset(int number, bool edited);     // shown as 1:12, 1:12* once edited; 0 none
 
 void nl3_draw_open_patch(void);
 bool nl3_draw_has_patch_file(void);                  // a file of one Single, which Save may overwrite

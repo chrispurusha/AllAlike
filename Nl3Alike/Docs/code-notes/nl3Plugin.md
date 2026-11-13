@@ -35,7 +35,7 @@ A preset shows as `A012*` once a parameter it carries or its name differs from w
 on each editor frame; the presets file itself at most once a second.
 
 ## 8. Starting up and changing sound
-A new instance plays 1:001, whichever comes first of its first audio block and its editor's first frame; a project's state cancels that, an offline render plays what it is given, and with no presets stored it stays on Init.
+A new instance plays 1:1, whichever comes first of its first audio block and its editor's first frame; a project's state cancels that, an offline render plays what it is given, and with no presets stored it stays on Init.
 
 A program change selects a stored sound, with Bank Select picking the bank. If that sound is already loaded nothing happens, so edits survive a sequencer resending it. Otherwise the output fades down (`synthlibSwapFade`), the sound changes at the top of a block once it is silent, and the output comes back. Loads from the panel use the same fade.
 

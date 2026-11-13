@@ -1,6 +1,6 @@
 # AllAlike
 
-Reproductions of synthesizers, and a sample player, as VST3 and Audio Unit plug-ins, each built on
+Reproductions of synthesizers and their effects, and a sample player, as VST3 and Audio Unit plug-ins, each built on
 [SynthLib](https://github.com/chrispurusha/SynthLib).
 
 | Plug-in | What it is | State |
@@ -9,6 +9,7 @@ Reproductions of synthesizers, and a sample player, as VST3 and Audio Unit plug-
 | [TiAlike](TiAlike/) | A reproduction inspired by the Access Virus TI's single-patch engine | Work in progress |
 | [Sn2Alike](Sn2Alike/) | A reproduction inspired by the Novation Supernova II | Work in progress |
 | [Nl3Alike](Nl3Alike/) | A reproduction inspired by the Clavia Nord Lead 3 | Work in progress: the filter (LP/HP 12/24 dB) is done |
+| [ModAlike](ModAlike/) | A Phaser, Chorus and Flanger as an effect, with stereo modes and Mix | Work in progress: plays, with its panel; not yet tried in a host |
 | [OneShot](OneShot/) | A one-sample player: one drum hit per instance, with an envelope | Work in progress: plays, browses its folder |
 
 What each one is missing, and what needs more work: [Docs/feature-status.md](Docs/feature-status.md).

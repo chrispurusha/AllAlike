@@ -251,7 +251,7 @@ static void choose_single(void) {
 
     for (int i = 0; i < gSingleCount; i++) {
         nl3_patch_name(gSingles[i], name);
-        snprintf(gSingleNames[i], sizeof(gSingleNames[0]), "%03d %s", (i % NL3_BANK_SIZE) + 1, name);
+        snprintf(gSingleNames[i], sizeof(gSingleNames[0]), "%d %s", (i % NL3_BANK_SIZE) + 1, name);
         gSingleItems[i] = (tBankBrowserItem){
             gSingleNames[i], 0, (uint32_t)((i / NL3_BANK_SIZE) + 1), (uint32_t)((i % NL3_BANK_SIZE) + 1)
         };
@@ -494,7 +494,7 @@ static void on_store_slot(bool confirmed, uint32_t bank1Indexed, uint32_t locati
 
 void nl3_draw_load_preset_browser(void) {
     fill_slot_items();
-    open_bank_browser("Load Preset", "1:001-8:128, as the instrument's eight banks of 128.", "Load", gSlotItems, NL3_PRESETS, kCategoryNames, CATEGORY_COUNT, on_load_slot);
+    open_bank_browser("Load Preset", "1:1-8:128, as the instrument's eight banks of 128.", "Load", gSlotItems, NL3_PRESETS, kCategoryNames, CATEGORY_COUNT, on_load_slot);
 }
 
 void nl3_draw_store_preset_browser(void) {
@@ -553,7 +553,7 @@ static bool gReading;
 static char gReadStatus[64];
 static int  gReadCount;
 
-#define READ_EXPECTED    (1424)   // what the instrument holds
+#define READ_EXPECTED    (NL3_PRESETS)   // what the instrument holds: 8 banks of 128 (checked on it 2026-11-13)
 
 static void draw_read_progress(void);
 

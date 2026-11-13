@@ -8,8 +8,8 @@ G2AM="${G2AM_DIR:-$HERE/../../G2AlikeMaths}"
 "$SL/do-build" >/dev/null
 make -C "$G2AM" >/dev/null
 OUT="$(mktemp -d)/maTest"
-clang -O2 -std=gnu11 -Wall -Wextra -I"$SL/plugin" -I"$SL/src" -I"$G2AM/include" -I"$SL/ThirdParty/glfw/include" \
-      "$HERE/tools/maTest.c" "$HERE/plugin/maPlugin.c" "$G2AM/build/libg2alikemaths.a" "$SL/build/libSynthLib.a" \
+clang -O2 -std=gnu11 -Wall -Wextra -I"$SL/plugin" -I"$SL/src" -I"$G2AM/include" -I"$SL/ThirdParty/glfw/include" -I"$SL/ThirdParty/freetype/include" -I"$HERE/plugin" \
+      "$HERE/tools/maTest.c" "$HERE/plugin/maPlugin.c" "$HERE/plugin/maDraw.c" "$HERE/plugin/maMenu.c" "$HERE/plugin/maPrefs.c" "$G2AM/build/libg2alikemaths.a" "$SL/build/libSynthLib.a" \
       "$SL/build/libfreetype.a" -framework CoreFoundation -framework CoreAudio -framework CoreMIDI -framework Cocoa \
-      -framework Metal -framework QuartzCore -framework Accelerate -o "$OUT"
+      -framework Metal -framework QuartzCore -framework Accelerate -lc++ -o "$OUT"
 "$OUT"

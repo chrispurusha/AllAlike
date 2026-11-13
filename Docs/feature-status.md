@@ -181,3 +181,13 @@ interpolator (images and aliases near -88 dB); AHR or ADSR envelope with curves 
 Start with snapping to zero crossings; tune, key tracking, velocity, pan and volume (smoothed); One Shot / Gate,
 Poly / Mono; Reset. **Missing**: a category browser (Snare, Closed HH...) with search; OGG; reverse; keeping the sample
 inside the project. **Built, not yet checked**: everything in a real host - see `OneShot/Docs/to-test.md`.
+
+## ModAlike
+
+Started 2026-11-13: a Phaser, Chorus and Flanger as an effect, played by an engine library. **Built:** all three, one
+chosen at a time, each keeping its settings; a module a side with their LFOs in step; Stereo Linked / Wide (LFO
+offset) / Mid-Side; Chorus Input Stereo (a Chorus a side) or Mono; Mix with the dry path aligned; Output; latency
+reported (31 samples below 88.2 kHz, none above); Engine Rate (96 kHz or the host's, no latency), Maths Float/Fixed,
+output Stage, Anti-alias at the host rate; the panel, in the Alikes' look; `auval` passes and `tools/do-matest` checks
+levels, movement, stereo, Mid/Side, Mix and latency. **Missing**: dial values in their units; a click-free effect
+switch. **Built, not yet checked**: everything in a real host - see `ModAlike/Docs/to-test.md`.

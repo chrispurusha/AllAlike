@@ -19,5 +19,5 @@ Work that spans the plug-ins. One line per item; each product's own list is in i
 
 ## New plug-ins
 
-- ModAlike: a standalone effect plug-in with G2Alike's Phaser, Chorus and Flanger, one chosen on the panel, presented as the other Alikes
+- ModAlike: started 2026-11-13 - its own list is ModAlike/Docs/todo.md
 

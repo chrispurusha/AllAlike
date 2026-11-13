@@ -203,7 +203,7 @@ static void action_panel_help(int index) {
                "A work in progress: the filter (low and high pass at 12 and 24 dB) and the Saw are the instrument's own; the rest "
                "plays through an interim engine for now. Maths (GLOBAL page) chooses floating point or the instrument's "
                "fixed-point arithmetic.\n\n"
-               "Patches: < Prev and Next > step through the presets, 1:001-8:128, in the order the Sort menu sets; Load... opens a .syx or .mid file of "
+               "Patches: < Prev and Next > step through the presets, 1:1-8:128, in the order the Sort menu sets; Load... opens a .syx or .mid file of "
                "Singles, choosing one when it holds several. The name beside them edits on a click. A Single keeps "
                "every byte it came with, though only what is built so far plays.\n\n"
                "Link (GLOBAL page): the Nord Lead 3 follows this sound. Play it from the host on the instrument's own MIDI channel: Link sends no notes, so a key sounds once. Choose its output in the MIDI menu; Device is the instrument's. Only its edit buffer is written, never a stored program.\n\n"

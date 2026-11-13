@@ -6,8 +6,8 @@
 #   ./do-plugin au
 #   ./do-plugin --no-install
 #
-# Follows OneShot's do-plugin: one source list compiled once, SynthLib's wrappers per format. The effects are
-# G2Alike's, through G2AlikeMaths (../../G2AlikeMaths, or $G2AM_DIR), built universal here before the link.
+# Follows OneShot's do-plugin: one source list compiled once, SynthLib's wrappers per format. The effects come from
+# the engine library (../../G2AlikeMaths, or $G2AM_DIR), built universal here before the link.
 # The VST3 half needs ~/Documents/vst3sdk (or $VST3_SDK). Each bundle is installed as soon as it is
 # built, and unquarantined; MA_NO_INSTALL=1 or --no-install leaves the installed copy alone.
 # $SYNTHLIB_DIR points the build at another SynthLib checkout.
@@ -89,7 +89,7 @@ fi
 SYNTHLIB_LIB="$SL/build/libSynthLib.a"
 FREETYPE_LIB="$SL/build/libfreetype.a"
 
-# The engine: G2AlikeMaths, universal, in its own build folder so its native build is left alone
+# The engine library, universal, in its own build folder so its native build is left alone
 if [[ ! -f "$G2AM/Makefile" ]]; then
     print -u2 "error: G2AlikeMaths not found at $G2AM - clone it beside AllAlike, or set G2AM_DIR"
     exit 1
@@ -105,6 +105,9 @@ G2AM_LIB="$G2AM/build-universal/libg2alikemaths.a"
 
 SOURCES=(
     "$HERE/plugin/maPlugin.c"
+    "$HERE/plugin/maDraw.c"
+    "$HERE/plugin/maMenu.c"
+    "$HERE/plugin/maPrefs.c"
 )
 
 

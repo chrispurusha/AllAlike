@@ -105,7 +105,7 @@ typedef struct {
     bool               hwSent, hwExtensionDue;
     double             hwSentAt;
     uint8_t            hwLast[NL3_SINGLE_LENGTH];
-    _Atomic bool       startPreset;  // notes: a new instance plays 1:001
+    _Atomic bool       startPreset;  // notes: a new instance plays 1:1
     _Atomic int        wantPreset;   // a program change waiting for the fade
     _Atomic bool       clearEffects; // notes §15: a new sound starts with empty effects, the old one's echoes gone
 } tNl3Plugin;
@@ -187,7 +187,7 @@ static void nl3_set_state(void * inst, const void * data, size_t len) {
     if ((data == NULL) || (len < STATE_LENGTH) || (memcmp(d, STATE_MAGIC, 4) != 0)) {
         return;
     }
-    atomic_store(&t->startPreset, false);   // a project's sound, not 1:001
+    atomic_store(&t->startPreset, false);   // a project's sound, not 1:1
     d                                   += 4;
     memcpy(t->soundName, d, NL3_SINGLE_NAME_LENGTH + 1);
     t->soundName[NL3_SINGLE_NAME_LENGTH] = '\0';
@@ -313,7 +313,7 @@ static void nl3_note_off(void * inst, uint8_t channel, uint8_t note, float veloc
 
 static void nl3_load_single(void * user, const uint8_t * single, const char * path, int index, int preset);
 
-// A new instance plays 1:001, first audio block or first editor frame; with no presets it stays on Init
+// A new instance plays 1:1, first audio block or first editor frame; with no presets it stays on Init
 static void take_start_preset(tNl3Plugin * t) {
     if (atomic_exchange(&t->startPreset, false) && (nl3_presets_single(1)[0] == 0xF0)) {
         nl3_load_single(t, nl3_presets_single(1), "", 0, 1);
