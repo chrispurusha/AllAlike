@@ -1,0 +1,15 @@
+#!/bin/zsh
+# Builds and runs tools/maTest.c: the plug-in's own code driven as a host drives it, native arch, no install.
+set -e
+HERE="$(cd "$(dirname "$0")/.." && pwd)"
+SL="${SYNTHLIB_DIR:-$HERE/../../SynthLib}"
+G2AM="${G2AM_DIR:-$HERE/../../G2AlikeMaths}"
+
+"$SL/do-build" >/dev/null
+make -C "$G2AM" >/dev/null
+OUT="$(mktemp -d)/maTest"
+clang -O2 -std=gnu11 -Wall -Wextra -I"$SL/plugin" -I"$SL/src" -I"$G2AM/include" -I"$SL/ThirdParty/glfw/include" \
+      "$HERE/tools/maTest.c" "$HERE/plugin/maPlugin.c" "$G2AM/build/libg2alikemaths.a" "$SL/build/libSynthLib.a" \
+      "$SL/build/libfreetype.a" -framework CoreFoundation -framework CoreAudio -framework CoreMIDI -framework Cocoa \
+      -framework Metal -framework QuartzCore -framework Accelerate -o "$OUT"
+"$OUT"
