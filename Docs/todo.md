@@ -2,6 +2,12 @@
 
 Work that spans the plug-ins. One line per item; each product's own list is in its `Docs/todo.md`.
 
+## Distribution
+
+- Update check (CT 2026-11-14): ask GitHub's releases API for the newest tag at start (opt-out in prefs, at most daily), compare with the build's version, show "Update available" with a link; shared in SynthLib so every app and plug-in gets it
+- Auto-install updates (CT 2026-11-14): investigate whether it is possible - download the .dmg/.zip, verify it, replace the app or the installed plug-ins; unsigned builds mean quarantine to clear, /Library plug-in folders may need admin, a plug-in cannot be replaced while a host has it loaded, and a public repo must never fetch and run anything unverified
+- MPC/Force plug-ins (CT 2026-11-14): inMusic's official SDK (MIT) is cloned at GitHub/mpc-plugin-builder-sdk - a VST2-ABI .so (arm32 for Live/X/One/Key/Force, arm64 for Live III/XL), MPC OS 3.10.1+, 44.1 kHz fixed, no GUI (UI from ui.json skins + 16 Q-Links), state as a chunk, glibc 2.31, a few % of one core per instance (10-40x slower than a laptop). Route: a SynthLib wrapper from tSynthLibPluginDesc to its mpc::Plugin, and ui.json generated from our page/section tables; candidates OneShot and Pulse2Alike (measure first), ModAlike only once SOUND_ENGINE_MAX_ENGINES is settable (the MPC checks free memory before loading)
+
 ## Presets and sound files
 
 - Browse folder (SynthLib, then every Alike): one root folder, remembered in prefs, listed as every single in every `.syx`/`.mid` beneath it, subfolders included; loading from it never writes the presets

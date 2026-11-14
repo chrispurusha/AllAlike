@@ -35,3 +35,4 @@ Built but not yet checked by ear or in a host. Confirmed: delete the line. Faile
 - Rectifier with a quiet input, arpeggiator user patterns (step lengths in 64ths, 127 a tie), an Env Mode LFO with Keytrigger resting where its cycle began (K030 FunkMamaBC) (2026-11-12): listen against the hardware
 - A clocked LFO in Env Mode (U076 OfcHell), Patch Volume below 8 (2026-11-12): listen against the hardware
 - Tape delay (Clocked, Free, Doppler; Ratio, Bandwidth, Feedback) and Reverb Predelay / Reverb Clock (2026-11-12): listen against the hardware, and turn Delay Time while Tape Free and Doppler run
+- Panel buttons (2026-11-14, SynthLib buttonPress.h §1): Prev/Next/Load, the tabs (and Link HW where there is one) light while held and act on the release, and not at all when released off the button

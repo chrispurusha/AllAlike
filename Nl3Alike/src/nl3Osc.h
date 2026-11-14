@@ -56,12 +56,18 @@ void nl3_steps_build(tNl3Steps * s);
 double nl3_saw(const tNl3Steps * s, double phase, double increment, bool clean);
 // notes §6
 tNl3Word nl3_saw_fixed(const tNl3Steps * s, tNl3Word phase, tNl3Word increment);
+// notes §11: the pulse; width 0 (50%) to 1.0 (almost nothing), as the Shape dial's word
+tNl3Word nl3_pulse_fixed(const tNl3Steps * s, tNl3Word phase, tNl3Word increment, tNl3Word width);
+double nl3_pulse(const tNl3Steps * s, double phase, double increment, double width, bool clean);
+tNl3Word nl3_pulse_width_word(double shape);
 // notes §9: the triangle, likewise
 double nl3_triangle(const tNl3Steps * s, double phase, double increment);
 tNl3Word nl3_triangle_fixed(const tNl3Steps * s, tNl3Word phase, tNl3Word increment);
 // notes §10: the sine, from the phase alone
 double nl3_sine(double phase);
 tNl3Word nl3_sine_fixed(tNl3Word phase);
+tNl3Word nl3_sine_feedback_fixed(tNl3Word phase, tNl3Word shape, tNl3Word last, tNl3Word out);
+double nl3_sine_feedback(double phase, double shape, double last, double out);
 // notes §8: a pitch (MIDI notes, fractions allowed) as the increment, in both arithmetics
 double nl3_pitch_increment(double note);
 tNl3Word nl3_pitch_increment_fixed(double note);

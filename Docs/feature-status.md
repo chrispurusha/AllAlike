@@ -1,7 +1,7 @@
 # Feature status
 
 Where each plug-in stands: what is **missing**, what is **built but needs more work**, and what is **built but not
-yet checked** in a host or against the instrument. Updated 2026-11-12 (TiAlike user wavetables, delay modulation, Pan Spread; Pulse2Alike's unison, PARA-8 and thump refitted through the QU-24, P016-P029 heard; TiAlike's Bank A heard against the instrument, its 11-08 oscillator, portamento and LFO work; preset browsers by category).
+yet checked** in a host or against the instrument. Updated 2026-11-14 (Nl3Alike's modulation, envelopes, morphs, Unison, Pulse and most filter modes; panel buttons on release across the Alikes; Windows releases of all six; UltraAlike plays Emulator X bank presets). Before that 2026-11-12 (TiAlike user wavetables, delay modulation, Pan Spread; Pulse2Alike's unison, PARA-8 and thump refitted through the QU-24, P016-P029 heard; TiAlike's Bank A heard against the instrument, its 11-08 oscillator, portamento and LFO work; preset browsers by category).
 
 This is a summary for planning. The working lists stay in each plug-in's `Docs/todo.md` (one line per item) and
 `Docs/to-test.md`; the reasoning and measurements in `Docs/findings.md` and `Docs/code-notes/`. Work spanning the
@@ -9,7 +9,7 @@ plug-ins is listed in `Docs/todo.md` beside this file. When an item here is done
 
 | | Pulse2Alike | TiAlike | Sn2Alike | Nl3Alike |
 |---|---|---|---|---|
-| State | Beta: the whole instrument plays | Work in progress: the voice is nearly complete, effects partly | Work in progress: oscillators and filter done, most modulation to come | Started: the instrument's filter, Saw and Program; a placeholder engine for the rest |
+| State | Beta: the whole instrument plays | Ready for beta (owner, 2026-11-14): the voice is nearly complete, effects partly | Nearly ready for beta (owner, 2026-11-14) | Work in progress: Saw, Pulse, Triangle, Sine, most filter modes, envelopes, LFOs, morphs and Unison measured; Osc Mod, Noise, Dual Sine, sync and vibrato to come |
 | Scope | One sound per instance, optional extra voices | One Single per instance, a voice limit, no Multi | One program per instance (to confirm), no performances yet | One Program per instance |
 | Hardware link | Built: follows the sound, backs up the instrument's sounds, stores one sound to a slot | Built: follows the sound; bank backup and restore built, not yet tried | Built: follows the sound, reads a backup | Built: sends the whole program; reading its 1024 programs built, untried |
 
@@ -47,12 +47,12 @@ Missing everywhere, or built in one and wanted in the others:
   where it has one - the Nord Lead 3's is ±6 semitones and ±100 cents, applied to its tuning word (osc notes §8).
 - **Anti-alias switch, for every Alike** (Pulse2Alike included; per instance, held by the host, not in the sound, on
   GLOBAL; owner 2026-11-12): On (the default) is clean; Off plays the instrument's own band-limiting and its aliases.
-  Nl3Alike has it for the Saw (On about -90 dB at A4, -76 dB at C7); TiAlike has it for the classic oscillators (Off within about 1 dB of the instrument's alias lines at C7). Measured on
+  Nl3Alike has it for the Saw and Pulse (On about -90 dB at A4, -76 dB at C7); TiAlike has it for the classic oscillators (Off within about 1 dB of the instrument's alias lines at C7). Measured on
   the plug-ins' own oscillators (2026-11-07): TiAlike's saw and square alias at -44 dB at A4 and -32 dB at C7 (44.1 kHz), so it
   would gain most; Sn2Alike's saw is at -57 to -84 dB, and more Soften aliases more - to check against the instrument;
   Pulse2Alike not measured. Clean's correction (a longer step, summed over every jump in reach) belongs in SynthLib once a
   second plug-in uses it.
-- **Arithmetic option** (float or the instrument's fixed point, per instance): TiAlike has the filter's biquad, Nl3Alike the filter and the Saw; Sn2Alike to follow.
+- **Arithmetic option** (float or the instrument's fixed point, per instance): TiAlike has the filter's biquad, Nl3Alike every built filter mode and the Saw, Pulse, Triangle and Sine; Sn2Alike to follow.
 - **Preset browsers by category** (2026-11-09): Pulse2Alike (by each sound's CLASS), TiAlike and Nl3Alike sort Load/Store
   Preset by category - built, not yet tried in a host; Sn2Alike to follow. Planned for all (`Docs/todo.md`): a browse
   folder listing every single under one root, Store to the next empty slot, and import becoming a confirmed Replace
@@ -60,6 +60,8 @@ Missing everywhere, or built in one and wanted in the others:
 - **Sort menu** (2026-11-12): the preset browser's order (Bank / Location, Category, A-Z) as a top-level menu, and
   Prev/Next stepping in that order (SynthLib `bank_browser_sort_mode()`, `bank_browser_sorted_order()`). TiAlike has it -
   built, not yet tried in a host; Pulse2Alike, Sn2Alike and Nl3Alike to follow.
+- **Panel buttons act on the release** (CT 2026-11-14), in every Alike with a panel (SynthLib `buttonPress.h`): Prev, Next, Load, the tabs, Link and the Off/On buttons light while held and act only when released on the same button; menus still open on the press. Built in Pulse2Alike, TiAlike, Sn2Alike, Nl3Alike and OneShot (whose toggles now flip on release too); Nl3Alike's Off/On choices are toggle buttons rather than menus. Not yet tried in a host.
+- **Windows releases** (2026-11-14): `./do-release` builds the Windows half too, one `.zip` with an `x64` and an `arm64` folder of all six plug-ins (Nl3Alike, OneShot and ModAlike added; ModAlike's engine library now builds for Windows). Untested on Windows.
 - **Panel pages, in common** (CT 2026-11-06): OSC, FILTER, AMP, ENV, LFO, MOD, then the instrument's own pages (ARP, TABLES beside OSC, the effects), GLOBAL always last. Short names as on the instruments' panels; a new Alike follows the same.
 - **The panel code** (`p2Draw.c`, copied as `tiDraw.c` and `sn2Draw.c`) is three near-copies: a fix in one probably belongs in all three until it moves into SynthLib.
 
@@ -161,16 +163,28 @@ delays, the sine LFO's Symmetry.
 
 ## Nl3Alike
 
-Started 2026-11-02 from Sn2Alike's skeleton, renamed: it builds, validates as an Audio Unit and opens, playing
-Sn2Alike's engine as a placeholder. **The filter is the Nord Lead 3's** (2026-11-07): LP and HP at 12 and 24 dB, its
-coefficient laws and level compensation, at the instrument's 44.1 kHz, in its own fixed-point arithmetic (word for word
-against the instrument's) or floating point. **Parameters are the instrument's Program** (2026-11-07): one per field
-and the four morph groups; its programs read in and write back byte for byte. **The Saw is the instrument's**
-(2026-11-07), word for word in fixed point, with an Anti-alias switch (On, the default, at about -90 dB, or Off for the instrument's own aliases).
-**Missing**: the other filter modes, the rest of the engine (the other waveforms, FM and sync, Osc Mod, envelopes, LFOs, morph; it plays through an interim
-mapping), single-parameter MIDI to the instrument, and reading its 1024 programs is built but untried. See
-`Nl3Alike/Docs/todo.md`. **2026-11-12:** the Sort menu with Prev/Next following it; a preset change stops the old notes and keeps the clip lamp out of the fade.
+Started 2026-11-02 from Sn2Alike's skeleton. Everything below is measured on the instrument; the fixed-point paths reproduce the measured output exactly, and floating point takes the same steps.
+**Built and measured**
+- **Oscillators:** Saw, Pulse (Shape sets the width, 50% to almost nothing), Triangle, Sine (Shape is a feedback); pitch; the Anti-alias switch.
+- **Filter:** LP and HP at 6, 12 and 24 dB, BP 12 and 24, BR, and multi mode types 1 (lowpass beside highpass on the two cutoffs), 4 and 5 (three all-pass stages with feedback - peaks or notches, Freq 2 setting their width); coefficient laws, level compensation, key tracking (a semitone a note above C2).
+- **Envelopes:** one law for all three (the G2's (dial + 40.15)⁸ time form), Exp Attack, the Amp's squared sustain, the Mod envelope's AD, AR and Repeat.
+- **LFOs:** rate (0.03 to 523 Hz), Saw, Triangle, Square and Random, and their depths to pitch (cubic), filter, Shape, Osc Mix and Amp.
+- **Modulation:** the Filter envelope's Amount and velocity; the Mod envelope to pitch, filter, Shape and Osc Mix; all four morph groups by their measured sources (aftertouch has no source yet).
+- **Unison:** the voice beside two slightly sharp copies, one each side - the voices are stereo for it.
+- **Program:** one parameter per field, programs read and written back byte for byte; the Sort menu; Off/On choices as toggle buttons.
 
+**Missing** (programs 2-4 of the instrument's first bank now lack only vibrato)
+- **Filter:** the other three multi modes, Classic's coefficients (its sample path is built), Distorted LP and filter distortion.
+- **Oscillators:** Noise, Dual Sine, sync, Shape on the Saw and Triangle.
+- **Osc Mod** (DM, Dist, Filt FM, FM, DFM, RM); vibrato; the LFOs' Smooth Random and Special waves, Env/KB-sync and Mono modes; LFO 2 to Resonance and Pan.
+- **Level calibration** against the instrument (the oscillator mix law and the output level), and an A/B harness scoring renders against captures of the first 20 programs.
+- Single-parameter MIDI to the instrument; reading its 1024 programs is built but untried.
+
+**Built, not yet checked** - `Nl3Alike/Docs/to-test.md`: nearly all of the above by ear in a host; the float path parts from fixed in the 6 dB modes and band-reject only with the filter fully open and a near-full-scale input.
+
+## UltraAlike
+
+Started 2026-11-14 as a placeholder: OneShot's skeleton under its own name and identifiers (`aumu Ultr CPur`), A reproduction inspired by the E-mu Ultra samplers, Emulator X3 first as the reference, then the E5000 Ultra. **Built 2026-11-14:** a layer plays a preset of an Emulator X bank (`.exb`) - its zones by key and velocity at their root keys and own rates, loops held through the release - with Prev/Next through the presets. **Missing:** each voice's tuning, level, pan, envelopes, Z-plane filter, LFOs and cords from the bank; `.E4B` banks. Not in `do-plugins` or `do-release`. See `UltraAlike/Docs/design.md`.
 
 ## OneShot
 

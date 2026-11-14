@@ -4,7 +4,7 @@
 #
 #   tools/do-windows-plugin Pulse2Alike           x64 and arm64
 #   tools/do-windows-plugin TiAlike x64           one architecture
-#   tools/do-windows-plugin all                   all four
+#   tools/do-windows-plugin all                   every one
 #
 # Result: <Product>/build/windows/<Product>.vst3, the VST3 BUNDLE FOLDER - copy the whole folder into
 # C:\Program Files\Common Files\VST3. It holds Contents/x86_64-win/<Product>.vst3 and Contents/arm64-win/<Product>.vst3
@@ -39,7 +39,7 @@ for arg in "$@"; do
     case $arg in
         arm64|aarch64) ARCHS+=(aarch64) ;;
         x64|x86_64)    ARCHS+=(x86_64) ;;
-        all)           PRODUCTS=(Pulse2Alike TiAlike Sn2Alike Nl3Alike OneShot) ;;
+        all)           PRODUCTS=(Pulse2Alike TiAlike Sn2Alike Nl3Alike OneShot ModAlike) ;;
         *Alike|OneShot) PRODUCTS+=($arg) ;;
         *) echo "usage: tools/do-windows-plugin <Product>|all [x64] [arm64]" >&2; exit 2 ;;
     esac
@@ -134,7 +134,24 @@ build_one() {
 
     rm -rf $OBJ
     mkdir -p $OBJ
-    local OBJECTS=() LIB_OBJECTS=() o src
+    local OBJECTS=() LIB_OBJECTS=() G2AM_OBJECTS=() o src
+
+    # A product on G2AlikeMaths (ModAlike) compiles it here with its own includes - its headers share names with
+    # SynthLib's - as the Mac's do-plugin builds libg2alikemaths.a
+    local G2AM=${G2AM_DIR:-$ROOT/../G2AlikeMaths}
+    G2AM=${G2AM:A}
+
+    if grep -q '^G2AM=' $dir/do-plugin; then
+        [[ -f $G2AM/Makefile ]] || { echo "error: G2AlikeMaths not found at $G2AM (set G2AM_DIR)" >&2; return 1; }
+        INCLUDES+=(-I$G2AM/include)
+        local g2amFlags=(-DG2AM_ENGINE_VERSION="\"$(head -1 $G2AM/engine/VERSION)\"" -I$G2AM/include -I$G2AM/engine -I$G2AM/engine/synthlib)
+
+        for src in $G2AM/engine/*.c $G2AM/src/*.c; do
+            o=$OBJ/g2am_${${src:t}%.*}.o
+            $CC -std=gnu17 $FLAGS -w $g2amFlags -c $src -o $o &
+            G2AM_OBJECTS+=($o)
+        done
+    fi
 
     echo "==> $PLUGIN_NAME $version VST3 for $TRIPLE (${#SOURCES} + ${#SL_SOURCES} C, ${#SL_CXX} C++)"
 
@@ -167,9 +184,20 @@ build_one() {
     done
     wait
 
-    for o in $OBJECTS $LIB_OBJECTS; do
+    for o in $OBJECTS $LIB_OBJECTS $G2AM_OBJECTS; do
         [[ -f $o ]] || { echo "error: compile failed for ${o:t}" >&2; return 1; }
     done
+
+    # Only g2am_* may be global, as the Mac's ld -r makes it: every other name the engine defines is renamed in
+    # all its objects alike, or its gSynthLibLog* would collide with SynthLib's
+    if (( ${#G2AM_OBJECTS} > 0 )); then
+        local map=$OBJ/g2am-private.map
+        $LLVM_MINGW/bin/llvm-nm -g --defined-only $G2AM_OBJECTS | awk 'NF==3 && $3 !~ /^g2am_/ {print $3, "g2amPrivate_" $3}' | sort -u > $map
+        for o in $G2AM_OBJECTS; do
+            $LLVM_MINGW/bin/llvm-objcopy --redefine-syms=$map $o || return 1
+        done
+        OBJECTS+=($G2AM_OBJECTS)
+    fi
 
     # SynthLib as an archive, as on the Mac, so the files this plug-in never calls (the GLFW window) drop out
     local LIB=$OBJ/libSynthLib.a

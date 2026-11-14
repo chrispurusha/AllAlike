@@ -35,6 +35,7 @@
 #include "utilsGraphics.h"
 #include "renderBackend.h"
 #include "contextMenu.h"
+#include "buttonPress.h"
 #include "fileBrowser.h"
 #include "bankBrowser.h"
 #include "alertDialog.h"
@@ -129,6 +130,11 @@ static int                   gPatchIndex;
 static int                   gPreset;
 static bool                  gPresetEdited;
 static tRectangle            gPrevRect, gNextRect, gLoadRect, gNameRect, gLinkRect;
+
+// notes §1 (SynthLib buttonPress.h): lit while held, acts on the release
+static tRectangle draw_held_button(const tRectangle * rect, const char * text, tRgb colour) {
+    return draw_button(mainArea, *rect, text, synthlib_button_held(rect) ? synthlib_button_held_colour(colour) : colour);
+}
 static bool                  gLinkBusy;
 
 // notes §9: the Singles of the file the sound came from, read again only when the file changes
@@ -781,12 +787,12 @@ static void draw_patch_bar(void) {
     bool noPort   = sn2_hw_port()[0] == '\0';
     bool linkWarn = linkOn && (gLinkBusy || noPort);
 
-    draw_button(mainArea, gLinkRect, !linkOn ? "Link HW" : (noPort ? "No port" : (gLinkBusy ? "Link busy" : "Link HW")),
-                !linkOn ? (tRgb)RGB_GREY_7 : (linkWarn ? (tRgb){0.85, 0.6, 0.15}
+    draw_held_button(&gLinkRect, !linkOn ? "Link HW" : (noPort ? "No port" : (gLinkBusy ? "Link busy" : "Link HW")),
+                     !linkOn ? (tRgb)RGB_GREY_7 : (linkWarn ? (tRgb){0.85, 0.6, 0.15}
                                                                                  : (tRgb)RGB_GREEN_ON));
-    draw_button(mainArea, gPrevRect, "< Prev", (tRgb)RGB_GREY_7);
-    draw_button(mainArea, gNextRect, "Next >", (tRgb)RGB_GREY_7);
-    draw_button(mainArea, gLoadRect, "Load...", (tRgb)RGB_GREY_7);
+    draw_held_button(&gPrevRect, "< Prev", (tRgb)RGB_GREY_7);
+    draw_held_button(&gNextRect, "Next >", (tRgb)RGB_GREY_7);
+    draw_held_button(&gLoadRect, "Load...", (tRgb)RGB_GREY_7);
     draw_name_field(gLoadRect.coord.x + draw_button_bounds(gLoadRect).size.w + 2.0 * PATCH_BUTTON_GAP);
 
     if (gPreset > 0) {
@@ -924,7 +930,7 @@ static void draw_tabs(void) {
                                     w, TAB_H
                                 }
         };
-        draw_button(mainArea, gTabs[p], "", colour);
+        draw_held_button(&gTabs[p], "", colour);
         set_rgb_colour(contrasting_text_colour(colour));
         render_text(mainArea, (tRectangle){{x + DRAW_BUTTON_MARGIN + pad, TAB_Y + DRAW_BUTTON_MARGIN}, {0.0, TAB_H}}, gPages[p].title);
         x       += w + TAB_GAP;
@@ -1058,29 +1064,28 @@ bool sn2_draw_press(double x, double y, tSn2Edit * edit, bool * grabbed) {
     }
 
     if (within_rectangle((tCoord){x, y}, draw_button_bounds(gLinkRect))) {
-        edit->paramId    = kSn2ParamHwLink;
-        edit->normalized = (gValue[kSn2ParamHwLink] >= 0.5) ? 0.0 : 1.0;
+        synthlib_button_press(&gLinkRect);
         return true;
     }
 
     if (within_rectangle((tCoord){x, y}, draw_button_bounds(gPrevRect))) {
-        step_patch(-1);
+        synthlib_button_press(&gPrevRect);
         return true;
     }
 
     if (within_rectangle((tCoord){x, y}, draw_button_bounds(gNextRect))) {
-        step_patch(1);
+        synthlib_button_press(&gNextRect);
         return true;
     }
 
     if (within_rectangle((tCoord){x, y}, draw_button_bounds(gLoadRect))) {
-        sn2_draw_load_preset_browser();
+        synthlib_button_press(&gLoadRect);
         return true;
     }
 
     for (uint32_t p = 0; p < gPageCount; p++) {
         if (within_rectangle((tCoord){x, y}, draw_button_bounds(gTabs[p]))) {
-            gPage = p;
+            synthlib_button_press(&gTabs[p]);
             return true;
         }
     }
@@ -1140,6 +1145,37 @@ void sn2_draw_release(double x, double y, tSn2Edit * edit) {
     edit->paramId = UINT32_MAX;
     gGrabbed      = NULL;
     gMenuChoice   = -1;
+
+    // notes §1 (SynthLib buttonPress.h): a button acts on the release that lands on it
+    tCoord       at   = {x, y};
+    const void * held = synthlib_button_release();
+
+    if (held != NULL) {
+        if (synthlib_button_clicked(held, &gLinkRect, draw_button_bounds(gLinkRect), at)) {
+            edit->paramId    = kSn2ParamHwLink;
+            edit->normalized = (gValue[kSn2ParamHwLink] >= 0.5) ? 0.0 : 1.0;
+        }
+
+        if (synthlib_button_clicked(held, &gPrevRect, draw_button_bounds(gPrevRect), at)) {
+            step_patch(-1);
+        }
+
+        if (synthlib_button_clicked(held, &gNextRect, draw_button_bounds(gNextRect), at)) {
+            step_patch(1);
+        }
+
+        if (synthlib_button_clicked(held, &gLoadRect, draw_button_bounds(gLoadRect), at)) {
+            sn2_draw_load_preset_browser();
+        }
+
+        for (uint32_t p = 0; p < gPageCount; p++) {
+            if (synthlib_button_clicked(held, &gTabs[p], draw_button_bounds(gTabs[p]), at)) {
+                gPage = p;
+            }
+        }
+
+        return;
+    }
 
     // notes §3: the release of the click that opened a menu is not a choice, even where the menu was moved up
     // to fit and so opened under the pointer

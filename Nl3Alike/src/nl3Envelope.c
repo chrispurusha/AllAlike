@@ -15,112 +15,86 @@
  * not, see <https://www.gnu.org/licenses/>.
  */
 // Notes: Docs/code-notes/nl3Envelope.md - "// notes §k" refers there.
+// Notes: Docs/code-notes/nl3Envelope.md - "// notes §k" refers there.
 
 #include <math.h>
 
 #include "nl3Envelope.h"
 
-#define TOP              (1.0)
-#define SETTLED          (1.0 / 65536.0)
-#define DECAY_QUICKER    (0.24)          // notes §1
-#define SILENT           (1.0 / 65536.0) // notes §5
-#define GLIDE_S          (0.35)          // notes §6: seconds across the whole range
+#define STEP_HZ          (22050.0)           // notes §2: the envelopes step once every two samples
+#define TIME_OFFSET      (40.15)             // notes §2: steps of 1/e = scale x (dial + offset)^8
+#define ATTACK_SCALE     (1.013266e-12)
+#define DECAY_SCALE      (3.540686e-13)      // Decay and Release
+#define ATTACK_TARGET    (1.25)              // notes §1: the attack heads past the top, and stops there
+#define SILENT           (1.0 / 65536.0)     // notes §5
+#define REPEAT_TARGET    (-0.05)             // notes §6
 
-// notes §2: seconds, between the points a straight line in the logarithm
-static double law(const double * seconds, double dial) {
-    static const double kDial[] = {0, 16, 32, 48, 64, 80, 96, 112, 127};
-    const int           n       = (int)(sizeof(kDial) / sizeof(kDial[0]));
-
-    for (int k = 1; k < n; k++) {
-        if (dial <= kDial[k]) {
-            double t = (dial - kDial[k - 1]) / (kDial[k] - kDial[k - 1]);
-
-            return exp(log(seconds[k - 1]) + (t * (log(seconds[k]) - log(seconds[k - 1]))));
-        }
+// notes §2: the fraction of the distance closed each sample at the engine's rate; Decay and Release 127 hold
+static double stage_k(double dial, double scale, bool holdsAtTop, double sampleRate) {
+    if (holdsAtTop && (dial >= 127.0)) {
+        return 0.0;
     }
+    double steps = scale * pow(dial + TIME_OFFSET, 8.0);
 
-    return seconds[n - 1];
+    return 1.0 - exp(-STEP_HZ / (steps * sampleRate));
 }
 
-void nl3_env_shape(double attack, double decay, double sustain, double release, bool squared, double sampleRate, tNl3EnvShape * shape) {
-    static const double kAttack[] = {0.0006, 0.007, 0.021, 0.062, 0.198, 0.596, 1.913, 6.405, 13.07};    // to the top
-    static const double kHalf[]   = {0.0003, 0.0016, 0.0044, 0.0144, 0.045, 0.150, 0.460, 1.42, 4.45};   // to half
+void nl3_env_shape(double attack, double decay, double sustain, double release, bool squared, bool exponential, double sampleRate,
+                   tNl3EnvShape * shape) {
+    double level = (sustain >= 127.0) ? 1.0 : ((sustain / 128.0) * (squared ? (sustain / 128.0) : 1.0));   // notes §3
 
-    shape->attackStep = TOP / (law(kAttack, attack) * sampleRate);
-    shape->decayMul   = pow(0.5, 1.0 / (law(kHalf, decay) * (1.0 - (DECAY_QUICKER * sustain / 127.0)) * sampleRate));
-    shape->releaseMul = pow(0.5, 1.0 / (law(kHalf, release) * sampleRate));
-    shape->sustain    = (sustain / 127.0) * (squared ? (sustain / 127.0) : 1.0);
-    shape->glideStep  = TOP / (GLIDE_S * sampleRate);
+    shape->attackK  = stage_k(attack, ATTACK_SCALE, false, sampleRate);
+    shape->decayK   = stage_k(decay, DECAY_SCALE, true, sampleRate);
+    shape->releaseK = stage_k(release, DECAY_SCALE, true, sampleRate);
+    shape->cubed    = exponential;
+    shape->repeat   = false;
+    shape->sustain  = exponential ? cbrt(level) : level;   // notes §4
 }
 
 void nl3_env_gate(tNl3Env * env, bool on) {
     if (on) {
-        env->stage = eTiEnvAttack;
-    } else if (env->stage != eTiEnvIdle) {
-        env->stage = eTiEnvRelease;
+        env->stage = eNl3EnvAttack;
+    } else if (env->stage != eNl3EnvIdle) {
+        env->stage = eNl3EnvRelease;
     }
-}
-
-static void hold(tNl3Env * env, double level) {
-    env->level = level;
-    env->held  = level;
-    env->stage = eTiEnvSustain;
 }
 
 double nl3_env_next(tNl3Env * env, const tNl3EnvShape * shape) {
     switch (env->stage) {
-        case eTiEnvAttack:
-            env->level += shape->attackStep;
+        case eNl3EnvAttack:
+            env->state += shape->attackK * (ATTACK_TARGET - env->state);
 
-            if (env->level >= TOP) {
-                env->level = TOP;
-                env->stage = eTiEnvDecay;
+            if (env->state >= 1.0) {
+                env->state = 1.0;
+                env->stage = eNl3EnvDecay;
             }
             break;
 
-        case eTiEnvDecay:
-            env->level  = shape->sustain + ((env->level - shape->sustain) * shape->decayMul);
-
-            if ((env->level - shape->sustain) <= SETTLED) {
-                hold(env, shape->sustain);
-            }
-            break;
-
-        case eTiEnvSustain:
+        case eNl3EnvDecay:
+            env->state += shape->decayK * ((shape->repeat ? REPEAT_TARGET : shape->sustain) - env->state);
 
             // notes §6
-            if (shape->sustain != env->held) {
-                env->held  = shape->sustain;
-                env->stage = eTiEnvGlide;
+            if (shape->repeat && (env->state <= 0.0)) {
+                env->state = 0.0;
+                env->stage = eNl3EnvAttack;
             }
             break;
 
-        case eTiEnvGlide:
-
-            if (env->level < shape->sustain) {
-                env->level = fmin(shape->sustain, env->level + shape->glideStep);
-            } else {
-                env->level = fmax(shape->sustain, env->level - shape->glideStep);
-            }
-
-            if (env->level == shape->sustain) {
-                hold(env, shape->sustain);
-            }
+        case eNl3EnvRelease:
+            env->state -= shape->releaseK * env->state;
             break;
 
-        case eTiEnvRelease:
-            env->level *= shape->releaseMul;
-
-            // notes §5
-            if (env->level < SILENT) {
-                env->level = 0.0;
-                env->stage = eTiEnvIdle;
-            }
-            break;
-
-        case eTiEnvIdle:
+        case eNl3EnvIdle:
         default:
             break;
+    }
+    env->level = shape->cubed ? (env->state * env->state * env->state) : env->state;
+
+    // notes §5
+    if ((env->stage == eNl3EnvRelease) && (env->level < SILENT)) {
+        env->state = 0.0;
+        env->level = 0.0;
+        env->stage = eNl3EnvIdle;
     }
     return env->level;
 }

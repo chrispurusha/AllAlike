@@ -11,8 +11,9 @@
 #   ./do-release 0.1.0-beta.1   a version as given (the first release: there is no tag yet)
 #   ./do-release           reuse the newest tag (rebuild an old release)
 #
-# The second argument is where the .dmg goes. It never creates or pushes the tag, AllAlike-V<version>: it prints the
-# commands, to run once the .dmg has been checked. Needs the VST3 SDK - a release ships both formats of all of them
+# The second argument is where the .dmg goes. It never creates or pushes the tag, V<version>: it prints the
+# commands, to run once the .dmg and .zip have been checked. Then runs ./do-release-windows at the same version
+# (ALLALIKE_RELEASE_SKIP_WINDOWS=1 leaves it out). Needs the VST3 SDK - a release ships both formats of all of them
 # or it stops.
 
 set -e
@@ -26,8 +27,8 @@ cd ${0:a:h}
 # name, the prefix of its build settings, and one line for the Read Me
 PRODUCTS=(
     "Pulse2Alike|P2A|A reproduction inspired by the Waldorf Pulse 2."
-    "TiAlike|TIA|A reproduction inspired by the Access Virus TI's single-patch engine. Work in progress."
-    "Sn2Alike|SN2|A reproduction inspired by the Novation Supernova II. Work in progress."
+    "TiAlike|TIA|A reproduction inspired by the Access Virus TI's single-patch engine. Beta."
+    "Sn2Alike|SN2|A reproduction inspired by the Novation Supernova II. Nearly ready for beta."
     "Nl3Alike|NL3|A reproduction inspired by the Clavia Nord Lead 3. Work in progress: the filter is the instrument's, the rest a placeholder."
     "OneShot|OS|A one-sample player for drum pads: AHR/ADSR envelope with curves, start with zero-crossing snap. Work in progress."
     "ModAlike|MA|A Phaser, Chorus and Flanger as an effect, with stereo modes and Mix. Work in progress."
@@ -38,7 +39,7 @@ trap 'rm -rf "$WORK"' EXIT
 
 # --- version -------------------------------------------------------------
 
-TAG_PREFIX="AllAlike-"
+TAG_PREFIX=""   # the releases are tagged V<version>; a product's own are <Product>-V<version>
 LATEST=$(git tag --list --sort=-v:refname "${TAG_PREFIX}V*" 2>/dev/null | head -1)
 LATEST_VERSION="${LATEST#$TAG_PREFIX}"
 
@@ -223,8 +224,16 @@ fi
 echo "==> $DMG"
 echo "    contains: $(cd "$STAGE" && print -l *(/) | grep -c -E '\.(vst3|component)$') plug-in bundles, Read Me First.txt, LICENSE.txt, Licences/"
 
+# The Windows half of the same release, at the same version
+if [[ -z ${ALLALIKE_RELEASE_SKIP_WINDOWS:-} ]]; then
+    echo
+    ALLALIKE_RELEASE_FROM_MAC=1 "${0:a:h}/do-release-windows" "$VERSION" "$DIST"
+else
+    echo "==> Windows NOT built (ALLALIKE_RELEASE_SKIP_WINDOWS was set)"
+fi
+
 if [[ -n $NEW_TAG ]]; then
     echo
-    echo "Once the .dmg has been checked:"
+    echo "Once the .dmg and the Windows .zip have been checked:"
     echo "    git tag $NEW_TAG && git push origin $NEW_TAG"
 fi

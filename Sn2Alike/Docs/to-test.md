@@ -20,3 +20,4 @@ Finished work not yet checked against the instrument.
 - LEVELS page (Env 2, Env 3, LFO 1, LFO 2 to each mixer level) and the three new WHEEL LEVEL dials: WineGlass, Down Osc, Noise Sweep 3-6, Gated Pad now sound
 - Filter "Osc Byp": oscillators heard unfiltered with the filter closed, about 2 dB below an open filter; the Disco and 909 Toms
 - Free-running LFOs start the same way on every note from silence (Whiteout)
+- Panel buttons (2026-11-14, SynthLib buttonPress.h §1): Prev/Next/Load, the tabs (and Link HW where there is one) light while held and act on the release, and not at all when released off the button

@@ -35,6 +35,7 @@
 #include "utilsGraphics.h"
 #include "renderBackend.h"
 #include "contextMenu.h"
+#include "buttonPress.h"
 #include "fileBrowser.h"
 #include "alertDialog.h"
 #include "menuBar.h"
@@ -149,6 +150,11 @@ static double                gLastPressAt;
 static const tOsSampleHost * gHost;
 static void *                gUser;
 static tRectangle            gPrevRect, gNextRect, gLoadRect, gPlayRect, gResetRect, gWaveRect;
+
+// notes §1 (SynthLib buttonPress.h): a button is lit while held, and acts on the release
+static tRgb held_colour(const void * id, tRgb colour) {
+    return synthlib_button_held(id) ? synthlib_button_held_colour(colour) : colour;
+}
 
 // notes §2: the folder of the sample shown, listed again only when the folder changes
 static char                  gFolder[2048];
@@ -440,7 +446,7 @@ static void draw_tabs(void) {
                                        width, TAB_H
                                    }
         };
-        set_rgb_colour((i == gLayer) ? (tRgb)TAB_SHOWN_COLOUR : (tRgb)TAB_COLOUR);
+        set_rgb_colour(held_colour(&gTabRect[i], (i == gLayer) ? (tRgb)TAB_SHOWN_COLOUR : (tRgb)TAB_COLOUR));
         (void)render_rectangle(mainArea, gTabRect[i]);
 
         if (!full) {
@@ -472,11 +478,11 @@ static void draw_tabs(void) {
                                          half, MUTE_H
                                      }
         };
-        set_rgb_colour((tRgb)TAB_COLOUR);
+        set_rgb_colour(held_colour(&gClearRect[i], (tRgb)TAB_COLOUR));
         (void)render_rectangle(mainArea, gClearRect[i]);
         set_rgb_colour(empty ? (tRgb)TAB_COLOUR_TEXT_OFF : (tRgb)RGB_GREY_7);
         render_text(mainArea, (tRectangle){{gClearRect[i].coord.x + 5.0, MUTE_Y + 2.0}, {0.0, 9.0}}, "Clear");
-        set_rgb_colour(muted ? (tRgb)MUTE_ON_COLOUR : (tRgb)TAB_COLOUR);
+        set_rgb_colour(held_colour(&gMuteRect[i], muted ? (tRgb)MUTE_ON_COLOUR : (tRgb)TAB_COLOUR));
         (void)render_rectangle(mainArea, gMuteRect[i]);
         set_rgb_colour(muted ? (tRgb)RGB_BLACK : (tRgb)RGB_GREY_5);
         render_text(mainArea, (tRectangle){{gMuteRect[i].coord.x + 5.0, MUTE_Y + 2.0}, {0.0, 9.0}}, muted ? "Muted" : "Mute");
@@ -521,11 +527,11 @@ static void draw_sample_bar(void) {
                                   44.0, BAR_BUTTON_H
                               }
     };
-    draw_button(mainArea, gPrevRect, "< Prev", (tRgb)RGB_GREY_7);
-    draw_button(mainArea, gNextRect, "Next >", (tRgb)RGB_GREY_7);
-    draw_button(mainArea, gLoadRect, "Load...", (tRgb)RGB_GREY_7);
-    draw_button(mainArea, gPlayRect, "Play", (tRgb)RGB_GREEN_ON);
-    draw_button(mainArea, gResetRect, "Reset", (tRgb)RGB_GREY_7);
+    draw_button(mainArea, gPrevRect, "< Prev", held_colour(&gPrevRect, (tRgb)RGB_GREY_7));
+    draw_button(mainArea, gNextRect, "Next >", held_colour(&gNextRect, (tRgb)RGB_GREY_7));
+    draw_button(mainArea, gLoadRect, "Load...", held_colour(&gLoadRect, (tRgb)RGB_GREY_7));
+    draw_button(mainArea, gPlayRect, "Play", held_colour(&gPlayRect, (tRgb)RGB_GREEN_ON));
+    draw_button(mainArea, gResetRect, "Reset", held_colour(&gResetRect, (tRgb)RGB_GREY_7));
 
     x          = gResetRect.coord.x + draw_button_bounds(gResetRect).size.w + 10.0;
 
@@ -858,8 +864,8 @@ void os_draw_frame(int pixelWidth, int pixelHeight) {
                                                86.0, 13.0
                                            }
             };
-            set_rgb_colour(on ? (tRgb){ps->section->colour[0], ps->section->colour[1], ps->section->colour[2]}
-                                                                                                               : (tRgb)TAB_COLOUR);
+            set_rgb_colour(held_colour(&gOversampleRect, on ? (tRgb){ps->section->colour[0], ps->section->colour[1], ps->section->colour[2]}
+                                                                                                               : (tRgb)TAB_COLOUR));
             (void)render_rectangle(mainArea, gOversampleRect);
             set_rgb_colour(on ? (tRgb)RGB_BLACK : (tRgb)RGB_GREY_7);
             render_text(mainArea, (tRectangle){{gOversampleRect.coord.x + 5.0, gOversampleRect.coord.y + 2.0}, {0.0, 9.0}}, "2x Oversample");
@@ -904,7 +910,7 @@ void os_draw_frame(int pixelWidth, int pixelHeight) {
         }
 
         if (c->kind == eOsControlToggle) {
-            tRgb lit = (step_of(c) > 0) ? colour : (tRgb)TOGGLE_OFF_COLOUR;
+            tRgb lit = held_colour(pc, (step_of(c) > 0) ? colour : (tRgb)TOGGLE_OFF_COLOUR);
 
             fitted_button((tRectangle){{pc->x, pc->dial.coord.y + ((DIAL_SIZE - BUTTON_H) / 2.0)}, {CONTROL_W - 6.0, BUTTON_H}}, text, lit);
         } else if (c->kind == eOsControlChoice) {
@@ -972,68 +978,53 @@ bool os_draw_press(double x, double y, tOsEdit * edit, bool * grabbed) {
         return true;
     }
 
+    // notes §1 (SynthLib buttonPress.h): the buttons are armed here and act in os_draw_release()
     if (within_rectangle(at, draw_button_bounds(gPrevRect))) {
-        os_draw_step_sample(-1);
+        synthlib_button_press(&gPrevRect);
         return true;
     }
 
     if (within_rectangle(at, draw_button_bounds(gNextRect))) {
-        os_draw_step_sample(1);
+        synthlib_button_press(&gNextRect);
         return true;
     }
 
     if (within_rectangle(at, draw_button_bounds(gLoadRect))) {
-        os_draw_open_sample();
+        synthlib_button_press(&gLoadRect);
         return true;
     }
 
     if (within_rectangle(at, draw_button_bounds(gResetRect))) {
-        os_draw_reset_controls();
+        synthlib_button_press(&gResetRect);
         return true;
     }
 
     // notes §16: the oversampling button, for the whole instance
     if (within_rectangle(at, gOversampleRect)) {
-        os_draw_set_oversampling(!os_draw_oversampling());
+        synthlib_button_press(&gOversampleRect);
         return true;
     }
 
-    // notes §15: a Mute flips its own layer's, whichever is shown
     for (int i = 0; i < OS_LAYERS; i++) {
         if (within_rectangle(at, gMuteRect[i])) {
-            edit->paramId            = kOsParamMute;
-            edit->normalized         = (gValues[i][kOsParamMute] > 0.5) ? 0.0 : 1.0;
-            edit->layer              = i;
-            gValues[i][kOsParamMute] = edit->normalized;
+            synthlib_button_press(&gMuteRect[i]);
             return true;
         }
-    }
 
-    // notes §15: Clear empties its layer, once confirmed
-    for (int i = 0; i < OS_LAYERS; i++) {
         if (within_rectangle(at, gClearRect[i])) {
-            const char * path = have_host() ? gHost->path(gUser, i) : "";
-
-            if (path[0] != '\0') {
-                static char message[160];
-
-                gClearing = i;
-                snprintf(message, sizeof(message), "Empty layer %d? Its settings stay; Load... fills it again.", i + 1);
-                show_confirm("Clear Layer", message, "Clear", on_clear_confirmed);
-            }
+            synthlib_button_press(&gClearRect[i]);
             return true;
         }
-    }
 
-    // notes §14: a tab shows its layer
-    for (int i = 0; i < OS_LAYERS; i++) {
         if (within_rectangle(at, gTabRect[i])) {
-            select_layer(i);
+            synthlib_button_press(&gTabRect[i]);
             return true;
         }
     }
 
+    // an audition sounds at the press, as a pad does; the button is only lit while held
     if (within_rectangle(at, draw_button_bounds(gPlayRect))) {
+        synthlib_button_press(&gPlayRect);
         os_draw_audition(true);
         return true;
     }
@@ -1053,11 +1044,9 @@ bool os_draw_press(double x, double y, tOsEdit * edit, bool * grabbed) {
         return true;   // greyed: it does nothing in this mode
     }
 
-    // notes §11: a toggle flips at the press
+    // notes §11: a toggle flips at the release
     if (pc->control->kind == eOsControlToggle) {
-        edit->paramId                = pc->control->paramId;
-        edit->normalized             = (step_of(pc->control) > 0) ? 0.0 : 1.0;
-        gValue[pc->control->paramId] = edit->normalized;
+        synthlib_button_press(pc);
         return true;
     }
 
@@ -1117,10 +1106,72 @@ bool os_draw_drag_to(double x, double y, tOsEdit * edit) {
 }
 
 // A release ends a drag, and is where a menu's choice is taken
+static void release_button(const void * held, tCoord at, tOsEdit * edit) {
+    if (synthlib_button_clicked(held, &gPrevRect, draw_button_bounds(gPrevRect), at)) {
+        os_draw_step_sample(-1);
+    } else if (synthlib_button_clicked(held, &gNextRect, draw_button_bounds(gNextRect), at)) {
+        os_draw_step_sample(1);
+    } else if (synthlib_button_clicked(held, &gLoadRect, draw_button_bounds(gLoadRect), at)) {
+        os_draw_open_sample();
+    } else if (synthlib_button_clicked(held, &gResetRect, draw_button_bounds(gResetRect), at)) {
+        os_draw_reset_controls();
+    } else if (synthlib_button_clicked(held, &gOversampleRect, gOversampleRect, at)) {
+        os_draw_set_oversampling(!os_draw_oversampling());
+    }
+
+    for (int i = 0; i < OS_LAYERS; i++) {
+        // notes §15: a Mute flips its own layer's, whichever is shown
+        if (synthlib_button_clicked(held, &gMuteRect[i], gMuteRect[i], at)) {
+            edit->paramId            = kOsParamMute;
+            edit->normalized         = (gValues[i][kOsParamMute] > 0.5) ? 0.0 : 1.0;
+            edit->layer              = i;
+            gValues[i][kOsParamMute] = edit->normalized;
+        }
+
+        // notes §15: Clear empties its layer, once confirmed
+        if (synthlib_button_clicked(held, &gClearRect[i], gClearRect[i], at)) {
+            const char * path = have_host() ? gHost->path(gUser, i) : "";
+
+            if (path[0] != '\0') {
+                static char message[160];
+
+                gClearing = i;
+                snprintf(message, sizeof(message), "Empty layer %d? Its settings stay; Load... fills it again.", i + 1);
+                show_confirm("Clear Layer", message, "Clear", on_clear_confirmed);
+            }
+        }
+
+        // notes §14: a tab shows its layer
+        if (synthlib_button_clicked(held, &gTabRect[i], gTabRect[i], at)) {
+            select_layer(i);
+        }
+    }
+
+    // notes §11: a toggle flips at the release
+    for (uint32_t i = 0; i < gPlacedCount; i++) {
+        const tPlaced * pc = &gPlaced[i];
+
+        if ((held == pc) && (hit(at.x, at.y) == pc) && (pc->control->kind == eOsControlToggle)) {
+            edit->paramId                = pc->control->paramId;
+            edit->normalized             = (step_of(pc->control) > 0) ? 0.0 : 1.0;
+            gValue[pc->control->paramId] = edit->normalized;
+        }
+    }
+}
+
 void os_draw_release(double x, double y, tOsEdit * edit) {
     edit->paramId = UINT32_MAX;
     gGrabbed      = NULL;
     gMenuChoice   = -1;
+
+    // notes §1 (SynthLib buttonPress.h): a button acts on the release that lands on it
+    tCoord       at   = {x, y};
+    const void * held = synthlib_button_release();
+
+    if (held != NULL) {
+        release_button(held, at, edit);
+        return;
+    }
 
     if (gOpeningClick) {
         gOpeningClick = false;

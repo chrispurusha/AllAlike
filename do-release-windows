@@ -1,11 +1,12 @@
 #!/bin/zsh
 # Builds one AllAlike release for Windows, on this Mac: every plug-in do-release ships, as VST3 (Windows has no
 # Audio Unit), cross-built by tools/do-windows-plugin with llvm-mingw. Writes ONE .zip to the Desktop,
-# AllAlike-<version>-windows.zip, with each plug-in as a VST3 bundle folder holding both an x64 and an arm64 DLL
-# (a host loads the one matching itself), "Read Me First.txt", LICENSE.txt and Licences/. Unsigned.
+# AllAlike-<version>-windows.zip: "Read Me First.txt", LICENSE.txt and Licences/ at the top, and a folder per
+# architecture - x64 and arm64 - holding every plug-in as a VST3 bundle folder for that architecture. Unsigned.
+# ./do-release runs this after the .dmg.
 #
 # Same arguments as ./do-release, and run with the SAME one for the same release, BEFORE the tag is made - both
-# work the next version out from the newest AllAlike-V* tag:
+# work the next version out from the newest V* tag:
 #
 #   ./do-release-windows beta      V0.1.0-beta.1 -> V0.1.0-beta.2   (the everyday one)
 #   ./do-release-windows patch     V0.1.0-beta.1 -> V0.1.1-beta.1
@@ -29,8 +30,11 @@ cd ${0:a:h}
 # name and one line for the Read Me - the same plug-ins as ./do-release
 PRODUCTS=(
     "Pulse2Alike|A reproduction inspired by the Waldorf Pulse 2."
-    "TiAlike|A reproduction inspired by the Access Virus TI's single-patch engine. Work in progress."
-    "Sn2Alike|A reproduction inspired by the Novation Supernova II. Work in progress."
+    "TiAlike|A reproduction inspired by the Access Virus TI's single-patch engine. Beta."
+    "Sn2Alike|A reproduction inspired by the Novation Supernova II. Nearly ready for beta."
+    "Nl3Alike|A reproduction inspired by the Clavia Nord Lead 3. Work in progress: the filter is the instrument's, the rest a placeholder."
+    "OneShot|A one-sample player for drum pads: AHR/ADSR envelope with curves, start with zero-crossing snap. Work in progress."
+    "ModAlike|A Phaser, Chorus and Flanger as an effect, with stereo modes and Mix. Work in progress."
 )
 
 WORK=$(mktemp -d)
@@ -38,7 +42,7 @@ trap 'rm -rf "$WORK"' EXIT
 
 # --- version (as ./do-release) -------------------------------------------
 
-TAG_PREFIX="AllAlike-"
+TAG_PREFIX=""   # the releases are tagged V<version>; a product's own are <Product>-V<version>
 LATEST=$(git tag --list --sort=-v:refname "${TAG_PREFIX}V*" 2>/dev/null | head -1)
 LATEST_VERSION="${LATEST#$TAG_PREFIX}"
 
@@ -144,16 +148,25 @@ fi
 
 mkdir -p "$STAGE/Licences"
 
+# x64/<name>.vst3 and arm64/<name>.vst3, each bundle holding only its own architecture's DLL
 for name in $NAMES; do
     bundle="$name/build/windows/$name.vst3"
 
-    for arch in x86_64-win arm64-win; do
+    for pair in x64:x86_64-win arm64:arm64-win; do
+        folder=${pair%%:*}
+        arch=${pair#*:}
+
         if [[ ! -f $bundle/Contents/$arch/$name.vst3 ]]; then
             echo "error: $bundle has no $arch DLL." >&2
             exit 1
         fi
+        mkdir -p "$STAGE/$folder/$name.vst3/Contents/$arch"
+        cp "$bundle/Contents/$arch/$name.vst3" "$STAGE/$folder/$name.vst3/Contents/$arch/"
+        # anything else the bundle carries (Resources, moduleinfo) goes too
+        for extra in $bundle/Contents/*(N); do
+            [[ ${extra:t} == *-win ]] || cp -R "$extra" "$STAGE/$folder/$name.vst3/Contents/"
+        done
     done
-    cp -R "$bundle" "$STAGE/"
 done
 
 cp LICENSE "$STAGE/LICENSE.txt"
@@ -164,17 +177,23 @@ cp "$VST3_LICENSE" "$STAGE/Licences/VST3 SDK LICENSE.txt"
 cat <<EOF | sed 's/$/\r/' > "$STAGE/Read Me First.txt"
 AllAlike $VERSION_CLEAN for Windows
 Reproductions of synthesizers as VST3 plug-ins for 64-bit Windows 10 or later: Intel and AMD PCs, and Windows
-on ARM (Snapdragon PCs, Parallels on an Apple silicon Mac). Each plug-in carries both, and a host loads the one it needs.
+on ARM (Snapdragon PCs, Parallels on an Apple silicon Mac).
 
 $LIST
+WHICH FOLDER
+
+    x64      for an ordinary PC (Intel or AMD) - and for an x64 host emulated on Windows on ARM,
+             which is Ableton Live there
+    arm64    for a host running natively on Windows on ARM
+
+Take the plug-ins from the folder that matches the HOST, not the PC.
+
 INSTALLING
 
-Unpack the zip first (right-click it, Extract All...). The plug-ins are the folders at the top of it,
-beside this file:
+Unpack the zip first (right-click it, Extract All...). Each of the two folders holds the same plug-ins:
 
 $VST3_LIST
-Each one is a FOLDER ending in .vst3, holding the plug-in for both Intel/AMD and ARM Windows. Copy the whole
-folder - not the files inside it - into:
+Each one is a FOLDER ending in .vst3. Copy the whole folder - not the files inside it - into:
 
     C:\\Program Files\\Common Files\\VST3
 
@@ -209,11 +228,11 @@ EOF
 
 ZIP="$DIST/AllAlike-$VERSION_CLEAN-windows.zip"
 rm -f "$ZIP"
-( cd "$STAGE" && zip -qrX "$ZIP" * )    # no enclosing folder: the .vst3s at the top of the zip
+( cd "$STAGE" && zip -qrX "$ZIP" . -x '*.DS_Store' )    # no enclosing folder: Extract All makes one
 echo "==> $ZIP"
-echo "    contains: ${#NAMES} plug-in bundles (x64 + arm64), Read Me First.txt, LICENSE.txt, Licences/"
+echo "    contains: x64/ and arm64/ (${#NAMES} plug-in bundles each), Read Me First.txt, LICENSE.txt, Licences/"
 
-if [[ -n $NEW_TAG ]]; then
+if [[ -n $NEW_TAG && -z ${ALLALIKE_RELEASE_FROM_MAC:-} ]]; then
     echo
     echo "Once the .zip (and the Mac .dmg from ./do-release with the same argument) have been checked:"
     echo "    git tag $NEW_TAG && git push origin $NEW_TAG"

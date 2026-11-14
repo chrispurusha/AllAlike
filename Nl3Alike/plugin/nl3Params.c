@@ -919,11 +919,11 @@ const uint32_t           gNl3PageCount          = sizeof(gNl3Pages) / sizeof(gNl
 
 // ---- the sound - notes §5: an interim mapping onto the engine as it stands, until each block is rebuilt -------
 
-#define LFO_SLOWEST_HZ      (1.0 / 33.8)    // the manual's range
-#define LFO_FASTEST_HZ      (523.0)
-#define LFO_PITCH_SEMIS     (12.0)          // interim scales: a full Amount
-#define LFO_CUTOFF_SEMIS    (48.0)
-#define ENV_CUTOFF_SCALE    (0.5)
+#define LFO_RATE_WORD       (22.493)        // voices notes §21: the phase step at Rate 0, words of 2^24 a cycle
+#define LFO_RATE_STEPS      (9.0)           // Rate steps an octave
+#define LFO_TICK_HZ         (22050.0)       // the LFOs step once every two samples
+#define LFO_PITCH_CUBE      (16384.0)       // voices notes §21: semitones = Amount^3 / this
+#define ENV_CUTOFF_SCALE    (1.0)           // voices notes §23: a semitone of cutoff an Amount step, at full envelope
 #define BEND_SEMIS          (2.0)
 
 static double plain(const double * v, uint32_t id) {
@@ -938,8 +938,22 @@ static bool on(const double * v, uint32_t id) {
     return v[id] >= 0.5;
 }
 
+// voices notes §21: the phase step, rounded as measured, in hertz
+static double lfo_hz(double rate) {
+    return round(LFO_RATE_WORD * exp2(rate / LFO_RATE_STEPS)) * LFO_TICK_HZ / 16777216.0;
+}
+
+// voices notes §21: a full swing's pitch, cubic in the Amount, 127 counting as 128
+static double lfo_pitch_semis(const double * v, int l) {
+    uint32_t at     = (uint32_t)l * (kNl3ParamLfo2Rate - kNl3ParamLfo1Rate);
+    double   amount = plain(v, kNl3ParamLfo1Amount + at);
+
+    amount = (amount >= 127.0) ? 128.0 : amount;
+    return (on(v, kNl3ParamLfo1Invert + at) ? -1.0 : 1.0) * amount * amount * amount / LFO_PITCH_CUBE;
+}
+
 static tNl3OscShape osc_shape(int waveform) {
-    static const tNl3OscShape kShapes[] = {eNl3OscSaw, eNl3OscSquare, eNl3OscTriangle, eNl3OscSine}; // Saw, Triangle and Sine are the instrument's; Pulse is close
+    static const tNl3OscShape kShapes[] = {eNl3OscSaw, eNl3OscSquare, eNl3OscTriangle, eNl3OscSine}; // the instrument's Saw, Pulse, Triangle and Sine
 
     return ((waveform >= 0) && (waveform < 4)) ? kShapes[waveform] : eNl3OscSaw;                     // Noise and Dual Sine play as Saw for now
 }
@@ -952,14 +966,14 @@ void nl3_sound_from_values(const double * v, tNl3Sound * s) {
 
     memset(s, 0, sizeof(*s));
     s->osc[0].shape     = osc_shape(choice(v, kNl3ParamOsc1Waveform));
-    s->osc[0].width     = 1.0 - (0.9 * plain(v, kNl3ParamOsc1Shape) / 127.0);
+    s->osc[0].width     = nl3_word_value(nl3_pulse_width_word(plain(v, kNl3ParamOsc1Shape)));   // osc notes §11
     s->osc[0].level     = 1.0 - mix;
     s->osc[1].shape     = osc_shape(choice(v, kNl3ParamOsc2Waveform));
-    s->osc[1].width     = 1.0 - (0.9 * plain(v, kNl3ParamOsc2Shape) / 127.0);
+    s->osc[1].width     = nl3_word_value(nl3_pulse_width_word(plain(v, kNl3ParamOsc2Shape)));
     s->osc[1].semitones = fmin(60.0, fmax(-60.0, plain(v, kNl3ParamOsc2Coarse) - 64.0));
     s->osc[1].cents     = (plain(v, kNl3ParamOsc2Fine) - 64.0) * 50.0 / 64.0;
     s->osc[1].level     = noise3 ? 0.0 : mix;
-    s->osc[2].width     = 1.0;
+    s->osc[2].width     = 0.0;
     s->noiseLevel       = noise3 ? mix : 0.0;
 
     for (int o = 0; o < NL3_OSCS; o++) {
@@ -969,28 +983,53 @@ void nl3_sound_from_values(const double * v, tNl3Sound * s) {
     s->cutoff           = plain(v, kNl3ParamCutoff);
     s->resonance        = plain(v, kNl3ParamResonance);
     s->tracking         = on(v, kNl3ParamFilterTrack) ? 1.0 : 0.0;
-    s->filterType       = (choice(v, kNl3ParamFilterType) == 1) ? 1u : 0u; // LP and HP are built; the rest play as LP
-    s->filterSlope      = (slope == 2) ? 1u : 0u;                          // 6 dB plays as 12 for now
+    s->filterType       = (uint32_t)choice(v, kNl3ParamFilterType);   // LP HP BP BR Classic Dist (filter notes)
+    s->filterSlope      = (uint32_t)slope;                            // 6, 12, 24 dB
+    s->filterMulti      = choice(v, kNl3ParamFilterMode) == 1;
+    s->filter2Type      = (uint32_t)choice(v, kNl3ParamFilter2Type);
+    s->cutoff2          = plain(v, kNl3ParamCutoff2);
+    s->filter2Env       = on(v, kNl3ParamFilter2Env);
 
     s->ampAttack        = plain(v, kNl3ParamAmpAttack);
     s->ampDecay         = plain(v, kNl3ParamAmpDecay);
     s->ampSustain       = plain(v, kNl3ParamAmpSustain);
     s->ampRelease       = plain(v, kNl3ParamAmpRelease);
     s->ampVelocity      = 64.0;
+    s->ampExponential   = on(v, kNl3ParamAmpExpAttack);
+    s->unison           = on(v, kNl3ParamUnison);   // voices notes §26
+    {
+        double k = plain(v, kNl3ParamUnisonDetune);
+
+        s->unisonStep = (k * k / 8.0) - (0.08 * k) + 7.45;
+    }
 
     s->env[0]           = (tNl3ModEnv){
         .attack   = plain(v, kNl3ParamFEnvAttack), .decay = plain(v, kNl3ParamFEnvDecay),
         .sustain  = plain(v, kNl3ParamFEnvSustain), .release = plain(v, kNl3ParamFEnvRelease),
-        .velocity = on(v, kNl3ParamFEnvVelocity) ? 127.0 : 64.0,
+        .velocity = on(v, kNl3ParamFEnvVelocity) ? 127.0 : 64.0, .exponential = on(v, kNl3ParamFEnvExpAttack),
         .amount   = (on(v, kNl3ParamFEnvInvert) ? -1.0 : 1.0) * plain(v, kNl3ParamFEnvAmount) * ENV_CUTOFF_SCALE,
     };
-    int dest = choice(v, kNl3ParamMEnvDest);
+    int  dest     = choice(v, kNl3ParamMEnvDest);
+    bool modEnvAr = choice(v, kNl3ParamMEnvRelease) == 1;   // 1: AR
 
     s->env[1]           = (tNl3ModEnv){
-        .attack  = plain(v, kNl3ParamMEnvAttack), .decay = plain(v, kNl3ParamMEnvDecay), .sustain = 0.0,
-        .release = plain(v, kNl3ParamMEnvDecay), .velocity = 64.0,
+        // envelope notes §6: AD falls to nothing held or not (Repeat starting it again while held); AR holds at the top
+        .attack  = plain(v, kNl3ParamMEnvAttack), .decay = plain(v, kNl3ParamMEnvDecay), .sustain = modEnvAr ? 127.0 : 0.0,
+        .release = plain(v, kNl3ParamMEnvDecay), .velocity = 64.0, .exponential = on(v, kNl3ParamMEnvExpAttack),
+        .repeat  = !modEnvAr && on(v, kNl3ParamMEnvRepeat),
         .amount  = ((dest == 3) || (dest == 5)) ? ((on(v, kNl3ParamMEnvInvert) ? -1.0 : 1.0) * plain(v, kNl3ParamMEnvAmount) * ENV_CUTOFF_SCALE) : 0.0,
     };
+    {
+        // voices notes §24: pitch cubic in the Amount as the LFOs', Shape and Osc Mix a step a step
+        double amount = plain(v, kNl3ParamMEnvAmount), sign = on(v, kNl3ParamMEnvInvert) ? -1.0 : 1.0;
+        double cube = (amount >= 127.0) ? 128.0 : amount;
+
+        s->modEnvPitch[0] = ((dest == 0) || (dest == 2)) ? (sign * cube * cube * cube / LFO_PITCH_CUBE) : 0.0;
+        s->modEnvPitch[1] = ((dest == 1) || (dest == 2)) ? (sign * cube * cube * cube / LFO_PITCH_CUBE) : 0.0;
+        s->modEnvWidth[0] = ((dest == 6) || (dest == 8)) ? (sign * amount / 128.0) : 0.0;
+        s->modEnvWidth[1] = ((dest == 7) || (dest == 8)) ? (sign * amount / 128.0) : 0.0;
+        s->modEnvMix      = (dest == 10) ? (sign * amount / 127.0) : 0.0;
+    }
 
     for (int l = 0; l < NL3_LFOS; l++) {
         uint32_t at     = (uint32_t)l * (kNl3ParamLfo2Rate - kNl3ParamLfo1Rate);
@@ -999,14 +1038,16 @@ void nl3_sound_from_values(const double * v, tNl3Sound * s) {
 
         s->lfo[l]             = (tNl3LfoSound){
             .shape = kLfoShape[choice(v, kNl3ParamLfo1Waveform + at) % 6],
-            .hz    = LFO_SLOWEST_HZ * pow(LFO_FASTEST_HZ / LFO_SLOWEST_HZ, plain(v, kNl3ParamLfo1Rate + at) / 127.0),
+            .hz    = lfo_hz(plain(v, kNl3ParamLfo1Rate + at)),
             .keyed = choice(v, kNl3ParamLfo1EnvKbs + at) == 2,
         };
-        s->lfoCutoff[l]       = ((to == 3) || (to == 5)) ? (amount * LFO_CUTOFF_SEMIS) : 0.0;
-        s->osc[0].lfoPitch[l] = ((to == 0) || (to == 2)) ? (amount * LFO_PITCH_SEMIS) : 0.0;
-        s->osc[1].lfoPitch[l] = ((to == 1) || (to == 2)) ? (amount * LFO_PITCH_SEMIS) : 0.0;
-        s->osc[0].lfoWidth[l] = ((to == 6) || (to == 8)) ? amount : 0.0;
-        s->osc[1].lfoWidth[l] = ((to == 7) || (to == 8)) ? amount : 0.0;
+        s->lfoCutoff[l]       = ((to == 3) || (to == 5)) ? (amount * 127.0) : 0.0; // voices notes §22: a semitone an Amount step
+        s->lfoMix[l]          = ((l == 0) && (to == 10)) ? amount : 0.0;           // LFO 2's 10 and 11 are Resonance and Pan: not yet
+        s->lfoAmp[l]          = ((l == 0) && (to == 11)) ? (amount * 127.0 / 64.0) : 0.0;
+        s->osc[0].lfoPitch[l] = ((to == 0) || (to == 2)) ? lfo_pitch_semis(v, l) : 0.0;
+        s->osc[1].lfoPitch[l] = ((to == 1) || (to == 2)) ? lfo_pitch_semis(v, l) : 0.0;
+        s->osc[0].lfoWidth[l] = ((to == 6) || (to == 8)) ? (amount * 127.0 / 128.0) : 0.0;   // voices notes §22: a Shape step an Amount step
+        s->osc[1].lfoWidth[l] = ((to == 7) || (to == 8)) ? (amount * 127.0 / 128.0) : 0.0;
     }
 
     s->glideTime  = (choice(v, kNl3ParamGlideMode) == 0) ? 0.0 : plain(v, kNl3ParamGlideRate);
@@ -1017,4 +1058,44 @@ void nl3_sound_from_values(const double * v, tNl3Sound * s) {
     s->bend       = (2.0 * v[kNl3ParamPitchBend]) - 1.0;
     s->wheel      = v[kNl3ParamModWheel];
     s->pedal      = on(v, kNl3ParamSustainPedal);
+}
+
+// voices notes §25: the knob each of a group's 26 morph ranges moves, in the group's order
+static const uint32_t kMorphTargets[26] = {
+    kNl3ParamLfo1Rate,   kNl3ParamLfo1Amount,  kNl3ParamLfo2Rate,    kNl3ParamLfo2Amount,   kNl3ParamMEnvAttack, kNl3ParamMEnvDecay,
+    kNl3ParamMEnvAmount, kNl3ParamOsc2Fine,    kNl3ParamOsc2Coarse,  kNl3ParamOscModAmount, kNl3ParamOscMix,     kNl3ParamOsc1Shape,
+    kNl3ParamOsc2Shape,  kNl3ParamAmpAttack,   kNl3ParamAmpDecay,    kNl3ParamAmpSustain,   kNl3ParamAmpRelease, kNl3ParamFEnvAttack,
+    kNl3ParamFEnvDecay,  kNl3ParamFEnvSustain, kNl3ParamFEnvRelease, kNl3ParamFEnvAmount,   kNl3ParamCutoff,     kNl3ParamCutoff2,
+    kNl3ParamResonance,  kNl3ParamLevel,
+};
+
+// voices notes §25: range x source in knob steps, the groups adding, each knob held to its own range
+bool nl3_morph_values(const double * v, float velocity, int note, double * out) {
+    static const uint32_t kGroups[4] = {kNl3ParamMorphWheel_Lfo1Rate, kNl3ParamMorphTouch_Lfo1Rate, kNl3ParamMorphVelocity_Lfo1Rate, kNl3ParamMorphKbd_Lfo1Rate};
+    double                wheel      = v[kNl3ParamModWheel];
+    double                source[4]  = {
+        (wheel >= 1.0) ? 1.0 : (wheel * 127.0 / 128.0),   // 127 is the whole range
+        0.0,                                              // aftertouch: not received yet
+        (double)velocity * 127.0 / 128.0,                 // 127 is not quite all of it
+        ((double)note - 36.0) / 48.0,                     // C2 to C6, and on past either end
+    };
+    bool                  any        = false;
+
+    memcpy(out, v, sizeof(double) * kNl3ParamCount);
+
+    for (int g = 0; g < 4; g++) {
+        for (int k = 0; k < 26; k++) {
+            double range = plain(v, kGroups[g] + (uint32_t)k) - 128.0;
+
+            if ((range != 0.0) && (source[g] != 0.0)) {
+                uint32_t id    = kMorphTargets[k];
+                double   steps = gNl3Params[id].stepCount;
+
+                out[id] = fmin(1.0, fmax(0.0, out[id] + (range * source[g] / steps)));
+                any     = true;
+            }
+        }
+    }
+
+    return any;
 }

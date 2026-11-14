@@ -105,3 +105,82 @@ of `nl3Osc.md` §7; Off plays the oscillators band-limited as the instrument doe
 the engine from the default when it starts, before the host sends anything. The Saw takes its phase advanced
 before it is read, as the instrument's does; the placeholder shapes still read before advancing.
 
+
+## 21. The LFOs: rate, waves and the pitch amount (instrument, 2026-11-14)
+Each voice's LFO steps once every two samples (22050 times a second) by a phase word of 2^24 a cycle, the word being
+round(22.493 x 2^(Rate/9)): 0.0296 Hz (one cycle in 33.8 s) at 0, a ninth of an octave a step, 523 Hz at 127 - the
+manual's range, rounded as measured. On its phase p (-1..1) the waves are: Saw -p, falling; Triangle
+2|p| - 1, starting at its top; Square +1 while p > 0, else -1; Random a new held value at each wrap.
+To an oscillator's pitch a full swing is Amount^3 / 16384 semitones, 127 counting as 128: 0.03 at 8, 2 at 32, 16 at
+64, 54 at 96, 128 at the top - measured, the peak pitch offset at each Amount with a fast saw, within the sampled
+saw's own shortfall of its peak. Invert turns the sign.
+Not yet the instrument's: Smooth Random and Special (a table the instrument reads), where a keyed LFO starts, the
+Env (single cycle) mode, Mono, and the amounts to the other destinations (filter, shape, Osc Mod, Osc Mix, resonance,
+amplitude, pan), which are still the interim scales.
+
+## 22. The LFOs' other destinations (instrument, 2026-11-14)
+The Destination positions, in order: Osc 1, Osc 2 and both (pitch), Filter 1, Filter 2 and both, Shape 1, Shape 2 and
+both, Osc Mod, then Osc Mix (LFO 1) or Resonance (LFO 2), Amp (LFO 1) or Pan (LFO 2). Measured with a square LFO,
+which sits at +1 or -1 on every sample, against the knob each destination belongs to:
+- Pitch: both ways, cubic (§21).
+- Filter: upward only - +Amount semitones at the wave's top, none at its bottom (Amount 16 moved the cutoff as 16
+  steps of its own knob, 32 as 32, 64 as 64), clamped where the knob runs out.
+- Shape and Osc Mod: upward only, an Amount step a step of the knob, clamped at the top.
+- Osc Mix: both ways, an Amount step a step of the knob.
+- Amp: downward only - the level times 1 - (Amount/64) at the wave's bottom: silence at 64, and past it the signal
+  turns over, as the manual says it may.
+So a positive-only destination follows (wave + 1)/2. Not yet the instrument's: LFO 2's Resonance and Pan, what Invert
+does to a positive-only destination, and Osc Mod's effect (Osc Mod itself is not built).
+
+## 23. The Filter envelope's Amount (instrument, 2026-11-14)
+At full envelope the cutoff rises Amount semitones - a step of its own Freq knob for every step of Amount (measured
+against the knob at Amounts 0 to 127 in steps of 8, within 0.25 of a step), and in proportion below full. The Mod
+envelope to the filter is taken to follow the same law. With the Filter envelope's Velocity on, the Amount is scaled
+by velocity/128 - a straight line (Amount 64: 0.5 semitones at velocity 1, 32 at 64, 50 at 100, 63.5 at 127). The
+amplifier itself takes no velocity: its level is the same at every velocity (velocity reaches it through the
+velocity morph). Keyboard Track adds a semitone a note above C2 (note 36), measured at C2 to C6.
+
+## 24. The Mod envelope's destinations (instrument, 2026-11-14)
+Its twelve positions are the LFOs' to Osc Mod, then Osc Mix and LFO 1's Amount. To pitch it follows the LFOs' cube
+exactly (Amount 16: 0.25 semitones at the top of the envelope, 32: 2, 64: 16, 96: 54); to the filter a semitone an
+Amount step (§23); Shape and Osc Mix are taken as the LFOs' (§22). Not yet built: LFO 1's Amount, Osc Mod; and at
+Amount 127 the instrument's pitch offset reads zero rather than 128 semitones - not reproduced.
+
+## 25. The morph groups (instrument, 2026-11-14)
+Each group adds its range times its source to the knob's own value, in steps of that knob, before the knob's law is
+applied - so a morphed cutoff moves a semitone a step, a morphed attack along the envelope law - and groups on the
+same knob add. Measured on Filter 1 Freq, against the knob itself:
+- Wheel: wheel/128, 127 counting as the whole range (+64 range: 16 steps at wheel 32, 64 at 127).
+- Velocity: velocity/128 (+64 range: 0.5 at velocity 1, 32 at 64, 63.5 at 127).
+- Keyboard: (note - 36)/48 - nothing at C2, the whole range at C6 (the instrument's four octaves), and on beyond
+  either end (1.25 at C7).
+The move is not rounded to a step. Each sounding voice gets its own sound with its morphs (Velocity and Keyboard differ
+from voice to voice), built once a block; a knob is held to its own range. Aftertouch (and the pedal it can be
+swapped for) has no source yet.
+
+## 26. Unison (instrument, 2026-11-14)
+Each voice's output goes into a 256-sample ring and is read back twice at fractional delays, through a 6-tap
+interpolation (sinc x Hann over three samples a side). Each read's delay comes from a 24-bit word: 128 - word x 244/2²⁴
+samples (the word taken signed), so as the word climbs the delay shrinks from 250 samples to 6 and then jumps back - a
+read sweeping through the ring is a pitch shift, upward. With Unison on, the first word steps every sample by
+k²/8 - 0.08k + 7.45 (k the Detune dial; within 1.5 of every setting measured) and the second by 0.7 of that: at 64,
++12.8 and +9.0 cents; at 127, +49.5 and +34.8. Left is the second word's copies with the voice, right the first's (§27: two copies a side); with
+Unison off the voice goes to both sides undelayed. The jump at each wrap is not smoothed - it is the instrument's, and
+shows as faint sidebands. The voices are now stereo for it; each starts its reads somewhere of its own.
+Not yet the instrument's: the interpolation kernel's small correction term, and where the reads start on a new note.
+
+## 27. Unison: a mirrored pair each side (measured on the instrument, 2026-11-14)
+Captured with Unison at 40 and 81 on one saw (Init) and on String Pad and Happy ending, and compared harmonic by
+harmonic: each side carries two copies, not one - one read ahead of 128 samples by the word's offset and one behind
+by as much, so one goes sharp while the other goes as far flat. Seen as sidebands on both sides of every harmonic, at
+equal strength in every quarter second, their pattern line for line that of a mirrored ramp (not a triangle) and the
+copies' power 3 dB above the voice's. A side is (voice + copy ahead + copy behind)/2: Unison on is 1.2 dB quieter
+than off on the instrument, as here. The second word's (0.7) pair is on the left, the first's on the right, as §26.
+With one copy a side (§26 as first built) the copy sat sharp of the voice and beat against it, about 10 dB deeper
+than the instrument at the fundamental; switching Unison off on both made the beating match, which is how it was found.
+
+## 28. Voice stealing
+With every voice busy, a note takes the quietest voice already let go, and a held one (the oldest) only when none
+is. Long releases keep voices busy for a long time - String Pad's (103) for half a minute - so this is common. A note
+on a key still sounding restarts that voice, its envelopes from where they are; whether the instrument does the
+same is not yet settled (the beating hid it in the one comparison made).

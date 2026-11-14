@@ -40,7 +40,9 @@
 #define FILTER_OUT               (4.0)  // voices notes §19: the filter leaves a quarter of what it is given
 #define LFO_FADE_HOLD            (0.0125)
 #define LFO_FADE_FALL            (5.7)
-#define SUB_BLOCK                (32u) // notes §4
+#define SUB_BLOCK                (32u)   // notes §4
+#define UNISON_SPAN              (244.0) // voices notes §26: delay samples across the word
+#define UNISON_SECOND            (0.7)   // voices notes §26: the second read's step against the first's
 
 void nl3_voices_init(tNl3Voices * v) {
     memset(v, 0, sizeof(*v));
@@ -119,16 +121,19 @@ static void lfo_restart(tNl3Voice * vc, const tNl3Sound * sound) {
     }
 }
 
+// voices notes §21: the instrument's waves, on its phase p = -1..1 (phase 0..1 here)
 static double lfo_wave(int shape, double phase, double held) {
+    double p = (2.0 * phase) - 1.0;
+
     switch (shape) {
         case 0:
-            return (phase < 0.5) ? 1.0 : -1.0;
+            return (p > 0.0) ? 1.0 : -1.0;
 
         case 1:
-            return (2.0 * phase) - 1.0;
+            return -p;
 
         case 2:
-            return (phase < 0.25) ? (4.0 * phase) : ((phase < 0.75) ? (2.0 - (4.0 * phase)) : ((4.0 * phase) - 4.0));
+            return (2.0 * fabs(p)) - 1.0;
 
         default:
             return held;
@@ -143,8 +148,11 @@ static double lfo_fade(const tNl3LfoSound * lfo, double age) {
 }
 
 // voices notes §15: every LFO moved on by one sub-block, and what it does to this voice
-static void lfo_advance(tNl3Voices * v, tNl3Voice * vc, const tNl3Sound * sound, double seconds, double * cutoff, double width[NL3_OSCS]) {
-    *cutoff = 0.0;
+static void lfo_advance(tNl3Voices * v, tNl3Voice * vc, const tNl3Sound * sound, double seconds, double * cutoff, double width[NL3_OSCS],
+                        double * mix, double * ampGain) {
+    *cutoff  = 0.0;
+    *mix     = 0.0;
+    *ampGain = 1.0;
 
     for (int o = 0; o < NL3_OSCS; o++) {
         vc->lfoSemis[o] = 0.0;
@@ -153,7 +161,7 @@ static void lfo_advance(tNl3Voices * v, tNl3Voice * vc, const tNl3Sound * sound,
 
     for (int l = 0; l < NL3_LFOS; l++) {
         const tNl3LfoSound * lfo   = &sound->lfo[l];
-        double               phase = lfo->keyed ? vc->lfoPhase[l] : v->lfoFree[l];
+        double               phase = vc->lfoPhase[l];   // voices notes §29: every voice its own LFO, at its own rate
         double               next  = phase + (lfo->hz * seconds);
         double               fade  = lfo_fade(lfo, vc->lfoAge);
 
@@ -163,12 +171,16 @@ static void lfo_advance(tNl3Voices * v, tNl3Voice * vc, const tNl3Sound * sound,
         }
         vc->lfoPhase[l] = next;
         double               value = (lfo_wave(lfo->shape, next, vc->lfoHeld[l]) * fade) + lfo->offset;
+        double               up    = 0.5 * (value + fade);    // voices notes §22: 0 at the wave's bottom, the fade at its top
+        double               down  = fade - up;
 
-        *cutoff        += value * sound->lfoCutoff[l];
+        *cutoff        += up * sound->lfoCutoff[l];
+        *mix           += value * sound->lfoMix[l];
+        *ampGain       *= 1.0 - (down * sound->lfoAmp[l]);
 
         for (int o = 0; o < NL3_OSCS; o++) {
             vc->lfoSemis[o] += value * sound->osc[o].lfoPitch[l];
-            width[o]        += value * sound->osc[o].lfoWidth[l];
+            width[o]        += up * sound->osc[o].lfoWidth[l];
         }
     }
 
@@ -240,6 +252,11 @@ static void mono_play(tNl3Voices * v, const tNl3Sound * sound, uint8_t note, flo
         }
         vc->started   = ++v->clock;
         vc->noiseSeed = vc->noiseSeed ? vc->noiseSeed : (uint32_t)((v->clock * 2654435761u) | 1u);
+
+        if ((vc->delayWord[0] | vc->delayWord[1]) == 0u) {   // voices notes §26: each voice's reads start somewhere of their own
+            vc->delayWord[0] = (vc->noiseSeed * 2246822519u) & 0xFFFFFFu;
+            vc->delayWord[1] = (vc->noiseSeed * 3266489917u) & 0xFFFFFFu;
+        }
         lfo_restart(vc, sound);
         nl3_env_gate(&vc->amp, true);
 
@@ -282,6 +299,15 @@ void nl3_voices_note_on(tNl3Voices * v, const tNl3Sound * sound, uint8_t note, f
         }
     }
 
+    bool anyFree = (pick != NULL);          // the same key, or a free voice
+
+    // voices notes §28: all busy - the quietest voice already let go, else the oldest still held
+    for (uint32_t i = 0; (i < v->limit) && !anyFree; i++) {
+        if (!v->voice[i].gate && ((pick == NULL) || (v->voice[i].amp.level < pick->amp.level))) {
+            pick = &v->voice[i];
+        }
+    }
+
     if (pick == NULL) {
         pick = &v->voice[0];
 
@@ -291,6 +317,8 @@ void nl3_voices_note_on(tNl3Voices * v, const tNl3Sound * sound, uint8_t note, f
             }
         }
     }
+    bool        wasSounding = pick->active;
+
     pick->active    = true;
     pick->gate      = true;
     pick->note      = note;
@@ -306,6 +334,12 @@ void nl3_voices_note_on(tNl3Voices * v, const tNl3Sound * sound, uint8_t note, f
     pick->started   = ++v->clock;
     pick->noiseSeed = pick->noiseSeed ? pick->noiseSeed : (uint32_t)((v->clock * 2654435761u) | 1u);
     lfo_restart(pick, sound);
+
+    for (int l = 0; (l < NL3_LFOS) && !wasSounding; l++) {
+        if (!sound->lfo[l].keyed) {
+            pick->lfoPhase[l] = v->lfoFree[l];   // voices notes §29: a free LFO starting from silence joins the others' phase
+        }
+    }
     nl3_env_gate(&pick->amp, true);
 
     for (int e = 0; e < NL3_MOD_ENVS; e++) {
@@ -457,70 +491,146 @@ static double velocity_level(double velocity, double amount) {
     return 1.0 - (((64.0 - amount) / 64.0) * curve);
 }
 
+// voices notes §26: the 6-tap fractional read, sinc(t) x hann(t/3) about the point `delay` samples back
+static double ring_read(const tNl3Voice * vc, double delay) {
+    double place = (double)vc->ringAt - delay;
+    double base  = floor(place);
+    double p     = place - base;
+    double sum   = 0.0;
+
+    for (int j = -2; j <= 3; j++) {
+        double t = (double)j - p;
+        double s = (fabs(t) < 1e-9) ? 1.0 : (sin(M_PI * t) / (M_PI * t));
+        double h = (fabs(t) >= 3.0) ? 0.0 : (0.5 + (0.5 * cos(M_PI * t / 3.0)));
+
+        sum += vc->ring[((int)base + j) & 255] * s * h;
+    }
+
+    return sum;
+}
+
+// voices notes §26-27: how far a read's delay moves from 128 samples, from its word - a ramp, wrapping
+static double unison_offset(uint32_t word) {
+    int32_t signedWord = (int32_t)(word << 8) >> 8;
+
+    return ((double)signedWord * UNISON_SPAN) / 16777216.0;
+}
+
 static void render_sub_block(tNl3Voices * v, const tNl3Sound * sound, double cutoff, double res, const tNl3EnvShape * amp, const tNl3EnvShape * mods,
-                             float * out, uint32_t frames, double gain) {
+                             float * out, float * outRight, uint32_t frames, double gain) {
     double driveW = drive_word(sound->overdrive);
     double corner = fmin(1.0, 2.0 * M_PI * NOISE_CORNER_HZ * pow(2.0, sound->noiseSoften / 15.0) / v->rate);
 
     for (uint32_t i = 0; i < NL3_MAX_VOICES; i++) {
-        tNl3Voice *      vc    = &v->voice[i];
+        tNl3Voice *          vc       = &v->voice[i];
 
         if (!vc->active) {
             continue;
         }
-        double           lfoCut;
-        double           width[NL3_OSCS];
+        // voices notes §25: the voice's own sound when a morph moves it, with its own envelope laws
+        const tNl3Sound *    vs       = v->voiceMorphed[i] ? &v->voiceSound[i] : sound;
+        tNl3EnvShape         voiceAmp, voiceMods[NL3_MOD_ENVS];
 
-        lfo_advance(v, vc, sound, (double)frames / v->rate, &lfoCut, width);
+        if (vs != sound) {
+            nl3_env_shape(vs->ampAttack, vs->ampDecay, vs->ampSustain, vs->ampRelease, true, vs->ampExponential, v->rate, &voiceAmp);
+
+            for (int e = 0; e < NL3_MOD_ENVS; e++) {
+                nl3_env_shape(vs->env[e].attack, vs->env[e].decay, vs->env[e].sustain, vs->env[e].release, false, vs->env[e].exponential, v->rate, &voiceMods[e]);
+                voiceMods[e].repeat = vs->env[e].repeat;
+            }
+        }
+        const tNl3EnvShape * vAmp     = (vs != sound) ? &voiceAmp : amp;
+        const tNl3EnvShape * vMods    = (vs != sound) ? voiceMods : mods;
+        double               lfoCut, lfoMix, lfoAmp;
+        double               width[NL3_OSCS];
+
+        lfo_advance(v, vc, vs, (double)frames / v->rate, &lfoCut, width, &lfoMix, &lfoAmp);
+
+        // voices notes §24: the Mod envelope (Env 3) where it is at the start of the sub-block
+        double               modEnv   = vc->env[1].level;
+
+        lfoMix += modEnv * vs->modEnvMix;
+
+        for (int o = 0; o < NL3_OSCS; o++) {
+            vc->lfoSemis[o] += modEnv * vs->modEnvPitch[o];
+            width[o]        += modEnv * vs->modEnvWidth[o];
+        }
 
         if (vc->glide != 0.0) {
-            advance_glide(vc, sound, (double)frames / v->rate);
+            advance_glide(vc, vs, (double)frames / v->rate);
         }
-        set_pitch(vc, sound);
-        double           stretch[NL3_OSCS];
-        double           level = velocity_level(vc->velocity, sound->ampVelocity);
-        tNl3FilterCoeffs coeffs;
+        set_pitch(vc, vs);
+        double               stretch[NL3_OSCS];
+        double               level    = velocity_level(vc->velocity, vs->ampVelocity);
+        tNl3FilterCoeffs     coeffs;
 
         // voices notes §9
-        double           moved = (((double)vc->note - TRACK_PIVOT) * sound->tracking) + (sound->wheel * sound->wheelCutoff * ENV_TO_CUTOFF) + lfoCut;
+        double               moved    = (((double)vc->note - TRACK_PIVOT) * vs->tracking) + (vs->wheel * vs->wheelCutoff * ENV_TO_CUTOFF) + lfoCut;
 
         for (int e = 0; e < NL3_MOD_ENVS; e++) {
-            moved += vc->env[e].level * sound->env[e].amount * ENV_TO_CUTOFF * velocity_level(vc->velocity, sound->env[e].velocity);
+            moved += vc->env[e].level * vs->env[e].amount * ((vs->env[e].velocity > 64.0) ? (vc->velocity * 127.0 / 128.0) : 1.0);   // voices notes §23
         }
 
-        nl3_filter_coeffs(nl3_filter_mode(sound->filterType, sound->filterSlope), cutoff + moved, fmin(127.0, fmax(0.0, res + (sound->wheel * sound->wheelResonance))), &coeffs);
+        double               voiceRes = fmin(127.0, fmax(0.0, res + (vs->resonance - sound->resonance) + (vs->wheel * vs->wheelResonance)));
 
-        double           oscLevel[NL3_OSCS];
-        tNl3Word         incrementWord[NL3_OSCS];
+        if (vs->filterMulti && ((vs->filter2Type == 1) || (vs->filter2Type == 4) || (vs->filter2Type == 5))) {   // filter notes §15-16
+            double         tracked = ((double)vc->note - TRACK_PIVOT) * vs->tracking;
+            tNl3FilterMode multi   = (vs->filter2Type == 1) ? eNl3FilterLpHpPar : ((vs->filter2Type == 4) ? eNl3FilterPeak : eNl3FilterNotch);
+
+            nl3_filter_coeffs_multi(multi, cutoff + (vs->cutoff - sound->cutoff) + moved, vs->cutoff2 + (vs->filter2Env ? moved : tracked), voiceRes, &coeffs);
+        } else {
+            nl3_filter_coeffs(nl3_filter_mode(vs->filterType, vs->filterSlope), cutoff + (vs->cutoff - sound->cutoff) + moved, voiceRes, &coeffs);
+        }
+        double               oscLevel[NL3_OSCS];
+        tNl3Word             incrementWord[NL3_OSCS];
 
         for (int o = 0; o < NL3_OSCS; o++) {
             incrementWord[o] = nl3_pitch_increment_fixed(vc->pitch[o]);
-            stretch[o]       = nl3_osc_stretch(vc->increment[o], sound->osc[o].soften);
-            oscLevel[o]      = fmin(1.0, fmax(0.0, sound->osc[o].level + (sound->wheel * sound->osc[o].wheelLevel)));
+            stretch[o]       = nl3_osc_stretch(vc->increment[o], vs->osc[o].soften);
+            oscLevel[o]      = fmin(1.0, fmax(0.0, vs->osc[o].level + (vs->wheel * vs->osc[o].wheelLevel) + ((o == 0) ? -lfoMix : ((o == 1) ? lfoMix : 0.0))));
         }
 
         for (uint32_t f = 0; f < frames; f++) {
             double mix = 0.0;
 
             for (int e = 0; e < NL3_MOD_ENVS; e++) {
-                (void)nl3_env_next(&vc->env[e], &mods[e]);
+                (void)nl3_env_next(&vc->env[e], &vMods[e]);
             }
 
             double wave[NL3_OSCS];
 
             for (int o = 0; o < NL3_OSCS; o++) {
-                const tNl3OscSound * os = &sound->osc[o];
+                const tNl3OscSound * os = &vs->osc[o];
 
-                if (os->shape == eNl3OscSine) {   // osc notes §10
+                if (os->shape == eNl3OscSine) {   // osc notes §10, §12
+                    double shape = fmin(nl3_word_value(NL3_WORD_MAX), fmax(0.0, width[o]));
+
                     if (v->fixedPoint) {
-                        tNl3Word p = nl3_phase_advance((tNl3Word)llround(vc->phase[o] * NL3_Q23), incrementWord[o]);
+                        tNl3Word p   = nl3_phase_advance((tNl3Word)llround(vc->phase[o] * NL3_Q23), incrementWord[o]);
+                        tNl3Word out = nl3_sine_fixed(p);
 
+                        p            = nl3_sine_feedback_fixed(p, nl3_word(shape), nl3_word(vc->sineLast[o]), out);
                         vc->phase[o] = nl3_word_value(p);
-                        wave[o]      = nl3_word_value(nl3_sine_fixed(p));
+                        wave[o]      = nl3_word_value(out);
                     } else {
                         vc->phase[o] += vc->increment[o];
                         vc->phase[o] -= (vc->phase[o] >= 1.0) ? 2.0 : 0.0;
                         wave[o]       = nl3_sine(vc->phase[o]);
+                        vc->phase[o]  = nl3_sine_feedback(vc->phase[o], shape, vc->sineLast[o], wave[o]);
+                    }
+                    vc->sineLast[o] = wave[o];
+                } else if (os->shape == eNl3OscSquare) {   // osc notes §11
+                    double w = fmin(nl3_word_value(NL3_WORD_MAX), fmax(0.0, width[o]));
+
+                    if (v->fixedPoint && !v->clean) {
+                        tNl3Word p = nl3_phase_advance((tNl3Word)llround(vc->phase[o] * NL3_Q23), incrementWord[o]);
+
+                        vc->phase[o] = nl3_word_value(p);
+                        wave[o]      = nl3_word_value(nl3_pulse_fixed(&v->steps, p, incrementWord[o], nl3_word(w)));
+                    } else {
+                        vc->phase[o] += vc->increment[o];
+                        vc->phase[o] -= (vc->phase[o] >= 1.0) ? 2.0 : 0.0;
+                        wave[o]       = nl3_pulse(&v->steps, vc->phase[o], vc->increment[o], w, v->clean);
                     }
                 } else if ((os->shape == eNl3OscSaw) || (os->shape == eNl3OscTriangle)) {
                     // osc notes §5-7, §9: the saw and the triangle take their phase advanced
@@ -544,13 +654,37 @@ static void render_sub_block(tNl3Voices * v, const tNl3Sound * sound, double cut
                 mix += wave[o] * oscLevel[o];
             }
 
-            mix    += RING_GAIN * wave[2] * ((wave[0] * sound->ring13) + (wave[1] * sound->ring23));
-            mix    += next_noise(vc, sound->noiseSoften, corner) * sound->noiseLevel;
+            mix                 += RING_GAIN * wave[2] * ((wave[0] * vs->ring13) + (wave[1] * vs->ring23));
+            mix                 += next_noise(vc, vs->noiseSoften, corner) * vs->noiseLevel;
 
-            double x = drive(mix * DRIVE_IN, driveW) * FILTER_IN;
-            double y = FILTER_OUT * (v->fixedPoint ? nl3_word_value(nl3_filter_process_fixed(&vc->filter, &coeffs, nl3_word(x))) : nl3_filter_process(&vc->filter, &coeffs, x));
+            double x   = drive(mix * DRIVE_IN, driveW) * FILTER_IN;
+            double y   = FILTER_OUT * (v->fixedPoint ? nl3_word_value(nl3_filter_process_fixed(&vc->filter, &coeffs, nl3_word(x))) : nl3_filter_process(&vc->filter, &coeffs, x));
 
-            out[f] += (float)(y * nl3_env_next(&vc->amp, amp) * level * gain);
+            double dry = y * nl3_env_next(&vc->amp, vAmp) * level * gain * lfoAmp;
+
+            // voices notes §26: Unison - the voice beside two copies read at ramping delays, one each side
+            vc->ring[vc->ringAt] = (float)dry;
+            double left = dry, right = dry;
+
+            if (vs->unison) {
+                double first  = unison_offset(vc->delayWord[0]);
+                double second = unison_offset(vc->delayWord[1]);
+
+                // voices notes §27: each side the voice beside two copies, one read ahead of 128 samples and one as far
+                // behind - one sharp, one as flat; the full step's pair on the right
+                left             = 0.5 * (dry + ring_read(vc, 128.0 - second) + ring_read(vc, 128.0 + second));
+                right            = 0.5 * (dry + ring_read(vc, 128.0 - first) + ring_read(vc, 128.0 + first));
+                vc->delayWord[0] = (vc->delayWord[0] + (uint32_t)lround(vs->unisonStep)) & 0xFFFFFFu;
+                vc->delayWord[1] = (vc->delayWord[1] + (uint32_t)lround(vs->unisonStep * UNISON_SECOND)) & 0xFFFFFFu;
+            }
+            vc->ringAt           = (vc->ringAt + 1u) & 255u;
+
+            if (outRight != NULL) {
+                out[f]      += (float)left;
+                outRight[f] += (float)right;
+            } else {
+                out[f] += (float)(0.5 * (left + right));
+            }
         }
 
         if (nl3_env_idle(&vc->amp)) {
@@ -560,7 +694,7 @@ static void render_sub_block(tNl3Voices * v, const tNl3Sound * sound, double cut
     }
 }
 
-void nl3_voices_render(tNl3Voices * v, const tNl3Sound * sound, float * out, uint32_t frames, double gain) {
+void nl3_voices_render(tNl3Voices * v, const tNl3Sound * sound, float * out, float * outRight, uint32_t frames, double gain) {
     if (v->pedal && !sound->pedal) {
         for (uint32_t n = 0; n < 128; n++) {
             if (v->pedalled[n]) {
@@ -575,13 +709,14 @@ void nl3_voices_render(tNl3Voices * v, const tNl3Sound * sound, float * out, uin
     smooth_toward(&v->resonance, sound->resonance, v->rate);
     tNl3EnvShape amp;
 
-    nl3_env_shape(sound->ampAttack, sound->ampDecay, sound->ampSustain, sound->ampRelease, true, v->rate, &amp);
+    nl3_env_shape(sound->ampAttack, sound->ampDecay, sound->ampSustain, sound->ampRelease, true, sound->ampExponential, v->rate, &amp);
     tNl3EnvShape mods[NL3_MOD_ENVS];
 
     for (int e = 0; e < NL3_MOD_ENVS; e++) {
         const tNl3ModEnv * m = &sound->env[e];
 
-        nl3_env_shape(m->attack, m->decay, m->sustain, m->release, false, v->rate, &mods[e]);
+        nl3_env_shape(m->attack, m->decay, m->sustain, m->release, false, m->exponential, v->rate, &mods[e]);
+        mods[e].repeat = m->repeat;
     }
 
     // notes §4: the coefficients every sub-block, the same for every voice until keyfollow and envelopes come
@@ -590,7 +725,7 @@ void nl3_voices_render(tNl3Voices * v, const tNl3Sound * sound, float * out, uin
         double   cutoff = smooth_advance(&v->cutoff, n);
         double   res    = smooth_advance(&v->resonance, n);
 
-        render_sub_block(v, sound, cutoff, res, &amp, mods, out + done, n, gain);
+        render_sub_block(v, sound, cutoff, res, &amp, mods, out + done, (outRight != NULL) ? (outRight + done) : NULL, n, gain);
 
         for (int l = 0; l < NL3_LFOS; l++) {
             v->lfoFree[l] += sound->lfo[l].hz * ((double)n / v->rate);

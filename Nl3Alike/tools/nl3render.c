@@ -45,9 +45,16 @@ int main(int argc, char ** argv) {
     nl3_patch_name(gPrograms[index], name);
     tNl3Sound         sound;
 
+    // the morphs at the first note and its velocity, as the plug-in applies them to each voice (voices notes §25)
+    double            morphed[kNl3ParamCount];
+
+    if (nl3_morph_values(values, (argc > 6) ? (float)(atof(argv[6]) / 127.0) : 1.0f, atoi(argv[4]), morphed)) {
+        memcpy(values, morphed, sizeof(values));
+    }
     nl3_sound_from_values(values, &sound);
     uint32_t          frames = (uint32_t)(atof(argv[5]) * RATE);
     float *           out    = calloc(frames + BLOCK, sizeof(float));
+    float *           right  = calloc(frames + BLOCK, sizeof(float));   // stereo: Unison spreads the voices
     static tNl3Voices voices;
 
     nl3_voices_init(&voices);
@@ -78,25 +85,30 @@ int main(int argc, char ** argv) {
         if ((f <= gate) && (gate < f + BLOCK)) {
             nl3_voices_note_off(&voices, &sound, (uint8_t)atoi(argv[4]));
         }
-        nl3_voices_render(&voices, &sound, out + f, BLOCK, nl3_volume_gain(values[kNl3ParamLevel]));
+        nl3_voices_render(&voices, &sound, out + f, right + f, BLOCK, nl3_volume_gain(values[kNl3ParamLevel]));
     }
 
     FILE *            w      = fopen(argv[3], "wb");
 
     fwrite("RIFF", 1, 4, w);
-    put32(w, 36 + (frames * 4));
+    put32(w, 36 + (frames * 8));
     fwrite("WAVEfmt ", 1, 8, w);
     put32(w, 16);
     put16(w, 3);
-    put16(w, 1);
+    put16(w, 2);
     put32(w, RATE);
-    put32(w, RATE * 4);
-    put16(w, 4);
+    put32(w, RATE * 8);
+    put16(w, 8);
     put16(w, 32);
     fwrite("data", 1, 4, w);
-    put32(w, frames * 4);
-    fwrite(out, 4, frames, w);
+    put32(w, frames * 8);
+
+    for (uint32_t i = 0; i < frames; i++) {
+        fwrite(&out[i], 4, 1, w);
+        fwrite(&right[i], 4, 1, w);
+    }
+
     fclose(w);
-    printf("%s: %d of %d, type %u slope %u cutoff %.0f res %.0f\n", name, index, count, sound.filterType, sound.filterSlope, sound.cutoff, sound.resonance);
+    printf("%s: %d of %d, type %u slope %u cutoff %.0f res %.0f, multi %d type2 %u cutoff2 %.0f env2 %d, unison %d\n", name, index, count, sound.filterType, sound.filterSlope, sound.cutoff, sound.resonance, sound.filterMulti, sound.filter2Type, sound.cutoff2, sound.filter2Env, sound.unison);
     return 0;
 }

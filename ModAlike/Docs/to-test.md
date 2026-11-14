@@ -12,3 +12,4 @@ Built, not yet tried in a host or against the instrument. Confirmed: delete the 
 - The latency (31 samples) is compensated: a dry and a processed track stay aligned
 - Each effect against the instrument itself, same settings, through its inputs (the engine's modules are Confirmed; the plug-in's
   level and stereo handling are not)
+- Flanger Range (2026-11-14, G2Alike reference §70.2): turning Range no longer zippers - Range and FB glide over 125 ms as every dial does

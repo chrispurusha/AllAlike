@@ -40,7 +40,7 @@ filter gives -50 and -37.
 As the instrument computes it: the distance to the jump is the phase plus a half cycle, as a word, wrapping. The table
 place is that distance times the increment's reciprocal: the increment normalised to 0.5..1, 0.25 divided by it to
 nine bits, and the normalising shift taken back. The place is truncated, limited to ±511 and read from the table of
-words. Checked word for word against the instrument's arithmetic at four notes from C1 to C8, 4284 samples: 4273
+words. Checked word for word against the measured output at four notes from C1 to C8, 4284 samples: 4273
 equal, the other 11 one apart, all of them through the 10 table words above.
 
 Float runs the same law in doubles, with the exact distance and a straight line between table points; it differs from
@@ -85,5 +85,28 @@ increment squared x 0x0D5F85 is added.
 (pi/4 to 0.03%), c3 = -0x522B2B, c5 = 0x092AA9. Its third harmonic sits at -107 dB, the fifth at -82, the seventh at
 -101 - the instrument's own impurity, kept. Each power is truncated to a word and the last sum rounded; the
 fixed-point wave is exact on every sample checked (1111 at A4), floating point within 1 LSB.
-Not built: the Sine's feedback - each sample moves the phase by 0.69 x a per-oscillator amount x (an earlier output -
-this one). That amount is 0 in the Init program; which control sets it, and which earlier sample, are still to read.
+Its Shape is a feedback: see §12.
+
+## 11. The Pulse
+The phase less a second phase, the first moved on by the width plus half a cycle (phases run -1..1, so a cycle spans
+2.0): out = (phase - second + step) / 2, a pulse of ±0.5 about its own mean. Only one jump is band-limited each
+sample, the one nearer: of the two phases, the one of larger magnitude (the second on a tie). Its signed distance to
+the wrap - negated when it is the second phase's, since that jump goes the other way - goes through the Saw's step
+table and index exactly (§5, §6), so the Pulse shares the Saw's table and the increment's nine-bit reciprocal.
+The Shape dial sets the width word: Shape x 2^16, with 127 the largest word. Shape 0 is a square; the duty is
+(1 - word)/2, so 64 gives 25% and 112 gives 6.25%, and 127 leaves almost nothing.
+Checked on the instrument (Init with the Pulse, A4, Shape 0, 64 and 112, QU-24 at 48 kHz, 2026-11-14): every
+harmonic to the 12th within 0.6 dB of |sin(pi k d)|/k for those duties, falling a little more above (the same
+treble droop as the Saw's), and the harmonics a duty should lack 59-73 dB down. Fixed point is exact on all but
+three of the samples measured (worst 1 LSB, from the step table's formula).
+Anti-alias On band-limits both jumps, every one within reach, as the Saw's §7 does.
+Not settled: how an LFO or the modulation envelope moves the width - the depth is a placeholder.
+
+## 12. The Sine's Shape
+A feedback. After each sample the phase is moved on by 0.69 × Shape × (the previous sample − this one), and kept: the
+moves add up, so the phase runs ahead of the plain ramp by 0.69 × Shape × (the first sample − the last), which is
+feedback FM on the oscillator's own output. Shape is the same word as the Pulse's width (Shape/128, 127 as full), so
+the LFO and Mod envelope routes to Shape move it too. At full Shape the phase swings by about a sixth of a cycle either
+way. Measured: the phase and output exact on every sample checked at Shape 0, 64 and 127. In floating point the
+feedback carries rounding into the phase, so at full Shape the two paths drift apart (0.04 after a second); at Shape 0
+they stay within 1 LSB.

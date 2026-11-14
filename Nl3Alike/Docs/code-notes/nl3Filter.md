@@ -1,8 +1,10 @@
 # nl3Filter.c - the filter
 
-The Nord Lead 3's single-mode lowpass and highpass at 12 and 24 dB, in two arithmetics: FIXED is the instrument's
+The Nord Lead 3's single-mode lowpass and highpass at 6, 12 and 24 dB band-pass at 12 and 24 dB and band-reject, in
+two arithmetics: FIXED is the instrument's
 own, word for word (24-bit words, 56-bit accumulator, see `nl3Fixed.md`), FLOAT is the same steps in doubles. The
-other modes (6 dB, band-pass, band-reject, Classic, Distorted, the multi modes) are not built yet.
+other modes (Classic, Distorted, the multi modes) are not built yet, and play as the
+nearest built one.
 
 ## 1. The input
 The lowpass modes average the input over two stored samples before the filter: the mean of this sample and the last,
@@ -25,7 +27,7 @@ word. 24 dB is two identical stages: LP feeds stage 2 with 2·low₁/8 (averaged
 `stage_fixed` is the stage as the instrument computes it, each step the same operation in the same order: products
 doubled, sums kept in the 56-bit accumulator, a value limited to a word only where the instrument moves one out. The
 output is 2·low (LP) or 2·(u − low − damping) (HP) as a word, times the gain rounded convergently, shifted up 5 and
-down 2. Checked sample for sample on noise against the instrument's arithmetic: LP and HP, 12 and 24 dB, cutoff 20,
+down 2. Checked sample for sample on noise against the measured output: LP and HP, 12 and 24 dB, cutoff 20,
 64, 100 and 127, resonance 0, 64, 120 and 127, two input levels, 3000 samples each - no difference in any word.
 
 ## 4. Cutoff
@@ -56,3 +58,65 @@ The instrument's DACs run at 44.1 kHz.
 The output is scaled by G = 1 − c(1 − r), where c is 0.75 at 12 dB and 0.9 at 24 dB, and r is d² (12 dB) or
 max(d², 1/64) (24 dB). It falls as resonance rises - 0.25 and 0.114 at full resonance - so the peak does not jump in
 level. Within 2.3 of 2²³ against the instrument's over the 145 settings.
+
+## 9. Band-pass 12 dB
+The same stage (§2) with the band state as the output, 8·gain·band. The input is taken at N rather than N² and
+averaged once - (u + u')/2 with u = N·x/32 - where the lowpass averages twice. Its coefficients differ in two ways:
+the frequency is prewarped, g = tan(1.00022 · 8w) below the dial's top (at the top the fixed open word, as the
+lowpass), so the peak stays where the dial says as the cutoff rises - 1.9% above the lowpass's g at cutoff 96, 47% at
+120; and the gain's take is 0.875, so G = 1 − 0.875(1 − d²), 0.125 at full resonance. Q is the 12 dB lowpass's, d⁴.
+Measured over a grid of 150 cutoff and resonance settings: F, k and N within 37 of 2²³, gain within 3; and the fixed
+path reproduces the measured output exactly on noise at every cutoff and resonance of §3's test.
+
+## 10. Band-pass 24 dB
+Two band-pass stages (§9) in series: the input at 1/4 into the first, the first stage's band at 1/8 into the second -
+taken before it is limited to a word - each stage with its own input
+average; the second's band is the output. Both stages share F, k and N. Q and the gain are the 24 dB lowpass's -
+q = max(d², 1/64), take 0.9 - with the band-pass's prewarp and N. Within 36 of 2²³ over the grid, and exact on noise as
+§3.
+
+## 11. Lowpass 6 dB
+The state-variable stage again (§2), run differently: the input is (x + x')/2 at 1/16, the low state takes
+2·F·band' and is stored halved, and the output is the new low plus the last one, less N times the new band - a
+first-order response from the second-order stage. Out 4·gain·that. Its coefficients are the band-pass's frequency and
+N (§9: prewarped, N rather than N²) with the 12 dB lowpass's damping (d⁴) and gain take (0.75). Within 37 of 2²³ over
+the grid, and exact on noise as §3.
+
+## 12. Highpass 6 dB
+The same stage with the input N·x/16 (rounded), no averaging; the output is the mean of the new band and the last,
+less N times the high leg, 4·gain·that. Coefficients as §11. Within 37 of 2²³ over the grid, exact on noise as §3.
+In floating point both 6 dB modes part from the fixed path with the cutoff fully open and the input near full scale,
+where the stage runs into saturation.
+
+## 13. Classic (not yet playable)
+Two passes a sample over the held input - the filter runs at twice the voice's rate - each a stage without the cubic
+term (§2's stage less its non-linearity) feeding a full stage at half level; out 4·gain·low of the second stage, at
+half scale. The sample path is built and exact on noise. Its coefficients are its own: the first stage's damping is
+fixed near 0.895 and its frequency rises with resonance (to about 2.4 times the second stage's at resonance 32,
+settling at 2.23 above 96); the second stage takes d⁴ at about half the lowpass's frequency, shifted a little with
+resonance. Until those laws are fitted, Classic plays as the 24 dB lowpass.
+
+## 14. Band-reject
+§2's stage without the cubic term, input at 1/16; the output is the previous sample's N²·high plus the mean of this
+and the last low sum (2·low + F·band halved, plus the last low), at 4× - no gain stage. One form serves both slopes.
+Coefficients: the band-pass's prewarp (§9), q = max(d², (21/64)²) - a notch never sharper than that - and N² for the
+high leg. Within 38 of 2²³ over the grid; exact on noise as §3.
+
+## 15. Multi mode, Filter 2 type 1: lowpass beside highpass
+The input, scaled by the gain first, goes to two 12 dB stages side by side: a lowpass on the first cutoff (the input
+averaged twice, as §1, at 1/4) and a highpass on the second (the input at N², §1, at 1/4); out (8·high + 8·low)/4, the
+low leg limited to a word before the sum. Both filters are prewarped (§9), take q = d² - not the 12 dB lowpass's d⁴ -
+and the gain is the band-pass's, 1 − 0.875(1 − d²). Measured over the grid with the two cutoffs moving in opposite
+directions: every coefficient within 30 of 2²³; exact on noise as §3, and the floating-point path within 5·10⁻⁴.
+The second cutoff takes the envelope, LFO and morph moves only when Filter 2 Env is on; otherwise only keyboard
+tracking - taken from the manual's description, not yet measured. The other five multi modes still play as the first
+filter alone.
+
+## 16. Multi modes, Filter 2 types 4 and 5: three all-pass stages with feedback
+Three linear stages (§2 without the cubic term) taken as all-passes - low + high − 2k·band - in series, all on one F
+and k, their output fed back to the input. The input is first scaled by 1 + c·R (c = −0.85 for type 4, −0.75 for type
+5) and taken at 1/16, the feedback subtracted (type 4) or added (type 5) at R, then averaged once. Type 4 puts out the
+all-pass chain, 4×; type 5 the chain plus the scaled input, 2× - the dry and phase-turned signals cancelling into
+notches. Coefficients, measured over the grid: F from Filter 1 Freq, prewarped (§9); the damping from Filter 2 Freq,
+q = (Freq2/128)², 127 counting as 128 - so Freq 2 sets how wide the peaks or notches are; and R = Resonance/128.
+F within 23 of 2²³, k within 8, R exact; exact on noise as §3, floating point within 3·10⁻³.

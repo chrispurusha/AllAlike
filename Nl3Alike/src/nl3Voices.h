@@ -53,6 +53,10 @@ typedef struct {
     double     lfoAge;             // seconds since the note began
     double     lfoSemis[NL3_OSCS];
     uint64_t   started;            // for stealing the oldest
+    float      ring[256];          // voices notes §26: the voice's output, for the Unison reads
+    uint32_t   ringAt;
+    uint32_t   delayWord[2];       // voices notes §26: 24 bits each, stepped every sample with Unison on
+    double     sineLast[NL3_OSCS]; // osc notes §12: the Sine's last sample, for its Shape
 } tNl3Voice;
 
 #define NL3_LFOS    (2)
@@ -71,19 +75,21 @@ typedef struct {
 typedef struct {
     tNl3OscShape shape;
     double       octaves, semitones, cents;
-    double       width;              // 0..2, 1 square
+    double       width;              // osc notes §11: the pulse's width word, 0 (square) to 1.0
     double       soften;             // 0..127
     double       level;              // 0..1
     double       bendRange;          // semitones at full bend, negative inverts the wheel
     double       wheelPitch;         // semitones at full wheel
     double       wheelLevel;         // added to level at full wheel
     double       lfoPitch[NL3_LFOS]; // semitones at full swing
-    double       lfoWidth[NL3_LFOS]; // in width units
+    double       lfoWidth[NL3_LFOS]; // voices notes §22: width word added at the LFO's top
 } tNl3OscSound;
 
 // Env 2 or 3, in the panel's units
 typedef struct {
     double attack, decay, sustain, release, velocity, amount;
+    bool   exponential;    // Exp Attack (envelope notes §4)
+    bool   repeat;         // envelope notes §6
 } tNl3ModEnv;
 
 // The sound as the voices play it, in the panel's units (notes §3)
@@ -101,7 +107,12 @@ typedef struct {
     int          glideType;                                   // 0 Normal, 1 Auto, then the fixed intervals
     double       ampVelocity;                                 // 0..127, 64 none
     uint32_t     filterType, filterSlope;
+    bool         filterMulti;                                 // filter notes §15: the multi modes
+    uint32_t     filter2Type;
+    double       cutoff2;                                     // 0..127
+    bool         filter2Env;                                  // the envelope and its moves reach the second cutoff too
     double       ampAttack, ampDecay, ampSustain, ampRelease; // 0..127 (envelope notes)
+    bool         ampExponential;                              // Exp Attack (envelope notes §4)
     tNl3ModEnv   env[NL3_MOD_ENVS];
     double       noiseLevel, noiseSoften;                     // 0..1, 0..127
     double       ring13, ring23;                              // 0..1
@@ -111,7 +122,14 @@ typedef struct {
     bool         mono;                                        // one voice, last note priority
     bool         pedal;                                       // the sustain pedal is down
     tNl3LfoSound lfo[NL3_LFOS];
-    double       lfoCutoff[NL3_LFOS];                         // semitones at full swing
+    double       lfoCutoff[NL3_LFOS];                         // voices notes §22: semitones at the LFO's top, none at its bottom
+    double       lfoMix[NL3_LFOS];                            // voices notes §22: Osc Mix moved either way, as a fraction of the dial
+    double       lfoAmp[NL3_LFOS];                            // voices notes §22: the level's fall at the LFO's bottom, 1 = silence
+    double       modEnvPitch[NL3_OSCS];                       // voices notes §24: semitones at the Mod envelope's top
+    double       modEnvWidth[NL3_OSCS];                       // voices notes §24: width word at its top
+    double       modEnvMix;                                   // voices notes §24: Osc Mix at its top, a fraction of the dial
+    bool         unison;                                      // voices notes §26
+    double       unisonStep;                                  // voices notes §26: the first read's delay word step a sample
     bool         legato;                                      // mono: a change of note does not restart the envelopes
 } tNl3Sound;
 
@@ -153,13 +171,15 @@ typedef struct {
     uint8_t    heldNote[128]; // mono: the keys down, oldest first
     float      heldVelocity[128];
     uint32_t   heldCount;
-    bool       pedal;             // as the last block saw it
-    double     lfoFree[NL3_LFOS]; // the phase of a free running LFO
-    bool       pedalled[128];     // keys up while the pedal held them
+    bool       pedal;                      // as the last block saw it
+    double     lfoFree[NL3_LFOS];          // the phase of a free running LFO
+    bool       pedalled[128];              // keys up while the pedal held them
     double     edge[NL3_EDGE_POINTS];
-    bool       fixedPoint;        // notes §19: the arithmetic the instrument uses
-    bool       clean;             // notes §20: the Aliasing setting
+    bool       fixedPoint;                 // notes §19: the arithmetic the instrument uses
+    bool       clean;                      // notes §20: the Aliasing setting
     tNl3Steps  steps;
+    tNl3Sound  voiceSound[NL3_MAX_VOICES]; // voices notes §25: a voice's sound with its morphs, when it has any
+    bool       voiceMorphed[NL3_MAX_VOICES];
 } tNl3Voices;
 
 // voices notes §14: from the normalised Volume
@@ -177,6 +197,7 @@ void nl3_voices_note_on(tNl3Voices * v, const tNl3Sound * sound, uint8_t note, f
 void nl3_voices_note_off(tNl3Voices * v, const tNl3Sound * sound, uint8_t note);
 void nl3_voices_all_off(tNl3Voices * v);
 // Adds frames of every voice into out (mono); gain applied
-void nl3_voices_render(tNl3Voices * v, const tNl3Sound * sound, float * out, uint32_t frames, double gain);
+// out is the left channel, outRight the right (NULL: a mono sum into out)
+void nl3_voices_render(tNl3Voices * v, const tNl3Sound * sound, float * out, float * outRight, uint32_t frames, double gain);
 
 #endif // __TI_VOICES_H__

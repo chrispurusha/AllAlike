@@ -69,7 +69,7 @@ typedef struct {
 
 void nl3_effects_reset(tNl3Effects * e);
 // The voices with every effect out; only the output ceiling is left
-void nl3_effects_bypass(tNl3Effects * e, const float * in, float * left, float * right, uint32_t frames);
+void nl3_effects_bypass(tNl3Effects * e, const float * inLeft, const float * inRight, float * left, float * right, uint32_t frames);
 // A block of the voices' mono mix to stereo, all at the engine's rate
 void nl3_effects_process(tNl3Effects * e, const tNl3EffectsSound * s, const float * in, float * left, float * right, uint32_t frames);
 

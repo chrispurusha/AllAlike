@@ -58,11 +58,11 @@ static const double kSyncBeats[35] = {
 // notes §2: L's two taps, then R's: the slow one first on L, the fast one first on R
 static const double kStartPhase[4] = {0.60, 0.16, 0.69, 0.14};
 
-void nl3_effects_bypass(tNl3Effects * e, const float * in, float * left, float * right, uint32_t frames) {
+void nl3_effects_bypass(tNl3Effects * e, const float * inLeft, const float * inRight, float * left, float * right, uint32_t frames) {
     for (uint32_t f = 0; f < frames; f++) {
-        e->clipped = e->clipped || (fabs((double)in[f]) > OUTPUT_CEILING);
-        left[f]    = (float)fmin(OUTPUT_CEILING, fmax(-OUTPUT_CEILING, (double)in[f]));
-        right[f]   = left[f];
+        e->clipped = e->clipped || (fabs((double)inLeft[f]) > OUTPUT_CEILING) || (fabs((double)inRight[f]) > OUTPUT_CEILING);
+        left[f]    = (float)fmin(OUTPUT_CEILING, fmax(-OUTPUT_CEILING, (double)inLeft[f]));
+        right[f]   = (float)fmin(OUTPUT_CEILING, fmax(-OUTPUT_CEILING, (double)inRight[f]));
     }
 }
 

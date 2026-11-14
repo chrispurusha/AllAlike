@@ -47,8 +47,9 @@ so a little movement between the two is undone by the reset. Added 2026-11-11, w
 find by dragging.
 
 ## 11. Toggles
-Off / On controls (Keys, Reverse, Snap, Sync) are one button, flipped by a press: lit in the section's colour when On,
-grey when Off. A menu of two entries only got in the way (owner, 2026-11-11). Two-valued controls whose values are
+Off / On controls (Keys, Reverse, Snap, Sync) are one button, flipped by the release that lands on it (since 2026-11-14,
+as every panel button is - SynthLib buttonPress.h §1; it was the press): lit in the section's colour when On, grey
+when Off, and lighter while held. A menu of two entries only got in the way (owner, 2026-11-11). Two-valued controls whose values are
 names (Mode, Voices, Type) keep their menu.
 
 ## 12. The view: Start to End

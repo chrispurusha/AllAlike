@@ -262,5 +262,7 @@ const char * const * nl3_param_choices(uint32_t id);
 
 // The voices' sound from normalised parameters
 void nl3_sound_from_values(const double * values, tNl3Sound * sound);
+// voices notes §25: the values with the four morph groups added for one voice; false when no morph is set
+bool nl3_morph_values(const double * values, float velocity, int note, double * out);
 
 #endif // __NL3_PARAMS_H__

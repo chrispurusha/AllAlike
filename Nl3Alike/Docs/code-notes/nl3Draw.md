@@ -76,3 +76,8 @@ Import replaces all 1536 after a confirm naming how many were found (nl3Patch no
 Load Preset and Store Preset sort by category: each program's Sound Category (byte 23 of its dump) under the names
 the manual lists (Acoustic, Arpeggio, Bass, Classic, Drum, Fantasy, FX, Lead, Organ, Pad, Piano, Synth, User1, User2),
 and 14, which the factory Init sound holds, as No Cat - the instrument's 'Name: No Cat'. Past the list is No Cat too.
+
+## 16. Off/On buttons
+A choice of two whose values are OFF and ON is a button that flips rather than a menu: lit in its section's colour when
+on, dark when off, lighter while held, and it changes on the release that lands on it (SynthLib buttonPress.h §1), as
+the panel's other buttons do. Two-valued choices with named values (AD/AR, the switch positions) keep their menu.

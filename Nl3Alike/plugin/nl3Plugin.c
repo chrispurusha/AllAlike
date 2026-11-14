@@ -86,9 +86,11 @@ typedef struct {
     double             tempo;
     float              engine[ENGINE_FRAMES];
     float              engineL[ENGINE_FRAMES], engineR[ENGINE_FRAMES];
+    float              engineRight[ENGINE_FRAMES];   // voices notes §26: the voices' right channel
     tNl3Event          events[MAX_EVENTS];
     uint32_t           eventCount;
-    double             values[kNl3ParamCount]; // normalized
+    double             values[kNl3ParamCount];  // normalized
+    double             morphed[kNl3ParamCount]; // voices notes §25: one voice's values with its morphs, audio thread only
     // notes §5: the sound, beyond its parameters - main thread, and the host's state calls
     char               soundName[NL3_SINGLE_NAME_LENGTH + 1];
     bool               haveBase;
@@ -215,9 +217,22 @@ static void render_host(tNl3Plugin * t, const tNl3Sound * sound, float * outL, f
         uint32_t need  = synthlib_resample_needed(&t->resampler, chunk);
 
         memset(t->engine, 0, (size_t)need * sizeof(float));
-        nl3_voices_render(&t->voices, sound, t->engine, need, gain);
+        memset(t->engineRight, 0, (size_t)need * sizeof(float));
 
-        nl3_effects_bypass(&t->effects, t->engine, t->engineL, t->engineR, need);    // notes §15: the instrument has no effects
+        // voices notes §25: each sounding voice's own sound where a morph moves it
+        for (uint32_t i = 0; i < NL3_MAX_VOICES; i++) {
+            const tNl3Voice * vc = &t->voices.voice[i];
+
+            t->voices.voiceMorphed[i] = vc->active && nl3_morph_values(t->values, vc->velocity, vc->note, t->morphed);
+
+            if (t->voices.voiceMorphed[i]) {
+                nl3_sound_from_values(t->morphed, &t->voices.voiceSound[i]);
+            }
+        }
+
+        nl3_voices_render(&t->voices, sound, t->engine, t->engineRight, need, gain);
+
+        nl3_effects_bypass(&t->effects, t->engine, t->engineRight, t->engineL, t->engineR, need);    // notes §15: the instrument has no effects
 
         if (t->effects.clipped) {
             t->effects.clipped = false;
@@ -227,7 +242,7 @@ static void render_host(tNl3Plugin * t, const tNl3Sound * sound, float * outL, f
             }
         }
         synthlib_resample_process(&t->resampler, t->engineL, outL, chunk);
-        float    discard[HOST_CHUNK];
+        float discard[HOST_CHUNK];
 
         synthlib_resample_process(&t->resamplerR, t->engineR, (outR != NULL) ? outR : discard, chunk);
 

@@ -35,6 +35,7 @@
 #include "utilsGraphics.h"
 #include "renderBackend.h"
 #include "contextMenu.h"
+#include "buttonPress.h"
 #include "fileBrowser.h"
 #include "bankBrowser.h"
 #include "alertDialog.h"
@@ -95,6 +96,14 @@ typedef struct {
     double              x, y, w;
 } tPlacedSection;
 
+#define TOGGLE_OFF_COLOUR    {0.30, 0.30, 0.32}   // notes §16: an Off button
+
+// notes §16: an Off/On choice is a button that flips, not a menu of two
+static bool is_toggle(const tNl3Control * c) {
+    return (c->kind == eTiControlChoice) && (c->steps == 1) && (c->names != NULL)
+           && (strcmp(c->names[0], "OFF") == 0) && (strcmp(c->names[1], "ON") == 0);
+}
+
 static const tNl3Page *      gPages;
 static uint32_t              gPageCount;
 static uint32_t              gPage;
@@ -129,6 +138,11 @@ static int                   gPatchIndex;
 static int                   gPreset;
 static bool                  gPresetEdited;
 static tRectangle            gPrevRect, gNextRect, gLoadRect, gNameRect;
+
+// notes §1 (SynthLib buttonPress.h): lit while held, acts on the release
+static tRectangle draw_held_button(const tRectangle * rect, const char * text, tRgb colour) {
+    return draw_button(mainArea, *rect, text, synthlib_button_held(rect) ? synthlib_button_held_colour(colour) : colour);
+}
 
 // notes §9: the Singles of the file the sound came from, read again only when the file changes
 static uint8_t               gSingles[NL3_MAX_SINGLES][NL3_SINGLE_LENGTH];
@@ -782,9 +796,9 @@ static void draw_patch_bar(void) {
                                  56.0, PATCH_BUTTON_H
                              }
     };
-    draw_button(mainArea, gPrevRect, "< Prev", (tRgb)RGB_GREY_7);
-    draw_button(mainArea, gNextRect, "Next >", (tRgb)RGB_GREY_7);
-    draw_button(mainArea, gLoadRect, "Load...", (tRgb)RGB_GREY_7);
+    draw_held_button(&gPrevRect, "< Prev", (tRgb)RGB_GREY_7);
+    draw_held_button(&gNextRect, "Next >", (tRgb)RGB_GREY_7);
+    draw_held_button(&gLoadRect, "Load...", (tRgb)RGB_GREY_7);
     draw_name_field(gLoadRect.coord.x + draw_button_bounds(gLoadRect).size.w + 2.0 * PATCH_BUTTON_GAP);
 
     if (gPreset > 0) {
@@ -922,7 +936,7 @@ static void draw_tabs(void) {
                                     w, TAB_H
                                 }
         };
-        draw_button(mainArea, gTabs[p], "", colour);
+        draw_held_button(&gTabs[p], "", colour);
         set_rgb_colour(contrasting_text_colour(colour));
         render_text(mainArea, (tRectangle){{x + DRAW_BUTTON_MARGIN + pad, TAB_Y + DRAW_BUTTON_MARGIN}, {0.0, TAB_H}}, gPages[p].title);
         x       += w + TAB_GAP;
@@ -979,7 +993,12 @@ void nl3_draw_frame(int pixelWidth, int pixelHeight) {
             shown = (shown < 0) ? 0 : ((shown > c->steps) ? c->steps : shown);
         }
 
-        if (c->kind == eTiControlChoice) {
+        if (is_toggle(c)) {   // notes §16: lit in the section's colour when on
+            tRgb lit = (shown > 0) ? colour : (tRgb)TOGGLE_OFF_COLOUR;
+
+            lit = synthlib_button_held(pc) ? synthlib_button_held_colour(lit) : lit;
+            fitted_button((tRectangle){{pc->x, pc->dial.coord.y + ((DIAL_SIZE - BUTTON_H) / 2.0)}, {CONTROL_W - 6.0, BUTTON_H}}, text, lit);
+        } else if (c->kind == eTiControlChoice) {
             fitted_button((tRectangle){{pc->x, pc->dial.coord.y + ((DIAL_SIZE - BUTTON_H) / 2.0)}, {CONTROL_W - 6.0, BUTTON_H}}, text, colour);
         } else {
             render_dial(mainArea, pc->dial, (uint32_t)shown, (uint32_t)c->steps + 1u, 0, colour);
@@ -1056,23 +1075,23 @@ bool nl3_draw_press(double x, double y, tNl3Edit * edit, bool * grabbed) {
     }
 
     if (within_rectangle((tCoord){x, y}, draw_button_bounds(gPrevRect))) {
-        step_patch(-1);
+        synthlib_button_press(&gPrevRect);
         return true;
     }
 
     if (within_rectangle((tCoord){x, y}, draw_button_bounds(gNextRect))) {
-        step_patch(1);
+        synthlib_button_press(&gNextRect);
         return true;
     }
 
     if (within_rectangle((tCoord){x, y}, draw_button_bounds(gLoadRect))) {
-        nl3_draw_load_preset_browser();
+        synthlib_button_press(&gLoadRect);
         return true;
     }
 
     for (uint32_t p = 0; p < gPageCount; p++) {
         if (within_rectangle((tCoord){x, y}, draw_button_bounds(gTabs[p]))) {
-            gPage = p;
+            synthlib_button_press(&gTabs[p]);
             return true;
         }
     }
@@ -1082,6 +1101,11 @@ bool nl3_draw_press(double x, double y, tNl3Edit * edit, bool * grabbed) {
 
     if (pc == NULL) {
         return false;
+    }
+
+    if (is_toggle(pc->control)) {   // notes §16: flips on the release (nl3_draw_release)
+        synthlib_button_press(pc);
+        return true;
     }
 
     if (pc->control->kind == eTiControlChoice) {
@@ -1132,6 +1156,43 @@ void nl3_draw_release(double x, double y, tNl3Edit * edit) {
     edit->paramId = UINT32_MAX;
     gGrabbed      = NULL;
     gMenuChoice   = -1;
+
+    // notes §1 (SynthLib buttonPress.h): a button acts on the release that lands on it
+    tCoord       at   = {x, y};
+    const void * held = synthlib_button_release();
+
+    if (held != NULL) {
+        if (synthlib_button_clicked(held, &gPrevRect, draw_button_bounds(gPrevRect), at)) {
+            step_patch(-1);
+        }
+
+        if (synthlib_button_clicked(held, &gNextRect, draw_button_bounds(gNextRect), at)) {
+            step_patch(1);
+        }
+
+        if (synthlib_button_clicked(held, &gLoadRect, draw_button_bounds(gLoadRect), at)) {
+            nl3_draw_load_preset_browser();
+        }
+
+        for (uint32_t p = 0; p < gPageCount; p++) {
+            if (synthlib_button_clicked(held, &gTabs[p], draw_button_bounds(gTabs[p]), at)) {
+                gPage = p;
+            }
+        }
+
+        // notes §16: an Off/On button flips if the release lands on it
+        for (uint32_t i = 0; i < gPlacedCount; i++) {
+            const tPlaced * pc = &gPlaced[i];
+
+            if ((held == pc) && (hit(x, y) == pc)) {
+                edit->paramId                = pc->control->paramId;
+                edit->normalized             = (gValue[pc->control->paramId] >= 0.5) ? 0.0 : 1.0;
+                gValue[pc->control->paramId] = edit->normalized;
+            }
+        }
+
+        return;
+    }
 
     // notes §3: the release of the click that opened a menu is not a choice, even where the menu was moved up
     // to fit and so opened under the pointer

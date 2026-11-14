@@ -64,3 +64,4 @@ Built, not yet checked against the instrument or in a host. Confirmed → delete
 - Load/Store Preset browsers sort by category (each sound's CLASS; 2026-11-09): the factory presets fall under their own classes
 - Thump refitted through the QU-24 (2026-11-09): P017's start and tail by ear; other sounds' low end (it lingers now, as on the instrument); the Thump setting OFF removes it
 - Thump by filter type (2026-11-09, p2Plugin notes §43): P020 (LP24, Resonance 40, x-0.3) and other LP24 sounds against the instrument; P043 confirmed by ear
+- Panel buttons (2026-11-14, SynthLib buttonPress.h §1): Prev/Next/Load, the tabs (and Link HW where there is one) light while held and act on the release, and not at all when released off the button

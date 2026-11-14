@@ -217,6 +217,21 @@ tNl3Word nl3_sine_fixed(tNl3Word phase) {
     return nl3_move(b >> 1);
 }
 
+#define SINE_FEEDBACK    (0x5851EC)  // notes §12: 0.69
+
+// notes §12: the Sine's Shape, its phase moved on by 0.69 x Shape x (the last sample - this one)
+tNl3Word nl3_sine_feedback_fixed(tNl3Word phase, tNl3Word shape, tNl3Word last, tNl3Word out) {
+    tNl3Word k = nl3_move(nl3_mul(SINE_FEEDBACK, shape));
+    tNl3Acc  a = nl3_acc(phase) + nl3_mul(k, nl3_move(nl3_acc(last) - nl3_acc(out)));
+
+    return nl3_phase_advance(0, (tNl3Word)((a >> 24) & 0xFFFFFF));
+}
+
+double nl3_sine_feedback(double phase, double shape, double last, double out) {
+    phase += nl3_word_value(SINE_FEEDBACK) * shape * (last - out);
+    return phase - ((phase >= 1.0) ? 2.0 : ((phase < -1.0) ? -2.0 : 0.0));
+}
+
 #define TUNE_WORD         (0x3D376D)  // notes §8: the instrument's tuning word
 #define PITCH_E           (64.0)      // the note whose mantissa is 0.25
 #define MANTISSA_ONE      (32768.0)   // 0.25 in the 16-bit mantissa
@@ -243,27 +258,74 @@ tNl3Word nl3_phase_advance(tNl3Word phase, tNl3Word increment) {
     return (tNl3Word)((((uint32_t)phase + (uint32_t)increment) & 0xFFFFFFu) ^ 0x800000u) - 0x800000;
 }
 
-tNl3Word nl3_saw_fixed(const tNl3Steps * s, tNl3Word phase, tNl3Word increment) {
-    if (increment <= 0) {
-        return phase / 2;
-    }
-    tNl3Word from  = nl3_phase_advance(phase, 0x800000);
-    int      shift = 0;
+// notes §6: what is left of the jump at a signed distance `from`, through the increment's reciprocal to nine bits
+static int64_t step_word_at(const tNl3Steps * s, tNl3Word from, tNl3Word increment) {
+    int     shift = 0;
 
-    // notes §6: the increment's reciprocal to nine bits, and where it was normalised
     while ((increment << shift) < 0x400000) {
         shift++;
     }
-    int64_t  scale = (INT64_C(0x200000) << 9) / ((int64_t)increment << shift);
-    int64_t  index = (2 * (int64_t)from * scale) >> (24 - shift);
+    int64_t scale = (INT64_C(0x200000) << 9) / ((int64_t)increment << shift);
+    int64_t index = (2 * (int64_t)from * scale) >> (24 - shift);
 
     if ((index > INDEX_LAST) || (index < -INDEX_LAST)) {
         index = (from >= 0) ? INDEX_LAST : -INDEX_LAST;
     }
-    int64_t  step  = (index >= 0) ? s->stepWord[index] : -s->stepWord[-index];
-    tNl3Acc  acc   = ((((tNl3Acc)phase + step) * (INT64_C(1) << 24)) >> 1) - ((tNl3Acc)increment * (INT64_C(1) << 16));
+    return (index >= 0) ? s->stepWord[index] : -s->stepWord[-index];
+}
+
+tNl3Word nl3_saw_fixed(const tNl3Steps * s, tNl3Word phase, tNl3Word increment) {
+    if (increment <= 0) {
+        return phase / 2;
+    }
+    int64_t step = step_word_at(s, nl3_phase_advance(phase, 0x800000), increment);
+    tNl3Acc acc  = ((((tNl3Acc)phase + step) * (INT64_C(1) << 24)) >> 1) - ((tNl3Acc)increment * (INT64_C(1) << 16));
 
     return nl3_move(acc);
+}
+
+// notes §11: the phase less a second phase offset by the width; one jump band-limited, the one nearer
+tNl3Word nl3_pulse_fixed(const tNl3Steps * s, tNl3Word phase, tNl3Word increment, tNl3Word width) {
+    tNl3Word second = nl3_phase_advance(phase, (tNl3Word)(width + 0x800000));
+    int64_t  step   = 0;
+
+    if (increment > 0) {
+        bool     nearSecond = llabs((int64_t)phase) <= llabs((int64_t)second);
+        tNl3Word nearest    = nearSecond ? second : phase;
+        tNl3Word from       = nl3_phase_advance(nearSecond ? -nearest : nearest, 0x800000);
+
+        step = step_word_at(s, from, increment);
+    }
+    return nl3_move((((tNl3Acc)phase - second + step) * (INT64_C(1) << 24)) >> 1);
+}
+
+// notes §11: the same in floating point; Anti-alias On band-limits both jumps, every one within reach
+double nl3_pulse(const tNl3Steps * s, double phase, double increment, double width, bool clean) {
+    double second     = phase + width + 1.0;
+
+    second -= (second >= 1.0) ? 2.0 : 0.0;
+    second -= (second >= 1.0) ? 2.0 : 0.0;
+
+    if (increment <= 0.0) {
+        return 0.5 * (phase - second);
+    }
+
+    if (clean) {
+        return nl3_saw(s, phase, increment, true) - nl3_saw(s, second, increment, true);
+    }
+    bool   nearSecond = fabs(phase) <= fabs(second);
+    double nearest    = nearSecond ? second : phase;
+    double from       = (nearSecond ? -nearest : nearest) + 1.0;
+
+    from    = (from >= 1.0) ? (from - 2.0) : from;
+    return 0.5 * ((phase - second) + step_at(s->step, NL3_STEP_POINTS, from / increment));
+}
+
+// notes §11: the Shape dial as the width word
+tNl3Word nl3_pulse_width_word(double shape) {
+    long v = lround(fmin(127.0, fmax(0.0, shape)));
+
+    return (v >= 127) ? NL3_WORD_MAX : (tNl3Word)(v << 16);
 }
 
 #define EDGE_LAST        (1007.0)    // notes §1

@@ -29,6 +29,10 @@
 #include <string.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <pthread.h>
+
+// macOS names only the calling thread; winpthreads takes the thread as well
+#define pthread_setname_np(name) pthread_setname_np(pthread_self(), (name))
 
 // One writer per file at a time here (the preset bank), so seek-then-write is as good as pwrite
 static inline ssize_t pwrite(int fd, const void * buf, size_t count, off_t offset) {
