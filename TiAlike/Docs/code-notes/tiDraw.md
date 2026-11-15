@@ -96,3 +96,13 @@ browser in the folder of the current table. A Wave set to 100 shows the table's 
 
 The canvas grew from 780 to 810 units wide for them (2026-11-12), so Osc 1 and Osc 2 still share the first row of
 the OSC page and the page keeps three rows.
+
+## 17. Double-click a dial
+Two presses on the same dial within 0.4 s put it back to its default (the parameter table's, given to the panel at
+start by `ti_draw_set_default()`), through the host like any edit, so it can be undone there. The second press does
+not grab the dial. As OneShot's (osDraw notes §10), added across the Alikes 2026-11-14.
+
+## 18. Shift for fine adjustment
+With Shift held, dragging a dial moves it a tenth as far for the same distance - the same on the Mac and Windows
+(SynthLib's panel views read the modifiers on every drag event). Rotary mode, where the dial follows the pointer's
+angle, is unchanged. Added across the Alikes 2026-11-14.

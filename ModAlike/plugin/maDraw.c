@@ -19,6 +19,7 @@
 // notes §1 - Nl3Alike's panel (Pulse2Alike's look) without its presets, patch files, tabs and hardware link
 
 #include <math.h>
+#include <time.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -34,6 +35,7 @@
 #include "utilsGraphics.h"
 #include "renderBackend.h"
 #include "contextMenu.h"
+#include "inputState.h"
 #include "menuBar.h"
 #include "synthlibPopups.h"
 
@@ -42,6 +44,8 @@
 #define FONT_PATH               "/System/Library/Fonts/Supplemental/Arial.ttf"
 #define FONT_PRELOAD_SIZE       (16.0)
 
+#define DOUBLE_CLICK_S          (0.4) // notes §1
+#define DRAG_FINE               (0.1) // notes §2
 #define MAX_PARAMS              (64)
 #define MAX_PLACED              (64)
 #define MARGIN_X                (16.0)
@@ -78,7 +82,11 @@ static const tMaSection * gSections;
 static uint32_t           gSectionCount;
 static uint32_t           gEffectParam;
 static int32_t            gEffectSteps;
-static double             gValue[MAX_PARAMS];  // normalized, as the host holds them
+static double             gValue[MAX_PARAMS];   // normalized, as the host holds them
+static double             gDefault[MAX_PARAMS]; // notes §1: what a double-click puts a dial back to
+static bool               gHasDefault[MAX_PARAMS];
+static const void *       gLastPressed;         // notes §1: the dial pressed last, and when
+static double             gLastPressAt;
 static bool               gFontReady;
 static tCoord             gMouse;
 
@@ -131,6 +139,27 @@ void ma_draw_set_value(uint32_t paramId, double normalized) {
     if (paramId < MAX_PARAMS) {
         gValue[paramId] = normalized;
     }
+}
+
+// notes §1: a parameter's default, from the plug-in's table
+void ma_draw_set_default(uint32_t paramId, double normalized) {
+    if (paramId < MAX_PARAMS) {
+        gDefault[paramId]    = normalized;
+        gHasDefault[paramId] = true;
+    }
+}
+
+// notes §1: a second press on the same dial within DOUBLE_CLICK_S
+static bool double_clicked(const void * control) {
+    struct timespec now;
+
+    clock_gettime(CLOCK_MONOTONIC, &now);
+    double          seconds = (double)now.tv_sec + ((double)now.tv_nsec * 1e-9);
+    bool            again   = (control == gLastPressed) && ((seconds - gLastPressAt) < DOUBLE_CLICK_S);
+
+    gLastPressed = again ? NULL : control;
+    gLastPressAt = seconds;
+    return again;
 }
 
 void ma_draw_set_mouse(double x, double y) {
@@ -347,6 +376,13 @@ bool ma_draw_press(double x, double y, tMaEdit * edit, bool * grabbed) {
         };
         return true;
     }
+
+    if (double_clicked(pc->control) && gHasDefault[pc->control->paramId]) {   // notes §1
+        edit->paramId         = pc->control->paramId;
+        edit->normalized      = gDefault[pc->control->paramId];
+        gValue[edit->paramId] = edit->normalized;
+        return true;
+    }
     gGrabbed   = pc->control;
     gGrabValue = gValue[pc->control->paramId];
     gGrabDial  = pc->dial;
@@ -356,6 +392,10 @@ bool ma_draw_press(double x, double y, tMaEdit * edit, bool * grabbed) {
 
 bool ma_draw_drag_by(double dx, double dy, tMaEdit * edit) {
     double move = (ma_dial_mode() == eDialModeHorizontal) ? dx : -dy;   // up or right raises it
+
+    if (shift_modifier_held()) {
+        move *= DRAG_FINE;   // notes §2: Shift for fine adjustment
+    }
 
     if (gGrabbed == NULL) {
         return false;

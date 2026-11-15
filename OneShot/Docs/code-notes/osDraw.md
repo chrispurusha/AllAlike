@@ -86,3 +86,8 @@ interface (`oversampling`, `setOversampling`). Every tab shows the same state.
 ## 17. Windows paths
 A sample's name (the tabs, the sample bar, a load error) and its folder (Prev/Next) are found at the path's last / or
 \ - a Windows path from the file browser may use either. Folder listings are joined with /, which Windows takes.
+
+## 18. Shift for fine adjustment
+With Shift held, dragging a dial moves it a tenth as far for the same distance - the same on the Mac and Windows
+(SynthLib's panel views read the modifiers on every drag event). Rotary mode, where the dial follows the pointer's
+angle, is unchanged. Added across the Alikes 2026-11-14.

@@ -18,6 +18,7 @@
 
 #include <ctype.h>
 #include <math.h>
+#include <time.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -34,8 +35,11 @@
 #include "renderBackend.h"
 #include "contextMenu.h"
 #include "buttonPress.h"
+#include "inputState.h"
 #include "fileBrowser.h"
 #include "bankBrowser.h"
+
+#define P2_CLASS_COUNT    (20u)   // kClassNames, below
 #include "alertDialog.h"
 #include "menuBar.h"
 #include "synthlibPopups.h"
@@ -50,38 +54,41 @@
 #include <GLFW/glfw3.h>           // the key constants SynthLib's popups speak
 
 #if defined (_WIN32)
-#define FONT_PATH                 alike_font_path()   // tools/windows/alikeWin.c: Arial from the Windows fonts folder
+#define FONT_PATH               alike_font_path()     // tools/windows/alikeWin.c: Arial from the Windows fonts folder
 #else
-#define FONT_PATH                 "/System/Library/Fonts/Supplemental/Arial.ttf"
+#define FONT_PATH               "/System/Library/Fonts/Supplemental/Arial.ttf"
 #endif
-#define FONT_PRELOAD_SIZE         (16.0)
+#define FONT_PRELOAD_SIZE       (16.0)
 
-#define MAX_PARAMS                (128)
-#define MAX_PLACED                (64)
-#define MAX_PAGES                 (16)
-#define MARGIN_X                  (16.0)
-#define TITLE_Y                   (30.0)     // below the menu bar
-#define TAB_Y                     (58.0)
-#define TAB_H                     (14.0)
-#define TAB_GAP                   (6.0)
-#define TAB_PAD                   (4.0)      // either side of a tab's title
-#define PAGE_Y                    (90.0)
-#define ROW_H                     (112.0)
-#define SECTION_GAP               (16.0)
-#define CONTROL_W                 (58.0)
-#define DIAL_SIZE                 (40.0)
-#define LABEL_H                   (11.0)
-#define HEADING_TO_DIAL           (34.0)
-#define BUTTON_H                  (12.0)
-#define PATCH_BUTTON_H            (14.0)
-#define PATCH_BUTTON_GAP          (6.0)
-#define LINK_ABOVE_TAB            (2)              // AMP
-#define NAME_FIELD_SIZING         "WWWWWWWWWWWWWW" // P2_SOUND_NAME_LENGTH of the widest capital
-#define MENU_BG                   {0.22, 0.22, 0.25}
-#define MENU_MAX                  (32)
-#define MENU_CELL_W               (96.0)
-#define MENU_ROWS_PER_COLUMN      (8)
-#define OPENING_RELEASE_SLOP      (4.0)   // notes §12: how far the pointer may move and still be the opening click
+#define DOUBLE_CLICK_S          (0.4) // notes §14
+#define DRAG_FINE               (0.1) // notes §16
+#define MAX_PARAMS              (128)
+#define UNITY_COLOUR            {1.0, 0.78, 0.25} // notes §17: the one gold every Alike marks 1:1 with
+#define MAX_PLACED              (64)
+#define MAX_PAGES               (16)
+#define MARGIN_X                (16.0)
+#define TITLE_Y                 (30.0)       // below the menu bar
+#define TAB_Y                   (58.0)
+#define TAB_H                   (14.0)
+#define TAB_GAP                 (6.0)
+#define TAB_PAD                 (4.0)        // either side of a tab's title
+#define PAGE_Y                  (90.0)
+#define ROW_H                   (112.0)
+#define SECTION_GAP             (16.0)
+#define CONTROL_W               (58.0)
+#define DIAL_SIZE               (40.0)
+#define LABEL_H                 (11.0)
+#define HEADING_TO_DIAL         (34.0)
+#define BUTTON_H                (12.0)
+#define PATCH_BUTTON_H          (14.0)
+#define PATCH_BUTTON_GAP        (6.0)
+#define LINK_ABOVE_TAB          (2)                // AMP
+#define NAME_FIELD_SIZING       "WWWWWWWWWWWWWW"   // P2_SOUND_NAME_LENGTH of the widest capital
+#define MENU_BG                 {0.22, 0.22, 0.25}
+#define MENU_MAX                (32)
+#define MENU_CELL_W             (96.0)
+#define MENU_ROWS_PER_COLUMN    (8)
+#define OPENING_RELEASE_SLOP    (4.0)     // notes §12: how far the pointer may move and still be the opening click
 
 typedef struct {
     const tP2Control * control;
@@ -98,7 +105,12 @@ typedef struct {
 static const tP2Page *      gPages;
 static uint32_t             gPageCount;
 static uint32_t             gPage;
-static double               gValue[MAX_PARAMS]; // normalized, as the host holds them
+static double               gValue[MAX_PARAMS];     // normalized, as the host holds them
+static double               gDefault[MAX_PARAMS];   // notes §14: what a double-click puts a dial back to
+static bool                 gHasDefault[MAX_PARAMS];
+static int32_t              gUnityStep[MAX_PARAMS]; // notes §17: a dial's one-to-one step, 0 for none
+static const void *         gLastPressed;           // notes §14: the dial pressed last, and when
+static double               gLastPressAt;
 static bool                 gFontReady;
 static tCoord               gMouse;
 
@@ -178,6 +190,35 @@ void p2_draw_set_value(uint32_t paramId, double normalized) {
     }
 }
 
+// notes §14: a parameter's default, from the plug-in's table
+void p2_draw_set_default(uint32_t paramId, double normalized) {
+    if (paramId < MAX_PARAMS) {
+        gDefault[paramId]    = normalized;
+        gHasDefault[paramId] = true;
+    }
+}
+
+// notes §17: a keyboard-tracking dial's one-to-one step: marked, and what a double-click goes back to
+void p2_draw_set_unity(uint32_t paramId, int32_t step, int32_t steps) {
+    if (paramId < MAX_PARAMS) {
+        gUnityStep[paramId] = step;
+        p2_draw_set_default(paramId, (double)step / (double)steps);
+    }
+}
+
+// notes §14: a second press on the same dial within DOUBLE_CLICK_S
+static bool double_clicked(const void * control) {
+    struct timespec now;
+
+    clock_gettime(CLOCK_MONOTONIC, &now);
+    double          seconds = (double)now.tv_sec + ((double)now.tv_nsec * 1e-9);
+    bool            again   = (control == gLastPressed) && ((seconds - gLastPressAt) < DOUBLE_CLICK_S);
+
+    gLastPressed = again ? NULL : control;
+    gLastPressAt = seconds;
+    return again;
+}
+
 void p2_draw_set_mouse(double x, double y) {
     gMouse.x = x;
     gMouse.y = y;
@@ -245,15 +286,30 @@ static void load_preset(int number) {
     }
 }
 
-// notes §4: Prev/Next step through P001-P500 and wrap, as the instrument's buttons do; from a numbered file, from
-// its number; from any other, Next is P001
-static void step_patch(int direction) {
-    int from = (gPreset != 0) ? gPreset : p2_patch_file_number(gPatchPath);
+static void fill_slot_items(void);
+static const char *const kClassNames[];
+static tBankBrowserItem  gSlotItems[];
 
-    if (from == 0) {
-        from = (direction > 0) ? 0 : 1;
+// notes §4, §15: Prev/Next step through P001-P500 in the order the Sort menu sets, and wrap; from a numbered file,
+// from its number; from any other, Next is the first and Prev the last
+static void step_patch(int direction) {
+    static uint32_t order[P2_PATCH_SLOTS];
+    int             from = (gPreset != 0) ? gPreset : p2_patch_file_number(gPatchPath);
+    int             at   = -1;
+
+    fill_slot_items();
+    bank_browser_sorted_order(gSlotItems, P2_PATCH_SLOTS, kClassNames, P2_CLASS_COUNT, bank_browser_sort_mode(), order);
+
+    for (int i = 0; (i < P2_PATCH_SLOTS) && (from != 0); i++) {
+        if ((int)order[i] == (from - 1)) {
+            at = i;
+            break;
+        }
     }
-    load_preset((((from - 1 + direction) % P2_PATCH_SLOTS) + P2_PATCH_SLOTS) % P2_PATCH_SLOTS + 1);
+
+    int             next = (at < 0) ? ((direction > 0) ? 0 : (P2_PATCH_SLOTS - 1)) : ((((at + direction) % P2_PATCH_SLOTS) + P2_PATCH_SLOTS) % P2_PATCH_SLOTS);
+
+    load_preset((int)order[next] + 1);
 }
 
 static void on_file_chosen(const char * path) {
@@ -309,13 +365,16 @@ void p2_draw_store_preset(int number) {
 
 // ---- choosing a slot - notes §4: SynthLib's bank browser, as SynthEdit and G2Alike choose one -----------------
 
-static tBankBrowserItem gSlotItems[P2_PATCH_SLOTS];
-static char             gSlotNames[P2_PATCH_SLOTS][P2_SOUND_NAME_LENGTH + 1];
+static tBankBrowserItem  gSlotItems[P2_PATCH_SLOTS];
+static char              gSlotNames[P2_PATCH_SLOTS][P2_SOUND_NAME_LENGTH + 1];
 
 // notes §4: a sound's CLASS (its last sound byte), as the instrument names it
-static const char *const kClassNames[] = {"ARP", "ATMO", "BASS", "DRUM", "FX", "KEYS", "LEAD", "MONO", "PAD", "PERC",
-                                          "POLY", "SEQ", "DUB", "LUSH", "STRG", "PLUK", "WIND", "NOIS", "EXFX", "INIT"};
+static const char *const kClassNames[] = {
+    "ARP",  "ATMO", "BASS", "DRUM", "FX",   "KEYS", "LEAD", "MONO", "PAD",  "PERC",
+    "POLY", "SEQ",  "DUB",  "LUSH", "STRG", "PLUK", "WIND", "NOIS", "EXFX", "INIT"
+};
 #define CLASS_COUNT    ((uint32_t)(sizeof(kClassNames) / sizeof(kClassNames[0])))
+_Static_assert(sizeof(kClassNames) / sizeof(kClassNames[0]) == P2_CLASS_COUNT, "P2_CLASS_COUNT is kClassNames' length");
 #define CLASS_BYTE     (7 + 127)   // the dump's header, then sound byte 127
 
 static void fill_slot_items(void) {
@@ -971,11 +1030,11 @@ static void value_text(const tP2Control * c, char * out, size_t len) {
 // Each title is measured at the height draw_button draws it (TAB_H), centred with TAB_PAD each side; if the tabs
 // would run past the panel, the padding shrinks so they fit (TiAlike has twelve)
 static void draw_tabs(void) {
-    double   x       = MARGIN_X;
+    double   x     = MARGIN_X;
     double   textW[MAX_PAGES];
-    double   total   = 0.0;
-    double   pad     = TAB_PAD;
-    uint32_t p       = 0;
+    double   total = 0.0;
+    double   pad   = TAB_PAD;
+    uint32_t p     = 0;
 
     for (p = 0; (p < gPageCount) && (p < MAX_PAGES); p++) {
         textW[p] = get_text_width(gPages[p].title, TAB_H, eNoCache);
@@ -1062,7 +1121,7 @@ void p2_draw_frame(int pixelWidth, int pixelHeight) {
         // notes §8: lit while the instrument follows the sound
         // notes §8: amber and "Link busy" while another instance has the instrument
         draw_held_button(&gLinkRect, gLinkBusy ? "Link busy" : "Link HW",
-                    (p2_draw_value(kP2ParamHwLink) < 0.5) ? (tRgb)RGB_GREY_7 : (gLinkBusy ? (tRgb){0.85, 0.6, 0.15}
+                         (p2_draw_value(kP2ParamHwLink) < 0.5) ? (tRgb)RGB_GREY_7 : (gLinkBusy ? (tRgb){0.85, 0.6, 0.15}
                                                                                                                     : (tRgb)RGB_GREEN_ON));
         draw_held_button(&gPrevRect, "< Prev", (tRgb)RGB_GREY_7);
         draw_held_button(&gNextRect, "Next >", (tRgb)RGB_GREY_7);
@@ -1110,6 +1169,9 @@ void p2_draw_frame(int pixelWidth, int pixelHeight) {
         if (c->kind == eP2ControlChoice) {
             fitted_button((tRectangle){{pc->x, pc->dial.coord.y + ((DIAL_SIZE - BUTTON_H) / 2.0)}, {CONTROL_W - 6.0, BUTTON_H}}, text, colour);
         } else {
+            if ((gUnityStep[c->paramId] > 0) && (step_of(c) == gUnityStep[c->paramId])) {   // notes §17
+                colour = (tRgb)UNITY_COLOUR;
+            }
             render_dial(mainArea, pc->dial, (uint32_t)step_of(c), (uint32_t)c->steps + 1u, 0, colour);
             set_rgb_colour((tRgb)RGB_WHITE);
             render_text(mainArea, (tRectangle){{pc->x, pc->dial.coord.y + DIAL_SIZE + 6.0}, {0.0, LABEL_H}}, text);
@@ -1231,6 +1293,13 @@ bool p2_draw_press(double x, double y, tP2Edit * edit, bool * grabbed) {
         };
         return true;
     }
+
+    if (double_clicked(pc->control) && gHasDefault[pc->control->paramId]) {   // notes §14
+        edit->paramId         = pc->control->paramId;
+        edit->normalized      = gDefault[pc->control->paramId];
+        gValue[edit->paramId] = edit->normalized;
+        return true;
+    }
     gGrabbed   = pc->control;
     gGrabValue = gValue[pc->control->paramId];
     gGrabDial  = pc->dial;
@@ -1241,6 +1310,10 @@ bool p2_draw_press(double x, double y, tP2Edit * edit, bool * grabbed) {
 bool p2_draw_drag_by(double dx, double dy, tP2Edit * edit) {
     // up or right raises it, as the Controls menu chose
     double move = (p2_dial_mode() == eDialModeHorizontal) ? dx : -dy;
+
+    if (shift_modifier_held()) {
+        move *= DRAG_FINE;   // notes §16: Shift for fine adjustment
+    }
 
     if (gGrabbed == NULL) {
         return false;
@@ -1299,6 +1372,7 @@ void p2_draw_release(double x, double y, tP2Edit * edit) {
                 gPage = p;
             }
         }
+
         return;
     }
 

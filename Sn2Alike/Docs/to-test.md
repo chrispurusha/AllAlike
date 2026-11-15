@@ -21,3 +21,6 @@ Finished work not yet checked against the instrument.
 - Filter "Osc Byp": oscillators heard unfiltered with the filter closed, about 2 dB below an open filter; the Disco and 909 Toms
 - Free-running LFOs start the same way on every note from silence (Whiteout)
 - Panel buttons (2026-11-14, SynthLib buttonPress.h §1): Prev/Next/Load, the tabs (and Link HW where there is one) light while held and act on the release, and not at all when released off the button
+- Double-click a dial: back to its default, undoable in the host
+- Shift-drag a dial: a tenth the movement, in each dial mode but Rotary
+- Filter Tracking at 127 turns gold; double-click goes there

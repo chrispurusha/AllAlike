@@ -110,3 +110,17 @@ the LFO and Mod envelope routes to Shape move it too. At full Shape the phase sw
 way. Measured: the phase and output exact on every sample checked at Shape 0, 64 and 127. In floating point the
 feedback carries rounding into the phase, so at full Shape the two paths drift apart (0.04 after a second); at Shape 0
 they stay within 1 LSB.
+
+## 13. Sync
+A synced oscillator has a hidden partner at the note's own pitch, and itself runs Sync Detune / 2 semitones above it
+(the program's sync tune, which the Shape knob sets in sync mode: 16 semitones at 32, 32 at 64, 48 at 96, 63.5 at 127,
+the increments exact). When the hidden phase passes zero going up - lands in [0, its increment) - the oscillator's
+phase restarts at +0.5 (not at the start of its ramp), moved on by its own increment times the share of a sample since
+the crossing. The waveform is then the ordinary one on that phase: the saw's output is the plain saw's on the synced
+phase to within 1 LSB, and its band-limiting knows nothing of the restart. What the instrument mixes is that output a
+sample late, scaled by min(1, |hidden phase| / 4 hidden increments) - a fade to nothing at the restart and back over
+four samples either side - which is what keeps the jump from spiking.
+Measured on the instrument at A4 (Init, filter open), sync tune 64 and 127: harmonics to 20 kHz within 1.9 and 1.7 dB
+(median) of the plug-in, against 3.6 and 7.4 dB without the fade. The reset phase is within 18 LSB of the
+instrument's, whose share of a sample comes through a reciprocal table. Only the saw was checked; the other
+waveforms take the same restart and fade.

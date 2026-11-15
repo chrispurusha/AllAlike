@@ -279,13 +279,13 @@ typedef struct tP2Plugin_ {
 
     uint8_t           notes[NOTE_STACK_SIZE];
     int               noteCount;
-    int64_t           glidePitch;       // notes §17: the glided note, 1/256 semitone units
-    uint32_t          randomSeed;       // p2Patch notes §8: P500's generator, carried on between recalls
+    int64_t           glidePitch;                 // notes §17: the glided note, 1/256 semitone units
+    uint32_t          randomSeed;                 // p2Patch notes §8: P500's generator, carried on between recalls
     uint8_t           randomDump[P2_DUMP_LENGTH]; // the last sound it made (a save keeps its other bytes)
-    bool              glideKnown;       // a note has sounded, so there is somewhere to glide from
-    double            glideClock;       // time not yet spent in 1 ms glide steps
+    bool              glideKnown;                 // a note has sounded, so there is somewhere to glide from
+    double            glideClock;                 // time not yet spent in 1 ms glide steps
     tP2Lfo            lfo1, lfo2;
-    double            math[MATH_COUNT]; // notes §18
+    double            math[MATH_COUNT];           // notes §18
     double            delayLine[DELAY_LINE_MS];
     int               delayAt;
     double            smooth;
@@ -323,9 +323,9 @@ typedef struct tP2Plugin_ {
     uint32_t          noise;           // xorshift state
     double            noiseLp[4];      // notes §34: the band limit, two biquad states
     double            noiseColour;
-    double            noiseDark;        // notes §64
-    double            extLast;          // notes §65: the side-chain's previous sample, for the oversampling
-    double            extLp;            // notes §65: the EXT input's pole
+    double            noiseDark;       // notes §64
+    double            extLast;         // notes §65: the side-chain's previous sample, for the oversampling
+    double            extLp;           // notes §65: the EXT input's pole
     double            levelTarget[5];  // notes §43: osc 1-3, noise, the feedthrough - set per control tick
     double            levelNow[5];     //   and glided per sample
     bool              levelsSet;
@@ -361,6 +361,7 @@ static int32_t plain_int(const tP2Plugin * p, uint32_t id) {
 }
 
 #ifndef P2_NO_EDITOR
+
 // Main thread: the Voices parameter as the host holds it
 static int host_voices(void * user) {
     return (int)lround(gP2Params[kP2ParamVoices].plainMin
@@ -552,12 +553,19 @@ static double level_gain(const tP2Plugin * p, uint32_t id) {
 
 // notes §63: each shape's level against pitch, dB at notes 36..96 in octaves, measured at Level 40 (192k/shapes/).
 // The DCOs' ramps (saw, triangle) are tracked against pitch only roughly by the instrument; its pulses are the pin
-enum { eGainPulse12, eGainSaw12, eGainTri12, eGainSaw3, eGainTri3, GAIN_SHAPES };
+enum {
+    eGainPulse12,
+    eGainSaw12,
+    eGainTri12,
+    eGainSaw3,
+    eGainTri3,
+    GAIN_SHAPES
+};
 static const double kPitchGainDb[GAIN_SHAPES][6] = {
-    { 0.6, 0.6, 0.6, 0.6, 0.6, 0.6 },      // osc 1/2 PWM and APW
-    {-0.9, 0.1, 0.5, 0.9, 1.2, 1.7 },      // osc 1/2 SAW
-    { 0.4, 0.6, 0.7, 0.9, 1.0, 1.4 },      // osc 1/2 TRI
-    {-0.8, 0.7, 1.3, 1.8, 2.2, 2.8 },      // osc 3 SAW
+    { 0.6, 0.6,  0.6, 0.6, 0.6, 0.6},      // osc 1/2 PWM and APW
+    {-0.9, 0.1,  0.5, 0.9, 1.2, 1.7},      // osc 1/2 SAW
+    { 0.4, 0.6,  0.7, 0.9, 1.0, 1.4},      // osc 1/2 TRI
+    {-0.8, 0.7,  1.3, 1.8, 2.2, 2.8},      // osc 3 SAW
     { 1.3, 1.5, 1.65, 1.8, 2.1, 2.6},      // osc 3 TRI
 };
 
@@ -573,7 +581,7 @@ static double pitch_gain(const tP2Plugin * p, int osc, int kind) {
 
 // notes §63: the mix squeezes loud oscillator levels more than the engine's law: dB off at Levels 64..127, by 8s
 // (127 last), measured on osc 1 (law_level/ and shapes/); osc 3's is the same curve, deeper
-static const double kLevelTrimDb[10] = {0.0, -0.1, -0.2, -0.3, -0.3, -0.5, -0.5, -0.7, -0.8, -0.8};
+static const double kLevelTrimDb[10]             = {0.0, -0.1, -0.2, -0.3, -0.3, -0.5, -0.5, -0.7, -0.8, -0.8};
 #define OSC3_LEVEL_TRIM_SCALE    (1.25)
 
 static double level_trim(const tP2Plugin * p, uint32_t id, int target, double scale) {
@@ -586,8 +594,8 @@ static double level_trim(const tP2Plugin * p, uint32_t id, int target, double sc
 }
 
 // notes §64: the noise's level law, dB to add at Levels 12, 20, 30, 40, 64, 90, 127 (192k/noise_law/)
-static const double kNoiseLevelAt[7] = {12.0, 20.0, 30.0, 40.0, 64.0, 90.0, 127.0};
-static const double kNoiseTrimDb[7]  = {10.6, 1.9, 1.3, 0.9, 0.1, -0.7, -2.0};
+static const double kNoiseLevelAt[7]             = {12.0, 20.0, 30.0, 40.0, 64.0, 90.0, 127.0};
+static const double kNoiseTrimDb[7]              = {10.6, 1.9, 1.3, 0.9, 0.1, -0.7, -2.0};
 
 static double noise_trim(const tP2Plugin * p) {
     double cc = fmin(127.0, fmax(0.0, plain(p, kP2ParamNoiseLevel) + p->mod[eModNoiseLevel]));
@@ -944,8 +952,11 @@ static void control_tick(tP2Plugin * p, double dt) {
 static double thump_through_filter(tP2FilterMode mode, double k) {
     switch (mode) {
         case eP2FilterLp24: return -0.645 / pow(1.0 + (0.92 * k), 1.55);
+
         case eP2FilterLp12: return 1.0 + (0.64 * k / (1.07 + k));
+
         case eP2FilterBp12: return 0.78;
+
         default:            return 0.16;
     }
 }
@@ -993,7 +1004,7 @@ static void same_phases(tP2Plugin * v, const tP2Plugin * p) {
 
 static _Thread_local bool gMakingVoice;   // notes §57: an extra voice makes no voices of its own
 
-static uint32_t gRandomInstances = 0;
+static uint32_t           gRandomInstances = 0;
 
 static void * p2_create(const tSynthLibPluginDesc * desc) {
     tP2Plugin * p = (tP2Plugin *)calloc(1, sizeof(tP2Plugin));
@@ -1308,6 +1319,7 @@ static void release_all(tP2Plugin * p) {
     for (int i = 0; i < p->noteCount; i++) {
         para_note_off(p, p->notes[i]);
     }
+
     p->noteCount = 0;
     memset(p->sustained, 0, sizeof(p->sustained));
     p2_env_gate_off(&p->ampEnv);
@@ -1533,15 +1545,15 @@ static void p2_note_off(void * inst, uint8_t channel, uint8_t note, float veloci
 // notes §28: the pedal up - its notes go together; if the sounding one was among them, back to a key still down. One
 // at a time, each would have retriggered another the pedal still held, a moment before it went too
 static void release_sustained(tP2Plugin * p) {
-    int sounding = (p->noteCount > 0) ? p->notes[p->noteCount - 1] : -1;
-    bool any     = false;
+    int  sounding = (p->noteCount > 0) ? p->notes[p->noteCount - 1] : -1;
+    bool any      = false;
 
     for (int n = 0; n < 128; n++) {
         if (p->sustained[n]) {
             p->sustained[n] = false;
             remove_note(p, (uint8_t)n);
             para_note_off(p, n);
-            any = true;
+            any             = true;
         }
     }
 
@@ -1562,7 +1574,7 @@ static void release_sustained(tP2Plugin * p) {
 
 // notes §43: the mixer's levels, with their modulation, as of this control tick
 static void level_targets(tP2Plugin * p) {
-    p->levelTarget[0] = level_gain(p, kP2ParamOsc1Level);
+    p->levelTarget[0]  = level_gain(p, kP2ParamOsc1Level);
 
     // notes §8: in the unison and paraphonic modes osc 1's Level drives osc 3's mixer input, so osc 3's taper
     if ((unison_mode(p) != 0) || (para_voices(p) > 0)) {
@@ -1570,13 +1582,13 @@ static void level_targets(tP2Plugin * p) {
 
         p->levelTarget[0] = (cc <= LEVEL_SILENT_BELOW) ? 0.0 : pow((cc - LEVEL_SILENT_BELOW) / (127.0 - LEVEL_SILENT_BELOW), OSC3_LEVEL_EXPONENT);
     }
-    p->levelTarget[1] = level_gain(p, kP2ParamOsc2Level);
-    p->levelTarget[2] = level_gain(p, kP2ParamOsc3Level);   // notes §65: EXT plays the side-chain at osc 3's Level
-    p->levelTarget[3] = level_gain(p, kP2ParamNoiseLevel);
-    p->levelTarget[4] = LEVEL_FEEDTHROUGH * (p->levelTarget[0] + p->levelTarget[1] + p->levelTarget[2]);
-    p->levelTarget[0] *= level_trim(p, kP2ParamOsc1Level, eModOsc1Level, 1.0);   // notes §63: the mix, not the feedthrough
+    p->levelTarget[1]  = level_gain(p, kP2ParamOsc2Level);
+    p->levelTarget[2]  = level_gain(p, kP2ParamOsc3Level);  // notes §65: EXT plays the side-chain at osc 3's Level
+    p->levelTarget[3]  = level_gain(p, kP2ParamNoiseLevel);
+    p->levelTarget[4]  = LEVEL_FEEDTHROUGH * (p->levelTarget[0] + p->levelTarget[1] + p->levelTarget[2]);
+    p->levelTarget[0] *= level_trim(p, kP2ParamOsc1Level, eModOsc1Level, 1.0); // notes §63: the mix, not the feedthrough
     p->levelTarget[1] *= level_trim(p, kP2ParamOsc2Level, eModOsc2Level, 1.0);
-    p->levelTarget[3] *= noise_trim(p);   // notes §64
+    p->levelTarget[3] *= noise_trim(p);                                        // notes §64
 
     if (!p->levelsSet) {
         memcpy(p->levelNow, p->levelTarget, sizeof(p->levelNow));
@@ -1666,6 +1678,7 @@ static void render_engine(void * inst, const float *const * in, uint32_t numIn, 
 
     tP2ArpSettings arp;
     bool           hostClock = (t != NULL) && t->playing && t->tempoValid && t->musicTimeValid && (t->tempo > 0.0);
+
     if ((t != NULL) && t->tempoValid && (t->tempo > 0.0)) {
         p->hostTempo = t->tempo;
     }
@@ -1683,7 +1696,7 @@ static void render_engine(void * inst, const float *const * in, uint32_t numIn, 
         double extNow  = (extL == NULL) ? 0.0 : (EXT_IN_GAIN * ((extR != NULL) ? (0.5 * ((double)extL[i] + (double)extR[i])) : (double)extL[i]));
         double extPrev = p->extLast;
 
-        p->extLast = extNow;
+        p->extLast    = extNow;
 
         if (arp.active != eP2ArpOff || p->arp.running) {
             p2_arp_run(&p->arp, &arp, p->arpTicks, hostClock, arp_note, p);
@@ -1738,10 +1751,10 @@ static void render_engine(void * inst, const float *const * in, uint32_t numIn, 
             double white   = band_limit(band_limit((noise + NOISE_FLOOR) * white_noise(p), noiseLp, &p->noiseLp[0]), noiseLp, &p->noiseLp[2]);
 
             p->noiseColour      += colour * (white - p->noiseColour);
-            p->noiseDark        += dark * (p->noiseColour - p->noiseDark);   // notes §64
+            p->noiseDark        += dark * (p->noiseColour - p->noiseDark); // notes §64
             double sources = p->noiseDark;
-            double osc     = 0.0;                             // the oscillators alone
-            double cv3     = osc3 - p->osc3Coupled;           // notes §25
+            double osc     = 0.0;                                          // the oscillators alone
+            double cv3     = osc3 - p->osc3Coupled;                        // notes §25
 
             p->osc3Coupled      += coupling * cv3;
             double amp2    = level2;
@@ -2052,8 +2065,8 @@ static void process_shared_drive(tP2Plugin * p, const float *const * in, uint32_
     }
 
     for (uint32_t done = 0; done < frames; done += POLY_CHUNK) {
-        uint32_t n = ((frames - done) < POLY_CHUNK) ? (frames - done) : POLY_CHUNK;
-        size_t   m = (size_t)n * (size_t)p->oversample;
+        uint32_t      n        = ((frames - done) < POLY_CHUNK) ? (frames - done) : POLY_CHUNK;
+        size_t        m        = (size_t)n * (size_t)p->oversample;
         const float * chunk[2] = {((in != NULL) && (numIn > 0)) ? (in[0] + done) : NULL, ((in != NULL) && (numIn > 1)) ? (in[1] + done) : NULL};
 
         memset(b->sum, 0, m * sizeof(double));
@@ -2147,10 +2160,10 @@ static void process_own_drives(tP2Plugin * p, const float *const * in, uint32_t 
         poly_follow(p, v);
 
         for (uint32_t done = 0; done < frames; done += POLY_CHUNK) {
-            uint32_t n       = ((frames - done) < POLY_CHUNK) ? (frames - done) : POLY_CHUNK;
-            float    l[POLY_CHUNK], r[POLY_CHUNK];
-            float *  mine[2] = {l, r};
-            float    peak    = 0.0f;
+            uint32_t      n        = ((frames - done) < POLY_CHUNK) ? (frames - done) : POLY_CHUNK;
+            float         l[POLY_CHUNK], r[POLY_CHUNK];
+            float *       mine[2]  = {l, r};
+            float         peak     = 0.0f;
             const float * chunk[2] = {((in != NULL) && (numIn > 0)) ? (in[0] + done) : NULL, ((in != NULL) && (numIn > 1)) ? (in[1] + done) : NULL};
 
             render_engine(v, chunk, (in != NULL) ? numIn : 0, mine, 2, n, t);   // notes §65: every voice hears EXT
@@ -2293,6 +2306,13 @@ static const tP2PatchHost gPatchHost = {
 
 static void p2_panel_init(void) {
     p2_draw_init();
+
+    for (uint32_t i = 0; i < kP2ParamCount; i++) {
+        p2_draw_set_default(gP2Params[i].id, gP2Params[i].defaultNormalized);
+    }
+
+    p2_draw_set_unity(kP2ParamFilterKeytrack, 96, 127);   // draw notes §17
+
     p2_draw_set_pages(gP2Pages, gP2PageCount);
     p2_draw_set_host(&gPatchHost);
 }
@@ -2532,6 +2552,7 @@ static bool preset_edited(tP2Plugin * p, void * user) {
         return false;
     }
     current_dump(user, "", now);
+
     if (p->preset == P2_RANDOM_SLOT) {   // p2Patch notes §8: against the random sound it made, not the slot
         memcpy(stored, p->randomDump, P2_DUMP_LENGTH);
     } else {
@@ -2965,7 +2986,7 @@ static const tSynthLibPluginDesc gDescriptor = {
     .isInstrument       = true,
     .vst3SubCategory    = "Instrument|Synth",
     .inputs             = gInputs,
-    .numInputs          = 1,
+    .numInputs          =                                             1,
     .outputs            = gOutputs,
     .numOutputs         =                                             1,
     .wantsMidiIn        = true,
@@ -2988,22 +3009,22 @@ static const tSynthLibPluginDesc gDescriptor = {
 #endif
 
     .cb                 = {
-        .create     = p2_create,
-        .destroy    = p2_destroy,
-        .prepare    = p2_prepare,
-        .setActive  = p2_set_active,
-        .reset      = p2_reset,
-        .process    = p2_process,
-        .noteOn     = p2_note_on,
-        .noteOff    = p2_note_off,
-        .setParam   = p2_set_param,
-        .getParam   = p2_get_param,
+        .create      = p2_create,
+        .destroy     = p2_destroy,
+        .prepare     = p2_prepare,
+        .setActive   = p2_set_active,
+        .reset       = p2_reset,
+        .process     = p2_process,
+        .noteOn      = p2_note_on,
+        .noteOff     = p2_note_off,
+        .setParam    = p2_set_param,
+        .getParam    = p2_get_param,
         .midiMapping = p2_midi_mapping,
-        .getState   = p2_get_state,
-        .setState   = p2_set_state,
-        .paramText  = p2_param_text,
+        .getState    = p2_get_state,
+        .setState    = p2_set_state,
+        .paramText   = p2_param_text,
 #ifndef P2_NO_EDITOR
-        .createView = p2_create_view,
+        .createView  = p2_create_view,
 #endif
     }
 };

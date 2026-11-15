@@ -97,3 +97,23 @@ the slot held at the last backup (the presets file's name for it: the plug-in do
 writing). The store sends the sound as it is now, like Send Sound, under the same one-off lock; it does not touch
 the presets file or the plug-in's preset number. A store that went out says so; a failure shows the usual Pulse 2
 alert. One store is one flash write: nothing repeats it.
+
+## 14. Double-click a dial
+Two presses on the same dial within 0.4 s put it back to its default (the parameter table's, given to the panel at
+start by `p2_draw_set_default()`), through the host like any edit, so it can be undone there. The second press does
+not grab the dial. As OneShot's (osDraw notes §10), added across the Alikes 2026-11-14.
+
+## 15. Prev/Next in the Sort menu's order
+Prev/Next step through P001-P500 in the order the Sort menu sets (Bank / Location, Category by each sound's CLASS,
+or A-Z; SynthLib's `bank_browser_sorted_order()`, as TiAlike, Sn2Alike and Nl3Alike), wrapping. From a numbered file
+they start from its number; from any other sound Next is the first in that order and Prev the last.
+
+## 16. Shift for fine adjustment
+With Shift held, dragging a dial moves it a tenth as far for the same distance - the same on the Mac and Windows
+(SynthLib's panel views read the modifiers on every drag event). Rotary mode, where the dial follows the pointer's
+angle, is unchanged. Added across the Alikes 2026-11-14.
+
+## 17. Keyboard tracking at 1:1
+The filter's keyboard tracking dial (kP2ParamFilterKeytrack) turns gold at the one step where the cutoff follows the keys one
+semitone a note, like an oscillator; a double-click goes there rather than to the Init sound's own setting. The
+gold is shared by every Alike (`UNITY_COLOUR`). Added 2026-11-14 (CT 2026-11-08: the same in every Alike).

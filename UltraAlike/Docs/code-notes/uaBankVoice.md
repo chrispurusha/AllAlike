@@ -12,3 +12,11 @@ A looped sample plays to its loop end and then round the loop for as long as the
 The interpolator's taps either side of the seam are gathered in the order they sound - past the loop end, the
 loop's start again; once looping, before the loop start, the loop's end - so the seam reads as one continuous
 signal. Away from the seam it reads the sample directly.
+
+## 3. The bank's amplifier envelope
+A zone whose voice holds an envelope (SynthLib emuBank §5) plays through it rather than the layer's: Attack 1, Attack 2,
+Decay 1 and Decay 2 in turn, each a straight line from where the level is to the stage's level in the stage's time (a
+time of 0 jumps), Decay 2's level held while the key is down; at the note off Release 1 and Release 2 the same way
+from wherever it is, and the voice ends after Release 2. A voice taken over while sounding starts from its level. The
+segments' shape is not measured: a straight line in level until Emulator X3 or the E5000 says otherwise. The layer's
+envelope dials do nothing to such a zone.

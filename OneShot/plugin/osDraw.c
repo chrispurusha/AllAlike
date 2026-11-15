@@ -36,6 +36,7 @@
 #include "renderBackend.h"
 #include "contextMenu.h"
 #include "buttonPress.h"
+#include "inputState.h"
 #include "fileBrowser.h"
 #include "alertDialog.h"
 #include "menuBar.h"
@@ -57,6 +58,7 @@
 #endif
 #define FONT_PRELOAD_SIZE       (16.0)
 
+#define DRAG_FINE               (0.1) // notes §18
 #define MAX_PARAMS              (64)
 #define MAX_PLACED              (64)
 #define MARGIN_X                (16.0)
@@ -1080,6 +1082,10 @@ bool os_draw_press(double x, double y, tOsEdit * edit, bool * grabbed) {
 bool os_draw_drag_by(double dx, double dy, tOsEdit * edit) {
     // up or right raises it, as the Controls menu chose
     double move = (os_dial_mode() == eDialModeHorizontal) ? dx : -dy;
+
+    if (shift_modifier_held()) {
+        move *= DRAG_FINE;   // notes §18: Shift for fine adjustment
+    }
 
     if (gGrabbed == NULL) {
         return false;

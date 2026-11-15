@@ -669,6 +669,11 @@ static bool limit_display(uint32_t paramId, const double * values, int32_t * ste
 
 static void nl3_panel_init(void) {
     nl3_draw_init();
+
+    for (uint32_t i = 0; i < kNl3ParamCount; i++) {
+        nl3_draw_set_default(gNl3Params[i].id, gNl3Params[i].defaultNormalized);
+    }
+
     nl3_draw_set_pages(gNl3Pages, gNl3PageCount);
     nl3_draw_set_host(&gPatchHost);
     nl3_draw_set_display(limit_display);

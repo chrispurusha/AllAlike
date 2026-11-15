@@ -71,3 +71,18 @@ no preset, Next is A001. Store always confirms, naming what the slot holds; Reve
 ## 12. Import and export
 Import replaces all 1536 after a confirm naming how many were found (sn2Patch notes §6). Export writes the 512 as one
 `.syx`, which Import reads back.
+
+## 13. Double-click a dial
+Two presses on the same dial within 0.4 s put it back to its default (the parameter table's, given to the panel at
+start by `sn2_draw_set_default()`), through the host like any edit, so it can be undone there. The second press does
+not grab the dial. As OneShot's (osDraw notes §10), added across the Alikes 2026-11-14.
+
+## 14. Shift for fine adjustment
+With Shift held, dragging a dial moves it a tenth as far for the same distance - the same on the Mac and Windows
+(SynthLib's panel views read the modifiers on every drag event). Rotary mode, where the dial follows the pointer's
+angle, is unchanged. Added across the Alikes 2026-11-14.
+
+## 15. Keyboard tracking at 1:1
+The filter's keyboard tracking dial (kSn2ParamFilterTrack) turns gold at the one step where the cutoff follows the keys one
+semitone a note, like an oscillator; a double-click goes there rather than to the Init sound's own setting. The
+gold is shared by every Alike (`UNITY_COLOUR`). Added 2026-11-14 (CT 2026-11-08: the same in every Alike).

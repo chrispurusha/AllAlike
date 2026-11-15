@@ -25,6 +25,7 @@
 #include "synthlibVersion.h"
 #include "contextMenu.h"
 #include "alertDialog.h"
+#include "bankBrowser.h"
 
 #include "p2Draw.h"
 #include "p2Menu.h"
@@ -240,7 +241,7 @@ static const char *const kHelpTexts[HELP_TOPICS]  = {
     "Lists (shapes, filter type, modulation sources and targets) open a menu of their values on a click.\n\n"
     "The name field: click to rename the sound (14 characters, capitals); Return keeps it, Escape drops it. "
     "It reaches a file at the next save.\n\n"
-    "< Prev and Next > step through the .syx files in the current sound's folder; Load... opens the file browser.",
+    "< Prev and Next > step through the presets in the order the Sort menu sets, or the .syx files in the current sound's folder; Load... opens the file browser.",
 
     "The plug-in keeps 500 presets, P001-P500, as the instrument does. Program changes play them: bank select "
     "(CC 32) picks the hundred, bank 0 for P001-P100 up to bank 4 for P401-P500. < Prev and Next > step through "
@@ -307,9 +308,33 @@ static void open_help_menu(tCoord anchor) {
     open_context_menu(anchor, items, 0, 0.0);
 }
 
+// ---- Sort - notes §5: the order the preset browser lists in and Prev/Next step through -------------------------
+
+static void action_sort(int index) {
+    bank_browser_set_sort_mode((int32_t)gContextMenu.items[index].param);
+}
+
+static void open_sort_menu(tCoord anchor) {
+    static tMenuItem         items[4];
+    static const char *const kLabels[3][2] = {
+        {"Bank / Location", "* Bank / Location"}, {"Category", "* Category"}, {"A-Z", "* A-Z"}
+    };
+    int32_t                  mode          = bank_browser_sort_mode();
+
+    for (int i = 0; i < 3; i++) {
+        items[i] = (tMenuItem){
+            kLabels[i][mode == i], ITEM, action_sort, (uint32_t)i, NULL, 0, 0.0, NULL
+        };
+    }
+
+    items[3] = END_OF_MENU;
+    open_context_menu(anchor, items, 0, 0.0);
+}
+
 static const tMenuBarItem gMenuBar[] = {
     {"File",     open_file_menu    },
     {"Presets",  open_presets_menu },
+    {"Sort",     open_sort_menu    },
     {"Pulse 2",  open_pulse2_menu  },
     {"Controls", open_controls_menu},
     {"Help",     open_help_menu    },

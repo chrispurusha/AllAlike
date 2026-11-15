@@ -145,8 +145,8 @@ static void build_params(void) {
 
             *p            = gUaParams[id];
             p->id         = (layer * UA_LAYER_STRIDE) + id;
-            snprintf(gTitles[at][0], sizeof(gTitles[at][0]), "%u %s", layer + 1, gUaParams[id].title);
-            snprintf(gTitles[at][1], sizeof(gTitles[at][1]), "%u %s", layer + 1, gUaParams[id].shortTitle);
+            snprintf(gTitles[at][0], sizeof(gTitles[at][0]), "%s", gUaParams[id].title);   // notes §13: one layer, no number
+            snprintf(gTitles[at][1], sizeof(gTitles[at][1]), "%s", gUaParams[id].shortTitle);
             p->title      = gTitles[at][0];
             p->shortTitle = gTitles[at][1];
         }
@@ -385,7 +385,7 @@ static uint32_t ua_latency(void * inst) {
 
 // notes §2: the plug-in's own state - UAS4 as OSS3 then each layer's bank preset (u32, little-endian); OSS3 the four
 // layers' paths and the instance's flags, OSS2 the paths alone, OSS1 (a one-sample project) the first's
-#define STATE_MAGIC        "UAS4"
+#define STATE_MAGIC        "UAS5"   // notes §13: one layer since 2026-11-14
 #define STATE_LENGTH       (STATE3_LENGTH + (UA_LAYERS * 4))
 #define STATE3_MAGIC       "OSS3"
 #define STATE3_LENGTH      (4 + (UA_LAYERS * PATH_LENGTH) + 4)

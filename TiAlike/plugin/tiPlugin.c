@@ -854,6 +854,11 @@ static const tTiPatchHost gPatchHost = {
 
 static void ti_panel_init(void) {
     ti_draw_init();
+
+    for (uint32_t i = 0; i < kTiParamCount; i++) {
+        ti_draw_set_default(gTiParams[i].id, gTiParams[i].defaultNormalized);
+    }
+
     ti_draw_set_pages(gTiPages, gTiPageCount);
     ti_draw_set_display(ti_dial_display);
     ti_draw_set_host(&gPatchHost);

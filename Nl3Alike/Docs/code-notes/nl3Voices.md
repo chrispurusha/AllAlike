@@ -184,3 +184,27 @@ With every voice busy, a note takes the quietest voice already let go, and a hel
 is. Long releases keep voices busy for a long time - String Pad's (103) for half a minute - so this is common. A note
 on a key still sounding restarts that voice, its envelopes from where they are; whether the instrument does the
 same is not yet settled (the beating hid it in the one comparison made).
+
+## 29. Every voice its own LFO
+A free-running LFO (not keyed) runs in each voice at that voice's own rate, so a morph that moves the rate with the
+key gives each note its own speed. Measured on the instrument with String Pad's keyboard morph (Rate +8, Amount +117)
+on one oscillator, C2 to C6: the LFO quickens 2.22 → 2.67 → 3.11 → 3.56 → 4.00 Hz, a straight line in hertz ending at
+Rate 64's speed, while its depth pins the width at its limit from about C5 up (movement 0.69, 0.47, 0.18, 0.00, 0.01;
+the plug-in 0.70, 0.47, 0.19, 0.02, 0.01). Until 2026-11-14 one shared phase ran at the unmorphed rate, so every note
+of String Pad swept its pulse width at 2.2 Hz - the "LFO beating" heard up the keyboard. A voice starting from
+silence takes up the shared phase (`lfoFree`), so a chord's voices begin together. The LFO Mono mode (one LFO for
+every voice) is not built.
+
+## 30. Aftertouch reaches the morph
+Channel pressure arrives as a hidden parameter mapped to the host's aftertouch (as Pulse2Alike's and TiAlike's) and
+is the third morph group's source, taken with the wheel's law (pressure × 127/128, full pressure the whole range) -
+not yet measured on the instrument. Before 2026-11-14 that group did nothing.
+
+## 31. Vibrato
+One sine for every voice, added to the pitch of oscillators 1 and 2. Its depth is a cent an Amount step up to 100,
+taken as min(Amount, 100) × 127/128 cents (±29.6 at 30, ±59.3 at 60, ±89.3 at 90, ±99 at 127), times its source: the
+pressure or the wheel, as value/128. With source Off there is none - not a fixed vibrato. The stored source values
+are 1 for aftertouch and 2 for the wheel (the manual lists the wheel first); the panel's names follow the stored
+order. Rate 3.98 Hz at 0 to 8.00 Hz at 127, measured at 0, 32, 64, 96 and 127 and drawn straight between, the
+plug-in within 0.25% of every point. Measured on the instrument 2026-11-14 with the Init saw at A4, the pressure and
+the wheel sent over MIDI.

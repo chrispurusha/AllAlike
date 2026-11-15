@@ -62,6 +62,8 @@ typedef struct {
 void sn2_draw_init(void);
 void sn2_draw_set_pages(const tSn2Page * pages, uint32_t count);
 void sn2_draw_set_value(uint32_t paramId, double normalized);
+void sn2_draw_set_default(uint32_t paramId, double normalized);         // notes §13: a double-click goes back to it
+void sn2_draw_set_unity(uint32_t paramId, int32_t step, int32_t steps); // notes §15: a keyboard-tracking dial's 1:1
 
 // notes §8: a plug-in may show a dial at another position than its own value, and with its own text (a linked
 // control following the one it is linked to). values[] are every parameter as the panel holds them, normalized.

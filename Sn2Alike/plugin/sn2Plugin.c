@@ -753,6 +753,13 @@ static bool limit_display(uint32_t paramId, const double * values, int32_t * ste
 
 static void sn2_panel_init(void) {
     sn2_draw_init();
+
+    for (uint32_t i = 0; i < kSn2ParamCount; i++) {
+        sn2_draw_set_default(gSn2Params[i].id, gSn2Params[i].defaultNormalized);
+    }
+
+    sn2_draw_set_unity(kSn2ParamFilterTrack, 127, 127);   // draw notes §15
+
     sn2_draw_set_pages(gSn2Pages, gSn2PageCount);
     sn2_draw_set_host(&gPatchHost);
     sn2_draw_set_display(limit_display);

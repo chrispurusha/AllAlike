@@ -48,15 +48,17 @@ typedef struct {
     double     noiseLow, noiseLast;
     tNl3Env    env[NL3_MOD_ENVS];
     tNl3Filter filter;
-    double     lfoPhase[NL3_LFOS]; // 0..1
-    double     lfoHeld[NL3_LFOS];  // sample and hold
-    double     lfoAge;             // seconds since the note began
+    double     lfoPhase[NL3_LFOS];  // 0..1
+    double     lfoHeld[NL3_LFOS];   // sample and hold
+    double     lfoAge;              // seconds since the note began
     double     lfoSemis[NL3_OSCS];
-    uint64_t   started;            // for stealing the oldest
-    float      ring[256];          // voices notes §26: the voice's output, for the Unison reads
+    uint64_t   started;             // for stealing the oldest
+    float      ring[256];           // voices notes §26: the voice's output, for the Unison reads
     uint32_t   ringAt;
-    uint32_t   delayWord[2];       // voices notes §26: 24 bits each, stepped every sample with Unison on
-    double     sineLast[NL3_OSCS]; // osc notes §12: the Sine's last sample, for its Shape
+    uint32_t   delayWord[2];        // voices notes §26: 24 bits each, stepped every sample with Unison on
+    double     sineLast[NL3_OSCS];  // osc notes §12: the Sine's last sample, for its Shape
+    double     syncPhase[NL3_OSCS]; // osc notes §13: the hidden oscillator's phase
+    double     syncLast[NL3_OSCS];  // osc notes §13: the synced oscillator's last sample, faded at a restart
 } tNl3Voice;
 
 #define NL3_LFOS    (2)
@@ -83,6 +85,8 @@ typedef struct {
     double       wheelLevel;         // added to level at full wheel
     double       lfoPitch[NL3_LFOS]; // semitones at full swing
     double       lfoWidth[NL3_LFOS]; // voices notes §22: width word added at the LFO's top
+    bool         sync;               // osc notes §13: restarted by a hidden oscillator at the note's pitch
+    double       syncTune;           // osc notes §13: 0..127, half a semitone a step above the hidden one
 } tNl3OscSound;
 
 // Env 2 or 3, in the panel's units
@@ -128,6 +132,8 @@ typedef struct {
     double       modEnvPitch[NL3_OSCS];                       // voices notes §24: semitones at the Mod envelope's top
     double       modEnvWidth[NL3_OSCS];                       // voices notes §24: width word at its top
     double       modEnvMix;                                   // voices notes §24: Osc Mix at its top, a fraction of the dial
+    double       vibratoSemis;                                // voices notes §31: the vibrato's depth now, its source applied
+    double       vibratoHz;
     bool         unison;                                      // voices notes §26
     double       unisonStep;                                  // voices notes §26: the first read's delay word step a sample
     bool         legato;                                      // mono: a change of note does not restart the envelopes
@@ -177,6 +183,7 @@ typedef struct {
     double     edge[NL3_EDGE_POINTS];
     bool       fixedPoint;                 // notes §19: the arithmetic the instrument uses
     bool       clean;                      // notes §20: the Aliasing setting
+    double     vibratoPhase;               // voices notes §31: one vibrato for every voice, 0..1
     tNl3Steps  steps;
     tNl3Sound  voiceSound[NL3_MAX_VOICES]; // voices notes §25: a voice's sound with its morphs, when it has any
     bool       voiceMorphed[NL3_MAX_VOICES];

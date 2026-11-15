@@ -20,6 +20,7 @@
 #include <ctype.h>
 #include <dirent.h>
 #include <math.h>
+#include <time.h>
 #include <stdio.h>
 #include <string.h>
 #include <strings.h>
@@ -38,6 +39,7 @@
 #include "renderBackend.h"
 #include "contextMenu.h"
 #include "buttonPress.h"
+#include "inputState.h"
 #include "fileBrowser.h"
 #include "bankBrowser.h"
 #include "alertDialog.h"
@@ -59,6 +61,8 @@
 #endif
 #define FONT_PRELOAD_SIZE         (16.0)
 
+#define DOUBLE_CLICK_S            (0.4) // notes §17
+#define DRAG_FINE                 (0.1) // notes §18
 #define MAX_PARAMS                (320)
 #define MAX_PLACED                (64)
 #define MAX_PAGES                 (16)
@@ -108,7 +112,11 @@ typedef struct {
 static const tTiPage *      gPages;
 static uint32_t             gPageCount;
 static uint32_t             gPage;
-static double               gValue[MAX_PARAMS]; // normalized, as the host holds them
+static double               gValue[MAX_PARAMS];   // normalized, as the host holds them
+static double               gDefault[MAX_PARAMS]; // notes §17: what a double-click puts a dial back to
+static bool                 gHasDefault[MAX_PARAMS];
+static const void *         gLastPressed;         // notes §17: the dial pressed last, and when
+static double               gLastPressAt;
 static bool                 gFontReady;
 static tCoord               gMouse;
 
@@ -202,6 +210,27 @@ void ti_draw_set_value(uint32_t paramId, double normalized) {
     if (paramId < MAX_PARAMS) {
         gValue[paramId] = normalized;
     }
+}
+
+// notes §17: a parameter's default, from the plug-in's table
+void ti_draw_set_default(uint32_t paramId, double normalized) {
+    if (paramId < MAX_PARAMS) {
+        gDefault[paramId]    = normalized;
+        gHasDefault[paramId] = true;
+    }
+}
+
+// notes §17: a second press on the same dial within DOUBLE_CLICK_S
+static bool double_clicked(const void * control) {
+    struct timespec now;
+
+    clock_gettime(CLOCK_MONOTONIC, &now);
+    double          seconds = (double)now.tv_sec + ((double)now.tv_nsec * 1e-9);
+    bool            again   = (control == gLastPressed) && ((seconds - gLastPressAt) < DOUBLE_CLICK_S);
+
+    gLastPressed = again ? NULL : control;
+    gLastPressAt = seconds;
+    return again;
 }
 
 void ti_draw_set_mouse(double x, double y) {
@@ -1343,6 +1372,13 @@ bool ti_draw_press(double x, double y, tTiEdit * edit, bool * grabbed) {
         };
         return true;
     }
+
+    if (double_clicked(pc->control) && gHasDefault[pc->control->paramId]) {   // notes §17
+        edit->paramId         = pc->control->paramId;
+        edit->normalized      = gDefault[pc->control->paramId];
+        gValue[edit->paramId] = edit->normalized;
+        return true;
+    }
     gGrabbed   = pc->control;
     gGrabValue = gValue[pc->control->paramId];
     gGrabDial  = pc->dial;
@@ -1353,6 +1389,10 @@ bool ti_draw_press(double x, double y, tTiEdit * edit, bool * grabbed) {
 bool ti_draw_drag_by(double dx, double dy, tTiEdit * edit) {
     // up or right raises it, as the Controls menu chose
     double move = (ti_dial_mode() == eDialModeHorizontal) ? dx : -dy;
+
+    if (shift_modifier_held()) {
+        move *= DRAG_FINE;   // notes §18: Shift for fine adjustment
+    }
 
     if (gGrabbed == NULL) {
         return false;

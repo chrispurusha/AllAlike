@@ -46,6 +46,9 @@ tNl3FilterMode nl3_filter_mode(uint32_t type, uint32_t slope) {
         case 3:
             return eNl3FilterBr;   // one form at either slope (notes §14)
 
+        case 4:
+            return eNl3FilterClassic;   // notes §13: one form at either slope
+
         default:
             return (slope == 0) ? eNl3FilterLp6 : ((slope == 2) ? eNl3FilterLp24 : eNl3FilterLp12);
     }
@@ -68,7 +71,45 @@ static double norm(double s) {
     return lo + ((norm_table(i + 1) - lo) * (pos - i));
 }
 
+#define CLASSIC_Q1           (0.8949)        // notes §13: the first stage's damping - the ladder's other pole pair at full resonance
+#define CLASSIC_Q_FLOOR      (1.0 / 256.0)   // notes §13: the pole pairs stop moving apart from here
+#define CLASSIC_G_TOP        (0.76038)       // notes §13: neither stage's frequency goes higher
+#define CLASSIC_GAIN_TAKE    (0.75)
+
+// notes §13: a four-pole ladder as two stages - its two pole pairs, apart by the feedback that makes the resonant
+// pair's damping d^4
+static void classic_coeffs(double cutoff, double resonance, tNl3FilterCoeffs * c) {
+    double w  = (cutoff >= 127.0) ? CUTOFF_WORD_OPEN : fmin(CUTOFF_WORD_OPEN, CUTOFF_WORD_AT_0 * pow(2.0, cutoff / 12.0));
+    double gw = BP_WARP_SCALE * G_PER_WORD * w;
+    double g0 = (gw < (M_PI / 2.0) - 1e-6) ? (tan(gw) / 2.0) : 1e9;   // notes §13: the stages are held to their top after the pairs part
+    double d  = (resonance >= 127.0) ? 0.0 : (1.0 - (fmax(0.0, resonance) / 128.0));
+    double q2 = d * d * d * d;
+    double q  = fmax(q2, CLASSIC_Q_FLOOR);
+    double s  = sqrt(1.0 - (q * q));
+    double u  = s / (q + s);
+    double g1 = fmin(CLASSIC_G_TOP, g0 * sqrt(1.0 + (2.0 * u) + (2.0 * u * u)));
+    double g2 = fmin(CLASSIC_G_TOP, g0 * sqrt(1.0 - (2.0 * u) + (2.0 * u * u)));
+    double n1 = norm(1.0 + (2.0 * CLASSIC_Q1 * g1) + (g1 * g1));
+    double n2 = norm(1.0 + (2.0 * q2 * g2) + (g2 * g2));
+
+    c->mode  = eNl3FilterClassic;
+    c->f     = fmin(WORD_TOP, g1 * n1);
+    c->k     = fmin(WORD_TOP, CLASSIC_Q1 * n1);
+    c->f2    = fmin(WORD_TOP, g2 * n2);
+    c->k2    = fmin(WORD_TOP, q2 * n2);
+    c->gain  = 1.0 - (CLASSIC_GAIN_TAKE * (1.0 - (d * d)));
+    c->fw    = nl3_word(c->f);
+    c->kw    = nl3_word(c->k);
+    c->fw2   = nl3_word(c->f2);
+    c->kw2   = nl3_word(c->k2);
+    c->gainw = nl3_word(c->gain);
+}
+
 void nl3_filter_coeffs(tNl3FilterMode mode, double cutoff, double resonance, tNl3FilterCoeffs * c) {
+    if (mode == eNl3FilterClassic) {
+        classic_coeffs(cutoff, resonance, c);
+        return;
+    }
     bool   steep  = (mode == eNl3FilterLp24) || (mode == eNl3FilterHp24) || (mode == eNl3FilterBp24);
     double w      = (cutoff >= 127.0) ? CUTOFF_WORD_OPEN : fmin(CUTOFF_WORD_OPEN, CUTOFF_WORD_AT_0 * pow(2.0, cutoff / 12.0));
     double d      = (resonance >= 127.0) ? 0.0 : (1.0 - (fmax(0.0, resonance) / 128.0));
@@ -238,7 +279,7 @@ static tNl3Word classic_fixed(tNl3Filter * f, const tNl3FilterCoeffs * c, tNl3Wo
         b = (pass == 0) ? (b >> 1) : (nl3_acc(held) >> 1);
         linear_stage_fixed(&f->lowW[0], &f->bandW[0], c->fw, c->kw, &b);
         b = nl3_acc(f->lowW[0]) >> 1;
-        (void)stage_fixed(&f->lowW[1], &f->bandW[1], c->fw, c->kw, &b, NULL);
+        (void)stage_fixed(&f->lowW[1], &f->bandW[1], c->fw2, c->kw2, &b, NULL);   // the resonant pair
     }
 
     b = nl3_asl(nl3_mul(f->lowW[1], c->gainw), 2);
@@ -411,6 +452,31 @@ static double allpass3(tNl3Filter * f, const tNl3FilterCoeffs * c, double x, boo
     return limit(notch ? (2.0 * (b + dry)) : (4.0 * b));
 }
 
+// notes §13: the plain stage, in floating point
+static void linear_stage(double * low, double * band, double f, double k, double * b) {
+    double a = *low + (f * *band);
+
+    *b   -= a;
+    *b   -= k * *band;
+    *low  = limit(a);
+    *band = limit(*band + (4.0 * f * limit(*b)));
+}
+
+// notes §13: Classic in floating point
+static double classic(tNl3Filter * f, const tNl3FilterCoeffs * c, double x) {
+    double b    = x / 2.0;
+    double held = limit(b);
+
+    for (int pass = 0; pass < 2; pass++) {
+        b = (pass == 0) ? (b / 2.0) : (held / 2.0);
+        linear_stage(&f->low[0], &f->band[0], c->f, c->k, &b);
+        b = f->low[0] / 2.0;
+        (void)stage(&f->low[1], &f->band[1], c->f2, c->k2, &b);
+    }
+
+    return limit(2.0 * f->low[1] * c->gain);
+}
+
 // notes §14: band-reject in floating point
 static double br(tNl3Filter * f, const tNl3FilterCoeffs * c, double x) {
     double b      = x / 16.0;
@@ -491,6 +557,9 @@ double nl3_filter_process(tNl3Filter * f, const tNl3FilterCoeffs * c, double x) 
 
         case eNl3FilterLpHpPar:
             return lphp_par(f, c, x);
+
+        case eNl3FilterClassic:
+            return classic(f, c, x);
 
         case eNl3FilterPeak:
             return allpass3(f, c, x, false);

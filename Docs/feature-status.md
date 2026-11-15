@@ -27,8 +27,10 @@ Missing everywhere, or built in one and wanted in the others:
   Pulse at 127 with the blend between, its wavetable Index as the frame (3 of 7); Nl3Alike's Shape by waveform.
 - **Keyboard tracking at 1:1, marked** (CT 2026-11-08): when a filter's key tracking is exactly one octave per
   octave, its dial shows it - a colour change, the same in every Alike - so the setting where the filter follows the
-  keyboard like an oscillator can be found without reading numbers. Each Alike's 1:1 point comes from its own law
-  (Nl3Alike's KBT is a switch whose On is 1:1; TiAlike's and Sn2Alike's from their measured key-follow curves).
+  keyboard like an oscillator can be found without reading numbers. Each Alike's 1:1 point comes from its own law.
+  BUILT 2026-11-14 in Pulse2Alike (Keytrack 96) and Sn2Alike (Tracking 127), gold, a double-click going there;
+  Nl3Alike's KBT is a switch whose On is 1:1; TiAlike has no fixed point (its cutoff runs through a measured table,
+  not a semitone a step, so the Keyfollow that tracks 1:1 depends on the cutoff).
 - **Writing sounds back to the instrument.** Pulse2Alike's Store to Slot is built (the store itself proven by a test dump to P450 that read back; the menu command not yet tried from a host), Restore Presets waits; TiAlike's bank write is built but untried; Sn2Alike only reads.
 - **Link sends the sound only** (CT 2026-11-08), in every Alike: notes, bend, wheel and pedal reach the instrument from
   the host's own MIDI route, never from Link, so a key sounds once (forwarded both ways, every note played twice -
@@ -57,9 +59,12 @@ Missing everywhere, or built in one and wanted in the others:
   Preset by category - built, not yet tried in a host; Sn2Alike to follow. Planned for all (`Docs/todo.md`): a browse
   folder listing every single under one root, Store to the next empty slot, and import becoming a confirmed Replace
   All Presets.
-- **Sort menu** (2026-11-12): the preset browser's order (Bank / Location, Category, A-Z) as a top-level menu, and
-  Prev/Next stepping in that order (SynthLib `bank_browser_sort_mode()`, `bank_browser_sorted_order()`). TiAlike has it -
-  built, not yet tried in a host; Pulse2Alike, Sn2Alike and Nl3Alike to follow.
+- **Sort menu** (2026-11-12, all four 11-14): the preset browser's order (Bank / Location, Category, A-Z) as a top-level menu, and
+  Prev/Next stepping in that order (SynthLib `bank_browser_sort_mode()`, `bank_browser_sorted_order()`). Built in all four;
+  not yet tried in a host.
+- **Double-click a dial for its default** (2026-11-14): every Alike panel, as OneShot's; through the host, so undoable.
+- **Shift for fine adjustment** (2026-11-14): every Alike panel, OneShot and UltraAlike included - a dial dragged with
+  Shift held moves a tenth as far, on the Mac and Windows; Rotary mode unchanged.
 - **Panel buttons act on the release** (CT 2026-11-14), in every Alike with a panel (SynthLib `buttonPress.h`): Prev, Next, Load, the tabs, Link and the Off/On buttons light while held and act only when released on the same button; menus still open on the press. Built in Pulse2Alike, TiAlike, Sn2Alike, Nl3Alike and OneShot (whose toggles now flip on release too); Nl3Alike's Off/On choices are toggle buttons rather than menus. Not yet tried in a host.
 - **Windows releases** (2026-11-14): `./do-release` builds the Windows half too, one `.zip` with an `x64` and an `arm64` folder of all six plug-ins (Nl3Alike, OneShot and ModAlike added; ModAlike's engine library now builds for Windows). Untested on Windows.
 - **Panel pages, in common** (CT 2026-11-06): OSC, FILTER, AMP, ENV, LFO, MOD, then the instrument's own pages (ARP, TABLES beside OSC, the effects), GLOBAL always last. Short names as on the instruments' panels; a new Alike follows the same.
@@ -165,18 +170,19 @@ delays, the sine LFO's Symmetry.
 
 Started 2026-11-02 from Sn2Alike's skeleton. Everything below is measured on the instrument; the fixed-point paths reproduce the measured output exactly, and floating point takes the same steps.
 **Built and measured**
-- **Oscillators:** Saw, Pulse (Shape sets the width, 50% to almost nothing), Triangle, Sine (Shape is a feedback); pitch; the Anti-alias switch.
-- **Filter:** LP and HP at 6, 12 and 24 dB, BP 12 and 24, BR, and multi mode types 1 (lowpass beside highpass on the two cutoffs), 4 and 5 (three all-pass stages with feedback - peaks or notches, Freq 2 setting their width); coefficient laws, level compensation, key tracking (a semitone a note above C2).
+- **Oscillators:** Saw, Pulse (Shape sets the width, 50% to almost nothing), Triangle, Sine (Shape is a feedback); sync (saw measured, 2026-11-14); pitch; the Anti-alias switch.
+- **Filter:** LP and HP at 6, 12 and 24 dB, BP 12 and 24, BR, Classic (a ladder as two stages), and multi mode types 1 (lowpass beside highpass on the two cutoffs), 4 and 5 (three all-pass stages with feedback - peaks or notches, Freq 2 setting their width); coefficient laws, level compensation, key tracking (a semitone a note above C2).
 - **Envelopes:** one law for all three (the G2's (dial + 40.15)⁸ time form), Exp Attack, the Amp's squared sustain, the Mod envelope's AD, AR and Repeat.
 - **LFOs:** rate (0.03 to 523 Hz), Saw, Triangle, Square and Random, and their depths to pitch (cubic), filter, Shape, Osc Mix and Amp.
 - **Modulation:** the Filter envelope's Amount and velocity; the Mod envelope to pitch, filter, Shape and Osc Mix; all four morph groups by their measured sources (aftertouch has no source yet).
-- **Unison:** the voice beside two slightly sharp copies, one each side - the voices are stereo for it.
+- **Unison:** the voice beside a mirrored pair of copies each side, one sharp and one as flat - the voices are stereo for it.
+- **Vibrato:** one sine for every voice, a cent an Amount step, 3.98-8 Hz, by aftertouch or the wheel.
 - **Program:** one parameter per field, programs read and written back byte for byte; the Sort menu; Off/On choices as toggle buttons.
 
-**Missing** (programs 2-4 of the instrument's first bank now lack only vibrato)
-- **Filter:** the other three multi modes, Classic's coefficients (its sample path is built), Distorted LP and filter distortion.
-- **Oscillators:** Noise, Dual Sine, sync, Shape on the Saw and Triangle.
-- **Osc Mod** (DM, Dist, Filt FM, FM, DFM, RM); vibrato; the LFOs' Smooth Random and Special waves, Env/KB-sync and Mono modes; LFO 2 to Resonance and Pan.
+**Missing**
+- **Filter:** the other three multi modes, Distorted LP and filter distortion.
+- **Oscillators:** Noise, Dual Sine, Shape on the Saw and Triangle; sync on the other waves checked.
+- **Osc Mod** (DM, Dist, Filt FM, FM, DFM, RM); the LFOs' Smooth Random and Special waves, Env/KB-sync and Mono modes; LFO 2 to Resonance and Pan.
 - **Level calibration** against the instrument (the oscillator mix law and the output level), and an A/B harness scoring renders against captures of the first 20 programs.
 - Single-parameter MIDI to the instrument; reading its 1024 programs is built but untried.
 
@@ -184,7 +190,7 @@ Started 2026-11-02 from Sn2Alike's skeleton. Everything below is measured on the
 
 ## UltraAlike
 
-Started 2026-11-14 as a placeholder: OneShot's skeleton under its own name and identifiers (`aumu Ultr CPur`), A reproduction inspired by the E-mu Ultra samplers, Emulator X3 first as the reference, then the E5000 Ultra. **Built 2026-11-14:** a layer plays a preset of an Emulator X bank (`.exb`) - its zones by key and velocity at their root keys and own rates, loops held through the release - with Prev/Next through the presets. **Missing:** each voice's tuning, level, pan, envelopes, Z-plane filter, LFOs and cords from the bank; `.E4B` banks. Not in `do-plugins` or `do-release`. See `UltraAlike/Docs/design.md`.
+Started 2026-11-14 as a placeholder: OneShot's skeleton under its own name and identifiers (`aumu Ultr CPur`), A reproduction inspired by the E-mu Ultra samplers, Emulator X3 first as the reference, then the E5000 Ultra. **Built 2026-11-14:** a layer plays a preset of an Emulator X bank (`.exb`) - its zones by key and velocity at their root keys and own rates, loops held through the release - with Prev/Next through the presets, each voice's amplifier envelope from the bank (its six stages; their shape not yet checked). **Missing:** each voice's tuning, level, pan, filter and auxiliary envelopes, Z-plane filter, LFOs and cords from the bank; `.E4B` banks. Not in `do-plugins` or `do-release`. See `UltraAlike/Docs/design.md`.
 
 ## OneShot
 

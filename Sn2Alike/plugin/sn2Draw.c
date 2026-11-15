@@ -19,6 +19,7 @@
 
 #include <ctype.h>
 #include <math.h>
+#include <time.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -36,6 +37,7 @@
 #include "renderBackend.h"
 #include "contextMenu.h"
 #include "buttonPress.h"
+#include "inputState.h"
 #include "fileBrowser.h"
 #include "bankBrowser.h"
 #include "alertDialog.h"
@@ -56,7 +58,10 @@
 #endif
 #define FONT_PRELOAD_SIZE       (16.0)
 
+#define DOUBLE_CLICK_S          (0.4) // notes §13
+#define DRAG_FINE               (0.1) // notes §14
 #define MAX_PARAMS              (200)
+#define UNITY_COLOUR            {1.0, 0.78, 0.25} // notes §15: the one gold every Alike marks 1:1 with
 #define MAX_PLACED              (64)
 #define MAX_PAGES               (16)
 #define MARGIN_X                (16.0)
@@ -99,7 +104,12 @@ typedef struct {
 static const tSn2Page *      gPages;
 static uint32_t              gPageCount;
 static uint32_t              gPage;
-static double                gValue[MAX_PARAMS]; // normalized, as the host holds them
+static double                gValue[MAX_PARAMS];     // normalized, as the host holds them
+static double                gDefault[MAX_PARAMS];   // notes §13: what a double-click puts a dial back to
+static bool                  gHasDefault[MAX_PARAMS];
+static int32_t               gUnityStep[MAX_PARAMS]; // notes §15: a dial's one-to-one step, 0 for none
+static const void *          gLastPressed;           // notes §13: the dial pressed last, and when
+static double                gLastPressAt;
 static bool                  gFontReady;
 static tCoord                gMouse;
 
@@ -198,6 +208,35 @@ void sn2_draw_set_value(uint32_t paramId, double normalized) {
     if (paramId < MAX_PARAMS) {
         gValue[paramId] = normalized;
     }
+}
+
+// notes §13: a parameter's default, from the plug-in's table
+void sn2_draw_set_default(uint32_t paramId, double normalized) {
+    if (paramId < MAX_PARAMS) {
+        gDefault[paramId]    = normalized;
+        gHasDefault[paramId] = true;
+    }
+}
+
+// notes §15: a keyboard-tracking dial's one-to-one step: marked, and what a double-click goes back to
+void sn2_draw_set_unity(uint32_t paramId, int32_t step, int32_t steps) {
+    if (paramId < MAX_PARAMS) {
+        gUnityStep[paramId] = step;
+        sn2_draw_set_default(paramId, (double)step / (double)steps);
+    }
+}
+
+// notes §13: a second press on the same dial within DOUBLE_CLICK_S
+static bool double_clicked(const void * control) {
+    struct timespec now;
+
+    clock_gettime(CLOCK_MONOTONIC, &now);
+    double          seconds = (double)now.tv_sec + ((double)now.tv_nsec * 1e-9);
+    bool            again   = (control == gLastPressed) && ((seconds - gLastPressAt) < DOUBLE_CLICK_S);
+
+    gLastPressed = again ? NULL : control;
+    gLastPressAt = seconds;
+    return again;
 }
 
 void sn2_draw_set_mouse(double x, double y) {
@@ -990,6 +1029,9 @@ void sn2_draw_frame(int pixelWidth, int pixelHeight) {
         if (c->kind == eTiControlChoice) {
             fitted_button((tRectangle){{pc->x, pc->dial.coord.y + ((DIAL_SIZE - BUTTON_H) / 2.0)}, {CONTROL_W - 6.0, BUTTON_H}}, text, colour);
         } else {
+            if ((gUnityStep[c->paramId] > 0) && (shown == gUnityStep[c->paramId])) {   // notes §15
+                colour = (tRgb)UNITY_COLOUR;
+            }
             render_dial(mainArea, pc->dial, (uint32_t)shown, (uint32_t)c->steps + 1u, 0, colour);
             set_rgb_colour((tRgb)RGB_WHITE);
             render_text(mainArea, (tRectangle){{pc->x, pc->dial.coord.y + DIAL_SIZE + 6.0}, {0.0, LABEL_H}}, text);
@@ -1105,6 +1147,13 @@ bool sn2_draw_press(double x, double y, tSn2Edit * edit, bool * grabbed) {
         };
         return true;
     }
+
+    if (double_clicked(pc->control) && gHasDefault[pc->control->paramId]) {   // notes §13
+        edit->paramId         = pc->control->paramId;
+        edit->normalized      = gDefault[pc->control->paramId];
+        gValue[edit->paramId] = edit->normalized;
+        return true;
+    }
     gGrabbed   = pc->control;
     gGrabValue = gValue[pc->control->paramId];
     gGrabDial  = pc->dial;
@@ -1115,6 +1164,10 @@ bool sn2_draw_press(double x, double y, tSn2Edit * edit, bool * grabbed) {
 bool sn2_draw_drag_by(double dx, double dy, tSn2Edit * edit) {
     // up or right raises it, as the Controls menu chose
     double move = (sn2_dial_mode() == eDialModeHorizontal) ? dx : -dy;
+
+    if (shift_modifier_held()) {
+        move *= DRAG_FINE;   // notes §14: Shift for fine adjustment
+    }
 
     if (gGrabbed == NULL) {
         return false;

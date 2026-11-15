@@ -26,7 +26,19 @@ Until the E5000 Ultra is on the rig, reproduce E-mu's Emulator X3 - the software
 whose banks (`.exb` with their `.ebl` samples) G2Alike already reads. Its presets, voices and zones are the same
 structure; its filters, envelopes and modulation are what to measure first, then compare with the E5000 Ultra.
 
+## Reference order (owner, 2026-11-14)
+
+Emulator X3 first for everything - envelopes, LFOs, cords, the Z-plane filters - and the E5000 Ultra later. Its
+filters are said not to match the hardware exactly, so a filter matched to X3 is marked as such and checked again on
+the E5000 before it counts as the instrument's.
+
 ## Open decisions
+
+- Layering (owner, 2026-11-14: "some kind of layering, but different"; the four tabs REMOVED the same day - one preset or sample an instance): the tabs were OneShot's and not the
+  instrument's. On an EOS sampler the layers are a preset's voices (key and velocity windows with crossfades, each its
+  own tuning, filter and envelopes), then up to eight linked presets, then the 16-channel Multisetup. Likely: one
+  preset per instance with its voices as the layering, links next, Multisetup left to the host; the tabs replaced by a
+  view of the voices or links.
 
 - Skeleton: OneShot (a sample player already) or a synth skeleton with sample playback added.
 - Content: reading `.E4B` banks (and Emulator X `.exb`) directly; how samples are found and kept in memory.

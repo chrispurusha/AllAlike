@@ -29,3 +29,7 @@ import and export of all 500 (p2Draw notes §4, §10). Store and Revert are grey
 What talks to the instrument: Send Sound to Pulse 2 (its edit buffer), Store Sound to Pulse 2 Slot... (one slot's
 flash, P001-P499, after a confirm; p2Draw notes §13) and Backup Pulse 2 to Presets... - Cancel Backup in its place
 while one runs, and the other two disabled meanwhile. Restore Presets to Pulse 2 waits (CT).
+
+## 5. Sort
+The preset browser's order as a top-level menu - Bank / Location, Category, A-Z - shared with the other Alikes
+through SynthLib (`bank_browser_sort_mode()`); Prev/Next follow it (p2Draw §15).

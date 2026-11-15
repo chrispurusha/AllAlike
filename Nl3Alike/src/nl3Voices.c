@@ -148,7 +148,7 @@ static double lfo_fade(const tNl3LfoSound * lfo, double age) {
 }
 
 // voices notes §15: every LFO moved on by one sub-block, and what it does to this voice
-static void lfo_advance(tNl3Voices * v, tNl3Voice * vc, const tNl3Sound * sound, double seconds, double * cutoff, double width[NL3_OSCS],
+static void lfo_advance(tNl3Voice * vc, const tNl3Sound * sound, double seconds, double * cutoff, double width[NL3_OSCS],
                         double * mix, double * ampGain) {
     *cutoff  = 0.0;
     *mix     = 0.0;
@@ -299,7 +299,7 @@ void nl3_voices_note_on(tNl3Voices * v, const tNl3Sound * sound, uint8_t note, f
         }
     }
 
-    bool anyFree = (pick != NULL);          // the same key, or a free voice
+    bool anyFree     = (pick != NULL);      // the same key, or a free voice
 
     // voices notes §28: all busy - the quietest voice already let go, else the oldest still held
     for (uint32_t i = 0; (i < v->limit) && !anyFree; i++) {
@@ -317,7 +317,7 @@ void nl3_voices_note_on(tNl3Voices * v, const tNl3Sound * sound, uint8_t note, f
             }
         }
     }
-    bool        wasSounding = pick->active;
+    bool wasSounding = pick->active;
 
     pick->active    = true;
     pick->gate      = true;
@@ -340,6 +340,7 @@ void nl3_voices_note_on(tNl3Voices * v, const tNl3Sound * sound, uint8_t note, f
             pick->lfoPhase[l] = v->lfoFree[l];   // voices notes §29: a free LFO starting from silence joins the others' phase
         }
     }
+
     nl3_env_gate(&pick->amp, true);
 
     for (int e = 0; e < NL3_MOD_ENVS; e++) {
@@ -492,6 +493,41 @@ static double velocity_level(double velocity, double amount) {
 }
 
 // voices notes §26: the 6-tap fractional read, sinc(t) x hann(t/3) about the point `delay` samples back
+// osc notes §13: an oscillator's phase a sample on - a synced one restarted at +0.5, moved on by the share of a sample
+// since its hidden partner passed zero going up
+static tNl3Word advance_word(tNl3Voice * vc, int o, const tNl3OscSound * os, tNl3Word hiddenInc, tNl3Word inc) {
+    tNl3Word phase  = (tNl3Word)llround(vc->phase[o] * NL3_Q23);
+
+    if (!os->sync) {
+        return nl3_phase_advance(phase, inc);
+    }
+    tNl3Word hidden = nl3_phase_advance((tNl3Word)llround(vc->syncPhase[o] * NL3_Q23), hiddenInc);
+
+    vc->syncPhase[o] = nl3_word_value(hidden);
+
+    if ((hidden >= 0) && (hidden < hiddenInc)) {
+        tNl3Word past = (tNl3Word)(((int64_t)hidden << 23) / hiddenInc);
+
+        return nl3_phase_advance(0x400000, (tNl3Word)(((int64_t)inc * past) >> 23));
+    }
+    return nl3_phase_advance(phase, inc);
+}
+
+static double advance(tNl3Voice * vc, int o, const tNl3OscSound * os, double hiddenInc, double inc) {
+    double phase  = vc->phase[o] + inc;
+
+    phase           -= (phase >= 1.0) ? 2.0 : 0.0;
+
+    if (!os->sync) {
+        return phase;
+    }
+    double hidden = vc->syncPhase[o] + hiddenInc;
+
+    hidden          -= (hidden >= 1.0) ? 2.0 : 0.0;
+    vc->syncPhase[o] = hidden;
+    return ((hidden >= 0.0) && (hidden < hiddenInc)) ? (0.5 + (inc * hidden / hiddenInc)) : phase;
+}
+
 static double ring_read(const tNl3Voice * vc, double delay) {
     double place = (double)vc->ringAt - delay;
     double base  = floor(place);
@@ -544,7 +580,11 @@ static void render_sub_block(tNl3Voices * v, const tNl3Sound * sound, double cut
         double               lfoCut, lfoMix, lfoAmp;
         double               width[NL3_OSCS];
 
-        lfo_advance(v, vc, vs, (double)frames / v->rate, &lfoCut, width, &lfoMix, &lfoAmp);
+        lfo_advance(vc, vs, (double)frames / v->rate, &lfoCut, width, &lfoMix, &lfoAmp);
+
+        for (int o = 0; (o < 2) && (vs->vibratoSemis != 0.0); o++) {
+            vc->lfoSemis[o] += sin(2.0 * M_PI * v->vibratoPhase) * vs->vibratoSemis;   // voices notes §31
+        }
 
         // voices notes §24: the Mod envelope (Env 3) where it is at the start of the sub-block
         double               modEnv   = vc->env[1].level;
@@ -584,8 +624,13 @@ static void render_sub_block(tNl3Voices * v, const tNl3Sound * sound, double cut
         double               oscLevel[NL3_OSCS];
         tNl3Word             incrementWord[NL3_OSCS];
 
+        tNl3Word             syncWord[NL3_OSCS];
+        double               syncInc[NL3_OSCS];
+
         for (int o = 0; o < NL3_OSCS; o++) {
             incrementWord[o] = nl3_pitch_increment_fixed(vc->pitch[o]);
+            syncWord[o]      = vs->osc[o].sync ? nl3_pitch_increment_fixed(vc->pitch[o] + (vs->osc[o].syncTune / 2.0)) : incrementWord[o];   // osc notes §13
+            syncInc[o]       = vs->osc[o].sync ? (vc->increment[o] * pow(2.0, vs->osc[o].syncTune / 24.0)) : vc->increment[o];
             stretch[o]       = nl3_osc_stretch(vc->increment[o], vs->osc[o].soften);
             oscLevel[o]      = fmin(1.0, fmax(0.0, vs->osc[o].level + (vs->wheel * vs->osc[o].wheelLevel) + ((o == 0) ? -lfoMix : ((o == 1) ? lfoMix : 0.0))));
         }
@@ -600,56 +645,65 @@ static void render_sub_block(tNl3Voices * v, const tNl3Sound * sound, double cut
             double wave[NL3_OSCS];
 
             for (int o = 0; o < NL3_OSCS; o++) {
-                const tNl3OscSound * os = &vs->osc[o];
+                const tNl3OscSound * os   = &vs->osc[o];
+                tNl3Word             incW = syncWord[o];   // the increment it sounds at (osc notes §13)
+                double               inc  = syncInc[o];
 
                 if (os->shape == eNl3OscSine) {   // osc notes §10, §12
                     double shape = fmin(nl3_word_value(NL3_WORD_MAX), fmax(0.0, width[o]));
 
                     if (v->fixedPoint) {
-                        tNl3Word p   = nl3_phase_advance((tNl3Word)llround(vc->phase[o] * NL3_Q23), incrementWord[o]);
+                        tNl3Word p   = advance_word(vc, o, os, incrementWord[o], incW);
                         tNl3Word out = nl3_sine_fixed(p);
 
                         p            = nl3_sine_feedback_fixed(p, nl3_word(shape), nl3_word(vc->sineLast[o]), out);
                         vc->phase[o] = nl3_word_value(p);
                         wave[o]      = nl3_word_value(out);
                     } else {
-                        vc->phase[o] += vc->increment[o];
-                        vc->phase[o] -= (vc->phase[o] >= 1.0) ? 2.0 : 0.0;
-                        wave[o]       = nl3_sine(vc->phase[o]);
-                        vc->phase[o]  = nl3_sine_feedback(vc->phase[o], shape, vc->sineLast[o], wave[o]);
+                        vc->phase[o] = advance(vc, o, os, vc->increment[o], inc);
+                        wave[o]      = nl3_sine(vc->phase[o]);
+                        vc->phase[o] = nl3_sine_feedback(vc->phase[o], shape, vc->sineLast[o], wave[o]);
                     }
                     vc->sineLast[o] = wave[o];
                 } else if (os->shape == eNl3OscSquare) {   // osc notes §11
                     double w = fmin(nl3_word_value(NL3_WORD_MAX), fmax(0.0, width[o]));
 
                     if (v->fixedPoint && !v->clean) {
-                        tNl3Word p = nl3_phase_advance((tNl3Word)llround(vc->phase[o] * NL3_Q23), incrementWord[o]);
+                        tNl3Word p = advance_word(vc, o, os, incrementWord[o], incW);
 
                         vc->phase[o] = nl3_word_value(p);
-                        wave[o]      = nl3_word_value(nl3_pulse_fixed(&v->steps, p, incrementWord[o], nl3_word(w)));
+                        wave[o]      = nl3_word_value(nl3_pulse_fixed(&v->steps, p, incW, nl3_word(w)));
                     } else {
-                        vc->phase[o] += vc->increment[o];
-                        vc->phase[o] -= (vc->phase[o] >= 1.0) ? 2.0 : 0.0;
-                        wave[o]       = nl3_pulse(&v->steps, vc->phase[o], vc->increment[o], w, v->clean);
+                        vc->phase[o] = advance(vc, o, os, vc->increment[o], inc);
+                        wave[o]      = nl3_pulse(&v->steps, vc->phase[o], inc, w, v->clean);
                     }
                 } else if ((os->shape == eNl3OscSaw) || (os->shape == eNl3OscTriangle)) {
                     // osc notes §5-7, §9: the saw and the triangle take their phase advanced
                     bool tri = os->shape == eNl3OscTriangle;
 
                     if (v->fixedPoint && !v->clean) {
-                        tNl3Word p = nl3_phase_advance((tNl3Word)llround(vc->phase[o] * NL3_Q23), incrementWord[o]);
+                        tNl3Word p = advance_word(vc, o, os, incrementWord[o], incW);
 
                         vc->phase[o] = nl3_word_value(p);
-                        wave[o]      = nl3_word_value(tri ? nl3_triangle_fixed(&v->steps, p, incrementWord[o]) : nl3_saw_fixed(&v->steps, p, incrementWord[o]));
+                        wave[o]      = nl3_word_value(tri ? nl3_triangle_fixed(&v->steps, p, incW) : nl3_saw_fixed(&v->steps, p, incW));
                     } else {
-                        vc->phase[o] += vc->increment[o];
-                        vc->phase[o] -= (vc->phase[o] >= 1.0) ? 2.0 : 0.0;
-                        wave[o]       = tri ? nl3_triangle(&v->steps, vc->phase[o], vc->increment[o]) : nl3_saw(&v->steps, vc->phase[o], vc->increment[o], v->clean);
+                        vc->phase[o] = advance(vc, o, os, vc->increment[o], inc);
+                        wave[o]      = tri ? nl3_triangle(&v->steps, vc->phase[o], inc) : nl3_saw(&v->steps, vc->phase[o], inc, v->clean);
                     }
                 } else {
-                    wave[o]       = nl3_osc_sample(v->edge, os->shape, vc->phase[o], stretch[o], fmin(2.0, fmax(0.0, width[o])));
-                    vc->phase[o] += vc->increment[o];
-                    vc->phase[o] -= (vc->phase[o] >= 1.0) ? 2.0 : 0.0;
+                    wave[o]      = nl3_osc_sample(v->edge, os->shape, vc->phase[o], stretch[o], fmin(2.0, fmax(0.0, width[o])));
+                    vc->phase[o] = advance(vc, o, os, vc->increment[o], inc);
+                }
+
+                // osc notes §13: a synced oscillator sounds a sample late, faded out and back in over the four
+                // samples either side of its restart
+                if (os->sync) {
+                    double hiddenInc = v->fixedPoint ? nl3_word_value(incrementWord[o]) : vc->increment[o];
+                    double fade      = (hiddenInc > 0.0) ? fmin(1.0, fabs(vc->syncPhase[o]) / (4.0 * hiddenInc)) : 1.0;
+                    double now       = wave[o];
+
+                    wave[o]         = fade * vc->syncLast[o];
+                    vc->syncLast[o] = now;
                 }
                 mix += wave[o] * oscLevel[o];
             }
@@ -731,5 +785,8 @@ void nl3_voices_render(tNl3Voices * v, const tNl3Sound * sound, float * out, flo
             v->lfoFree[l] += sound->lfo[l].hz * ((double)n / v->rate);
             v->lfoFree[l] -= floor(v->lfoFree[l]);
         }
+
+        v->vibratoPhase += sound->vibratoHz * ((double)n / v->rate);
+        v->vibratoPhase -= floor(v->vibratoPhase);
     }
 }

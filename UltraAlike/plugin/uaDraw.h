@@ -26,7 +26,7 @@
 #include "uaSample.h"
 
 #define UA_CANVAS_W    (860.0)   // notes §8
-#define UA_CANVAS_H    (584.0)
+#define UA_CANVAS_H    (540.0)
 
 typedef enum {
     eUaControlDial = 0,

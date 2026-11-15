@@ -11,3 +11,12 @@
    0-100%, LFO Offset 0-180 deg, the modules' dials 0-127. ASCII only - the glyph atlas has no degree sign.
 4. **Dimmed controls.** A control's `litParam`/`litSteps`/`litStep` dim it unless a list stands at an entry -
    Anti-alias is lit only at the host rate. Like a dimmed section, it still takes edits.
+
+## 1. Double-click a dial
+Two presses on the same dial within 0.4 s put it back to its default (the parameter table's, given to the panel at
+start by `ma_draw_set_default()`), through the host like any edit, so it can be undone there. The second press does
+not grab the dial. As OneShot's (osDraw notes §10), added across the Alikes 2026-11-14.
+
+## 2. Shift for fine adjustment
+With Shift held, dragging a dial moves it a tenth as far for the same distance - the same on the Mac and Windows
+(SynthLib's panel views read the modifiers on every drag event). Rotary mode is unchanged. Added 2026-11-14.

@@ -88,3 +88,10 @@ its samples go with the last program. The project keeps the bank's path in the l
 A preset's notes play through the bank voices (uaBankVoice), with the layer's Tune, Velocity, Volume, Pan, envelope,
 keys and effects; the layer's sample controls (Start, End, Stretch, Reverse...) do not apply. Play holds the root
 key for a second and lets go, since a looped preset would otherwise sound for ever.
+
+## 13. One preset or sample an instance
+The four layers came from OneShot and are not the instrument's (owner, 2026-11-14): an EOS sampler layers inside a
+preset (its voices) and across presets (links), not with four independent samples. UA_LAYERS is now 1, so the
+layer machinery stays but holds one: parameter ids are unchanged (the first layer's were the plain ones), their names
+lose the layer number, Mute is hidden, and the project format is `UAS5` (its length follows the layer count; no
+project from before exists to carry over). The tabs, Mute and Clear are off the panel (uaDraw §21).

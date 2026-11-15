@@ -61,6 +61,8 @@ typedef struct {
 void p2_draw_init(void);
 void p2_draw_set_pages(const tP2Page * pages, uint32_t count);
 void p2_draw_set_value(uint32_t paramId, double normalized);
+void p2_draw_set_default(uint32_t paramId, double normalized);         // notes §14: a double-click goes back to it
+void p2_draw_set_unity(uint32_t paramId, int32_t step, int32_t steps); // notes §17: a keyboard-tracking dial's 1:1
 void p2_draw_set_mouse(double x, double y);
 void p2_draw_frame(int pixelWidth, int pixelHeight);
 bool p2_draw_menu_active(void);

@@ -13,3 +13,5 @@ Built, not yet tried in a host or against the instrument. Confirmed: delete the 
 - Each effect against the instrument itself, same settings, through its inputs (the engine's modules are Confirmed; the plug-in's
   level and stereo handling are not)
 - Flanger Range (2026-11-14, G2Alike reference §70.2): turning Range no longer zippers - Range and FB glide over 125 ms as every dial does
+- Double-click a dial: back to its default, undoable in the host
+- Shift-drag a dial: a tenth the movement, in each dial mode but Rotary

@@ -23,3 +23,10 @@ Finished work not yet checked against the instrument or in a host.
 - The Sine's Shape (osc notes §12): Ethereality's sine, and Shape on a Sine swept by ear - growing brighter, as feedback FM does
 - Unison as a mirrored pair a side (voices notes §27): String Pad and Happy ending beside the instrument - the beating no deeper than its, and the phasing at about 4 s in String Pad gone
 - Voice stealing (voices notes §28): pad chords played quickly, past 24 voices - the attacks still heard
+- Every voice its own LFO (voices notes §29): String Pad up the keyboard beside the instrument - no 2.2 Hz pulse-width beating at C5
+- Aftertouch morph (voices notes §30): a program with Aftertouch morph ranges, pressed - the moves arrive, and their size against the instrument
+- Double-click a dial: back to its default, undoable in the host
+- Shift-drag a dial: a tenth the movement, in each dial mode but Rotary
+- Sync (osc notes §13): a synced saw swept with Shape (Sync Detune) beside the instrument - the restart fade means no spike
+- Vibrato (voices notes §31): a lead with vibrato on aftertouch (TD Style Lead, Early lead) pressed beside the instrument - depth and rate
+- Classic filter (filter notes §13): swept against the instrument, resonance up - the ladder's character; Early lead still dull (its envelope/key track)

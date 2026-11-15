@@ -84,16 +84,21 @@ void ua_bank_voices_note_on(tUaBankVoices * v, const tEmuPreset * preset, const 
         tUaBankVoice *   voice = take_voice(v);
         double           step  = (zone->sample->rate / v->hostRate) * pow(2.0, ((double)note - zone->rootNote + play->tune) / 12.0);
 
+        double           was   = (voice->active && (voice->amp != NULL)) ? voice->ampLevel : 0.0;
+
         *voice = (tUaBankVoice){
-            .preset = preset,
-            .sample = zone->sample,
-            .step   = step,
-            .cutoff = ua_resample_cutoff(step),
-            .level  = (1.0 - play->velocity) + (play->velocity * velocity),
-            .fade   = 1.0,
-            .note   = note,
-            .active = true,
-            .age    = v->started++,
+            .amp      = zone->amp.present ? &zone->amp : NULL,
+            .ampFrom  = was,
+            .ampLevel = was,
+            .preset   = preset,
+            .sample   = zone->sample,
+            .step     = step,
+            .cutoff   = ua_resample_cutoff(step),
+            .level    = (1.0 - play->velocity) + (play->velocity * velocity),
+            .fade     = 1.0,
+            .note     = note,
+            .active   = true,
+            .age      = v->started++,
         };
         ua_env_start(&voice->env);
     }
@@ -102,10 +107,44 @@ void ua_bank_voices_note_on(tUaBankVoices * v, const tEmuPreset * preset, const 
 // notes §1: every note off releases, whatever the layer's Mode
 void ua_bank_voices_note_off(tUaBankVoices * v, uint8_t note) {
     for (int i = 0; i < UA_BANK_VOICES; i++) {
-        if (v->voice[i].active && (v->voice[i].note == note)) {
-            ua_env_release(&v->voice[i].env);
+        tUaBankVoice * voice = &v->voice[i];
+
+        if (voice->active && (voice->note == note)) {
+            ua_env_release(&voice->env);
+
+            if (voice->stage < 5) {   // notes §3: release from wherever it is
+                voice->stage   = 5;
+                voice->ampFrom = voice->ampLevel;
+                voice->ampAt   = 0.0;
+            }
         }
     }
+}
+
+// notes §3: the bank's envelope a sample on - each stage a straight line to its level in its time; Decay 2's level
+// held until the note off; the voice done after Release 2
+static double amp_step(tUaBankVoice * voice, double dt) {
+    const tEmuEnvelope * e = voice->amp;
+
+    while ((voice->stage < 7) && (voice->stage != 4)) {
+        int    s      = (voice->stage < 4) ? voice->stage : (voice->stage - 1);
+        double target = e->level[s] / 100.0;
+        double time   = e->time[s];
+
+        if ((time > 0.0) && (voice->ampAt < time)) {
+            voice->ampAt   += dt;
+            voice->ampLevel = voice->ampFrom + ((target - voice->ampFrom) * fmin(1.0, voice->ampAt / time));
+
+            if (voice->ampAt < time) {
+                break;
+            }
+        }
+        voice->ampLevel = target;
+        voice->ampFrom  = target;
+        voice->ampAt    = 0.0;
+        voice->stage++;
+    }
+    return voice->ampLevel;
 }
 
 // notes §2: a frame of the sample as it sounds - past the loop's end, round the loop again
@@ -181,13 +220,14 @@ void ua_bank_voices_render(tUaBankVoices * v, const tUaPlay * play, float * left
             double             end   = (double)s->frames + ua_resample_tail(voice->cutoff);
 
             for (uint32_t i = 0; i < count; i++) {
-                double e = ua_env_step(&voice->env, &play->env, dt);
+                double e    = (voice->amp != NULL) ? amp_step(voice, dt) : ua_env_step(&voice->env, &play->env, dt);
+                bool   done = (voice->amp != NULL) ? (voice->stage >= 7) : ua_env_done(&voice->env);
 
-                if ((!s->looped && (voice->position >= end)) || (voice->fade <= 0.0) || ua_env_done(&voice->env)) {
+                if ((!s->looped && (voice->position >= end)) || (voice->fade <= 0.0) || done) {
                     voice->active = false;
                     break;
                 }
-                float  f = (float)(voice->level * voice->fade * e);
+                float  f    = (float)(voice->level * voice->fade * e);
                 float  l, r;
 
                 read_frame(voice, &l, &r);

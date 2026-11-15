@@ -91,3 +91,17 @@ A sample's name (the tabs, the sample bar, a load error) and its folder (Prev/Ne
 With a bank in the layer, Prev/Next step its presets (wrapping) rather than the files in its folder, and the
 waveform area names the preset - its number, name and zone count - in place of a waveform. Load still opens any
 file, so another bank or a sample replaces it.
+
+## 19. Shift for fine adjustment
+With Shift held, dragging a dial moves it a tenth as far for the same distance - the same on the Mac and Windows
+(SynthLib's panel views read the modifiers on every drag event). Rotary mode, where the dial follows the pointer's
+angle, is unchanged. Added across the Alikes 2026-11-14.
+
+## 20. Size, since the tidy
+540 high since 2026-11-14 (584 before): with OneShot's third row gone there are two rows of controls, and 540 still
+gives the file browser all its rows (§8).
+
+## 21. No tabs
+With one layer (uaPlugin §13) the tab row and its Mute and Clear are not drawn - their rectangles stay empty, so no
+press reaches them - and the waveform and controls move up 40 into the space. The height stays 540: the file browser
+wants it, and the voices' own settings are still to come onto the panel.

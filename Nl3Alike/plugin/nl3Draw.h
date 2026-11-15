@@ -62,6 +62,7 @@ typedef struct {
 void nl3_draw_init(void);
 void nl3_draw_set_pages(const tNl3Page * pages, uint32_t count);
 void nl3_draw_set_value(uint32_t paramId, double normalized);
+void nl3_draw_set_default(uint32_t paramId, double normalized);   // notes §17: a double-click goes back to it
 
 // notes §8: a plug-in may show a dial at another position than its own value, and with its own text (a linked
 // control following the one it is linked to). values[] are every parameter as the panel holds them, normalized.

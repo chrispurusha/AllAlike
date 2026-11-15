@@ -29,19 +29,22 @@
 #define UA_BANK_VOICES    (64)
 
 typedef struct {
-    const tEmuPreset * preset;     // what started it: kept in memory while it sounds
-    const tEmuSample * sample;
-    double             position;   // in the sample's frames
-    double             step;       // frames per output frame
-    double             cutoff;     // the interpolator's bandwidth for that step
-    bool               looping;    // notes §2: has passed its loop's end at least once
-    double             level;      // velocity's part
-    double             fade;       // 1 while sounding; falls to 0 when stolen
-    double             fadeStep;
-    tUaEnv             env;
-    uint8_t            note;
-    bool               active;
-    uint32_t           age;
+    const tEmuPreset *   preset;   // what started it: kept in memory while it sounds
+    const tEmuSample *   sample;
+    double               position; // in the sample's frames
+    double               step;     // frames per output frame
+    double               cutoff;   // the interpolator's bandwidth for that step
+    bool                 looping;  // notes §2: has passed its loop's end at least once
+    double               level;    // velocity's part
+    double               fade;     // 1 while sounding; falls to 0 when stolen
+    double               fadeStep;
+    tUaEnv               env;      // the layer's, when the bank gives the voice none
+    const tEmuEnvelope * amp;      // notes §3: the bank's amplifier envelope, or NULL
+    int                  stage;    // notes §3: 0-3 attack and decay, 4 sustain, 5-6 release, 7 done
+    double               ampLevel, ampFrom, ampAt;
+    uint8_t              note;
+    bool                 active;
+    uint32_t             age;
 } tUaBankVoice;
 
 typedef struct {

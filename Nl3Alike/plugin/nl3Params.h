@@ -237,6 +237,7 @@ enum {
     kNl3ParamMorphKbd_FiltFrequency2,
     kNl3ParamMorphKbd_FiltResonance,
     kNl3ParamMorphKbd_OutputLevel,
+    kNl3ParamPressure,                          // channel pressure, the aftertouch morph's source (voices notes §25)
     kNl3ParamCount
 };
 

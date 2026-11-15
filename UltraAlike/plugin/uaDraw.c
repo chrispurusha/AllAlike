@@ -36,6 +36,7 @@
 #include "renderBackend.h"
 #include "contextMenu.h"
 #include "buttonPress.h"
+#include "inputState.h"
 #include "fileBrowser.h"
 #include "alertDialog.h"
 #include "menuBar.h"
@@ -57,6 +58,7 @@
 #endif
 #define FONT_PRELOAD_SIZE       (16.0)
 
+#define DRAG_FINE               (0.1) // notes §19
 #define MAX_PARAMS              (64)
 #define MAX_PLACED              (64)
 #define MARGIN_X                (16.0)
@@ -66,11 +68,11 @@
 #define TAB_Y                   (54.0)       // notes §14: the layer tabs, between the sample bar and the waveform
 #define TAB_H                   (18.0)
 #define TAB_GAP                 (6.0)
-#define MUTE_Y                  (TAB_Y + TAB_H + 3.0)     // notes §15: a Mute under each tab
+#define MUTE_Y                  (TAB_Y + TAB_H + 3.0) // notes §15: a Mute under each tab
 #define MUTE_H                  (13.0)
-#define WAVE_Y                  (98.0)
+#define WAVE_Y                  (58.0)                // notes §21: where the layer tabs were
 #define WAVE_H                  (130.0)
-#define PAGE_Y                  (248.0)
+#define PAGE_Y                  (208.0)
 #define ROW_H                   (112.0)
 #define SECTION_GAP             (16.0)
 #define CONTROL_W               (50.0)     // twelve controls across the first row
@@ -437,6 +439,8 @@ static void fit_text(char * text, double height, double width) {
 }
 
 // notes §14: one tab a layer - its number, its sample, and its keys when not the whole keyboard; the shown one lit
+static void draw_tabs(void) __attribute__((unused));
+
 static void draw_tabs(void) {
     double width = (UA_CANVAS_W - (2.0 * MARGIN_X) - ((UA_LAYERS - 1) * TAB_GAP)) / UA_LAYERS;
 
@@ -854,7 +858,6 @@ void ua_draw_frame(int pixelWidth, int pixelHeight) {
     set_rgb_colour((tRgb){0.95, 0.95, 0.97});
     render_text(mainArea, (tRectangle){{MARGIN_X, TITLE_Y}, {0.0, 18.0}}, "UltraAlike");
     draw_sample_bar();
-    draw_tabs();
     draw_waveform();
     layout();
 
@@ -1090,6 +1093,10 @@ bool ua_draw_press(double x, double y, tUaEdit * edit, bool * grabbed) {
 bool ua_draw_drag_by(double dx, double dy, tUaEdit * edit) {
     // up or right raises it, as the Controls menu chose
     double move = (ua_dial_mode() == eDialModeHorizontal) ? dx : -dy;
+
+    if (shift_modifier_held()) {
+        move *= DRAG_FINE;   // notes §19: Shift for fine adjustment
+    }
 
     if (gGrabbed == NULL) {
         return false;

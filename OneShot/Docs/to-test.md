@@ -44,3 +44,4 @@ Built but not yet checked in a host. Confirmed: delete the line. Failed: move it
 - Start by ear with Snap On and Off (no click either way); the yellow marker follows the dial and snaps
 - Windows (x64 and arm64, `tools/do-windows-plugin OneShot` from AllAlike): loads in a host, the panel draws (font), Load and Prev/Next with Windows paths, stretching (Rubber Band built in)
 - Panel buttons (2026-11-14, SynthLib buttonPress.h §1): Prev/Next/Load/Reset, tabs, Mute, Clear, 2x Oversample and the toggles light while held and act on the release, and not at all when released off the button; Play still sounds at the press
+- Shift-drag a dial: a tenth the movement, in each dial mode but Rotary

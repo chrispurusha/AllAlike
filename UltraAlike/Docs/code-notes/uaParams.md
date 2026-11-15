@@ -47,3 +47,10 @@ Low <= note <= High; High below Low takes no notes.
 Filter On, Low Cut and High Cut (20 Hz x 1000^v - three decades in 1000 steps, about 0.7% each; defaults 20 Hz and
 20 kHz), Slope Soft / 12 dB / 24 dB (default 12 dB; uaFx §5). Saturation On, Mode (Classic, Drums, Tape), Gain 0 to +30 dB and Output -30 to +6 dB in
 half-dB steps, Warmth -12 to +12 dB and HF 1 to 20 kHz (Tape only, greyed otherwise). All appended, all per layer.
+
+## 12. What the panel shows
+PITCH, PLAY (Mode and Voices), OUTPUT and the layer ENVELOPE. OneShot's trim (Delay, Start, End, Snap), Reverse, the
+envelope curves, Stretch, its filter and saturation came across with the skeleton and mean nothing to an E-mu
+sampler, so they are off the panel and hidden from hosts (2026-11-14); they stay in the parameter list at their
+defaults, where they do nothing, and the engine code that serves them is untouched. The Z-plane filters will take the
+filter's place.

@@ -238,6 +238,7 @@ const tSynthLibParam     gNl3Params[kNl3ParamCount] = {
     {kNl3ParamMorphKbd_FiltFrequency2,          "Keyboard Morph Filt Frequency2",         "Freq 2",   eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
     {kNl3ParamMorphKbd_FiltResonance,           "Keyboard Morph Filt Resonance",          "Res",      eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
     {kNl3ParamMorphKbd_OutputLevel,             "Keyboard Morph Output Level",            "Level",    eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamPressure,                         "Channel Pressure",                       "Press",    eSynthLibUnitGeneric,    0.0,            1.0,                         0.0,                  0, SYNTHLIB_MIDI_AFTERTOUCH, SYNTHLIB_PARAM_HIDDEN | SYNTHLIB_PARAM_NO_SAVE                         },
 };
 
 // notes §3: measured on the instrument
@@ -461,7 +462,7 @@ static const char *const kChoiceSlope[]      = {"6 dB", "12 dB", "24 dB"};
 static const char *const kChoiceFmode[]      = {"SINGLE", "MULTI"};
 static const char *const kChoiceF2type[]     = {"LP-BP", "LP-HP", "HP>LP", "BP-BP", "PEAK", "NOTCH"};
 static const char *const kChoiceGlide[]      = {"OFF", "ON", "AUTO"};
-static const char *const kChoiceVibsrc[]     = {"OFF", "WHEEL", "A.TOUCH"};
+static const char *const kChoiceVibsrc[]     = {"OFF", "A.TOUCH", "WHEEL"};   // voices notes §31: stored 1 is aftertouch, 2 the wheel
 static const char *const kChoicePrio[]       = {"OFF", "HI", "LO"};
 static const char *const kChoiceOctave[]     = {"-2", "-1", "0", "+1", "+2"};
 static const char *const kChoiceArpmode[]    = {"UP", "DOWN", "UP/DOWN", "RANDOM"};
@@ -958,6 +959,8 @@ static tNl3OscShape osc_shape(int waveform) {
     return ((waveform >= 0) && (waveform < 4)) ? kShapes[waveform] : eNl3OscSaw;                     // Noise and Dual Sine play as Saw for now
 }
 
+static double vibrato_hz(double rate);
+
 void nl3_sound_from_values(const double * v, tNl3Sound * s) {
     static const int kLfoShape[6] = {2, 1, 0, 3, 3, 2};    // the engine's Square, Saw, Triangle, S+H
     double           mix          = plain(v, kNl3ParamOscMix) / 127.0;
@@ -966,10 +969,14 @@ void nl3_sound_from_values(const double * v, tNl3Sound * s) {
 
     memset(s, 0, sizeof(*s));
     s->osc[0].shape     = osc_shape(choice(v, kNl3ParamOsc1Waveform));
-    s->osc[0].width     = nl3_word_value(nl3_pulse_width_word(plain(v, kNl3ParamOsc1Shape)));   // osc notes §11
+    s->osc[0].width     = nl3_word_value(nl3_pulse_width_word(plain(v, kNl3ParamOsc1Shape))); // osc notes §11
+    s->osc[0].sync      = on(v, kNl3ParamOsc1Sync);                                           // osc notes §13
+    s->osc[0].syncTune  = plain(v, kNl3ParamOsc1SyncTune);
     s->osc[0].level     = 1.0 - mix;
     s->osc[1].shape     = osc_shape(choice(v, kNl3ParamOsc2Waveform));
     s->osc[1].width     = nl3_word_value(nl3_pulse_width_word(plain(v, kNl3ParamOsc2Shape)));
+    s->osc[1].sync      = on(v, kNl3ParamOsc2Sync);
+    s->osc[1].syncTune  = plain(v, kNl3ParamOsc2SyncTune);
     s->osc[1].semitones = fmin(60.0, fmax(-60.0, plain(v, kNl3ParamOsc2Coarse) - 64.0));
     s->osc[1].cents     = (plain(v, kNl3ParamOsc2Fine) - 64.0) * 50.0 / 64.0;
     s->osc[1].level     = noise3 ? 0.0 : mix;
@@ -1050,6 +1057,14 @@ void nl3_sound_from_values(const double * v, tNl3Sound * s) {
         s->osc[1].lfoWidth[l] = ((to == 7) || (to == 8)) ? (amount * 127.0 / 128.0) : 0.0;
     }
 
+    // voices notes §31: a cent an Amount step to 100, scaled by the pressure or the wheel; 3.98 to 8 Hz
+    {
+        int    source = choice(v, kNl3ParamVibratoSource);
+        double by     = (source == 1) ? v[kNl3ParamPressure] : ((source == 2) ? v[kNl3ParamModWheel] : 0.0);
+
+        s->vibratoSemis = (fmin(plain(v, kNl3ParamVibratoAmount), 100.0) * 127.0 / 128.0 / 100.0) * (by * 127.0 / 128.0);
+        s->vibratoHz    = vibrato_hz(plain(v, kNl3ParamVibratoRate));
+    }
     s->glideTime  = (choice(v, kNl3ParamGlideMode) == 0) ? 0.0 : plain(v, kNl3ParamGlideRate);
     s->glideType  = (choice(v, kNl3ParamGlideMode) == 2) ? 1 : 0;
     s->glideCurve = 1;
@@ -1058,6 +1073,16 @@ void nl3_sound_from_values(const double * v, tNl3Sound * s) {
     s->bend       = (2.0 * v[kNl3ParamPitchBend]) - 1.0;
     s->wheel      = v[kNl3ParamModWheel];
     s->pedal      = on(v, kNl3ParamSustainPedal);
+}
+
+// voices notes §31: measured at Rate 0, 32, 64, 96 and 127, straight between
+static double vibrato_hz(double rate) {
+    static const double kHz[5] = {3.976, 4.982, 6.033, 7.038, 7.998};
+    double              at     = fmin(4.0, fmax(0.0, rate / 32.0));
+    int                 i      = (at >= 3.0) ? 3 : (int)at;
+    double              t      = (i == 3) ? ((rate - 96.0) / 31.0) : (at - i);
+
+    return kHz[i] + (fmin(1.0, fmax(0.0, t)) * (kHz[i + 1] - kHz[i]));
 }
 
 // voices notes §25: the knob each of a group's 26 morph ranges moves, in the group's order
@@ -1074,10 +1099,10 @@ bool nl3_morph_values(const double * v, float velocity, int note, double * out) 
     static const uint32_t kGroups[4] = {kNl3ParamMorphWheel_Lfo1Rate, kNl3ParamMorphTouch_Lfo1Rate, kNl3ParamMorphVelocity_Lfo1Rate, kNl3ParamMorphKbd_Lfo1Rate};
     double                wheel      = v[kNl3ParamModWheel];
     double                source[4]  = {
-        (wheel >= 1.0) ? 1.0 : (wheel * 127.0 / 128.0),   // 127 is the whole range
-        0.0,                                              // aftertouch: not received yet
-        (double)velocity * 127.0 / 128.0,                 // 127 is not quite all of it
-        ((double)note - 36.0) / 48.0,                     // C2 to C6, and on past either end
+        (wheel >= 1.0) ? 1.0 : (wheel * 127.0 / 128.0),                               // 127 is the whole range
+        (v[kNl3ParamPressure] >= 1.0) ? 1.0 : (v[kNl3ParamPressure] * 127.0 / 128.0), // aftertouch, as the wheel (law not yet measured)
+        (double)velocity * 127.0 / 128.0,                                             // 127 is not quite all of it
+        ((double)note - 36.0) / 48.0,                                                 // C2 to C6, and on past either end
     };
     bool                  any        = false;
 

@@ -701,6 +701,11 @@ static void ma_set_state(void * inst, const void * data, size_t len) {
 
 static void ma_panel_init(void) {
     ma_draw_init();
+
+    for (uint32_t i = 0; i < kParamCount; i++) {
+        ma_draw_set_default(gParams[i].id, gParams[i].defaultNormalized);
+    }
+
     ma_draw_set_sections(kSections, COUNT(kSections), kEffect, eEffectCount - 1);
 }
 

@@ -81,11 +81,6 @@ static void action_dial_mode(int index) {
     ua_set_dial_mode((tDialMode)gContextMenu.items[index].param);
 }
 
-static void action_oversample(int index) {
-    (void)index;
-    ua_draw_set_oversampling(!ua_draw_oversampling());
-}
-
 static void action_audition(int index) {
     (void)index;
     ua_set_audition_on_browse(!ua_audition_on_browse());
@@ -109,10 +104,7 @@ static void open_controls_menu(tCoord anchor) {
     items[3] = (tMenuItem){
         ua_audition_on_browse() ? "* Play on Load" : "Play on Load", ITEM, action_audition, 0, NULL, 0, 0.0, NULL
     };
-    items[4] = (tMenuItem){
-        ua_draw_oversampling() ? "* Oversample Saturation 2x" : "Oversample Saturation 2x", ITEM, action_oversample, 0, NULL, 0, 0.0, NULL
-    };
-    items[5] = END_OF_MENU;
+    items[4] = END_OF_MENU;
     open_context_menu(anchor, items, 0, 0.0);
 }
 
@@ -127,29 +119,18 @@ static void action_about(int index) {
 static void action_panel_help(int index) {
     (void)index;
     show_alert("The Panel",
-               "Up to four samples, one a layer on the tabs, held in memory. Each layer has its own controls and a key range "
-               "(Low to High); a note plays every layer it falls in, all in step; Mute under a tab silences that layer, Clear empties it. Play sounds the stack at the shown layer's root "
-               "key; a click on the waveform plays that layer alone.\n\n"
-               "Load... opens a WAV or AIFF file. < Prev and Next > step through the other samples in its folder, "
-               "as do the arrow keys; each one plays as it loads (Controls > Play on Load). Play, a click on the "
-               "waveform or Space plays it again.\n\n"
-               "Mode: One Shot ignores the note off; Gate starts the Release at it. Voices: Poly lets hits "
-               "overlap, Mono cuts the last one off. Keys On plays it at the pitch of the note, from the Root key.\n\n"
-               "Trim: Delay holds a note back before it sounds. Start and End (the yellow lines) are where in the sample it "
-               "begins and stops, in the sample's own time; Snap moves both to the nearest zero crossing. The waveform shows "
-               "Start to End. Reverse plays it backwards, Start and End counting from its end.\n\n"
-               "Stretch: the sample's length times x0.25 to x4, its pitch kept. Sync On stretches it from its own tempo (BPM) "
-               "to the host's as well. Protect keeps the start as it is (the purple line) - the rest takes up the change - and its Snap moves its end to a zero crossing. "
-               "With either on, Tune and Keys change the pitch but not the length, and the envelope's times stretch too. "
-               "After a tempo change the first note still plays at the old tempo while the new one is prepared.\n\n"
-               "Envelope: AHR is Attack, Hold, then Release to silence; Hold at its top is Inf, the whole sample. AHDSR adds Decay "
-               "to Sustain; its Release needs Gate mode. In Gate mode a note off always starts the Release. The curves bend each "
-               "stage: + drops fast then tails off, - the reverse. The green line on the waveform is the envelope.\n\n"
-               "Filter: Low Cut and High Cut; Slope Soft (a gentle 12 dB Low Cut, a 6 dB High Cut), 12 or 24 dB an octave. Saturation: Classic (soft), Drums (hard) or Tape (Warmth "
-               "shapes the lows, HF the highs), with Gain in and Output after. Both are per layer. 2x Oversample (on the SATURATION heading, or in Controls) is cleaner, for 0.5 ms of latency the host makes up.\n\n"
-               "Dials: drag to turn, Shift-drag for fine steps (Attack has 1000, a fifth of them in its first 5 ms); "
-               "double-click one to put it back to its default.\n\n"
-               "The project keeps the sample's path, not the sample: a moved file shows as Missing.\n\n"
+               "One E-mu Emulator X bank preset, or one sample, per instance; Low and High limit the keys it plays. Play "
+               "sounds it at its root key.\n\n"
+               "Load... opens a bank (.exb, inside its folder beside SamplePool) or a WAV or AIFF file. With a bank, < Prev and "
+               "Next > step through its presets; with a sample, through the other samples in its folder. Each plays as it loads "
+               "(Controls > Play on Load).\n\n"
+               "A bank preset plays every zone its keys and velocities reach, at each sample's own tuning, its loops held, through "
+               "each voice's own amplifier envelope from the bank. Tune, Velocity, Pan, Volume and the key range apply to it too.\n\n"
+               "For a single sample: Keys On plays it at the pitch of the note, from the Root key; Mode One Shot ignores the note "
+               "off and Gate starts the Release at it; Voices Poly lets notes overlap, Mono cuts the last one off. The Envelope "
+               "(AHR or AHDSR) shapes it, and any bank voice that has no envelope of its own.\n\n"
+               "Dials: drag to turn, Shift-drag for fine steps; double-click one to put it back to its default.\n\n"
+               "The project keeps the bank's or sample's path and the preset, not the samples: a moved file shows as Missing.\n\n"
                "For a diagnostic log: in Terminal, touch /tmp/ultraalike-log, then reload the plug-in; the log is "
                "/tmp/ultraalike.log.");
 }

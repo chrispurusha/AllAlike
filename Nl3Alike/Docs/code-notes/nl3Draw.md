@@ -81,3 +81,13 @@ and 14, which the factory Init sound holds, as No Cat - the instrument's 'Name: 
 A choice of two whose values are OFF and ON is a button that flips rather than a menu: lit in its section's colour when
 on, dark when off, lighter while held, and it changes on the release that lands on it (SynthLib buttonPress.h §1), as
 the panel's other buttons do. Two-valued choices with named values (AD/AR, the switch positions) keep their menu.
+
+## 17. Double-click a dial
+Two presses on the same dial within 0.4 s put it back to its default (the parameter table's, given to the panel at
+start by `nl3_draw_set_default()`), through the host like any edit, so it can be undone there. The second press does
+not grab the dial. As OneShot's (osDraw notes §10), added across the Alikes 2026-11-14.
+
+## 18. Shift for fine adjustment
+With Shift held, dragging a dial moves it a tenth as far for the same distance - the same on the Mac and Windows
+(SynthLib's panel views read the modifiers on every drag event). Rotary mode, where the dial follows the pointer's
+angle, is unchanged. Added across the Alikes 2026-11-14.

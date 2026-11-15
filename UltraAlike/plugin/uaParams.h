@@ -7,7 +7,7 @@
 
 // notes §9: four layers, each with every parameter below; layer n's ids are n x UA_LAYER_STRIDE + the id here, so
 // layer 1's are the ids a one-layer project saved
-#define UA_LAYERS          (4)
+#define UA_LAYERS          (1)   // uaPlugin notes §13: one preset or sample an instance
 #define UA_LAYER_STRIDE    (256)
 
 // APPENDED TO, NEVER INSERTED INTO: the ids are what host projects save

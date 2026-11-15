@@ -63,6 +63,7 @@ typedef struct {
 void ma_draw_init(void);
 void ma_draw_set_sections(const tMaSection * sections, uint32_t count, uint32_t effectParam, int32_t effectSteps);
 void ma_draw_set_value(uint32_t paramId, double normalized);
+void ma_draw_set_default(uint32_t paramId, double normalized);   // notes §1: a double-click goes back to it
 void ma_draw_set_mouse(double x, double y);
 void ma_draw_frame(int pixelWidth, int pixelHeight);
 bool ma_draw_menu_active(void);

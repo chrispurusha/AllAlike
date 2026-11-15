@@ -88,13 +88,21 @@ less N times the high leg, 4·gain·that. Coefficients as §11. Within 37 of 2²
 In floating point both 6 dB modes part from the fixed path with the cutoff fully open and the input near full scale,
 where the stage runs into saturation.
 
-## 13. Classic (not yet playable)
-Two passes a sample over the held input - the filter runs at twice the voice's rate - each a stage without the cubic
-term (§2's stage less its non-linearity) feeding a full stage at half level; out 4·gain·low of the second stage, at
-half scale. The sample path is built and exact on noise. Its coefficients are its own: the first stage's damping is
-fixed near 0.895 and its frequency rises with resonance (to about 2.4 times the second stage's at resonance 32,
-settling at 2.23 above 96); the second stage takes d⁴ at about half the lowpass's frequency, shifted a little with
-resonance. Until those laws are fitted, Classic plays as the 24 dB lowpass.
+## 13. Classic: a ladder as two stages
+Two passes a sample over the held input - the filter runs at twice the voice's rate - each a plain stage (§2 less
+its cubic term) feeding a full stage at half level; out 2·gain·low of the second stage. The sample path is exact on
+noise, each stage with its own coefficients.
+The coefficients are a four-pole ladder's. A ladder with feedback has two pole pairs; with r the feedback's fourth
+root they sit at √(1 − √2·r + r²) and √(1 + √2·r + r²) times the cutoff, damped (1 ∓ r/√2) over that. The second,
+resonant stage is the first pair, its damping d⁴ (d = 1 − Resonance/128); r is the feedback that gives the pair that
+damping, r = √2·u with u = √(1 − q²) / (q + √(1 − q²)), q = d⁴ (held at 1/256 from Resonance 96 up). The first stage
+is the other pair, its damping held at 0.8949 - the pair's own at full resonance, 2/√5. The frequency they part from
+is tan(1.00022 g)/2, half the band-pass's prewarped g (§9); each stage stops at 0.76038. Gain 1 − 0.75(1 − d²).
+At Resonance 0 both stages sit together; at full the resonant pair is at the cutoff and the other √5 above it.
+Measured: every coefficient within 0.15% of the instrument's over the grid (under 2.5 cents of frequency), the gain
+exact; through the instrument (Init saw, C3, Freq 64) the harmonics within 0.7 dB rms at Resonance 0, 0.6 at 64 and
+1.8 at 100, where the resonant peak is about 6 dB high - against 7.4 and 9.7 dB as the 24 dB lowpass it played as
+before. Floating point within 2·10⁻⁴.
 
 ## 14. Band-reject
 §2's stage without the cubic term, input at 1/16; the output is the previous sample's N²·high plus the mean of this

@@ -97,9 +97,15 @@ static void action_engine_help(int index) {
 static void open_help_menu(tCoord anchor) {
     static tMenuItem items[4];
 
-    items[0] = (tMenuItem){"The Panel...", ITEM, action_panel_help, 0, NULL, 0, 0.0, NULL};
-    items[1] = (tMenuItem){"Engine...", ITEM, action_engine_help, 0, NULL, 0, 0.0, NULL};
-    items[2] = (tMenuItem){"About ModAlike...", ITEM, action_about, 0, NULL, 0, 0.0, NULL};
+    items[0] = (tMenuItem){
+        "The Panel...", ITEM, action_panel_help, 0, NULL, 0, 0.0, NULL
+    };
+    items[1] = (tMenuItem){
+        "Engine...", ITEM, action_engine_help, 0, NULL, 0, 0.0, NULL
+    };
+    items[2] = (tMenuItem){
+        "About ModAlike...", ITEM, action_about, 0, NULL, 0, 0.0, NULL
+    };
     items[3] = END_OF_MENU;
     open_context_menu(anchor, items, 0, 0.0);
 }
