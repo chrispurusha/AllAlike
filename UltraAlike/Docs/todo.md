@@ -1,6 +1,7 @@
 # UltraAlike todo
 
 ## First
+- NEXT SESSION (owner 2026-11-15): connect the E5000 Ultra to the rig and measure on it - easier than Emulator X3 in a VM
 - Emulator X3 as the first reference (owner 2026-11-14): its `.exb` banks, then its filters, envelopes and modulation, measured
 - Whether it stays public here (owner); the skeleton is OneShot's, renamed
 - Add to do-plugins and do-release when it is more than a renamed OneShot
