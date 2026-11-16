@@ -251,3 +251,12 @@ key falls back to. Each note restarts the voice's envelopes; its oscillators run
 C4 played again in its release): the fundamental's phase runs straight through the new note, where setting it back
 made a jump of about 3 radians and a tick.
 Poly takes each note's voice in §28's order, the same key included (§34).
+
+## 36. Osc Mix
+Osc Mix is x = value / 128 (127 is all the way, 1.0), and the two oscillators' gains are 1 - x^2 and 2x - x^2 -
+each 2.5 dB down at the middle, not 6 dB as a straight crossfade gives. Measured on the instrument: a saw on Osc 1
+and a sine a fifth up on Osc 2, Osc Mix swept under a held note, each oscillator's level read off the spectrum - Osc 1
+-0.6 / -2.5 / -7.2 / -12.7 dB at 32 / 64 / 96 / 112, the sine its mirror, matching 1 - x^2 to a tenth of a dB. LFO
+and Mod Env modulation of Osc Mix move x before the gains are formed; Osc Mix Noise 3 gives the second gain to the
+noise in place of Osc 2. The first version crossfaded straight, which left programs balancing both oscillators up
+to 3.5 dB quiet against the instrument (owner, 2026-11-16).

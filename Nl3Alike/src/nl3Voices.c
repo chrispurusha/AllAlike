@@ -731,8 +731,15 @@ static void render_sub_block(tNl3Voices * v, const tNl3Sound * sound, double cut
             syncWord[o]      = vs->osc[o].sync ? nl3_pitch_increment_fixed(vc->pitch[o] + (vs->osc[o].syncTune / 2.0)) : incrementWord[o];   // osc notes §13
             syncInc[o]       = vs->osc[o].sync ? (vc->increment[o] * pow(2.0, vs->osc[o].syncTune / 24.0)) : vc->increment[o];
             stretch[o]       = nl3_osc_stretch(vc->increment[o], vs->osc[o].soften);
-            oscLevel[o]      = fmin(1.0, fmax(0.0, vs->osc[o].level + (vs->wheel * vs->osc[o].wheelLevel) + ((o == 0) ? -lfoMix : ((o == 1) ? lfoMix : 0.0))));
+            oscLevel[o]      = fmin(1.0, fmax(0.0, vs->osc[o].level + (vs->wheel * vs->osc[o].wheelLevel)));
         }
+
+        // voices notes §36: Osc Mix's two gains, 1 - x^2 and 2x - x^2, its modulation added to x first
+        double               mixX     = fmin(1.0, fmax(0.0, vs->mixX + lfoMix));
+        double               noiseMix = (vs->noiseLevel > 0.0) ? ((2.0 * mixX) - (mixX * mixX)) : 0.0;
+
+        oscLevel[0] = 1.0 - (mixX * mixX);
+        oscLevel[1] = (vs->osc[1].level > 0.0) || (vs->noiseLevel <= 0.0) ? ((2.0 * mixX) - (mixX * mixX)) : 0.0;
 
         for (uint32_t f = 0; f < frames; f++) {
             double mix = 0.0;
@@ -810,7 +817,7 @@ static void render_sub_block(tNl3Voices * v, const tNl3Sound * sound, double cut
             }
 
             mix                 += RING_GAIN * wave[2] * ((wave[0] * vs->ring13) + (wave[1] * vs->ring23));
-            mix                 += next_noise(vc, vs->noiseSoften, corner) * vs->noiseLevel;
+            mix                 += next_noise(vc, vs->noiseSoften, corner) * noiseMix;
 
             double x   = drive(mix * DRIVE_IN, driveW) * FILTER_IN;
             double y   = FILTER_OUT * (v->fixedPoint ? nl3_word_value(nl3_filter_process_fixed(&vc->filter, &coeffs, nl3_word(x))) : nl3_filter_process(&vc->filter, &coeffs, x));

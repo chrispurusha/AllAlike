@@ -988,8 +988,9 @@ static tNl3OscShape osc_shape(int waveform) {
 static double vibrato_hz(double rate);
 
 void nl3_sound_from_values(const double * v, tNl3Sound * s) {
-    static const int kLfoShape[6] = {2, 1, 0, 3, 3, 2};    // the engine's Square, Saw, Triangle, S+H
+    static const int kLfoShape[6] = {2, 1, 0, 3, 3, 2};                                                               // the engine's Square, Saw, Triangle, S+H
     double           mix          = plain(v, kNl3ParamOscMix) / 127.0;
+    double           mixX         = (plain(v, kNl3ParamOscMix) >= 127.0) ? 1.0 : (plain(v, kNl3ParamOscMix) / 128.0); // voices notes §36
     bool             noise3       = on(v, kNl3ParamOscMixNoise);
     int              slope        = choice(v, kNl3ParamFilterSlope);
 
@@ -1009,6 +1010,7 @@ void nl3_sound_from_values(const double * v, tNl3Sound * s) {
     s->osc[1].level     = noise3 ? 0.0 : mix;
     s->osc[2].width     = 0.0;
     s->noiseLevel       = noise3 ? mix : 0.0;
+    s->mixX             = mixX;
 
     for (int o = 0; o < NL3_OSCS; o++) {
         s->osc[o].bendRange = BEND_SEMIS;

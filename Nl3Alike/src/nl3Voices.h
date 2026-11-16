@@ -160,6 +160,7 @@ typedef struct {
     double       modEnvPitch[NL3_OSCS];                       // voices notes §24: semitones at the Mod envelope's top
     double       modEnvWidth[NL3_OSCS];                       // voices notes §24: width word at its top
     double       modEnvMix;                                   // voices notes §24: Osc Mix at its top, a fraction of the dial
+    double       mixX;                                        // voices notes §36: Osc Mix as x, 0..1
     double       modEnvLfo1;                                  // voices notes §24: LFO 1 Amount steps added at its top
     double       vibratoSemis;                                // voices notes §31: the vibrato's depth now, its source applied
     double       vibratoHz;

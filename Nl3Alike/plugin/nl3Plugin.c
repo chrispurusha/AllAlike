@@ -107,9 +107,10 @@ typedef struct {
     bool               hwSent, hwExtensionDue;
     double             hwSentAt;
     uint8_t            hwLast[NL3_SINGLE_LENGTH];
-    _Atomic bool       startPreset;  // notes: a new instance plays 1:1
-    _Atomic int        wantPreset;   // a program change waiting for the fade
-    _Atomic bool       clearEffects; // notes §15: a new sound starts with empty effects, the old one's echoes gone
+    double             hwLastValues[kNl3ParamCount]; // notes §14: as last sent, to find what changed
+    _Atomic bool       startPreset;                  // notes: a new instance plays 1:1
+    _Atomic int        wantPreset;                   // a program change waiting for the fade
+    _Atomic bool       clearEffects;                 // notes §15: a new sound starts with empty effects, the old one's echoes gone
 } tNl3Plugin;
 
 static uint32_t voice_limit(const tNl3Plugin * t) {
@@ -628,7 +629,67 @@ static double now_seconds(void) {
     return (double)ts.tv_sec + (ts.tv_nsec * 1e-9);
 }
 
-// notes §14: the instrument follows the sound, whole; notes and controllers come from the host
+// notes §14: the knobs the instrument takes as a controller, its value the knob's (measured: each CC sent, the slot
+// read back) - a sounding note follows these, where a whole sound reaches only the next note
+static const struct {
+    uint32_t id;
+    uint8_t  cc;
+} kLinkControllers[] = {
+    {kNl3ParamGlideRate,       5}, {kNl3ParamOscMix,          8}, {kNl3ParamLfo1Rate,       19}, {kNl3ParamLfo1Amount,    22}, {kNl3ParamLfo2Rate, 23},
+    {kNl3ParamLfo2Amount,     25}, {kNl3ParamMEnvAttack,     26}, {kNl3ParamMEnvDecay,      27}, {kNl3ParamMEnvAmount,    29},
+    {kNl3ParamOsc2Fine,       33}, {kNl3ParamAmpDecay,       36}, {kNl3ParamAmpSustain,     37}, {kNl3ParamFEnvAttack,    38},
+    {kNl3ParamFEnvDecay,      39}, {kNl3ParamFEnvSustain,    40}, {kNl3ParamFEnvRelease,    41}, {kNl3ParamResonance,     42},
+    {kNl3ParamFEnvAmount,     43}, {kNl3ParamArpRate,        50}, {kNl3ParamUnisonDetune,   53}, {kNl3ParamVibratoRate,   54},
+    {kNl3ParamVibratoAmount,  55}, {kNl3ParamCutoff2,        59}, {kNl3ParamOscModAmount,   70}, {kNl3ParamLevel,         71},
+    {kNl3ParamAmpRelease,     72}, {kNl3ParamAmpAttack,      73}, {kNl3ParamCutoff,         74}, {kNl3ParamOsc2Coarse,    78},
+    {kNl3ParamOsc1Shape,      79}, {kNl3ParamOsc2NoiseType,  90}, {kNl3ParamOsc2FmAmount,   93}, {kNl3ParamOsc2Carrier,   95},
+    {kNl3ParamOsc2Modulator,  96}, {kNl3ParamOsc2NoiseFreq,  97}, {kNl3ParamArpDivisor,     98}, {kNl3ParamLfo1Divisor,   99},
+    {kNl3ParamLfo2Divisor,   100}, {kNl3ParamOsc2Shape,     102}, {kNl3ParamFilterDist,    114}, {kNl3ParamOsc1SyncTune, 115},
+    {kNl3ParamOsc2SyncTune,  116}, {kNl3ParamOsc1NoiseSeed, 117}, {kNl3ParamOsc2NoiseSeed, 118}, {kNl3ParamOsc1FmAmount, 119},
+};
+
+static long link_plain(uint32_t id, double normalized) {
+    const tSynthLibParam * p = &gNl3Params[id];
+
+    return lround(p->plainMin + (fmin(1.0, fmax(0.0, normalized)) * (p->plainMax - p->plainMin)));
+}
+
+static int link_controller(uint32_t id) {
+    for (size_t k = 0; k < sizeof(kLinkControllers) / sizeof(kLinkControllers[0]); k++) {
+        if (kLinkControllers[k].id == id) {
+            return kLinkControllers[k].cc;
+        }
+    }
+
+    return -1;
+}
+
+// notes §14: what changed since the last send, as controllers - false (nothing sent) when any of it has none
+static bool link_by_controllers(tNl3Plugin * t, const double * values, uint8_t channel) {
+    for (int pass = 0; pass < 2; pass++) {
+        for (uint32_t k = 0; k < gNl3FieldCount; k++) {
+            uint32_t id = gNl3Fields[k].paramId;
+            long     v  = link_plain(id, values[id]);
+
+            if (v == link_plain(id, t->hwLastValues[id])) {
+                continue;
+            }
+            int      cc = link_controller(id);
+
+            if (cc < 0) {
+                return false;
+            }
+
+            if (pass == 1) {
+                nl3_hardware_short(nl3_hw_port(), (uint8_t)(0xB0 | channel), (uint8_t)cc, (uint8_t)(v & 0x7F));
+            }
+        }
+    }
+
+    return true;
+}
+
+// notes §14: the instrument follows the sound - knobs as controllers, anything else whole; notes come from the host
 static void hardware_link(tNl3Plugin * t, void * user) {
     if (synthlib_plugin_param_value(user, kNl3ParamHwLink) < 0.5) {
         nl3_hardware_release(&t->hwLock);
@@ -641,7 +702,7 @@ static void hardware_link(tNl3Plugin * t, void * user) {
         return;
     }
     uint8_t single[NL3_SINGLE_LENGTH];
-    uint8_t device = (uint8_t)lround(synthlib_plugin_param_value(user, kNl3ParamHwDevice) * 127.0);
+    uint8_t device  = (uint8_t)lround(synthlib_plugin_param_value(user, kNl3ParamHwDevice) * 127.0);
 
     if (t->hwExtensionDue) {
         if ((now_seconds() - t->hwSentAt) >= LINK_EXT_SECONDS) {
@@ -650,12 +711,23 @@ static void hardware_link(tNl3Plugin * t, void * user) {
         }
         return;
     }
-    current_single(user, single);
+    double  values[kNl3ParamCount];
+    uint8_t channel = (uint8_t)(link_plain(kNl3ParamHwChannel, synthlib_plugin_param_value(user, kNl3ParamHwChannel)) - 1);
+
+    current_values(user, values);
+    nl3_patch_to_single(values, t->haveBase ? t->base : NULL, t->soundName, single);
+
+    if (t->hwSent && (memcmp(single, t->hwLast, NL3_SINGLE_LENGTH) != 0) && link_by_controllers(t, values, channel & 0x0F)) {
+        memcpy(t->hwLast, single, NL3_SINGLE_LENGTH);
+        memcpy(t->hwLastValues, values, sizeof(values));
+        return;
+    }
 
     if ((!t->hwSent || (memcmp(single, t->hwLast, NL3_SINGLE_LENGTH) != 0)) && ((now_seconds() - t->hwSentAt) >= LINK_MIN_SECONDS)) {
         tNl3HardwareResult r = nl3_hardware_send_main(single, nl3_hw_port(), device);
 
         memcpy(t->hwLast, single, NL3_SINGLE_LENGTH);
+        memcpy(t->hwLastValues, values, sizeof(values));
         t->hwSentAt       = now_seconds();
         t->hwSent         = (r == eNl3HardwareSent);
         t->hwExtensionDue = t->hwSent;

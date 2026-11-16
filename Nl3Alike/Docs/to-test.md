@@ -38,3 +38,4 @@ Finished work not yet checked against the instrument or in a host.
 - Oscillators run free (11-16, voices notes §8, §35): no tick on a mono retrigger or a repeated key; two detuned oscillators start each note at a different point of their beat, as on the instrument
 - Osc 2 Partial (11-16, osc notes §16): 1:21 SawLead's two saws in unison, not 39 semitones apart - and the other 365 programs with Partial on in tune
 - Mod Env to LFO 1 (11-16, voices notes §24): 1:21 SawLead's vibrato fades in over the first second, as on the instrument - and the 55 other programs that use it
+- Osc Mix law (11-16, voices notes §36): programs balancing both oscillators as loud as on the instrument (were up to 3.5 dB quiet); Link moves Osc Mix and the other knobs on a held note (plugin notes §14)
