@@ -58,8 +58,8 @@
 #endif
 #define FONT_PRELOAD_SIZE       (16.0)
 
-#define DRAG_FINE               (0.1) // notes §18
-#define MAX_PARAMS              (64)
+#define DRAG_FINE               (0.1)           // notes §18
+#define MAX_PARAMS              (kOsParamCount) // every parameter, however many there come to be
 #define MAX_PLACED              (64)
 #define MARGIN_X                (16.0)
 #define TITLE_Y                 (30.0)       // below the menu bar

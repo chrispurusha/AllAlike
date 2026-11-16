@@ -61,9 +61,9 @@
 #endif
 #define FONT_PRELOAD_SIZE         (16.0)
 
-#define DOUBLE_CLICK_S            (0.4) // notes §17
-#define DRAG_FINE                 (0.1) // notes §18
-#define MAX_PARAMS                (320)
+#define DOUBLE_CLICK_S            (0.4)           // notes §17
+#define DRAG_FINE                 (0.1)           // notes §18
+#define MAX_PARAMS                (kTiParamCount) // every parameter, however many there come to be
 #define MAX_PLACED                (64)
 #define MAX_PAGES                 (16)
 #define MARGIN_X                  (16.0)

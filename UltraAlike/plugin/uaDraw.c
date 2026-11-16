@@ -58,8 +58,8 @@
 #endif
 #define FONT_PRELOAD_SIZE       (16.0)
 
-#define DRAG_FINE               (0.1) // notes §19
-#define MAX_PARAMS              (64)
+#define DRAG_FINE               (0.1)           // notes §19
+#define MAX_PARAMS              (kUaParamCount) // every parameter: a fixed 64 left the 65th (Same Note) without its steps
 #define MAX_PLACED              (64)
 #define MARGIN_X                (16.0)
 #define TITLE_Y                 (30.0)       // below the menu bar
@@ -73,9 +73,10 @@
 #define WAVE_Y                  (58.0)                  // notes §21: where the layer tabs were
 #define WAVE_H                  (130.0)
 #define PAGE_TAB_Y              (WAVE_Y + WAVE_H + 6.0) // notes §22: the page tabs, under the waveform
-#define PAGE_TAB_W              (76.0)
+#define PAGE_TAB_H              (14.0)                  // notes §22: as Pulse2Alike's tabs
+#define PAGE_TAB_PAD            (4.0)                   // either side of a title
 #define MAX_PAGE_TABS           (8)
-#define PAGE_Y                  (PAGE_TAB_Y + TAB_H + 14.0)
+#define PAGE_Y                  (PAGE_TAB_Y + PAGE_TAB_H + 14.0)
 #define ROW_H                   (112.0)
 #define SECTION_GAP             (16.0)
 #define CONTROL_W               (50.0)     // twelve controls across the first row
@@ -548,15 +549,23 @@ static void draw_sample_bar(void) {
     draw_button(mainArea, gPlayRect, "Play", held_colour(&gPlayRect, (tRgb)RGB_GREEN_ON));
     draw_button(mainArea, gResetRect, "Reset", held_colour(&gResetRect, (tRgb)RGB_GREY_7));
 
-    // notes §22: one tab a page, the shown one lit
+    // notes §22: one tab a page, the shown one lit - each as wide as its title at the tab's height, as Pulse2Alike's
+    double tabX = MARGIN_X;
+
     for (uint32_t p = 0; (p < gPageCount) && (p < MAX_PAGE_TABS); p++) {
+        double w      = get_text_width(gPages[p].title, PAGE_TAB_H, eNoCache) + (2.0 * (DRAW_BUTTON_MARGIN + PAGE_TAB_PAD));
+        tRgb   colour = held_colour(&gPageTab[p], (p == gPage) ? (tRgb)RGB_GREEN_ON : (tRgb)RGB_GREY_7);
+
         gPageTab[p] = (tRectangle){{
-                                       MARGIN_X + (p * (PAGE_TAB_W + TAB_GAP)), PAGE_TAB_Y
+                                       tabX, PAGE_TAB_Y
                                    }, {
-                                       PAGE_TAB_W, TAB_H
+                                       w, PAGE_TAB_H
                                    }
         };
-        draw_button(mainArea, gPageTab[p], gPages[p].title, held_colour(&gPageTab[p], (p == gPage) ? (tRgb)RGB_GREEN_ON : (tRgb)RGB_GREY_7));
+        draw_button(mainArea, gPageTab[p], "", colour);
+        set_rgb_colour(contrasting_text_colour(colour));
+        render_text(mainArea, (tRectangle){{tabX + DRAW_BUTTON_MARGIN + PAGE_TAB_PAD, PAGE_TAB_Y + DRAW_BUTTON_MARGIN}, {0.0, PAGE_TAB_H}}, gPages[p].title);
+        tabX       += w + TAB_GAP;
     }
 
     x = gResetRect.coord.x + draw_button_bounds(gResetRect).size.w + 10.0;
