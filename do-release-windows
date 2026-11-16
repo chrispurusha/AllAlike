@@ -148,9 +148,18 @@ fi
 
 mkdir -p "$STAGE/Licences"
 
-# x64/<name>.vst3 and arm64/<name>.vst3, each bundle holding only its own architecture's DLL
+# x64/<name>.vst3 and arm64/<name>.vst3: each a single file, the architecture's DLL itself (VST3's single-file form,
+# which hosts load as they do a bundle) - simpler to install than a folder. A bundle that ever carries more than its
+# DLLs (Resources, moduleinfo) would need the folder form back, so that stops the release.
 for name in $NAMES; do
     bundle="$name/build/windows/$name.vst3"
+
+    for extra in $bundle/Contents/*(N); do
+        if [[ ${extra:t} != *-win ]]; then
+            echo "error: $bundle carries ${extra:t}, which a single-file VST3 cannot - restore the folder form." >&2
+            exit 1
+        fi
+    done
 
     for pair in x64:x86_64-win arm64:arm64-win; do
         folder=${pair%%:*}
@@ -160,12 +169,8 @@ for name in $NAMES; do
             echo "error: $bundle has no $arch DLL." >&2
             exit 1
         fi
-        mkdir -p "$STAGE/$folder/$name.vst3/Contents/$arch"
-        cp "$bundle/Contents/$arch/$name.vst3" "$STAGE/$folder/$name.vst3/Contents/$arch/"
-        # anything else the bundle carries (Resources, moduleinfo) goes too
-        for extra in $bundle/Contents/*(N); do
-            [[ ${extra:t} == *-win ]] || cp -R "$extra" "$STAGE/$folder/$name.vst3/Contents/"
-        done
+        mkdir -p "$STAGE/$folder"
+        cp "$bundle/Contents/$arch/$name.vst3" "$STAGE/$folder/$name.vst3"
     done
 done
 
@@ -193,11 +198,11 @@ INSTALLING
 Unpack the zip first (right-click it, Extract All...). Each of the two folders holds the same plug-ins:
 
 $VST3_LIST
-Each one is a FOLDER ending in .vst3. Copy the whole folder - not the files inside it - into:
+Each one is a single FILE ending in .vst3. Copy the files you want into:
 
     C:\\Program Files\\Common Files\\VST3
 
-so that you have, for example, C:\\Program Files\\Common Files\\VST3\\Pulse2Alike.vst3\\Contents\\...
+so that you have, for example, C:\\Program Files\\Common Files\\VST3\\Pulse2Alike.vst3
 Then restart the host, or rescan its plug-ins. In Ableton Live: Options > Preferences > Plug-ins, turn on
 "Use VST3 Plug-in System Folders", then Rescan.
 

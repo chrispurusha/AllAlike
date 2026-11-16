@@ -1,7 +1,7 @@
 # Feature status
 
 Where each plug-in stands: what is **missing**, what is **built but needs more work**, and what is **built but not
-yet checked** in a host or against the instrument. Updated 2026-11-14 (Nl3Alike's modulation, envelopes, morphs, Unison, Pulse and most filter modes; panel buttons on release across the Alikes; Windows releases of all six; UltraAlike plays Emulator X bank presets). Before that 2026-11-12 (TiAlike user wavetables, delay modulation, Pan Spread; Pulse2Alike's unison, PARA-8 and thump refitted through the QU-24, P016-P029 heard; TiAlike's Bank A heard against the instrument, its 11-08 oscillator, portamento and LFO work; preset browsers by category).
+yet checked** in a host or against the instrument. Updated 2026-11-16 (UltraAlike measured against an E5000 Ultra: its interpolation, amplifier envelope and output; the panel remapped to the E5000's controls; sustain pedal, pitch bend and mod wheel). Before that 2026-11-14 (Nl3Alike's modulation, envelopes, morphs, Unison, Pulse and most filter modes; panel buttons on release across the Alikes; Windows releases of all six; UltraAlike plays Emulator X bank presets). Before that 2026-11-12 (TiAlike user wavetables, delay modulation, Pan Spread; Pulse2Alike's unison, PARA-8 and thump refitted through the QU-24, P016-P029 heard; TiAlike's Bank A heard against the instrument, its 11-08 oscillator, portamento and LFO work; preset browsers by category).
 
 This is a summary for planning. The working lists stay in each plug-in's `Docs/todo.md` (one line per item) and
 `Docs/to-test.md`; the reasoning and measurements in `Docs/findings.md` and `Docs/code-notes/`. Work spanning the
@@ -49,7 +49,7 @@ Missing everywhere, or built in one and wanted in the others:
   where it has one - the Nord Lead 3's is ±6 semitones and ±100 cents, applied to its tuning word (osc notes §8).
 - **Anti-alias switch, for every Alike** (Pulse2Alike included; per instance, held by the host, not in the sound, on
   GLOBAL; owner 2026-11-12): On (the default) is clean; Off plays the instrument's own band-limiting and its aliases.
-  Nl3Alike has it for the Saw and Pulse (On about -90 dB at A4, -76 dB at C7); TiAlike has it for the classic oscillators (Off within about 1 dB of the instrument's alias lines at C7). Measured on
+  Nl3Alike has it for the Saw and Pulse (On about -90 dB at A4, -76 dB at C7); TiAlike has it for the classic oscillators (Off within about 1 dB of the instrument's alias lines at C7). UltraAlike has it for sample playback (Off = the E5000's own interpolation, measured). Measured on
   the plug-ins' own oscillators (2026-11-07): TiAlike's saw and square alias at -44 dB at A4 and -32 dB at C7 (44.1 kHz), so it
   would gain most; Sn2Alike's saw is at -57 to -84 dB, and more Soften aliases more - to check against the instrument;
   Pulse2Alike not measured. Clean's correction (a longer step, summed over every jump in reach) belongs in SynthLib once a
@@ -190,7 +190,26 @@ Started 2026-11-02 from Sn2Alike's skeleton. Everything below is measured on the
 
 ## UltraAlike
 
-Started 2026-11-14 as a placeholder: OneShot's skeleton under its own name and identifiers (`aumu Ultr CPur`), A reproduction inspired by the E-mu Ultra samplers, Emulator X3 first as the reference, then the E5000 Ultra. **Built 2026-11-14:** a layer plays a preset of an Emulator X bank (`.exb`) - its zones by key and velocity at their root keys and own rates, loops held through the release - with Prev/Next through the presets, each voice's amplifier envelope from the bank (its six stages; their shape not yet checked). **Missing:** each voice's tuning, level, pan, filter and auxiliary envelopes, Z-plane filter, LFOs and cords from the bank; `.E4B` banks. Not in `do-plugins` or `do-release`. See `UltraAlike/Docs/design.md`.
+Started 2026-11-14 from OneShot's skeleton (`aumu Ultr CPur`); a reproduction inspired by the E-mu Ultra samplers, measured against the owner's E5000 Ultra since 2026-11-16 (rig, method and test bank in `UltraAlike/Docs/design.md`). One preset or sample an instance; Emulator X banks (`.exb`) play, a bank folder or its file. Not in `do-plugins` or `do-release`.
+
+**Built**
+- **The panel is the E5000's controls** (2026-11-16): PITCH (Transpose, Coarse, Fine in 1/64 semitones, Non-Transpose, Root, Low/High key), PLAY (Solo, Bend range), OUTPUT (Volume in dB, Pan, Velocity), AMP ENV RATE and LEVEL (the six stages Atk1-Rls2 as rates 0-127 and levels, and Depth), GLOBAL (Anti-alias, Polarity). OneShot's controls are gone from the panel.
+- **The E5000's amplifier envelope** (`uaEosEnv.c`), measured: a rate is a speed (decay and release straight in dB, halving every ~12 steps), levels a fraction of a range Depth sets (96 dB to 48 dB), attack straight in gain. A bank's stored stage values are read as rates. A preset's envelope lands on the dials when chosen; turning one moves every voice by the same steps.
+- **The E5000's interpolation** with Anti-alias Off (`uaEmuInterp.c`): seven fixed kernels chosen by playback ratio, matching the instrument to 0.1-0.4 dB in the passband and without bias in the images up to about +10 semitones. On (the default) is a clean resampler.
+- **Polarity**: the E5000's main outputs are inverted (its sub outputs are not); Normal (default, corrected) or Inverted.
+- **Sustain pedal** (CC 64), **pitch bend** (bends sounding notes; Bend range 0-12, default 2) and **mod wheel** (received, drives nothing yet).
+- A loose WAV plays as a one-voice preset through the same voice.
+
+**Needs more work**
+- Bank envelope scale: stored values read as rate / 254, inferred from the libraries, not yet confirmed against Emulator X.
+- Attack curve (approximate; depends on Depth); kernels for +11 semitones and up (images 5-9 dB too loud); Anti-alias Off folds at the host rate rather than the E5000's 44.1 kHz; the output stage's own response (a -0.5 dB dip, the top-octave drop) not added.
+- Solo: every mode but Off plays mono; the modes' differences, Glide and Chorus not built.
+- The waveform's envelope overlay still draws from the old dials.
+
+**Missing**
+- Each voice's tuning, level and pan from the bank; filter (Z-plane) and auxiliary envelopes; LFOs; the modulation (E-mu's patch cords) as the other Alikes' modulation matrix; `.E4B` banks.
+
+**Built, not yet checked in a host**: all of the above (checked with engine harnesses and the plug-in opened in a test host). `UltraAlike/Docs/to-test.md` lists what to try.
 
 ## OneShot
 
