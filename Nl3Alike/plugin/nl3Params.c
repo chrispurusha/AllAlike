@@ -944,13 +944,39 @@ static double lfo_hz(double rate) {
     return round(LFO_RATE_WORD * exp2(rate / LFO_RATE_STEPS)) * LFO_TICK_HZ / 16777216.0;
 }
 
-// voices notes §21: a full swing's pitch, cubic in the Amount, 127 counting as 128
-static double lfo_pitch_semis(const double * v, int l) {
-    uint32_t at     = (uint32_t)l * (kNl3ParamLfo2Rate - kNl3ParamLfo1Rate);
-    double   amount = plain(v, kNl3ParamLfo1Amount + at);
+// osc notes §16: Osc 2's Coarse - semitones, -64 to +63; or with Partial on a frequency ratio: from 25 (unison) up in
+// halves to 10 and then whole partials to 94, down from it by binary fractions to 1/16
+static double osc2_partial_ratio(long c) {
+    if (c >= 44) {
+        return 10.0 + (double)(c - 43);
+    }
 
-    amount = (amount >= 127.0) ? 128.0 : amount;
-    return (on(v, kNl3ParamLfo1Invert + at) ? -1.0 : 1.0) * amount * amount * amount / LFO_PITCH_CUBE;
+    if (c >= 25) {
+        return 1.0 + (0.5 * (double)(c - 25));
+    }
+
+    if (c == 24) {
+        return 0.75;
+    }
+
+    if (c >= 20) {
+        return (double)(c - 15) / 16.0;
+    }
+
+    if (c >= 12) {
+        return (double)(c - 3) / 64.0;
+    }
+
+    if (c >= 6) {
+        return (double)(c + 5) / 128.0;
+    }
+    return (c >= 2) ? ((double)(c + 15) / 256.0) : (1.0 / 16.0);
+}
+
+static double osc2_coarse_semitones(double coarse, bool partial) {
+    double c = fmin(127.0, fmax(0.0, coarse));
+
+    return partial ? (12.0 * log2(osc2_partial_ratio(lround(c)))) : (c - 64.0);
 }
 
 static tNl3OscShape osc_shape(int waveform) {
@@ -978,7 +1004,7 @@ void nl3_sound_from_values(const double * v, tNl3Sound * s) {
     s->osc[1].width     = nl3_word_value(nl3_pulse_width_word(plain(v, kNl3ParamOsc2Shape)));
     s->osc[1].sync      = on(v, kNl3ParamOsc2Sync);
     s->osc[1].syncTune  = plain(v, kNl3ParamOsc2SyncTune);
-    s->osc[1].semitones = fmin(60.0, fmax(-60.0, plain(v, kNl3ParamOsc2Coarse) - 64.0));
+    s->osc[1].semitones = osc2_coarse_semitones(plain(v, kNl3ParamOsc2Coarse), on(v, kNl3ParamOsc2Partial));   // osc notes §16
     s->osc[1].cents     = (plain(v, kNl3ParamOsc2Fine) - 64.0) * 50.0 / 64.0;
     s->osc[1].level     = noise3 ? 0.0 : mix;
     s->osc[2].width     = 0.0;
@@ -1039,25 +1065,29 @@ void nl3_sound_from_values(const double * v, tNl3Sound * s) {
         s->modEnvWidth[0] = ((dest == 6) || (dest == 8)) ? (sign * amount / 128.0) : 0.0;
         s->modEnvWidth[1] = ((dest == 7) || (dest == 8)) ? (sign * amount / 128.0) : 0.0;
         s->modEnvMix      = (dest == 10) ? (sign * amount / 127.0) : 0.0;
+        s->modEnvLfo1     = (dest == 11) ? (sign * amount) : 0.0;
     }
 
     for (int l = 0; l < NL3_LFOS; l++) {
-        uint32_t at     = (uint32_t)l * (kNl3ParamLfo2Rate - kNl3ParamLfo1Rate);
-        double   amount = (on(v, kNl3ParamLfo1Invert + at) ? -1.0 : 1.0) * plain(v, kNl3ParamLfo1Amount + at) / 127.0;
-        int      to     = choice(v, kNl3ParamLfo1Dest + at);
+        uint32_t       at = (uint32_t)l * (kNl3ParamLfo2Rate - kNl3ParamLfo1Rate);
+        tNl3LfoTargets t;
 
         s->lfo[l]             = (tNl3LfoSound){
-            .shape = kLfoShape[choice(v, kNl3ParamLfo1Waveform + at) % 6],
-            .hz    = lfo_hz(plain(v, kNl3ParamLfo1Rate + at)),
-            .keyed = choice(v, kNl3ParamLfo1EnvKbs + at) == 2,
+            .shape  = kLfoShape[choice(v, kNl3ParamLfo1Waveform + at) % 6],
+            .hz     = lfo_hz(plain(v, kNl3ParamLfo1Rate + at)),
+            .keyed  = choice(v, kNl3ParamLfo1EnvKbs + at) == 2,
+            .to     = choice(v, kNl3ParamLfo1Dest + at),
+            .amount = plain(v, kNl3ParamLfo1Amount + at),
+            .invert = on(v, kNl3ParamLfo1Invert + at),
         };
-        s->lfoCutoff[l]       = ((to == 3) || (to == 5)) ? (amount * 127.0) : 0.0; // voices notes §22: a semitone an Amount step
-        s->lfoMix[l]          = ((l == 0) && (to == 10)) ? amount : 0.0;           // LFO 2's 10 and 11 are Resonance and Pan: not yet
-        s->lfoAmp[l]          = ((l == 0) && (to == 11)) ? (amount * 127.0 / 64.0) : 0.0;
-        s->osc[0].lfoPitch[l] = ((to == 0) || (to == 2)) ? lfo_pitch_semis(v, l) : 0.0;
-        s->osc[1].lfoPitch[l] = ((to == 1) || (to == 2)) ? lfo_pitch_semis(v, l) : 0.0;
-        s->osc[0].lfoWidth[l] = ((to == 6) || (to == 8)) ? (amount * 127.0 / 128.0) : 0.0;   // voices notes §22: a Shape step an Amount step
-        s->osc[1].lfoWidth[l] = ((to == 7) || (to == 8)) ? (amount * 127.0 / 128.0) : 0.0;
+        nl3_lfo_targets(l, s->lfo[l].to, s->lfo[l].amount, s->lfo[l].invert, &t);   // voices notes §21-22
+        s->lfoCutoff[l]       = t.cutoff;
+        s->lfoMix[l]          = t.mix;
+        s->lfoAmp[l]          = t.amp;
+        s->osc[0].lfoPitch[l] = t.pitch[0];
+        s->osc[1].lfoPitch[l] = t.pitch[1];
+        s->osc[0].lfoWidth[l] = t.width[0];
+        s->osc[1].lfoWidth[l] = t.width[1];
     }
 
     // voices notes §31: a cent an Amount step to 100, scaled by the pressure or the wheel; 3.98 to 8 Hz

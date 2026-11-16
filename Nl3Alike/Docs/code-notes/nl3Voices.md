@@ -55,7 +55,7 @@ The level does not follow velocity: the Init Single's velocity to volume is 0, a
 velocity 1 and 127. The patch's own velocity amounts come with the modulation.
 
 ## 8. Level and pitch
-In Percussive trigger mode every oscillator starts each note at the same phase, so identical oscillators add. Ensemble lets them run on. The oscillator mix reaches the Overdrive saturator at a half, fitted from its gain at four settings, and the saturator's output reaches the filter at a half again, which sets where level-dependent damping starts. The saturator is Sn2Alike's placeholder, made exactly linear at Filter Distortion 0 (it kept 1.6% of its curve there, which put a third harmonic at -63 dB on a pure sine): the Nord Lead 3's path is clean until its distortion is used. The filter's output is scaled so a wide-open Saw at Level 127 and Volume 127 matches the reference.
+The oscillators run free: no note sets them back to a starting phase, in poly or mono (measured 2026-11-16: two sines a fine step apart, note after note - each note starts at a different point of their beat, 0.06 to 0.97 of full level; set back, every note would start in phase). An earlier version set them back at every note, a rule carried over from another instrument's Percussive mode that the Nord Lead 3 does not have; it ticked wherever a sounding voice was restarted. Each voice's oscillators start from phases of their own. The oscillator mix reaches the Overdrive saturator at a half, fitted from its gain at four settings, and the saturator's output reaches the filter at a half again, which sets where level-dependent damping starts. The saturator is Sn2Alike's placeholder, made exactly linear at Filter Distortion 0 (it kept 1.6% of its curve there, which put a third harmonic at -63 dB on a pure sine): the Nord Lead 3's path is clean until its distortion is used. The filter's output is scaled so a wide-open Saw at Level 127 and Volume 127 matches the reference.
 
 ## 9. Tracking
 Keyboard Track is a switch. On, a voice's cutoff moves one semitone per note from C2 (note 36), so the Cutoff dial sets
@@ -146,6 +146,12 @@ exactly (Amount 16: 0.25 semitones at the top of the envelope, 32: 2, 64: 16, 96
 Amount step (§23); Shape and Osc Mix are taken as the LFOs' (§22). Not yet built: LFO 1's Amount, Osc Mod; and at
 Amount 127 the instrument's pitch offset reads zero rather than 128 semitones - not reproduced.
 
+Destination LFO 1 adds the Mod Env's Amount to LFO 1's, knob step for knob step, and LFO 1 then does whatever its
+Amount does at its own destination (the laws are one function, nl3_lfo_targets, for both). Measured on the
+instrument: SawLead (1:21, LFO 1 Amount 0 to Osc 1+2, Mod Env AR Amount 14 to LFO 1) fades a vibrato in to +-15
+cents at 5.5 Hz in under a second, +-3/11/15 cents at 0.35/0.6/0.85 s; Nl3Alike now does the same to within a cent.
+It did nothing before, in the 56 programs that use it.
+
 ## 25. The morph groups (instrument, 2026-11-14)
 Each group adds its range times its source to the knob's own value, in steps of that knob, before the knob's law is
 applied - so a morphed cutoff moves a semitone a step, a morphed attack along the envelope law - and groups on the
@@ -179,10 +185,19 @@ than off on the instrument, as here. The second word's (0.7) pair is on the left
 With one copy a side (§26 as first built) the copy sat sharp of the voice and beat against it, about 10 dB deeper
 than the instrument at the fundamental; switching Unison off on both made the beating match, which is how it was found.
 
-## 28. Voice stealing
-With every voice busy, a note takes the quietest voice already let go, and a held one (the oldest) only when none
-is. Long releases keep voices busy for a long time - String Pad's (103) for half a minute - so this is common. A note
-on a key still sounding takes another voice (§34).
+## 28. Which voice a note takes
+After every note event (a key down or up, a key the pedal holds included) the voices are ranked, and the notes until
+the next event take them in that order:
+1. the voices whose key is up - silent or releasing - quietest first (the amp envelope's level, to 16 bits), the
+   lowest number on a tie;
+2. then, if every voice left is held, the oldest held voice, never the one playing the lowest key held;
+3. then whatever is left.
+The ranking uses the levels as they were at the last event, not when the next note comes: a voice let go stays near
+the end of the order until another event ranks it again, however quiet it has become meanwhile. Measured on the
+instrument's own voice placement (notes run through it with the voice each one reached recorded): short notes in a
+row alternate between voices 0 and 1, between 1 and 2 with a key held on 0; notes with a long release take 0, 1, 2,
+3; with all 24 held, the 25th note takes voice 1 when voice 0 holds the lowest key. Nl3Alike placed all of these
+runs identically. Before this a note took the first silent voice, else the quietest released, else the oldest held.
 
 ## 29. Every voice its own LFO
 A free-running LFO (not keyed) runs in each voice at that voice's own rate, so a morph that moves the rate with the
@@ -228,5 +243,11 @@ A key played again while its last note still sounds takes another voice; the old
 held) and releases to its end beside the new one. Restarting the old voice instead - the first version - set its
 oscillators back to their starting phase mid-cycle, a tick at every repeated note of a program with a long release
 (1:4), which the instrument does not make (owner, 2026-11-16). A run of notes rendered through 1:4 now starts every
-note without a step. A repeated key with a long release uses voices faster; §28's stealing takes the quietest
-released one when they run out.
+note without a step. Which voice it takes is §28's order.
+
+## 35. Mono: one voice, its oscillators running on
+Mono is one voice: every note goes to the same one, a key played again included, and so does the note a released
+key falls back to. Each note restarts the voice's envelopes; its oscillators run on (§8) - measured on the instrument (1:4 with Mono on,
+C4 played again in its release): the fundamental's phase runs straight through the new note, where setting it back
+made a jump of about 3 radians and a tick.
+Poly takes each note's voice in §28's order, the same key included (§34).

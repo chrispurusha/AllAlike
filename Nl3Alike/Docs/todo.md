@@ -27,3 +27,12 @@
 - Panel: the pages for the Nord Lead 3's sections
 - `Docs/code-notes/` came across from Sn2Alike with the code: rewrite each as its file changes
 - Octave Shift with Filter Keyboard Track on: check the track follows the shifted note (voices notes §33, assumed)
+- Owner A/B 11-16, bank 1 against the instrument:
+  - 1:2 String Pad, 1:3 Happy ending: louder on the instrument (unison?)
+  - 1:7 Self Mod Filter: louder in Nl3Alike
+  - 1:15 Open Air: very different - a missing feature?
+  - 1:17 Icisematta: tonally different
+  - 1:18 Albatross: zipper/tick in Nl3Alike
+  - 1:19 ChimeOrch: louder on the instrument
+  - 1:21 SawLead: detuning FIXED 11-16 (Osc 2 Partial, osc notes §16) - recheck the ticking; 5-7 dB quiet against the other programs (Classic filter, Distortion 100?)
+- Mod Env destinations OSCMOD (164 programs) and FILT 2 (13) do nothing yet

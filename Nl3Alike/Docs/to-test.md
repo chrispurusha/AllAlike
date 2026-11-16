@@ -22,7 +22,7 @@ Finished work not yet checked against the instrument or in a host.
 - Multi modes 4 and 5 (filter notes §16): Ethereality's peaks and Happy ending's notches, Freq 2 widening them, Resonance deepening them - by ear
 - The Sine's Shape (osc notes §12): Ethereality's sine, and Shape on a Sine swept by ear - growing brighter, as feedback FM does
 - Unison as a mirrored pair a side (voices notes §27): String Pad and Happy ending beside the instrument - the beating no deeper than its, and the phasing at about 4 s in String Pad gone
-- Voice stealing (voices notes §28): pad chords played quickly, past 24 voices - the attacks still heard
+- Voice order (11-16, voices notes §28, the instrument's own ranking): pad chords played quickly, past 24 voices - the attacks still heard, the lowest held key never cut
 - Every voice its own LFO (voices notes §29): String Pad up the keyboard beside the instrument - no 2.2 Hz pulse-width beating at C5
 - Aftertouch morph (voices notes §30): a program with Aftertouch morph ranges, pressed - the moves arrive, and their size against the instrument
 - Double-click a dial: back to its default, undoable in the host
@@ -35,3 +35,6 @@ Finished work not yet checked against the instrument or in a host.
 - Volume law (11-16, voices notes §14): now the square of Volume, as measured - programs at low Volume are quieter than before, 127 louder; Volume 100 unchanged
 - Octave Shift (11-16, voices notes §33): programs with Octave Shift -2..+2 (a third of them, e.g. 1:5) now play in the instrument's octave - were all at 0
 - 1:4 (11-16, voices notes §34): no tick at the start of a repeated note - a replayed key now takes another voice
+- Oscillators run free (11-16, voices notes §8, §35): no tick on a mono retrigger or a repeated key; two detuned oscillators start each note at a different point of their beat, as on the instrument
+- Osc 2 Partial (11-16, osc notes §16): 1:21 SawLead's two saws in unison, not 39 semitones apart - and the other 365 programs with Partial on in tune
+- Mod Env to LFO 1 (11-16, voices notes §24): 1:21 SawLead's vibrato fades in over the first second, as on the instrument - and the 55 other programs that use it

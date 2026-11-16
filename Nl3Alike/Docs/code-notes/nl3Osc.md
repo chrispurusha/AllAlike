@@ -146,3 +146,12 @@ Against the instrument: spectral shape within about 1 dB (3 dB at worst) at Shap
 1:6 "White Noise" peaks at 105 Hz (instrument 108) and at half wheel at 1,332 Hz (instrument 1,336). It used to play
 as a Saw. Osc 2's Noise (Noise Type, Noise Frequency) is another routine and still plays as a Saw; the Noise 3 mix
 path's colour is still unset.
+
+## 16. Osc 2's Coarse, in semitones or partials
+Measured on the instrument's own pitch arithmetic (a note held, Coarse stepped through all 128 values, Osc 2's
+pitch read against Osc 1's at each): in semitones Coarse is value - 64, -64 to +63 - not clamped at +-60 as first
+built. With Partial on it is a frequency ratio: 25 is unison, 26-43 run 1.5 to 10 in halves, 44 up whole partials,
+11 to 94 (the readings at C4 stop at 84.3, the oscillator's top); 24 is 3/4, and below it the ratio falls in binary
+fractions - 20-23 are 5/16 to 8/16, 12-19 are 9/64 to 16/64, 6-11 are 11/128 to 16/128, 2-5 are 17/256 to
+20/256, 0 and 1 both 1/16. Partial was read from the program and ignored before: SawLead (1:21, Coarse 25 with
+Partial) played Osc 2 39 semitones down instead of in unison. Fine Tune adds its cents in both modes.

@@ -75,7 +75,29 @@ typedef struct {
     bool   fadeOut;     // voices notes §15: from full, dying away, in place of a fade in
     double offset;      // added to the wave
     bool   keyed;       // restarts with each note
+    int    to;          // its destination, 0..11
+    double amount;      // Amount, 0..127
+    bool   invert;
 } tNl3LfoSound;
+
+// voices notes §21-22: what an LFO's Amount does at each destination - pitch cubic, the rest a step a step
+typedef struct {
+    double cutoff, mix, amp, pitch[2], width[2];
+} tNl3LfoTargets;
+
+static inline void nl3_lfo_targets(int l, int to, double amount, bool invert, tNl3LfoTargets * t) {
+    double a    = (invert ? -1.0 : 1.0) * amount / 127.0;
+    double cube = (amount >= 127.0) ? 128.0 : amount;
+    double semi = (invert ? -1.0 : 1.0) * cube * cube * cube / 16384.0;
+
+    t->cutoff   = ((to == 3) || (to == 5)) ? (a * 127.0) : 0.0;
+    t->mix      = ((l == 0) && (to == 10)) ? a : 0.0;   // LFO 2's 10 and 11 are Resonance and Pan: not yet
+    t->amp      = ((l == 0) && (to == 11)) ? (a * 127.0 / 64.0) : 0.0;
+    t->pitch[0] = ((to == 0) || (to == 2)) ? semi : 0.0;
+    t->pitch[1] = ((to == 1) || (to == 2)) ? semi : 0.0;
+    t->width[0] = ((to == 6) || (to == 8)) ? (a * 127.0 / 128.0) : 0.0;
+    t->width[1] = ((to == 7) || (to == 8)) ? (a * 127.0 / 128.0) : 0.0;
+}
 
 // One oscillator, in the panel's units
 typedef struct {
@@ -111,7 +133,6 @@ typedef struct {
     double       tracking;                                    // 0 or 1: Keyboard Track off or on
     double       overdrive;                                   // 0..127
     double       normalise;                                   // 0..127, Q Normalise
-    bool         oscsFree;                                    // Ensemble: phases run on between notes
     double       glideTime;                                   // 0..127
     int          glideStyle;                                  // 0 Portamento, 1 Glissando
     int          glideCurve;                                  // 0 Linear, 1 Exponential
@@ -139,6 +160,7 @@ typedef struct {
     double       modEnvPitch[NL3_OSCS];                       // voices notes §24: semitones at the Mod envelope's top
     double       modEnvWidth[NL3_OSCS];                       // voices notes §24: width word at its top
     double       modEnvMix;                                   // voices notes §24: Osc Mix at its top, a fraction of the dial
+    double       modEnvLfo1;                                  // voices notes §24: LFO 1 Amount steps added at its top
     double       vibratoSemis;                                // voices notes §31: the vibrato's depth now, its source applied
     double       vibratoHz;
     bool         unison;                                      // voices notes §26
@@ -184,6 +206,8 @@ typedef struct {
     uint8_t    heldNote[128]; // mono: the keys down, oldest first
     float      heldVelocity[128];
     uint32_t   heldCount;
+    uint8_t    order[NL3_MAX_VOICES];      // voices notes §28: the voices in the order the next notes take them, ranked at the last note event
+    uint32_t   orderNext;
     bool       pedal;                      // as the last block saw it
     double     lfoFree[NL3_LFOS];          // the phase of a free running LFO
     bool       pedalled[128];              // keys up while the pedal held them

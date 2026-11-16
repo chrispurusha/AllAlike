@@ -47,6 +47,8 @@
 #define UNISON_SPAN              (244.0) // voices notes §26: delay samples across the word
 #define UNISON_SECOND            (0.7)   // voices notes §26: the second read's step against the first's
 
+static void rank_voices(tNl3Voices * v);
+
 void nl3_voices_init(tNl3Voices * v) {
     memset(v, 0, sizeof(*v));
     v->limit    = 24;
@@ -54,6 +56,17 @@ void nl3_voices_init(tNl3Voices * v) {
     v->lastNote = -1;
     nl3_edge_build(v->edge);
     nl3_steps_build(&v->steps);
+
+    // voices notes §8: the oscillators run free and are never set back - each starts somewhere of its own
+    for (uint32_t i = 0; i < NL3_MAX_VOICES; i++) {
+        for (int o = 0; o < NL3_OSCS; o++) {
+            uint32_t h = ((i * NL3_OSCS) + (uint32_t)o + 1u) * 2654435761u;
+
+            v->voice[i].phase[o] = ((double)(h >> 8) / 8388608.0) - 1.0;
+        }
+    }
+
+    rank_voices(v);
 }
 
 // voices notes §19
@@ -68,6 +81,7 @@ void nl3_voices_set_clean(tNl3Voices * v, bool clean) {
 void nl3_voices_set_limit(tNl3Voices * v, uint32_t limit) {
     limit    = (limit < 1u) ? 1u : ((limit > NL3_MAX_VOICES) ? NL3_MAX_VOICES : limit);
     v->limit = limit;
+    rank_voices(v);
 
     // notes §2: voices above a lowered limit are released, not cut
     for (uint32_t i = limit; i < NL3_MAX_VOICES; i++) {
@@ -177,13 +191,23 @@ static void lfo_advance(tNl3Voice * vc, const tNl3Sound * sound, double seconds,
         double               up    = 0.5 * (value + fade);    // voices notes §22: 0 at the wave's bottom, the fade at its top
         double               down  = fade - up;
 
-        *cutoff        += up * sound->lfoCutoff[l];
-        *mix           += value * sound->lfoMix[l];
-        *ampGain       *= 1.0 - (down * sound->lfoAmp[l]);
+        tNl3LfoTargets       t     = {
+            sound->lfoCutoff[l], sound->lfoMix[l], sound->lfoAmp[l], {sound->osc[0].lfoPitch[l], sound->osc[1].lfoPitch[l]},
+            {sound->osc[0].lfoWidth[l],sound->osc[1].lfoWidth[l]}
+        };
+
+        if ((l == 0) && (sound->modEnvLfo1 != 0.0)) {   // voices notes §24: the Mod Env adds to LFO 1's Amount
+            double amount = fmin(127.0, fmax(0.0, lfo->amount + (vc->env[1].level * sound->modEnvLfo1)));
+
+            nl3_lfo_targets(l, lfo->to, amount, lfo->invert, &t);
+        }
+        *cutoff        += up * t.cutoff;
+        *mix           += value * t.mix;
+        *ampGain       *= 1.0 - (down * t.amp);
 
         for (int o = 0; o < NL3_OSCS; o++) {
-            vc->lfoSemis[o] += value * sound->osc[o].lfoPitch[l];
-            width[o]        += up * sound->osc[o].lfoWidth[l];
+            vc->lfoSemis[o] += value * t.pitch[o];
+            width[o]        += up * t.width[o];
         }
     }
 
@@ -250,9 +274,6 @@ static void mono_play(tNl3Voices * v, const tNl3Sound * sound, uint8_t note, flo
     if (restart) {
         vc->velocity  = velocity;
 
-        if (!sound->oscsFree) {
-            memset(vc->phase, 0, sizeof(vc->phase));
-        }
         vc->started   = ++v->clock;
         vc->noiseSeed = vc->noiseSeed ? vc->noiseSeed : (uint32_t)((v->clock * 2654435761u) | 1u);
 
@@ -274,6 +295,56 @@ static void mono_play(tNl3Voices * v, const tNl3Sound * sound, uint8_t note, flo
     set_pitch(vc, sound);
 }
 
+// voices notes §28: the level a voice is ranked by - silent is 0, 16 bits as the instrument reads it
+static uint32_t rank_level(const tNl3Voice * vc) {
+    return vc->active ? (uint32_t)fmin(65535.0, floor(fmax(0.0, vc->amp.level) * 65535.0)) : 0u;
+}
+
+// voices notes §28: after every note event, the order the next notes will take the voices in - the keys up quietest
+// first, then the held ones oldest first sparing the lowest held key, then whatever is left
+static void rank_voices(tNl3Voices * v) {
+    bool ranked[NL3_MAX_VOICES] = {false};
+    int  lowestHeld             = 0x7FFF;
+
+    for (uint32_t i = 0; i < v->limit; i++) {
+        if (v->voice[i].active && v->voice[i].gate && (v->voice[i].note < lowestHeld)) {
+            lowestHeld = v->voice[i].note;
+        }
+    }
+
+    for (uint32_t k = 0; k < v->limit; k++) {
+        int  pick  = -1;
+
+        for (uint32_t i = 0; i < v->limit; i++) {
+            const tNl3Voice * vc = &v->voice[i];
+
+            if (  !ranked[i] && !(vc->active && vc->gate) && (rank_level(vc) < 0xFFFFu)
+               && ((pick < 0) || (rank_level(vc) < rank_level(&v->voice[pick])))) {
+                pick = (int)i;
+            }
+        }
+
+        bool spare = pick < 0;   // every voice left is held: the oldest, sparing the lowest key
+
+        for (uint32_t i = 0; (i < v->limit) && spare; i++) {
+            if (!ranked[i] && (v->voice[i].note != lowestHeld) && ((pick < 0) || (v->voice[i].started < v->voice[pick].started))) {
+                pick = (int)i;
+            }
+        }
+
+        for (uint32_t i = 0; (i < v->limit) && (pick < 0); i++) {
+            if (!ranked[i]) {
+                pick = (int)i;
+            }
+        }
+
+        ranked[pick] = true;
+        v->order[k]  = (uint8_t)pick;
+    }
+
+    v->orderNext = 0;
+}
+
 void nl3_voices_note_on(tNl3Voices * v, const tNl3Sound * sound, uint8_t note, float velocity) {
     tNl3Voice * pick = NULL;
 
@@ -289,8 +360,7 @@ void nl3_voices_note_on(tNl3Voices * v, const tNl3Sound * sound, uint8_t note, f
     }
     v->heldCount             = 0;
 
-    // voices notes §34: the same key again lets its sounding voice go on releasing and takes another; a free voice, else
-    // the quietest let go, else the oldest
+    // voices notes §34: the same key again lets its sounding voice go on releasing and takes another
     for (uint32_t i = 0; i < v->limit; i++) {
         if (v->voice[i].active && v->voice[i].gate && (v->voice[i].note == note)) {
             v->voice[i].gate = false;
@@ -302,46 +372,21 @@ void nl3_voices_note_on(tNl3Voices * v, const tNl3Sound * sound, uint8_t note, f
         }
     }
 
-    for (uint32_t i = 0; (i < v->limit) && (pick == NULL); i++) {
-        if (!v->voice[i].active) {
-            pick = &v->voice[i];
-        }
-    }
+    pick                     = &v->voice[v->order[v->orderNext % v->limit]]; // voices notes §28
+    v->orderNext             = (v->orderNext + 1) % v->limit;
 
-    bool anyFree     = (pick != NULL);      // the same key, or a free voice
-
-    // voices notes §28: all busy - the quietest voice already let go, else the oldest still held
-    for (uint32_t i = 0; (i < v->limit) && !anyFree; i++) {
-        if (!v->voice[i].gate && ((pick == NULL) || (v->voice[i].amp.level < pick->amp.level))) {
-            pick = &v->voice[i];
-        }
-    }
-
-    if (pick == NULL) {
-        pick = &v->voice[0];
-
-        for (uint32_t i = 1; i < v->limit; i++) {
-            if (v->voice[i].started < pick->started) {
-                pick = &v->voice[i];
-            }
-        }
-    }
     bool wasSounding = pick->active;
 
-    pick->active    = true;
-    pick->gate      = true;
-    pick->note      = note;
-    pick->velocity  = velocity;
+    pick->active             = true;
+    pick->gate               = true;
+    pick->note               = note;
+    pick->velocity           = velocity;
 
-    // voices notes §8
-    if (!sound->oscsFree) {
-        memset(pick->phase, 0, sizeof(pick->phase));
-    }
     start_glide(v, sound, pick, note, false);
     set_pitch(pick, sound);
 
-    pick->started   = ++v->clock;
-    pick->noiseSeed = pick->noiseSeed ? pick->noiseSeed : (uint32_t)((v->clock * 2654435761u) | 1u);
+    pick->started            = ++v->clock;
+    pick->noiseSeed          = pick->noiseSeed ? pick->noiseSeed : (uint32_t)((v->clock * 2654435761u) | 1u);
     lfo_restart(pick, sound);
 
     for (int l = 0; (l < NL3_LFOS) && !wasSounding; l++) {
@@ -359,6 +404,7 @@ void nl3_voices_note_on(tNl3Voices * v, const tNl3Sound * sound, uint8_t note, f
     if (pick->amp.level <= 0.0) {
         nl3_filter_reset(&pick->filter);    // a voice starting from silence starts with a quiet filter
     }
+    rank_voices(v);
 }
 
 static void release_note(tNl3Voices * v, const tNl3Sound * sound, uint8_t note);
@@ -367,6 +413,7 @@ static void release_note(tNl3Voices * v, const tNl3Sound * sound, uint8_t note);
 void nl3_voices_note_off(tNl3Voices * v, const tNl3Sound * sound, uint8_t note) {
     if (sound->pedal) {
         v->pedalled[note & 0x7F] = true;
+        rank_voices(v);   // voices notes §28: every note event ranks the voices again
         return;
     }
     release_note(v, sound, note);
@@ -396,6 +443,8 @@ static void release_note(tNl3Voices * v, const tNl3Sound * sound, uint8_t note) 
             }
         }
     }
+
+    rank_voices(v);
 }
 
 void nl3_voices_all_off(tNl3Voices * v) {
@@ -412,6 +461,8 @@ void nl3_voices_all_off(tNl3Voices * v) {
         memset(v->voice[i].env, 0, sizeof(v->voice[i].env));
         memset(v->voice[i].ring, 0, sizeof(v->voice[i].ring));   // voices notes §26: Unison's delayed copies
     }
+
+    rank_voices(v);
 }
 
 static void smooth_toward(tNl3Smooth * s, double target, double rate) {
