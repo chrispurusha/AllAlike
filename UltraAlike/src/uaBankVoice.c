@@ -125,11 +125,28 @@ void ua_bank_voices_note_on(tUaBankVoices * v, const tEmuPreset * preset, const 
     }
 }
 
-// notes §1: every note off releases
-void ua_bank_voices_note_off(tUaBankVoices * v, uint8_t note) {
+// notes §1: every note off releases - unless the sustain pedal is down, which holds the voice until it lifts (§9)
+void ua_bank_voices_note_off(tUaBankVoices * v, uint8_t note, bool pedal) {
     for (int i = 0; i < UA_BANK_VOICES; i++) {
-        if (v->voice[i].active && (v->voice[i].note == note)) {
-            ua_eos_env_release(&v->voice[i].env);
+        tUaBankVoice * voice = &v->voice[i];
+
+        if (voice->active && (voice->note == note) && !voice->pedalHeld) {
+            if (pedal) {
+                voice->pedalHeld = true;
+            } else {
+                ua_eos_env_release(&voice->env);
+            }
+        }
+    }
+}
+
+void ua_bank_voices_pedal_up(tUaBankVoices * v) {
+    for (int i = 0; i < UA_BANK_VOICES; i++) {
+        tUaBankVoice * voice = &v->voice[i];
+
+        if (voice->active && voice->pedalHeld) {
+            voice->pedalHeld = false;
+            ua_eos_env_release(&voice->env);
         }
     }
 }

@@ -42,7 +42,7 @@ extern const tUaEosEnvelope gUaEosDefaultEnvelope;                              
 double ua_eos_level_gain(double percent, int depth);                                 // notes §2
 double ua_eos_speed_db(int rate, int depth);                                         // notes §3: dB a second, decay and release
 double ua_eos_attack_time(int rate, int depth);                                      // notes §4: seconds for silence to full
-void ua_eos_from_times(const tEmuEnvelope * times, int depth, tUaEosEnvelope * out); // notes §5
+void ua_eos_from_bank(const tEmuEnvelope * stored, tUaEosEnvelope * out);            // notes §5
 
 void ua_eos_env_start(tUaEosEnvState * s, double fromGain);
 void ua_eos_env_release(tUaEosEnvState * s);

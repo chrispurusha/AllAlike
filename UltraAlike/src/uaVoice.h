@@ -56,6 +56,7 @@ typedef struct {
     bool           nonTranspose; // every key at the root's pitch
     bool           solo;         // any Solo mode but Off: a new note ends the ones sounding
     bool           loose;        // a loose sample, played as a one-voice preset: its root is rootKey
+    bool           pedal;        // the sustain pedal is down: a note off leaves its voices sounding
 } tUaPlay;
 
 typedef struct {

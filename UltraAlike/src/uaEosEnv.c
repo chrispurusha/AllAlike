@@ -27,6 +27,7 @@
 #define LEVEL_TOP_G       (0.0072)
 #define ATTACK_DB         (34.0)                             // notes §4
 #define ATTACK_DEPTH_K    (0.2)
+#define EXB_RATE_SCALE    (254.0)                            // notes §5
 
 const tUaEosEnvelope gUaEosDefaultEnvelope = {
     .rate  = {  0,   0,   0,   0, 30, 0},
@@ -67,54 +68,16 @@ double ua_eos_attack_time(int rate, int depth) {
     return (ATTACK_DB / speed16(rate)) * (1.0 + (ATTACK_DEPTH_K * (16.0 - (double)depth) / 16.0));
 }
 
-// notes §5: the rate whose time over the stage's distance is nearest the time given
-static uint8_t rate_for(double seconds, double distance, bool attack, int depth) {
-    uint8_t best = 0;
-    double  err  = INFINITY;
-
-    if ((seconds <= 0.0) || (distance <= 0.0)) {
-        return 0;
-    }
-
-    for (int r = 1; r < 128; r++) {
-        double t = attack ? ua_eos_attack_time(r, depth) * distance : distance / ua_eos_speed_db(r, depth);
-        double e = fabs(log(t / seconds));
-
-        if (e < err) {
-            err  = e;
-            best = (uint8_t)r;
-        }
-    }
-
-    return best;
-}
-
-static double to_db(double gain, int depth) {
-    return (gain > 0.0) ? 20.0 * log10(gain) : -SPAN_DB(depth);
-}
-
-void ua_eos_from_times(const tEmuEnvelope * times, int depth, tUaEosEnvelope * out) {
-    if ((times == NULL) || !times->present) {
+// notes §5: an Emulator X bank stores each stage's rate as a fraction, 0.5 for rate 127
+void ua_eos_from_bank(const tEmuEnvelope * stored, tUaEosEnvelope * out) {
+    if ((stored == NULL) || !stored->present) {
         *out = gUaEosDefaultEnvelope;
         return;
     }
-    double from = 0.0, held = 0.0;
 
     for (int s = 0; s < UA_EOS_STAGES; s++) {
-        double pct = fmin(100.0, fmax(0.0, times->level[s]));
-        double to  = ua_eos_level_gain(pct, depth);
-
-        if (s == 4) {
-            from = held;   // the releases start from the held level
-        }
-        out->level[s] = (uint8_t)lround(pct);
-        out->rate[s]  = (s < 2) ? rate_for(times->time[s], fabs(to - from), true, depth)
-                        : rate_for(times->time[s], fabs(to_db(to, depth) - to_db(from, depth)), false, depth);
-        from          = to;
-
-        if (s == 3) {
-            held = to;
-        }
+        out->rate[s]  = (uint8_t)lround(fmin(127.0, fmax(0.0, stored->time[s] * EXB_RATE_SCALE)));
+        out->level[s] = (uint8_t)lround(fmin(100.0, fmax(0.0, stored->level[s])));
     }
 }
 
@@ -131,6 +94,10 @@ void ua_eos_env_release(tUaEosEnvState * s) {
 
 bool ua_eos_env_done(const tUaEosEnvState * s) {
     return s->stage >= 7;
+}
+
+static double to_db(double gain, int depth) {
+    return (gain > 0.0) ? 20.0 * log10(gain) : -SPAN_DB(depth);
 }
 
 // notes §6: each stage moves toward its level at its rate - attacks straight in gain, the rest straight in dB - and

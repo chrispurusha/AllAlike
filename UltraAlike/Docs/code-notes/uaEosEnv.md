@@ -22,10 +22,10 @@ scales with the range: twice the dB a second at depth 0.
 Close to straight in gain, on the same speed scale: silence to full in about 34 dB's worth of the decay speed at depth
 16, a fifth longer at depth 0. The curve's exact shape changes with the depth and is not modelled.
 
-## 5. A bank's times as rates
-An Emulator X bank stores each stage as a time and a level. On load each stage becomes the rate whose speed covers the
-stage's distance (in gain for attacks, in dB for the rest, from the previous stage's level; the releases from the held
-level) in that time, at the default depth.
+## 5. A bank's rates
+An Emulator X bank stores each stage's rate as a fraction with 0.5 for rate 127 (SynthLib emuBank §7): the rate here
+is that x 254, clamped to 0-127, and the level its percent. Not yet confirmed against Emulator X itself; the factory
+content plays sensibly with it (a piano decays over ~24 s and releases in ~1 s).
 
 ## 6. Running
 `ua_eos_env_step()` moves the gain toward each stage's level at its rate, attacks in gain and the rest in dB; a stage to

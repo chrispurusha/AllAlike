@@ -67,3 +67,6 @@ Non-Transpose, Root (a loose sample's), Low and High keys; PLAY - Solo with the 
 Pan, Velocity; AMP ENV RATE and LEVEL - the six stages and Depth (uaEosEnv); GLOBAL. Root greys while Non-Transpose
 is on. OneShot's Mode, Voices, envelope type, Attack/Hold/Decay/Sustain/Release and curves are hidden and do nothing;
 Coarse, Fine, Volume and Non-Transpose reuse old ids with new ranges - projects from before do not carry over.
+
+## 15. Sustain Pedal
+Hidden, not saved, driven by CC 64; 0-127 as the controller sends it.

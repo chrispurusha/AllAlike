@@ -43,6 +43,7 @@ typedef struct {
     tUaEosEnvelope     amp;        // notes §6: its amplifier envelope, the dials' edits included
     tUaEosEnvState     env;
     uint8_t            note;
+    bool               pedalHeld;  // notes §9: its key is up, the sustain pedal holds it
     bool               active;
     uint32_t           age;
 } tUaBankVoice;
@@ -60,7 +61,8 @@ void ua_bank_voices_stop(tUaBankVoices * v);
 void ua_bank_voices_fade_all(tUaBankVoices * v);
 // notes §1: every zone of the preset whose keys and velocities hold the note
 void ua_bank_voices_note_on(tUaBankVoices * v, const tEmuPreset * preset, const tUaEosEnvelope * envs, const tUaEosEnvelope * ref, const tUaPlay * play, uint8_t note, float velocity);
-void ua_bank_voices_note_off(tUaBankVoices * v, uint8_t note);
+void ua_bank_voices_note_off(tUaBankVoices * v, uint8_t note, bool pedal);
+void ua_bank_voices_pedal_up(tUaBankVoices * v);   // notes §9: releases what the pedal held
 void ua_bank_voices_render(tUaBankVoices * v, const tUaPlay * play, float * left, float * right, uint32_t frames);
 bool ua_bank_voices_use_other_than(const tUaBankVoices * v, const tEmuPreset * preset);
 

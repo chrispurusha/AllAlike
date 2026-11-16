@@ -70,6 +70,7 @@ enum {
     kUaParamDcy2Level,
     kUaParamRls1Level,
     kUaParamRls2Level,
+    kUaParamSustainPedal,    // notes §15: CC 64, not on the panel, not saved
     kUaParamCount
 };
 

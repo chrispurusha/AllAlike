@@ -108,3 +108,8 @@ through the host; a project reopened does not, so edited dials keep their edit. 
 Loading a sample also makes a program around it - one zone over every key and velocity, its envelope the dials' - so it
 plays through the bank voices, as the E5000 plays a sample through a voice. The program borrows the sample's data and
 is retired with it; the sample stays installed for the waveform. The sample player (uaVoice, uaCache) is not used.
+
+## 17. The sustain pedal
+CC 64 drives a hidden parameter (its `midiControl` is SYNTHLIB_MIDI_SUSTAIN, which both wrappers map), not saved, so a
+project never reopens with the pedal down. Down is 64 and above. Read once a block: a lift releases what the pedal
+held (uaBankVoice §9) before the block's notes play.

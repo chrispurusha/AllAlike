@@ -36,3 +36,7 @@ Any Solo mode but Off plays one note at a time: a new note fades out what is sou
 ## 8. Pitch
 A note plays at the sample's rate times 2^((note - root + Transpose + Coarse + Fine / 64) / 12), the root the zone's
 or, for a loose sample, the Root dial; Non-Transpose plays every key at the root's pitch.
+
+## 9. The sustain pedal
+With the pedal down a note off leaves its voices sounding, marked as held by the pedal; when it lifts, every voice so
+held releases. A held voice whose key is struck again keeps sounding beside the new note, as the voices do anyway.

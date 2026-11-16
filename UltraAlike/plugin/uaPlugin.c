@@ -103,6 +103,7 @@ typedef struct {
     _Atomic(tUaSample *) sample;                 // the one notes play; swapped by the main thread
     _Atomic(tUaProgram *) program;               // notes §12: or a bank's preset; never both
     tUaBankVoices      bankVoices;
+    bool               pedalWas;                 // audio thread: the sustain pedal was down last block
     const tUaProgram * playingProgram;           // audio thread: the program its bank voices were last given
     _Atomic uint32_t   generation;               // bumped after each swap
     _Atomic uint32_t   acknowledged;             // the audio thread: no voice plays anything older
@@ -188,7 +189,7 @@ static void eos_envelopes(tUaProgram * program) {
     program->envRef = gUaEosDefaultEnvelope;
 
     for (uint32_t z = 0; z < program->zones.zoneCount; z++) {
-        ua_eos_from_times(&program->zones.zone[z].amp, 0, &program->env[z]);
+        ua_eos_from_bank(&program->zones.zone[z].amp, &program->env[z]);
 
         if (z == 0) {
             program->envRef = program->env[0];
@@ -581,6 +582,7 @@ static tUaPlay make_play(const tUaLayer * l) {
         .depth        = (int)step(l, kUaParamEnvDepth),
         .nonTranspose = step(l, kUaParamKeyTrack) > 0,
         .solo         = step(l, kUaParamSolo) > 0,
+        .pedal        = step(l, kUaParamSustainPedal) >= 64,
     };
 }
 
@@ -654,7 +656,7 @@ static void play(tUaPlugin * t, const tUaSample *const * sample, const tUaProgra
 
         if (!e->on) {
             ua_voices_note_off(&l->voices, &p[i], e->note);
-            ua_bank_voices_note_off(&l->bankVoices, e->note);
+            ua_bank_voices_note_off(&l->bankVoices, e->note, p[i].pedal);
         } else if (muted(l) || !in_range(l, e->note)) {
             continue;
         } else if (program[i] != NULL) {   // notes §12, §16
@@ -752,6 +754,11 @@ static void ua_process(void * inst, const float *const * in, uint32_t numIn, flo
         program[i]       = atomic_load(&l->program);
         p[i]             = make_play(l);
         p[i].loose       = (program[i] != NULL) && program[i]->loose;   // notes §16
+
+        if (l->pedalWas && !p[i].pedal) {   // notes §17: the pedal lifted - what it held releases
+            ua_bank_voices_pedal_up(&l->bankVoices);
+        }
+        l->pedalWas      = p[i].pedal;
         fx[i]            = make_fx(l);
         fx[i].oversample = oversampling;
         apply_stretch(l, t->hostTempo, &p[i]);
@@ -801,7 +808,7 @@ static void ua_process(void * inst, const float *const * in, uint32_t numIn, flo
         t->auditionLeft = (t->auditionLeft > frames) ? (t->auditionLeft - frames) : 0;
 
         for (int i = 0; (t->auditionLeft == 0) && (i < UA_LAYERS); i++) {
-            ua_bank_voices_note_off(&t->layer[i].bankVoices, t->auditionKey);
+            ua_bank_voices_note_off(&t->layer[i].bankVoices, t->auditionKey, false);
         }
     }
 
