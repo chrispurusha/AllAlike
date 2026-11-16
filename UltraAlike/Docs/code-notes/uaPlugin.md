@@ -113,3 +113,8 @@ is retired with it; the sample stays installed for the waveform. The sample play
 CC 64 drives a hidden parameter (its `midiControl` is SYNTHLIB_MIDI_SUSTAIN, which both wrappers map), not saved, so a
 project never reopens with the pedal down. Down is 64 and above. Read once a block: a lift releases what the pedal
 held (uaBankVoice §9) before the block's notes play.
+
+## 18. Output headroom
+The output is half the engine's level, 6 dB down, as in every Alike (AllAlike feature status, "Output headroom"), so
+a loud preset or a chord stays under full scale in the host. It is the last step, folded into Polarity's sign. The
+engine and its offline harnesses keep the instrument's own level for comparisons with the E5000.

@@ -38,7 +38,8 @@ Missing everywhere, or built in one and wanted in the others:
   until then.
 - **Output headroom, 6 dB** (CT 2026-11-07/08), in every Alike: the output is half the instrument's own level, applied
   after the instrument's own ceiling or limit so its clipping is unchanged; each render tool keeps the instrument's
-  level for comparisons (Pulse2Alike's doubles it back, the others render the engine directly).
+  level for comparisons (Pulse2Alike's doubles it back, the others render the engine directly). UltraAlike too since
+  2026-11-16.
 - **Tempo is always the host's** (CT 2026-11-07), in every Alike, with no tempo setting: 120 BPM until the host gives
   one, then the last it gave, kept when it stops giving one (a stopped transport). A sound's own tempo or arp tempo is
   kept with the sound but not used. Built in all four. Sync itself stays the sound's choice where the instrument has

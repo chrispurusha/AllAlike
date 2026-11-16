@@ -61,6 +61,7 @@ static const uint8_t gControllerUid[16] = {0x89, 0x27, 0xA3, 0xC2, 0x6D, 0x97, 0
 #define MAX_EVENTS            (256)
 #define MAX_RETIRED           (64)
 #define AUDITION_VELOCITY     (0.8f)
+#define OUTPUT_HEADROOM       (0.5f)  // notes §18: 6 dB under the instrument's level
 #define AUDITION_HOLD_S       (1.0)   // notes §12: a program's audition, held
 #define PATH_LENGTH           (2048)
 
@@ -849,13 +850,14 @@ static void ua_process(void * inst, const float *const * in, uint32_t numIn, flo
         render(t, p, fx, left + done, (right != NULL) ? right + done : NULL, frames - done);
     }
 
-    if (p[0].invert) {   // notes §14: Polarity Inverted, as the E5000's main outputs
-        for (uint32_t k = 0; k < frames; k++) {
-            left[k] = -left[k];
+    // notes §18: 6 dB of headroom as every Alike; notes §14: Polarity Inverted, as the E5000's main outputs
+    float outGain = p[0].invert ? -OUTPUT_HEADROOM : OUTPUT_HEADROOM;
 
-            if (right != NULL) {
-                right[k] = -right[k];
-            }
+    for (uint32_t k = 0; k < frames; k++) {
+        left[k] *= outGain;
+
+        if (right != NULL) {
+            right[k] *= outGain;
         }
     }
 

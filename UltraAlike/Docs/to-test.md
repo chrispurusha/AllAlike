@@ -16,3 +16,4 @@ Built but not yet checked in a host or against the instrument. Confirmed: delete
 - Emulator X envelopes read as rates (11-16, uaEosEnv §5, SynthLib emuBank §7): 9ft Grand Piano decays over ~20 s and releases in ~1 s; check pads, plucks and drums sound the right length - the x254 scale is inferred from the library, not confirmed against Emulator X
 - Sustain pedal (11-16, uaBankVoice §9, uaPlugin §17): CC 64 holds released notes on the piano until the pedal lifts, in the VST3 and the AU
 - Pitch bend and mod wheel (11-16, uaBankVoice §10, uaParams §16): the wheel bends held and releasing notes by Bend Range (default 2); the mod wheel is received but drives nothing yet
+- Output headroom (11-16, uaPlugin notes §18): the plug-in plays 6 dB quieter than before, as the other Alikes; Polarity still flips it
