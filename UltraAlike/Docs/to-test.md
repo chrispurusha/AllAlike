@@ -9,3 +9,7 @@ Built but not yet checked in a host or against the instrument. Confirmed: delete
 - Bank amplifier envelopes (uaBankVoice notes §3): plucked and held presets against Emulator X3 - stage times and the shape of each segment
 - Panel tidied (uaParams notes §12): PITCH, PLAY, OUTPUT, ENVELOPE only; nothing a bank preset ignores
 - One preset or sample an instance (uaPlugin notes §13): no tabs; a project reopens on its bank and preset
+- Bank envelopes in the E5000's shape (11-16, uaBankVoice notes §5): decays and releases straight in dB, levels on the measured law (50% is ~44 dB down, not 6) - play a few Emulator X presets, especially pads with low sustains, and say whether they now sit right or fall too quiet
+- Anti-alias Off and Polarity on the GLOBAL section (11-16): play a bank preset high and low with Anti-alias Off and listen for the E5000's air; Polarity Inverted flips the output
+- ENVELOPE dials on a bank preset (11-16, uaBankVoice §6, uaPlugin §15): loading or stepping a preset moves Attack/Decay/Sustain/Release to its envelope (Hold Inf, AHDSR); turning one changes that stage of every voice in proportion; reopening a project keeps an edited dial's sound; the preset line reads P000...
+- The E5000 panel (11-16): PITCH/PLAY/OUTPUT/AMP ENV RATE/LEVEL/GLOBAL - a preset's rates and levels land on the dials, and turning one moves every voice; a loose WAV plays through the same voice with the dials' envelope; Solo plays one note at a time

@@ -13,10 +13,26 @@ The interpolator's taps either side of the seam are gathered in the order they s
 loop's start again; once looping, before the loop start, the loop's end - so the seam reads as one continuous
 signal. Away from the seam it reads the sample directly.
 
-## 3. The bank's amplifier envelope
-A zone whose voice holds an envelope (SynthLib emuBank §5) plays through it rather than the layer's: Attack 1, Attack 2,
-Decay 1 and Decay 2 in turn, each a straight line from where the level is to the stage's level in the stage's time (a
-time of 0 jumps), Decay 2's level held while the key is down; at the note off Release 1 and Release 2 the same way
-from wherever it is, and the voice ends after Release 2. A voice taken over while sounding starts from its level. The
-segments' shape is not measured: a straight line in level until Emulator X3 or the E5000 says otherwise. The layer's
-envelope dials do nothing to such a zone.
+## 3. The amplifier envelope
+Every voice plays the E5000's envelope (uaEosEnv): the zone's own, converted from the bank's times when the preset
+was made, with the AMP ENVELOPE dials' edits (§6). A loose sample plays as a one-voice preset (uaPlugin §16) with the
+dials' envelope.
+
+## 4. Anti-alias Off
+A note started with Anti-alias Off reads through the E5000's own kernels (uaEmuInterp) instead of uaResample: the
+kernel chosen once, from the note's ratio, at the note on. The loop seam is gathered the same either way; the reach
+around the seam and the end of a one-shot are the kernel's own length.
+
+## 6. The AMP ENVELOPE dials
+The dials show a preset's first voice's rates and levels when it is chosen in the editor (uaPlugin §15). At a note on
+each voice's envelope gets every dial's movement since then added, step for step - a rate up 5 is 5 steps faster in
+every voice - clamped to 0-127 and 0-100%. Untouched dials leave every voice as converted. A loose sample's envelope
+is the dials' own.
+
+## 7. Solo
+Any Solo mode but Off plays one note at a time: a new note fades out what is sounding. The modes' differences
+(retrigger, legato, priority, fingered glide) are not built yet.
+
+## 8. Pitch
+A note plays at the sample's rate times 2^((note - root + Transpose + Coarse + Fine / 64) / 12), the root the zone's
+or, for a loose sample, the Root dial; Non-Transpose plays every key at the root's pitch.

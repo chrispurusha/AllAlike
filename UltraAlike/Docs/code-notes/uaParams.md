@@ -1,8 +1,7 @@
 # uaParams.c
 
 ## 1. Volume
-0 is silence; 1-127 run from -57 to +6 dB in 0.5 dB steps, so 0 dB is step 115 and the default, -6 dB (CT 2026-11-09),
-step 103 - each a step of its own. It was a square law on dial/100 at first, on which no step reached -6 dB.
+-96 to +10 dB in 1 dB steps, as the E5000's; -96 is silence, 0 dB the default.
 
 ## 2. Note names
 Middle C (60) is C3, as Ableton names it.
@@ -54,3 +53,17 @@ envelope curves, Stretch, its filter and saturation came across with the skeleto
 sampler, so they are off the panel and hidden from hosts (2026-11-14); they stay in the parameter list at their
 defaults, where they do nothing, and the engine code that serves them is untouched. The Z-plane filters will take the
 filter's place.
+
+## 13. Global
+Anti-alias, On/Off, default On (clean): Off plays a bank's notes through the E5000's own interpolation, images and
+aliasing included (uaEmuInterp). Polarity, Normal/Inverted, default Normal: the E5000's main outputs are inverted
+(measured 2026-11-16; its sub outputs are not), which owners often correct, so Normal is the corrected sound and
+Inverted the main outputs as they come. Both appended at the end, so older projects open with the defaults. A
+section of their own on the panel, as GLOBAL.
+
+## 14. The E5000's controls (2026-11-16)
+The panel is the E5000's: PITCH - Transpose (+/-24), Coarse (+/-36), Fine (+/-64, 1/64 semitone each, as E-mu's),
+Non-Transpose, Root (a loose sample's), Low and High keys; PLAY - Solo with the E5000's nine modes; OUTPUT - Volume,
+Pan, Velocity; AMP ENV RATE and LEVEL - the six stages and Depth (uaEosEnv); GLOBAL. Root greys while Non-Transpose
+is on. OneShot's Mode, Voices, envelope type, Attack/Hold/Decay/Sustain/Release and curves are hidden and do nothing;
+Coarse, Fine, Volume and Non-Transpose reuse old ids with new ranges - projects from before do not carry over.

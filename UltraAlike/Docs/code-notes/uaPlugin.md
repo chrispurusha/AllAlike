@@ -95,3 +95,16 @@ preset (its voices) and across presets (links), not with four independent sample
 layer machinery stays but holds one: parameter ids are unchanged (the first layer's were the plain ones), their names
 lose the layer number, Mute is hidden, and the project format is `UAS5` (its length follows the layer count; no
 project from before exists to carry over). The tabs, Mute and Clear are off the panel (uaDraw §21).
+
+## 14. Polarity
+Inverted flips the whole output, after every layer is summed.
+
+## 15. A preset's envelope on the dials
+Making a program converts every zone's amplifier envelope to rates and levels (uaEosEnv §5) and keeps the first zone's
+as the dials' reference. A preset chosen in the editor (Load..., Prev, Next) puts that on the AMP ENVELOPE dials
+through the host; a project reopened does not, so edited dials keep their edit. The preset line counts from P000.
+
+## 16. A loose sample is a one-voice preset
+Loading a sample also makes a program around it - one zone over every key and velocity, its envelope the dials' - so it
+plays through the bank voices, as the E5000 plays a sample through a voice. The program borrows the sample's data and
+is retired with it; the sample stays installed for the waveform. The sample player (uaVoice, uaCache) is not used.

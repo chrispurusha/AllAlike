@@ -53,6 +53,23 @@ enum {
     kUaParamSatOutput,
     kUaParamSatWarmth,
     kUaParamSatHf,
+    kUaParamAntiAlias,
+    kUaParamPolarity,
+    kUaParamTranspose,       // notes §14: the E5000's controls from here
+    kUaParamSolo,
+    kUaParamEnvDepth,
+    kUaParamAtk1Rate,
+    kUaParamAtk2Rate,
+    kUaParamDcy1Rate,
+    kUaParamDcy2Rate,
+    kUaParamRls1Rate,
+    kUaParamRls2Rate,
+    kUaParamAtk1Level,
+    kUaParamAtk2Level,
+    kUaParamDcy1Level,
+    kUaParamDcy2Level,
+    kUaParamRls1Level,
+    kUaParamRls2Level,
     kUaParamCount
 };
 
@@ -62,7 +79,8 @@ extern const uint32_t       gUaPageCount;
 
 // The text a host and the panel show for a parameter's value
 void ua_param_text(uint32_t id, double normalized, char * out, size_t len);
-double ua_volume_gain(double normalized);
+double ua_volume_gain(double normalized);                              // notes §1: -96 to +10 dB
+double ua_fine_semitones(double normalized);                           // notes §14: E-mu's 1/64 semitone steps
 double ua_start_time(double normalized);                               // notes §5: seconds into the sample
 double ua_stretch_multiple(double normalized);                         // notes §6: x0.25 to x4
 double ua_base_tempo(double normalized);                               // BPM

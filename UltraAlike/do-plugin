@@ -105,6 +105,8 @@ SOURCES=(
     "$HERE/src/uaBankVoice.c"
     "$HERE/src/uaEnvelope.c"
     "$HERE/src/uaResample.c"
+    "$HERE/src/uaEmuInterp.c"
+    "$HERE/src/uaEosEnv.c"
     "$HERE/src/uaCache.c"
     "$HERE/src/uaFx.c"
     "$HERE/src/uaStretch.cpp"

@@ -23,28 +23,28 @@
 #include <stdint.h>
 
 #include "emuBank.h"
+#include "uaEosEnv.h"
 #include "uaEnvelope.h"
 #include "uaVoice.h"
 
 #define UA_BANK_VOICES    (64)
 
 typedef struct {
-    const tEmuPreset *   preset;   // what started it: kept in memory while it sounds
-    const tEmuSample *   sample;
-    double               position; // in the sample's frames
-    double               step;     // frames per output frame
-    double               cutoff;   // the interpolator's bandwidth for that step
-    bool                 looping;  // notes §2: has passed its loop's end at least once
-    double               level;    // velocity's part
-    double               fade;     // 1 while sounding; falls to 0 when stolen
-    double               fadeStep;
-    tUaEnv               env;      // the layer's, when the bank gives the voice none
-    const tEmuEnvelope * amp;      // notes §3: the bank's amplifier envelope, or NULL
-    int                  stage;    // notes §3: 0-3 attack and decay, 4 sustain, 5-6 release, 7 done
-    double               ampLevel, ampFrom, ampAt;
-    uint8_t              note;
-    bool                 active;
-    uint32_t             age;
+    const tEmuPreset * preset;     // what started it: kept in memory while it sounds
+    const tEmuSample * sample;
+    double             position;   // in the sample's frames
+    double             step;       // frames per output frame
+    double             cutoff;     // the interpolator's bandwidth for that step
+    int                emu;        // notes §4: the E-mu kernel (uaEmuInterp) read with Anti-alias Off, or -1
+    bool               looping;    // notes §2: has passed its loop's end at least once
+    double             level;      // velocity's part
+    double             fade;       // 1 while sounding; falls to 0 when stolen
+    double             fadeStep;
+    tUaEosEnvelope     amp;        // notes §6: its amplifier envelope, the dials' edits included
+    tUaEosEnvState     env;
+    uint8_t            note;
+    bool               active;
+    uint32_t           age;
 } tUaBankVoice;
 
 typedef struct {
@@ -59,7 +59,7 @@ void ua_bank_voices_init(tUaBankVoices * v, double hostRate);
 void ua_bank_voices_stop(tUaBankVoices * v);
 void ua_bank_voices_fade_all(tUaBankVoices * v);
 // notes §1: every zone of the preset whose keys and velocities hold the note
-void ua_bank_voices_note_on(tUaBankVoices * v, const tEmuPreset * preset, const tUaPlay * play, uint8_t note, float velocity);
+void ua_bank_voices_note_on(tUaBankVoices * v, const tEmuPreset * preset, const tUaEosEnvelope * envs, const tUaEosEnvelope * ref, const tUaPlay * play, uint8_t note, float velocity);
 void ua_bank_voices_note_off(tUaBankVoices * v, uint8_t note);
 void ua_bank_voices_render(tUaBankVoices * v, const tUaPlay * play, float * left, float * right, uint32_t frames);
 bool ua_bank_voices_use_other_than(const tUaBankVoices * v, const tEmuPreset * preset);

@@ -23,6 +23,7 @@
 #include <stdint.h>
 
 #include "uaEnvelope.h"
+#include "uaEosEnv.h"
 #include "uaCache.h"
 #include "uaSample.h"
 
@@ -30,23 +31,31 @@
 
 // What a note plays with, read from the parameters once a block
 typedef struct {
-    double      tune;     // semitones, fine included
-    double      velocity; // 0..1: how much velocity moves the level
-    bool        keyTrack;
-    int         rootKey;
-    bool        gate;        // a note off starts the release; otherwise the note off is ignored
-    bool        mono;        // a new note fades out the ones still sounding
-    double      pan;         // -1..1
-    double      gain;        // linear
-    tUaEnvShape env;
-    double      start;       // seconds into the sample
-    bool        snap;        // to the nearest zero crossing
-    bool        reverse;     // notes §6: the sample backwards; Start counts from its end
-    double      stretch;     // notes §8: the length's multiple, tempo included; 1 is off
-    double      protect;     // seconds of the original kept as they are when stretched
-    bool        protectSnap; // notes §11: its end to the nearest zero crossing (its own switch, not Snap)
-    double      end;         // notes §9: where a note stops, 0..1 of the length as played; 1 the whole
-    double      delay;       // notes §10: seconds a note waits before it sounds
+    double         tune;     // semitones, fine included
+    double         velocity; // 0..1: how much velocity moves the level
+    bool           keyTrack;
+    int            rootKey;
+    bool           gate;         // a note off starts the release; otherwise the note off is ignored
+    bool           mono;         // a new note fades out the ones still sounding
+    double         pan;          // -1..1
+    double         gain;         // linear
+    tUaEnvShape    env;
+    double         start;        // seconds into the sample
+    bool           snap;         // to the nearest zero crossing
+    bool           reverse;      // notes §6: the sample backwards; Start counts from its end
+    double         stretch;      // notes §8: the length's multiple, tempo included; 1 is off
+    double         protect;      // seconds of the original kept as they are when stretched
+    bool           protectSnap;  // notes §11: its end to the nearest zero crossing (its own switch, not Snap)
+    double         end;          // notes §9: where a note stops, 0..1 of the length as played; 1 the whole
+    double         delay;        // notes §10: seconds a note waits before it sounds
+    bool           antiAlias;    // Off: a bank's notes read through the E-mu kernels (uaEmuInterp), aliasing as it does
+    bool           invert;       // the output's polarity flipped, as the E5000's main outputs are
+    // the E5000's own controls (uaBankVoice), which a bank preset and a loose sample both play through
+    tUaEosEnvelope eosEnv;       // the AMP ENVELOPE dials
+    int            depth;        // its range: 96 - 3 x depth dB
+    bool           nonTranspose; // every key at the root's pitch
+    bool           solo;         // any Solo mode but Off: a new note ends the ones sounding
+    bool           loose;        // a loose sample, played as a one-voice preset: its root is rootKey
 } tUaPlay;
 
 typedef struct {

@@ -16,50 +16,69 @@
 
 // id, title, short title, unit, plain min, plain max, default (normalized), steps, MIDI, flags
 const tSynthLibParam gUaParams[kUaParamCount] = {
-    {kUaParamVolume,       "Volume",        "Volume",  GEN,                       0.0,  127.0,  103.0 / 127.0,  127, NONE,                            0},
-    {kUaParamPan,          "Pan",           "Pan",     GEN,                       0.0,  127.0,   64.0 / 127.0,  127, NONE,                            0},
-    {kUaParamTune,         "Tune",          "Tune",    eSynthLibUnitSemitones,  -24.0,   24.0,            0.5,   48, NONE,                            0},
-    {kUaParamFine,         "Fine Tune",     "Fine",    GEN,                     -50.0,   50.0,            0.5,  100, NONE,                            0},
-    {kUaParamVelocity,     "Velocity",      "Vel",     GEN,                       0.0,  127.0,  100.0 / 127.0,  127, NONE,                            0},
-    {kUaParamKeyTrack,     "Key Track",     "Keys",    IDX,                       0.0,    1.0,            0.0,    1, NONE, LIST                        },
-    {kUaParamRootKey,      "Root Key",      "Root",    GEN,                       0.0,  127.0,   60.0 / 127.0,  127, NONE,                            0},
-    {kUaParamMode,         "Mode",          "Mode",    IDX,                       0.0,    1.0,            0.0,    1, NONE, LIST                        },
-    {kUaParamVoices,       "Voices",        "Voices",  IDX,                       0.0,    1.0,            1.0,    1, NONE, LIST                        },
+    {kUaParamVolume,       "Volume",          "Volume",  GEN,                     -96.0,   10.0,   96.0 / 106.0,  106, NONE,                            0},
+    {kUaParamPan,          "Pan",             "Pan",     GEN,                       0.0,  127.0,   64.0 / 127.0,  127, NONE,                            0},
+    {kUaParamTune,         "Coarse",          "Coarse",  eSynthLibUnitSemitones,  -36.0,   36.0,            0.5,   72, NONE,                            0},
+    {kUaParamFine,         "Fine",            "Fine",    GEN,                     -64.0,   64.0,            0.5,  128, NONE,                            0},
+    {kUaParamVelocity,     "Velocity",        "Vel",     GEN,                       0.0,  127.0,  100.0 / 127.0,  127, NONE,                            0},
+    {kUaParamKeyTrack,     "Non-Transpose",   "NonTr",   IDX,                       0.0,    1.0,            0.0,    1, NONE, LIST                        },
+    {kUaParamRootKey,      "Root Key",        "Root",    GEN,                       0.0,  127.0,   60.0 / 127.0,  127, NONE,                            0},
+    {kUaParamMode,         "Mode",            "Mode",    IDX,                       0.0,    1.0,            0.0,    1, NONE, LIST | SYNTHLIB_PARAM_HIDDEN},
+    {kUaParamVoices,       "Voices",          "Voices",  IDX,                       0.0,    1.0,            1.0,    1, NONE, LIST | SYNTHLIB_PARAM_HIDDEN},
     // notes §3: the envelope; its defaults leave a sample as it is
-    {kUaParamEnvMode,      "Envelope",      "Env",     IDX,                       0.0,    1.0,            0.0,    1, NONE, LIST                        },
-    {kUaParamAttack,       "Attack",        "Attack",  GEN,                       0.0, 1000.0,            0.0, 1000, NONE,                            0},
-    {kUaParamHold,         "Hold",          "Hold",    GEN,                       0.0,  127.0,            1.0,  127, NONE,                            0},
-    {kUaParamDecay,        "Decay",         "Decay",   GEN,                       0.0,  127.0,   64.0 / 127.0,  127, NONE,                            0},
-    {kUaParamSustain,      "Sustain",       "Sustain", GEN,                       0.0,  127.0,            1.0,  127, NONE,                            0},
-    {kUaParamRelease,      "Release",       "Release", GEN,                       0.0,  127.0,   35.0 / 127.0,  127, NONE,                            0},
-    {kUaParamAttackCurve,  "Attack Curve",  "A Curve", GEN,                    -100.0,  100.0,  100.0 / 200.0,  200, NONE, SYNTHLIB_PARAM_HIDDEN       },
-    {kUaParamDecayCurve,   "Decay Curve",   "D Curve", GEN,                    -100.0,  100.0,  150.0 / 200.0,  200, NONE, SYNTHLIB_PARAM_HIDDEN       },
-    {kUaParamReleaseCurve, "Release Curve", "R Curve", GEN,                    -100.0,  100.0,  150.0 / 200.0,  200, NONE, SYNTHLIB_PARAM_HIDDEN       },
-    {kUaParamStart,        "Start",         "Start",   GEN,                       0.0, 1000.0,            0.0, 1000, NONE, SYNTHLIB_PARAM_HIDDEN       },
-    {kUaParamSnap,         "Snap to Zero",  "Snap",    IDX,                       0.0,    1.0,            1.0,    1, NONE, LIST | SYNTHLIB_PARAM_HIDDEN},
-    {kUaParamReverse,      "Reverse",       "Rev",     IDX,                       0.0,    1.0,            0.0,    1, NONE, LIST | SYNTHLIB_PARAM_HIDDEN},
+    {kUaParamEnvMode,      "Envelope",        "Env",     IDX,                       0.0,    1.0,            0.0,    1, NONE, LIST | SYNTHLIB_PARAM_HIDDEN},
+    {kUaParamAttack,       "Attack",          "Attack",  GEN,                       0.0, 1000.0,            0.0, 1000, NONE, SYNTHLIB_PARAM_HIDDEN       },
+    {kUaParamHold,         "Hold",            "Hold",    GEN,                       0.0,  127.0,            1.0,  127, NONE, SYNTHLIB_PARAM_HIDDEN       },
+    {kUaParamDecay,        "Decay",           "Decay",   GEN,                       0.0,  127.0,   64.0 / 127.0,  127, NONE, SYNTHLIB_PARAM_HIDDEN       },
+    {kUaParamSustain,      "Sustain",         "Sustain", GEN,                       0.0,  127.0,            1.0,  127, NONE, SYNTHLIB_PARAM_HIDDEN       },
+    {kUaParamRelease,      "Release",         "Release", GEN,                       0.0,  127.0,   35.0 / 127.0,  127, NONE, SYNTHLIB_PARAM_HIDDEN       },
+    {kUaParamAttackCurve,  "Attack Curve",    "A Curve", GEN,                    -100.0,  100.0,  100.0 / 200.0,  200, NONE, SYNTHLIB_PARAM_HIDDEN       },
+    {kUaParamDecayCurve,   "Decay Curve",     "D Curve", GEN,                    -100.0,  100.0,  150.0 / 200.0,  200, NONE, SYNTHLIB_PARAM_HIDDEN       },
+    {kUaParamReleaseCurve, "Release Curve",   "R Curve", GEN,                    -100.0,  100.0,  150.0 / 200.0,  200, NONE, SYNTHLIB_PARAM_HIDDEN       },
+    {kUaParamStart,        "Start",           "Start",   GEN,                       0.0, 1000.0,            0.0, 1000, NONE, SYNTHLIB_PARAM_HIDDEN       },
+    {kUaParamSnap,         "Snap to Zero",    "Snap",    IDX,                       0.0,    1.0,            1.0,    1, NONE, LIST | SYNTHLIB_PARAM_HIDDEN},
+    {kUaParamReverse,      "Reverse",         "Rev",     IDX,                       0.0,    1.0,            0.0,    1, NONE, LIST | SYNTHLIB_PARAM_HIDDEN},
     // notes §6: time-stretching
-    {kUaParamStretch,      "Stretch",       "Stretch", GEN,                    -200.0,  200.0,            0.5,  400, NONE, SYNTHLIB_PARAM_HIDDEN       },
-    {kUaParamSync,         "Tempo Sync",    "Sync",    IDX,                       0.0,    1.0,            0.0,    1, NONE, LIST | SYNTHLIB_PARAM_HIDDEN},
-    {kUaParamBaseTempo,    "Base Tempo",    "Base",    GEN,                      40.0,  240.0,            0.4,  400, NONE, SYNTHLIB_PARAM_HIDDEN       },
-    {kUaParamProtect,      "Protect",       "Protect", GEN,                       0.0, 1000.0, 236.0 / 1000.0, 1000, NONE, SYNTHLIB_PARAM_HIDDEN       },
-    {kUaParamEnd,          "End",           "End",     GEN,                       0.0,  100.0,            1.0, 1000, NONE, SYNTHLIB_PARAM_HIDDEN       },
-    {kUaParamDelay,        "Delay",         "Delay",   GEN,                       0.0, 1000.0,            0.0, 1000, NONE, SYNTHLIB_PARAM_HIDDEN       },
-    {kUaParamProtectSnap,  "Protect Snap",  "PSnap",   IDX,                       0.0,    1.0,            1.0,    1, NONE, LIST | SYNTHLIB_PARAM_HIDDEN},
-    {kUaParamLowKey,       "Low Key",       "Low",     GEN,                       0.0,  127.0,            0.0,  127, NONE,                            0},
-    {kUaParamHighKey,      "High Key",      "High",    GEN,                       0.0,  127.0,            1.0,  127, NONE,                            0},
-    {kUaParamMute,         "Mute",          "Mute",    IDX,                       0.0,    1.0,            0.0,    1, NONE, LIST | SYNTHLIB_PARAM_HIDDEN},
+    {kUaParamStretch,      "Stretch",         "Stretch", GEN,                    -200.0,  200.0,            0.5,  400, NONE, SYNTHLIB_PARAM_HIDDEN       },
+    {kUaParamSync,         "Tempo Sync",      "Sync",    IDX,                       0.0,    1.0,            0.0,    1, NONE, LIST | SYNTHLIB_PARAM_HIDDEN},
+    {kUaParamBaseTempo,    "Base Tempo",      "Base",    GEN,                      40.0,  240.0,            0.4,  400, NONE, SYNTHLIB_PARAM_HIDDEN       },
+    {kUaParamProtect,      "Protect",         "Protect", GEN,                       0.0, 1000.0, 236.0 / 1000.0, 1000, NONE, SYNTHLIB_PARAM_HIDDEN       },
+    {kUaParamEnd,          "End",             "End",     GEN,                       0.0,  100.0,            1.0, 1000, NONE, SYNTHLIB_PARAM_HIDDEN       },
+    {kUaParamDelay,        "Delay",           "Delay",   GEN,                       0.0, 1000.0,            0.0, 1000, NONE, SYNTHLIB_PARAM_HIDDEN       },
+    {kUaParamProtectSnap,  "Protect Snap",    "PSnap",   IDX,                       0.0,    1.0,            1.0,    1, NONE, LIST | SYNTHLIB_PARAM_HIDDEN},
+    {kUaParamLowKey,       "Low Key",         "Low",     GEN,                       0.0,  127.0,            0.0,  127, NONE,                            0},
+    {kUaParamHighKey,      "High Key",        "High",    GEN,                       0.0,  127.0,            1.0,  127, NONE,                            0},
+    {kUaParamMute,         "Mute",            "Mute",    IDX,                       0.0,    1.0,            0.0,    1, NONE, LIST | SYNTHLIB_PARAM_HIDDEN},
     // notes §11: the layer's filter and saturation
-    {kUaParamFilter,       "Filter",        "Filter",  IDX,                       0.0,    1.0,            0.0,    1, NONE, LIST | SYNTHLIB_PARAM_HIDDEN},
-    {kUaParamLowCut,       "Low Cut",       "LoCut",   GEN,                       0.0, 1000.0,            0.0, 1000, NONE, SYNTHLIB_PARAM_HIDDEN       },
-    {kUaParamHighCut,      "High Cut",      "HiCut",   GEN,                       0.0, 1000.0,            1.0, 1000, NONE, SYNTHLIB_PARAM_HIDDEN       },
-    {kUaParamSlope,        "Filter Slope",  "Slope",   IDX,                       0.0,    2.0,            0.5,    2, NONE, LIST | SYNTHLIB_PARAM_HIDDEN},
-    {kUaParamSaturate,     "Saturation",    "Sat",     IDX,                       0.0,    1.0,            0.0,    1, NONE, LIST | SYNTHLIB_PARAM_HIDDEN},
-    {kUaParamSatMode,      "Sat Mode",      "Mode",    IDX,                       0.0,    2.0,            0.0,    2, NONE, LIST | SYNTHLIB_PARAM_HIDDEN},
-    {kUaParamSatGain,      "Sat Gain",      "Gain",    GEN,                       0.0,   30.0,            0.0,   60, NONE, SYNTHLIB_PARAM_HIDDEN       },
-    {kUaParamSatOutput,    "Sat Output",    "Output",  GEN,                     -30.0,    6.0,    60.0 / 72.0,   72, NONE, SYNTHLIB_PARAM_HIDDEN       },
-    {kUaParamSatWarmth,    "Sat Warmth",    "Warmth",  GEN,                     -12.0,   12.0,            0.5,   48, NONE, SYNTHLIB_PARAM_HIDDEN       },
-    {kUaParamSatHf,        "Sat HF",        "HF",      GEN,                       0.0, 1000.0,            1.0, 1000, NONE, SYNTHLIB_PARAM_HIDDEN       },
+    {kUaParamFilter,       "Filter",          "Filter",  IDX,                       0.0,    1.0,            0.0,    1, NONE, LIST | SYNTHLIB_PARAM_HIDDEN},
+    {kUaParamLowCut,       "Low Cut",         "LoCut",   GEN,                       0.0, 1000.0,            0.0, 1000, NONE, SYNTHLIB_PARAM_HIDDEN       },
+    {kUaParamHighCut,      "High Cut",        "HiCut",   GEN,                       0.0, 1000.0,            1.0, 1000, NONE, SYNTHLIB_PARAM_HIDDEN       },
+    {kUaParamSlope,        "Filter Slope",    "Slope",   IDX,                       0.0,    2.0,            0.5,    2, NONE, LIST | SYNTHLIB_PARAM_HIDDEN},
+    {kUaParamSaturate,     "Saturation",      "Sat",     IDX,                       0.0,    1.0,            0.0,    1, NONE, LIST | SYNTHLIB_PARAM_HIDDEN},
+    {kUaParamSatMode,      "Sat Mode",        "Mode",    IDX,                       0.0,    2.0,            0.0,    2, NONE, LIST | SYNTHLIB_PARAM_HIDDEN},
+    {kUaParamSatGain,      "Sat Gain",        "Gain",    GEN,                       0.0,   30.0,            0.0,   60, NONE, SYNTHLIB_PARAM_HIDDEN       },
+    {kUaParamSatOutput,    "Sat Output",      "Output",  GEN,                     -30.0,    6.0,    60.0 / 72.0,   72, NONE, SYNTHLIB_PARAM_HIDDEN       },
+    {kUaParamSatWarmth,    "Sat Warmth",      "Warmth",  GEN,                     -12.0,   12.0,            0.5,   48, NONE, SYNTHLIB_PARAM_HIDDEN       },
+    {kUaParamSatHf,        "Sat HF",          "HF",      GEN,                       0.0, 1000.0,            1.0, 1000, NONE, SYNTHLIB_PARAM_HIDDEN       },
+    // notes §13: global
+    {kUaParamAntiAlias,    "Anti-alias",      "AA",      IDX,                       0.0,    1.0,            1.0,    1, NONE, LIST                        },
+    {kUaParamPolarity,     "Polarity",        "Pol",     IDX,                       0.0,    1.0,            0.0,    1, NONE, LIST                        },
+    // notes §14: the E5000's own controls
+    {kUaParamTranspose,    "Transpose",       "Transp",  eSynthLibUnitSemitones,  -24.0,   24.0,            0.5,   48, NONE,                            0},
+    {kUaParamSolo,         "Solo",            "Solo",    IDX,                       0.0,    8.0,            0.0,    8, NONE, LIST                        },
+    {kUaParamEnvDepth,     "Env Depth",       "Depth",   IDX,                       0.0,   16.0,            0.0,   16, NONE,                            0},
+    {kUaParamAtk1Rate,     "Attack 1 Rate",   "Atk1",    IDX,                       0.0,  127.0,            0.0,  127, NONE,                            0},
+    {kUaParamAtk2Rate,     "Attack 2 Rate",   "Atk2",    IDX,                       0.0,  127.0,            0.0,  127, NONE,                            0},
+    {kUaParamDcy1Rate,     "Decay 1 Rate",    "Dcy1",    IDX,                       0.0,  127.0,            0.0,  127, NONE,                            0},
+    {kUaParamDcy2Rate,     "Decay 2 Rate",    "Dcy2",    IDX,                       0.0,  127.0,            0.0,  127, NONE,                            0},
+    {kUaParamRls1Rate,     "Release 1 Rate",  "Rls1",    IDX,                       0.0,  127.0,   30.0 / 127.0,  127, NONE,                            0},
+    {kUaParamRls2Rate,     "Release 2 Rate",  "Rls2",    IDX,                       0.0,  127.0,            0.0,  127, NONE,                            0},
+    {kUaParamAtk1Level,    "Attack 1 Level",  "A1 Lvl",  IDX,                       0.0,  100.0,            1.0,  100, NONE,                            0},
+    {kUaParamAtk2Level,    "Attack 2 Level",  "A2 Lvl",  IDX,                       0.0,  100.0,            1.0,  100, NONE,                            0},
+    {kUaParamDcy1Level,    "Decay 1 Level",   "D1 Lvl",  IDX,                       0.0,  100.0,            1.0,  100, NONE,                            0},
+    {kUaParamDcy2Level,    "Decay 2 Level",   "D2 Lvl",  IDX,                       0.0,  100.0,            1.0,  100, NONE,                            0},
+    {kUaParamRls1Level,    "Release 1 Level", "R1 Lvl",  IDX,                       0.0,  100.0,            0.0,  100, NONE,                            0},
+    {kUaParamRls2Level,    "Release 2 Level", "R2 Lvl",  IDX,                       0.0,  100.0,            0.0,  100, NONE,                            0},
 };
 
 static const char *const kOffOn[]    = {"Off", "On"};
@@ -68,6 +87,8 @@ static const char *const kVoices[]   = {"Poly", "Mono"};
 static const char *const kEnvModes[] = {"AHR", "AHDSR"};
 static const char *const kSlopes[]   = {"Soft", "12 dB", "24 dB"};
 static const char *const kSatModes[] = {"Classic", "Drums", "Tape"};
+static const char *const kPolarity[] = {"Normal", "Inverted"};
+static const char *const kSolo[]     = {"Off", "Multi Trig", "Melody Last", "Melody Low", "Melody High", "Synth Last", "Synth Low", "Synth High", "Fingered"};
 
 static long step_of(uint32_t id, double normalized) {
     return lround(normalized * gUaParams[id].stepCount);
@@ -100,8 +121,8 @@ bool ua_param_active(uint32_t id, const double values[kUaParamCount]) {
         case kUaParamReleaseCurve:
             return !adsr || ua_is_gate(values);
 
-        case kUaParamRootKey:
-            return step_of(kUaParamKeyTrack, values[kUaParamKeyTrack]) > 0;
+        case kUaParamRootKey:   // notes §14: the root matters while keys transpose
+            return step_of(kUaParamKeyTrack, values[kUaParamKeyTrack]) == 0;
 
         case kUaParamBaseTempo:
             return step_of(kUaParamSync, values[kUaParamSync]) > 0;
@@ -215,11 +236,15 @@ double ua_protect_time(double normalized) {
     return ua_start_time((double)step_of(kUaParamProtect, normalized) / 1000.0);
 }
 
-// notes §1: 0 is silence, then -57 to +6 dB in 0.5 dB steps - 0 dB at 115, the default -6 dB at 103
+// notes §1: -96 to +10 dB in 1 dB steps, as the E5000's Volume; -96 is silence
 double ua_volume_gain(double normalized) {
-    long step = step_of(kUaParamVolume, normalized);
+    long db = step_of(kUaParamVolume, normalized) - 96;
 
-    return (step <= 0) ? 0.0 : pow(10.0, (-57.0 + ((double)(step - 1) * 0.5)) / 20.0);
+    return (db <= -96) ? 0.0 : pow(10.0, (double)db / 20.0);
+}
+
+double ua_fine_semitones(double normalized) {
+    return (double)(step_of(kUaParamFine, normalized) - 64) / 64.0;
 }
 
 void ua_param_text(uint32_t id, double normalized, char * out, size_t len) {
@@ -234,7 +259,7 @@ void ua_param_text(uint32_t id, double normalized, char * out, size_t len) {
             if (gain <= 0.0) {
                 snprintf(out, len, "-inf");
             } else {
-                snprintf(out, len, "%.1f dB", 20.0 * log10(gain));
+                snprintf(out, len, "%+.0f dB", 20.0 * log10(gain));
             }
             break;
         }
@@ -244,11 +269,32 @@ void ua_param_text(uint32_t id, double normalized, char * out, size_t len) {
             break;
 
         case kUaParamTune:
+            snprintf(out, len, "%+ld st", step - 36);
+            break;
+
+        case kUaParamTranspose:
             snprintf(out, len, "%+ld st", step - 24);
             break;
 
         case kUaParamFine:
-            snprintf(out, len, "%+ld ct", step - 50);
+            snprintf(out, len, "%+ld", step - 64);
+            break;
+
+        case kUaParamSolo:
+            snprintf(out, len, "%s", kSolo[(step < 0) ? 0 : ((step > 8) ? 8 : step)]);
+            break;
+
+        case kUaParamEnvDepth:
+            snprintf(out, len, "-%ld dB", 96 - (3 * step));
+            break;
+
+        case kUaParamAtk1Level:
+        case kUaParamAtk2Level:
+        case kUaParamDcy1Level:
+        case kUaParamDcy2Level:
+        case kUaParamRls1Level:
+        case kUaParamRls2Level:
+            snprintf(out, len, "%ld%%", step);
             break;
 
         case kUaParamRootKey:   // notes §2: middle C (60) is C3, as Ableton names it
@@ -301,7 +347,12 @@ void ua_param_text(uint32_t id, double normalized, char * out, size_t len) {
         case kUaParamMute:
         case kUaParamFilter:
         case kUaParamSaturate:
+        case kUaParamAntiAlias:
             snprintf(out, len, "%s", kOffOn[step > 0]);
+            break;
+
+        case kUaParamPolarity:
+            snprintf(out, len, "%s", kPolarity[step > 0]);
             break;
 
         case kUaParamStretch:
@@ -368,26 +419,34 @@ void ua_param_text(uint32_t id, double normalized, char * out, size_t len) {
 #define TOGGLE(id, label)           {id, label, eUaControlToggle, kOffOn}
 #define COUNT(a)                    (sizeof(a) / sizeof((a)[0]))
 
-static const tUaControl kPitch[]     = {
-    DIAL(kUaParamTune,   "Tune"), DIAL(kUaParamFine,    "Fine"), TOGGLE(kUaParamKeyTrack, "Keys"), DIAL(kUaParamRootKey, "Root"),
-    DIAL(kUaParamLowKey, "Low"),  DIAL(kUaParamHighKey, "High"),
+static const tUaControl kPitch[]     = {   // notes §14
+    DIAL(kUaParamTranspose, "Transp"), DIAL(kUaParamTune,   "Coarse"), DIAL(kUaParamFine,    "Fine"), TOGGLE(kUaParamKeyTrack, "NonTr"),
+    DIAL(kUaParamRootKey,   "Root"),   DIAL(kUaParamLowKey, "Low"),    DIAL(kUaParamHighKey, "High"),
 };
 static const tUaControl kPlay[]      = {
-    CHOICE(kUaParamMode, "Mode", kModes), CHOICE(kUaParamVoices, "Voices", kVoices),
+    CHOICE(kUaParamSolo, "Solo", kSolo),
 };
 static const tUaControl kOutput[]    = {
-    DIAL(kUaParamVelocity, "Velocity"), DIAL(kUaParamPan, "Pan"), DIAL(kUaParamVolume, "Volume"),
+    DIAL(kUaParamVolume, "Volume"), DIAL(kUaParamPan, "Pan"), DIAL(kUaParamVelocity, "Velocity"),
 };
-
-static const tUaControl kEnvelope[]  = {
-    CHOICE(kUaParamEnvMode, "Type",   kEnvModes),           DIAL(kUaParamAttack, "Attack"),            DIAL(kUaParamHold, "Hold"),
-    DIAL(kUaParamDecay,     "Decay"), DIAL(kUaParamSustain, "Sustain"),          DIAL(kUaParamRelease, "Release"),
+static const tUaControl kEnvRate[]   = {
+    DIAL(kUaParamAtk1Rate, "Atk1"), DIAL(kUaParamAtk2Rate, "Atk2"), DIAL(kUaParamDcy1Rate, "Dcy1"),
+    DIAL(kUaParamDcy2Rate, "Dcy2"), DIAL(kUaParamRls1Rate, "Rls1"), DIAL(kUaParamRls2Rate, "Rls2"),
+};
+static const tUaControl kEnvLevel[]  = {
+    DIAL(kUaParamAtk1Level, "Atk1"), DIAL(kUaParamAtk2Level, "Atk2"), DIAL(kUaParamDcy1Level, "Dcy1"),
+    DIAL(kUaParamDcy2Level, "Dcy2"), DIAL(kUaParamRls1Level, "Rls1"), DIAL(kUaParamRls2Level, "Rls2"),DIAL(kUaParamEnvDepth,  "Depth"),
+};
+static const tUaControl kGlobal[]    = {   // notes §13
+    TOGGLE(kUaParamAntiAlias, "Anti-alias"), CHOICE(kUaParamPolarity, "Polarity", kPolarity),
 };
 static const tUaSection kMainPage[]  = {   // notes §12
-    {"PITCH",    {0.90, 0.70, 0.30}, kPitch,    COUNT(kPitch)   },
-    {"PLAY",     {0.40, 0.70, 0.85}, kPlay,     COUNT(kPlay)    },
-    {"OUTPUT",   {0.75, 0.75, 0.75}, kOutput,   COUNT(kOutput)  },
-    {"ENVELOPE", {0.55, 0.80, 0.40}, kEnvelope, COUNT(kEnvelope)},
+    {"PITCH",         {0.90, 0.70, 0.30}, kPitch,    COUNT(kPitch)   },
+    {"PLAY",          {0.40, 0.70, 0.85}, kPlay,     COUNT(kPlay)    },
+    {"OUTPUT",        {0.75, 0.75, 0.75}, kOutput,   COUNT(kOutput)  },
+    {"AMP ENV RATE",  {0.55, 0.80, 0.40}, kEnvRate,  COUNT(kEnvRate) },
+    {"AMP ENV LEVEL", {0.55, 0.80, 0.40}, kEnvLevel, COUNT(kEnvLevel)},
+    {"GLOBAL",        {0.85, 0.55, 0.55}, kGlobal,   COUNT(kGlobal)  },
 };
 
 const tUaPage           gUaPages[]   = {

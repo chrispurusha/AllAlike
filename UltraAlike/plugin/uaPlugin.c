@@ -79,9 +79,13 @@ typedef struct {
 
 // notes §12: a bank's preset as a layer plays it, in place of a sample
 typedef struct {
-    tUaBankRef * ref;
-    uint32_t     preset;
-    tEmuPreset   zones;
+    tUaBankRef *   ref;
+    uint32_t       preset;
+    tEmuPreset     zones;
+    tUaEosEnvelope env[EMU_BANK_MAX_ZONES];   // notes §15: each zone's amplifier envelope in the E5000's terms
+    tUaEosEnvelope envRef;                    // the AMP ENVELOPE dials as this preset sets them
+    bool           loose;                     // notes §16: a loose sample as a one-voice preset (ref NULL)
+    tEmuSample     looseSample;               // its sample, borrowing the layer's tUaSample's data
 } tUaProgram;
 
 // notes §1: a sample or program replaced while the audio thread may still be playing it
@@ -171,7 +175,7 @@ static void program_free(tUaProgram * program) {
         return;
     }
 
-    if (--program->ref->refs == 0) {
+    if ((program->ref != NULL) && (--program->ref->refs == 0)) {
         emu_bank_free(program->ref->bank);
         free(program->ref);
     }
@@ -179,6 +183,39 @@ static void program_free(tUaProgram * program) {
 }
 
 // notes §12: a preset of the bank, its samples read now if no other preset has read them
+// notes §15: every zone's amplifier envelope as rates and levels; the dials take the first zone's
+static void eos_envelopes(tUaProgram * program) {
+    program->envRef = gUaEosDefaultEnvelope;
+
+    for (uint32_t z = 0; z < program->zones.zoneCount; z++) {
+        ua_eos_from_times(&program->zones.zone[z].amp, 0, &program->env[z]);
+
+        if (z == 0) {
+            program->envRef = program->env[0];
+        }
+    }
+}
+
+// notes §16: a loose sample as a preset of one voice across every key, its envelope the dials' own
+static tUaProgram * loose_program(const tUaSample * sample) {
+    tUaProgram * program = calloc(1, sizeof(tUaProgram));
+
+    if (program == NULL) {
+        return NULL;
+    }
+    program->loose           = true;
+    program->looseSample     = (tEmuSample){
+        .data = {sample->data[0], sample->data[1]}, .channels = sample->channels, .frames = sample->frames, .rate = sample->rate,
+    };
+    program->zones.zoneCount = 1;
+    program->zones.zone[0]   = (tEmuZone){
+        .sample = &program->looseSample, .rootNote = 60, .keyLow = 0, .keyHigh = 127, .velLow = 0, .velHigh = 127,
+    };
+    program->env[0]          = gUaEosDefaultEnvelope;
+    program->envRef          = gUaEosDefaultEnvelope;
+    return program;
+}
+
 static tUaProgram * make_program(tUaBankRef * ref, uint32_t preset) {
     uint32_t     count   = emu_bank_preset_count(ref->bank);
     tUaProgram * program = calloc(1, sizeof(tUaProgram));
@@ -189,6 +226,7 @@ static tUaProgram * make_program(tUaBankRef * ref, uint32_t preset) {
     program->ref    = ref;
     program->preset = (preset < count) ? preset : (count - 1u);
     (void)emu_bank_preset(ref->bank, program->preset, &program->zones);
+    eos_envelopes(program);
     ref->refs++;
     return program;
 }
@@ -249,7 +287,7 @@ static bool load_bank(tUaPlugin * t, int layer, const char * path, uint32_t pres
     }
     snprintf(l->path, sizeof(l->path), "%s", path);
     install(t, l, NULL, program);
-    synthlib_log_line("layer %d: bank %s, preset %u of %u, %u zones", layer + 1, path, program->preset + 1, emu_bank_preset_count(bank), program->zones.zoneCount);
+    synthlib_log_line("layer %d: bank %s, P%03u of %u, %u zones", layer + 1, path, program->preset, emu_bank_preset_count(bank), program->zones.zoneCount);
     return true;
 }
 
@@ -267,7 +305,7 @@ static bool load_sample(tUaPlugin * t, int layer, const char * path, uint32_t pr
         return false;
     }
     snprintf(l->path, sizeof(l->path), "%s", path);
-    install_sample(t, l, sample);
+    install(t, l, sample, loose_program(sample));   // notes §16
     synthlib_log_line("layer %d: loaded %s: %u frames, %u ch, %.0f Hz", layer + 1, path, sample->frames, sample->channels, sample->rate);
     return true;
 }
@@ -512,22 +550,37 @@ static tUaPlay make_play(const tUaLayer * l) {
     }
 
     return (tUaPlay){
-        .tune        = (double)(step(l, kUaParamTune) - 24) + ((double)(step(l, kUaParamFine) - 50) / 100.0),
-        .velocity    = value(l, kUaParamVelocity),
-        .keyTrack    = step(l, kUaParamKeyTrack) > 0,
-        .rootKey     = (int)step(l, kUaParamRootKey),
-        .gate        = step(l, kUaParamMode) > 0,
-        .mono        = step(l, kUaParamVoices) > 0,
-        .pan         = (double)(step(l, kUaParamPan) - 64) / 64.0,
-        .gain        = ua_volume_gain(value(l, kUaParamVolume)),
-        .env         = ua_env_shape(values),
-        .start       = ua_start_time(value(l, kUaParamStart)),
-        .snap        = step(l, kUaParamSnap) > 0,
-        .reverse     = step(l, kUaParamReverse) > 0,
-        .protect     = ua_protect_time(value(l, kUaParamProtect)),
-        .protectSnap = step(l, kUaParamProtectSnap) > 0,
-        .end         = ua_end_fraction(value(l, kUaParamEnd)),
-        .delay       = ua_delay_time(value(l, kUaParamDelay)),
+        .tune         = (double)(step(l, kUaParamTranspose) - 24) + (double)(step(l, kUaParamTune) - 36) + ua_fine_semitones(value(l, kUaParamFine)),
+        .velocity     = value(l, kUaParamVelocity),
+        .keyTrack     = step(l, kUaParamKeyTrack) > 0,
+        .rootKey      = (int)step(l, kUaParamRootKey),
+        .gate         = step(l, kUaParamMode) > 0,
+        .mono         = step(l, kUaParamVoices) > 0,
+        .pan          = (double)(step(l, kUaParamPan) - 64) / 64.0,
+        .gain         = ua_volume_gain(value(l, kUaParamVolume)),
+        .env          = ua_env_shape(values),
+        .start        = ua_start_time(value(l, kUaParamStart)),
+        .snap         = step(l, kUaParamSnap) > 0,
+        .reverse      = step(l, kUaParamReverse) > 0,
+        .protect      = ua_protect_time(value(l, kUaParamProtect)),
+        .protectSnap  = step(l, kUaParamProtectSnap) > 0,
+        .end          = ua_end_fraction(value(l, kUaParamEnd)),
+        .delay        = ua_delay_time(value(l, kUaParamDelay)),
+        .antiAlias    = step(l, kUaParamAntiAlias) > 0,
+        .invert       = step(l, kUaParamPolarity) > 0,
+        .eosEnv       = {
+            .rate  = {
+                (uint8_t)step(l, kUaParamAtk1Rate), (uint8_t)step(l, kUaParamAtk2Rate), (uint8_t)step(l, kUaParamDcy1Rate),
+                (uint8_t)step(l, kUaParamDcy2Rate), (uint8_t)step(l, kUaParamRls1Rate), (uint8_t)step(l, kUaParamRls2Rate)
+            },
+            .level = {
+                (uint8_t)step(l, kUaParamAtk1Level), (uint8_t)step(l, kUaParamAtk2Level), (uint8_t)step(l, kUaParamDcy1Level),
+                (uint8_t)step(l, kUaParamDcy2Level), (uint8_t)step(l, kUaParamRls1Level), (uint8_t)step(l, kUaParamRls2Level)
+            },
+        },
+        .depth        = (int)step(l, kUaParamEnvDepth),
+        .nonTranspose = step(l, kUaParamKeyTrack) > 0,
+        .solo         = step(l, kUaParamSolo) > 0,
     };
 }
 
@@ -604,10 +657,10 @@ static void play(tUaPlugin * t, const tUaSample *const * sample, const tUaProgra
             ua_bank_voices_note_off(&l->bankVoices, e->note);
         } else if (muted(l) || !in_range(l, e->note)) {
             continue;
+        } else if (program[i] != NULL) {   // notes §12, §16
+            ua_bank_voices_note_on(&l->bankVoices, &program[i]->zones, program[i]->env, &program[i]->envRef, &p[i], e->note, e->velocity);
         } else if (sample[i] != NULL) {
             ua_voices_note_on(&l->voices, sample[i], &p[i], e->note, e->velocity);
-        } else if (program[i] != NULL) {
-            ua_bank_voices_note_on(&l->bankVoices, &program[i]->zones, &p[i], e->note, e->velocity);   // notes §12
         }
     }
 }
@@ -698,6 +751,7 @@ static void ua_process(void * inst, const float *const * in, uint32_t numIn, flo
         sample[i]        = atomic_load(&l->sample);
         program[i]       = atomic_load(&l->program);
         p[i]             = make_play(l);
+        p[i].loose       = (program[i] != NULL) && program[i]->loose;   // notes §16
         fx[i]            = make_fx(l);
         fx[i].oversample = oversampling;
         apply_stretch(l, t->hostTempo, &p[i]);
@@ -713,7 +767,7 @@ static void ua_process(void * inst, const float *const * in, uint32_t numIn, flo
             l->playingProgram = program[i];
         }
 
-        if (sample[i] != NULL) {
+        if ((sample[i] != NULL) && (program[i] == NULL)) {   // notes §16: a loose sample plays through the bank voices
             prefetch(t, l, sample[i], &p[i]);
         }
 
@@ -733,10 +787,10 @@ static void ua_process(void * inst, const float *const * in, uint32_t numIn, flo
 
         if (audition >= UA_LAYERS) {
             play(t, sample, program, p, &e);
+        } else if ((program[shown] != NULL) && !muted(&t->layer[shown])) {
+            ua_bank_voices_note_on(&t->layer[shown].bankVoices, &program[shown]->zones, program[shown]->env, &program[shown]->envRef, &p[shown], key, AUDITION_VELOCITY);
         } else if ((sample[shown] != NULL) && !muted(&t->layer[shown])) {
             ua_voices_note_on(&t->layer[shown].voices, sample[shown], &p[shown], key, AUDITION_VELOCITY);
-        } else if ((program[shown] != NULL) && !muted(&t->layer[shown])) {
-            ua_bank_voices_note_on(&t->layer[shown].bankVoices, &program[shown]->zones, &p[shown], key, AUDITION_VELOCITY);
         }
         t->auditionKey  = key;
         t->auditionLeft = (uint32_t)(AUDITION_HOLD_S * t->hostRate);
@@ -786,6 +840,16 @@ static void ua_process(void * inst, const float *const * in, uint32_t numIn, flo
         render(t, p, fx, left + done, (right != NULL) ? right + done : NULL, frames - done);
     }
 
+    if (p[0].invert) {   // notes §14: Polarity Inverted, as the E5000's main outputs
+        for (uint32_t k = 0; k < frames; k++) {
+            left[k] = -left[k];
+
+            if (right != NULL) {
+                right[k] = -right[k];
+            }
+        }
+    }
+
     for (uint32_t ch = 2; ch < numOut; ch++) {
         if (out[ch] != NULL) {
             memset(out[ch], 0, (size_t)frames * sizeof(float));
@@ -829,8 +893,28 @@ static bool ua_param_text_cb(const tSynthLibPluginDesc * desc, void * inst, uint
 
 // ---- the editor ---------------------------------------------------------------------------------------------
 
+// notes §15: a preset chosen in the editor puts its first voice's envelope on the AMP ENVELOPE dials, through the host
+static void push_envelope_dials(void * user, int layer, const tUaProgram * program) {
+    static const uint32_t kRate[UA_EOS_STAGES]  = {kUaParamAtk1Rate, kUaParamAtk2Rate, kUaParamDcy1Rate, kUaParamDcy2Rate, kUaParamRls1Rate, kUaParamRls2Rate};
+    static const uint32_t kLevel[UA_EOS_STAGES] = {kUaParamAtk1Level, kUaParamAtk2Level, kUaParamDcy1Level, kUaParamDcy2Level, kUaParamRls1Level, kUaParamRls2Level};
+
+    if ((program == NULL) || program->loose) {
+        return;
+    }
+
+    for (int k = 0; k < UA_EOS_STAGES; k++) {
+        synthlib_plugin_param_edited(user, global_id((uint32_t)layer, kRate[k]), program->envRef.rate[k] / 127.0);
+        synthlib_plugin_param_edited(user, global_id((uint32_t)layer, kLevel[k]), program->envRef.level[k] / 100.0);
+    }
+}
+
 static bool host_load(void * user, int layer, const char * path, char * error, size_t errorLength) {
-    return load_sample((tUaPlugin *)user, layer, path, 0, error, errorLength);
+    bool ok = load_sample((tUaPlugin *)user, layer, path, 0, error, errorLength);
+
+    if (ok) {
+        push_envelope_dials(user, layer, atomic_load(&((tUaPlugin *)user)->layer[layer].program));
+    }
+    return ok;
 }
 
 // notes §12: Prev / Next through a bank's presets, when the layer plays one
@@ -838,7 +922,7 @@ static bool host_step_preset(void * user, int layer, int direction) {
     tUaPlugin *        t       = (tUaPlugin *)user;
     tUaLayer *         l       = &t->layer[layer];
     const tUaProgram * program = atomic_load(&l->program);
-    uint32_t           count   = (program != NULL) ? emu_bank_preset_count(program->ref->bank) : 0u;
+    uint32_t           count   = ((program != NULL) && !program->loose) ? emu_bank_preset_count(program->ref->bank) : 0u;
     tUaProgram *       next;
 
     if (count == 0u) {
@@ -848,6 +932,7 @@ static bool host_step_preset(void * user, int layer, int direction) {
 
     if (next != NULL) {
         install(t, l, NULL, next);
+        push_envelope_dials(user, layer, next);
     }
     return true;
 }
@@ -855,10 +940,10 @@ static bool host_step_preset(void * user, int layer, int direction) {
 static bool host_preset_text(void * user, int layer, char * out, size_t size) {
     const tUaProgram * program = atomic_load(&((tUaPlugin *)user)->layer[layer].program);
 
-    if (program == NULL) {
+    if ((program == NULL) || program->loose) {
         return false;
     }
-    snprintf(out, size, "Preset %u of %u: %s - %u zones%s", program->preset + 1, emu_bank_preset_count(program->ref->bank),
+    snprintf(out, size, "P%03u of %u: %s - %u zones%s", program->preset, emu_bank_preset_count(program->ref->bank),   // notes §15: from 000, as EOS
              emu_bank_preset_name(program->ref->bank, program->preset), program->zones.zoneCount,
              (program->zones.zoneCount == 0) ? " (its samples were not found)" : "");
     return true;

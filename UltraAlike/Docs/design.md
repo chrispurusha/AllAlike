@@ -50,6 +50,33 @@ Built: SynthLib's `emuBank.c` reads an Emulator X bank (from G2Alike's Sampler r
 presets in place of a sample (`code-notes/uaPlugin.md` §12, `uaBankVoice.md`). Next, each voice's own settings from
 the bank: tuning, level, pan, then its envelopes - compared with Emulator X3, then the E5000.
 
+## Numbering (owner, 2026-11-16)
+
+EOS counts presets and samples from zero (P000, S000): wherever UltraAlike shows a preset's or sample's number, it
+counts the same way.
+
+## Measuring the E5000 Ultra (2026-11-16)
+
+The rig: the E5000's main outputs into the QU-24 (inputs 17/18) and, for 192 kHz work, a Fireface UC; MIDI through
+the Elektron TM-1 on the E5000's basic channel 9. Everything is driven over MIDI, without touching the panel:
+
+- E-mu's published EOS remote SysEx ("Remote Preset Editing via MIDI SysEx", `F0 18 21 <dev> 55 ...`) selects a
+  preset and voice and sets any parameter by id, reads it back, dumps a preset, names, copies and deletes presets
+  and erases samples. Pace every message (50 ms or more; erasing a large sample takes longer) and read the unit's
+  identity back between batches - bursts sent without a gap can hang it. Preset dumps use the original dump format.
+- Test samples go in by MIDI Sample Dump (EmuUtility's backdoor `SENDSAMPLE`), about 70 ms a packet. SDS words are
+  offset binary, not signed.
+- A preset is made playable with Bank Select (MSB 0, LSB = preset / 128) and Program Change on the basic channel;
+  selecting it by SysEx edits it without playing it.
+- One preset (P000 "Test Neutral") and three samples (S001-S003) are kept on the instrument as a bank: test signal 1 (impulse,
+  log sweep, 1 kHz tones at -1 and -20 dBFS, noise), test signal 2 (an impulse, then 32 single tones 500 Hz-21 kHz)
+  and a looped 1 kHz sine for envelopes and LFOs.
+
+Measured so far: at the sample's own pitch the output is clean (THD 0.004%, noise -101 dBFS) and within -1.3 dB to
+16 kHz; the master volume is a plain digital gain on every output; the main outputs are inverted and the sub outputs
+are not; and the interpolation is seven fixed kernels chosen by playback ratio (`code-notes/uaEmuInterp.md`), which
+the plug-in reproduces to 0.1-0.4 dB in the passband and without bias in the images up to the fifth.
+
 ## Order of work (proposed)
 
 1. Bank reading: `.E4B` presets, voices, zones and samples into a playable map - shared with G2Alike's Emulator X

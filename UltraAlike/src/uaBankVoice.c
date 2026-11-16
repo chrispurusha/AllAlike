@@ -20,6 +20,8 @@
 #include <string.h>
 
 #include "uaBankVoice.h"
+#include "uaEmuInterp.h"
+#include "uaEosEnv.h"
 #include "uaResample.h"
 
 #define OUTPUT_SMOOTH_S    (0.005)
@@ -31,6 +33,8 @@
 void ua_bank_voices_init(tUaBankVoices * v, double hostRate) {
     memset(v, 0, sizeof(*v));
     v->hostRate = hostRate;
+    ua_resample_init();
+    ua_emu_init();
 }
 
 void ua_bank_voices_stop(tUaBankVoices * v) {
@@ -72,8 +76,25 @@ static tUaBankVoice * take_voice(tUaBankVoices * v) {
     return oldest;
 }
 
-void ua_bank_voices_note_on(tUaBankVoices * v, const tEmuPreset * preset, const tUaPlay * play, uint8_t note, float velocity) {
+// notes §6: a voice's envelope with every dial's movement since the preset set it added, stage by stage
+static tUaEosEnvelope edited_envelope(const tUaEosEnvelope * stored, const tUaEosEnvelope * dial, const tUaEosEnvelope * ref) {
+    tUaEosEnvelope e = *stored;
+
+    for (int k = 0; k < UA_EOS_STAGES; k++) {
+        e.rate[k]  = (uint8_t)fmin(127, fmax(0, (int)stored->rate[k] + (int)dial->rate[k] - (int)ref->rate[k]));
+        e.level[k] = (uint8_t)fmin(100, fmax(0, (int)stored->level[k] + (int)dial->level[k] - (int)ref->level[k]));
+    }
+
+    return e;
+}
+
+void ua_bank_voices_note_on(tUaBankVoices * v, const tEmuPreset * preset, const tUaEosEnvelope * envs, const tUaEosEnvelope * ref,
+                            const tUaPlay * play, uint8_t note, float velocity) {
     int vel = (int)lroundf(velocity * 127.0f);
+
+    if (play->solo) {   // notes §7: a new note ends what is sounding
+        ua_bank_voices_fade_all(v);
+    }
 
     for (uint32_t z = 0; (preset != NULL) && (z < preset->zoneCount); z++) {
         const tEmuZone * zone  = &preset->zone[z];
@@ -82,69 +103,35 @@ void ua_bank_voices_note_on(tUaBankVoices * v, const tEmuPreset * preset, const 
             continue;
         }
         tUaBankVoice *   voice = take_voice(v);
-        double           step  = (zone->sample->rate / v->hostRate) * pow(2.0, ((double)note - zone->rootNote + play->tune) / 12.0);
-
-        double           was   = (voice->active && (voice->amp != NULL)) ? voice->ampLevel : 0.0;
+        int              root  = play->loose ? play->rootKey : zone->rootNote;
+        double           semis = (play->nonTranspose ? 0.0 : (double)note - root) + play->tune;
+        double           step  = (zone->sample->rate / v->hostRate) * pow(2.0, semis / 12.0);
+        double           was   = voice->active ? voice->env.gain : 0.0;
 
         *voice = (tUaBankVoice){
-            .amp      = zone->amp.present ? &zone->amp : NULL,
-            .ampFrom  = was,
-            .ampLevel = was,
-            .preset   = preset,
-            .sample   = zone->sample,
-            .step     = step,
-            .cutoff   = ua_resample_cutoff(step),
-            .level    = (1.0 - play->velocity) + (play->velocity * velocity),
-            .fade     = 1.0,
-            .note     = note,
-            .active   = true,
-            .age      = v->started++,
+            .amp    = edited_envelope(&envs[z], &play->eosEnv, ref),
+            .preset = preset,
+            .sample = zone->sample,
+            .step   = step,
+            .cutoff = ua_resample_cutoff(step),
+            .emu    = play->antiAlias ? -1 : ua_emu_setting(step, v->hostRate),
+            .level  = (1.0 - play->velocity) + (play->velocity * velocity),
+            .fade   = 1.0,
+            .note   = note,
+            .active = true,
+            .age    = v->started++,
         };
-        ua_env_start(&voice->env);
+        ua_eos_env_start(&voice->env, was);
     }
 }
 
-// notes §1: every note off releases, whatever the layer's Mode
+// notes §1: every note off releases
 void ua_bank_voices_note_off(tUaBankVoices * v, uint8_t note) {
     for (int i = 0; i < UA_BANK_VOICES; i++) {
-        tUaBankVoice * voice = &v->voice[i];
-
-        if (voice->active && (voice->note == note)) {
-            ua_env_release(&voice->env);
-
-            if (voice->stage < 5) {   // notes §3: release from wherever it is
-                voice->stage   = 5;
-                voice->ampFrom = voice->ampLevel;
-                voice->ampAt   = 0.0;
-            }
+        if (v->voice[i].active && (v->voice[i].note == note)) {
+            ua_eos_env_release(&v->voice[i].env);
         }
     }
-}
-
-// notes §3: the bank's envelope a sample on - each stage a straight line to its level in its time; Decay 2's level
-// held until the note off; the voice done after Release 2
-static double amp_step(tUaBankVoice * voice, double dt) {
-    const tEmuEnvelope * e = voice->amp;
-
-    while ((voice->stage < 7) && (voice->stage != 4)) {
-        int    s      = (voice->stage < 4) ? voice->stage : (voice->stage - 1);
-        double target = e->level[s] / 100.0;
-        double time   = e->time[s];
-
-        if ((time > 0.0) && (voice->ampAt < time)) {
-            voice->ampAt   += dt;
-            voice->ampLevel = voice->ampFrom + ((target - voice->ampFrom) * fmin(1.0, voice->ampAt / time));
-
-            if (voice->ampAt < time) {
-                break;
-            }
-        }
-        voice->ampLevel = target;
-        voice->ampFrom  = target;
-        voice->ampAt    = 0.0;
-        voice->stage++;
-    }
-    return voice->ampLevel;
 }
 
 // notes §2: a frame of the sample as it sounds - past the loop's end, round the loop again
@@ -160,15 +147,28 @@ static int64_t looped_index(const tEmuSample * s, bool looping, int64_t i) {
     return start + ((k < 0) ? (k + span) : k);
 }
 
+// source frames the voice's interpolator reaches either side of its position
+static double tail(const tUaBankVoice * voice) {
+    return (voice->emu >= 0) ? ua_emu_tail(voice->emu) : ua_resample_tail(voice->cutoff);
+}
+
+static void interpolate(const tUaBankVoice * voice, const float * left, const float * right, uint32_t frames, double position, float * l, float * r) {
+    if (voice->emu >= 0) {
+        ua_emu_read2(left, right, frames, position, voice->emu, l, r);
+    } else {
+        ua_resample_read2(left, right, frames, position, voice->cutoff, l, r);
+    }
+}
+
 static void read_frame(const tUaBankVoice * voice, float * l, float * r) {
     const tEmuSample * s     = voice->sample;
     const float *      right = (s->channels == 2) ? s->data[1] : NULL;
-    int64_t            reach = (int64_t)ceil(ua_resample_tail(voice->cutoff)) + 2;
+    int64_t            reach = (int64_t)ceil(tail(voice)) + 2;
     int64_t            at    = (int64_t)floor(voice->position);
     bool               seam  = s->looped && (((at + reach) >= (int64_t)s->loopEnd) || (voice->looping && ((at - reach) < (int64_t)s->loopStart)));
 
     if (!seam) {
-        ua_resample_read2(s->data[0], right, s->frames, voice->position, voice->cutoff, l, r);
+        interpolate(voice, s->data[0], right, s->frames, voice->position, l, r);
         return;
     }
     // notes §2: the frames around the seam gathered in the order they sound, and read from there
@@ -183,7 +183,7 @@ static void read_frame(const tUaBankVoice * voice, float * l, float * r) {
         gr[k] = (in && (right != NULL)) ? right[i] : gl[k];
     }
 
-    ua_resample_read2(gl, (right != NULL) ? gr : NULL, GATHER_SIZE, voice->position - (double)from, voice->cutoff, l, r);
+    interpolate(voice, gl, (right != NULL) ? gr : NULL, GATHER_SIZE, voice->position - (double)from, l, r);
 }
 
 void ua_bank_voices_render(tUaBankVoices * v, const tUaPlay * play, float * left, float * right, uint32_t frames) {
@@ -217,11 +217,11 @@ void ua_bank_voices_render(tUaBankVoices * v, const tUaPlay * play, float * left
             if (!voice->active) {
                 continue;
             }
-            double             end   = (double)s->frames + ua_resample_tail(voice->cutoff);
+            double             end   = (double)s->frames + tail(voice);
 
             for (uint32_t i = 0; i < count; i++) {
-                double e    = (voice->amp != NULL) ? amp_step(voice, dt) : ua_env_step(&voice->env, &play->env, dt);
-                bool   done = (voice->amp != NULL) ? (voice->stage >= 7) : ua_env_done(&voice->env);
+                double e    = ua_eos_env_step(&voice->env, &voice->amp, play->depth, dt);
+                bool   done = ua_eos_env_done(&voice->env);
 
                 if ((!s->looped && (voice->position >= end)) || (voice->fade <= 0.0) || done) {
                     voice->active = false;
