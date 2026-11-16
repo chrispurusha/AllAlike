@@ -83,6 +83,9 @@ const tSynthLibParam gUaParams[kUaParamCount] = {
     {kUaParamPitchBend,    "Pitch Bend",      "Bend",    GEN,                    -8192.0, 8191.0,            0.5, 16383, SYNTHLIB_MIDI_PITCH_BEND, SYNTHLIB_PARAM_HIDDEN | SYNTHLIB_PARAM_NO_SAVE},
     {kUaParamModWheel,     "Mod Wheel",       "Mod",     GEN,                        0.0,  127.0,            0.0,   127, SYNTHLIB_MIDI_MOD_WHEEL,  SYNTHLIB_PARAM_HIDDEN | SYNTHLIB_PARAM_NO_SAVE},
     {kUaParamBendRange,    "Bend Range",      "Bend",    eSynthLibUnitSemitones,     0.0,   12.0,     2.0 / 12.0,    12, NONE,                                                                  0},
+    {kUaParamVoiceLimit,   "Voice Limit",     "Voices",  IDX,                        1.0,   64.0,            1.0,    63, NONE,                                                                  0},
+    {kUaParamSteal,        "Steal",           "Steal",   IDX,                        0.0,    1.0,            0.0,     1, NONE,                     LIST                                          },
+    {kUaParamSameNote,     "Same Note",       "Same",    IDX,                        0.0,    1.0,            0.0,     1, NONE,                     LIST                                          },
 };
 
 static const char *const kOffOn[]    = {"Off", "On"};
@@ -92,6 +95,8 @@ static const char *const kEnvModes[] = {"AHR", "AHDSR"};
 static const char *const kSlopes[]   = {"Soft", "12 dB", "24 dB"};
 static const char *const kSatModes[] = {"Classic", "Drums", "Tape"};
 static const char *const kPolarity[] = {"Normal", "Inverted"};
+static const char *const kSteal[]    = {"Released", "Oldest"};
+static const char *const kSameNote[] = {"Stack", "Piano"};
 static const char *const kSolo[]     = {"Off", "Multi Trig", "Melody Last", "Melody Low", "Melody High", "Synth Last", "Synth Low", "Synth High", "Fingered"};
 
 static long step_of(uint32_t id, double normalized) {
@@ -363,6 +368,18 @@ void ua_param_text(uint32_t id, double normalized, char * out, size_t len) {
             snprintf(out, len, "%s", kPolarity[step > 0]);
             break;
 
+        case kUaParamSteal:
+            snprintf(out, len, "%s", kSteal[step > 0]);
+            break;
+
+        case kUaParamSameNote:
+            snprintf(out, len, "%s", kSameNote[step > 0]);
+            break;
+
+        case kUaParamVoiceLimit:
+            snprintf(out, len, "%ld", 1 + step);
+            break;
+
         case kUaParamStretch:
             snprintf(out, len, "x%.2f", ua_stretch_multiple(normalized));
             break;
@@ -427,38 +444,45 @@ void ua_param_text(uint32_t id, double normalized, char * out, size_t len) {
 #define TOGGLE(id, label)           {id, label, eUaControlToggle, kOffOn}
 #define COUNT(a)                    (sizeof(a) / sizeof((a)[0]))
 
-static const tUaControl kPitch[]     = {   // notes §14
+static const tUaControl kPitch[]      = {  // notes §14
     DIAL(kUaParamTranspose, "Transp"), DIAL(kUaParamTune,   "Coarse"), DIAL(kUaParamFine,    "Fine"), TOGGLE(kUaParamKeyTrack, "NonTr"),
     DIAL(kUaParamRootKey,   "Root"),   DIAL(kUaParamLowKey, "Low"),    DIAL(kUaParamHighKey, "High"),
 };
-static const tUaControl kPlay[]      = {
+static const tUaControl kPlay[]       = {
     CHOICE(kUaParamSolo, "Solo", kSolo), DIAL(kUaParamBendRange, "Bend"),
 };
-static const tUaControl kOutput[]    = {
+static const tUaControl kOutput[]     = {
     DIAL(kUaParamVolume, "Volume"), DIAL(kUaParamPan, "Pan"), DIAL(kUaParamVelocity, "Velocity"),
 };
-static const tUaControl kEnvRate[]   = {
+static const tUaControl kEnvRate[]    = {
     DIAL(kUaParamAtk1Rate, "Atk1"), DIAL(kUaParamAtk2Rate, "Atk2"), DIAL(kUaParamDcy1Rate, "Dcy1"),
     DIAL(kUaParamDcy2Rate, "Dcy2"), DIAL(kUaParamRls1Rate, "Rls1"), DIAL(kUaParamRls2Rate, "Rls2"),
 };
-static const tUaControl kEnvLevel[]  = {
+static const tUaControl kEnvLevel[]   = {
     DIAL(kUaParamAtk1Level, "Atk1"), DIAL(kUaParamAtk2Level, "Atk2"), DIAL(kUaParamDcy1Level, "Dcy1"),
     DIAL(kUaParamDcy2Level, "Dcy2"), DIAL(kUaParamRls1Level, "Rls1"), DIAL(kUaParamRls2Level, "Rls2"),DIAL(kUaParamEnvDepth,  "Depth"),
 };
-static const tUaControl kGlobal[]    = {   // notes §13
+static const tUaControl kGlobal[]     = {  // notes §13
     TOGGLE(kUaParamAntiAlias, "Anti-alias"), CHOICE(kUaParamPolarity, "Polarity", kPolarity),
+    DIAL(kUaParamVoiceLimit,  "Voices"),     CHOICE(kUaParamSteal,    "Steal",    kSteal),   CHOICE(kUaParamSameNote,"Same Note", kSameNote),
 };
-static const tUaSection kMainPage[]  = {   // notes §12
-    {"PITCH",         {0.90, 0.70, 0.30}, kPitch,    COUNT(kPitch)   },
-    {"PLAY",          {0.40, 0.70, 0.85}, kPlay,     COUNT(kPlay)    },
+static const tUaSection kOscPage[]    = {   // notes §12: the pages in the Alikes' common order (uaDraw notes §22)
+    {"PITCH", {0.90, 0.70, 0.30}, kPitch, COUNT(kPitch)},
+    {"PLAY",  {0.40, 0.70, 0.85}, kPlay,  COUNT(kPlay) },
+};
+static const tUaSection kAmpPage[]    = {
     {"OUTPUT",        {0.75, 0.75, 0.75}, kOutput,   COUNT(kOutput)  },
     {"AMP ENV RATE",  {0.55, 0.80, 0.40}, kEnvRate,  COUNT(kEnvRate) },
     {"AMP ENV LEVEL", {0.55, 0.80, 0.40}, kEnvLevel, COUNT(kEnvLevel)},
-    {"GLOBAL",        {0.85, 0.55, 0.55}, kGlobal,   COUNT(kGlobal)  },
+};
+static const tUaSection kGlobalPage[] = {
+    {"GLOBAL", {0.85, 0.55, 0.55}, kGlobal, COUNT(kGlobal)},
 };
 
-const tUaPage           gUaPages[]   = {
-    {"SAMPLE", kMainPage, COUNT(kMainPage)},
+const tUaPage           gUaPages[]    = {
+    {"OSC",    kOscPage,    COUNT(kOscPage)   },
+    {"AMP",    kAmpPage,    COUNT(kAmpPage)   },
+    {"GLOBAL", kGlobalPage, COUNT(kGlobalPage)},
 };
-const uint32_t          gUaPageCount = COUNT(gUaPages);
+const uint32_t          gUaPageCount  = COUNT(gUaPages);
 

@@ -45,3 +45,18 @@ held releases. A held voice whose key is struck again keeps sounding beside the 
 Every sounding voice reads its sample at its note's rate times the wheel's ratio, 2^(wheel x Bend Range / 12) with the
 wheel -1..1, read once a block - so a bend moves held and releasing notes too. The interpolation kernel (§4) stays the
 one chosen at the note on.
+
+## 11. Voice limit, stealing and the same note
+Measured on the E5000 (2026-11-16): a key struck again does not cut its last voice - with the sustain pedal down each
+strike adds a voice, without it each sums with the last one's release - so a repeated note under the pedal fills
+every voice. Three GLOBAL settings bound it:
+- **Voice Limit** (1-64, default the E5000's 64): voices sounding at once, a fading one not counted.
+- **Steal**, at the limit: *Released* (default) fades the quietest voice whose key is up - pedal-held or releasing -
+  and only if every voice is held, the oldest; *Oldest* fades the oldest. The stolen voice fades over the steal
+  fade while the new note takes a free slot. What the E5000 itself takes is not yet measured; the default follows it
+  once it is.
+- **Same Note**: *Stack* (default) as the E5000; *Piano* fades a key's last voice when it is struck again, as a
+  piano's damper - not the E5000's behaviour, an option.
+A voice past its attack whose level is under -100 dB is let go, pedal or not: a pedalled tail that has died away
+stops costing anything. Before this a note took a free slot, else the oldest outright, and nothing below the limit
+of 64 ever ended while the pedal was down.

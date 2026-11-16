@@ -24,3 +24,4 @@ Finished work not yet checked against the instrument.
 - Double-click a dial: back to its default, undoable in the host
 - Shift-drag a dial: a tenth the movement, in each dial mode but Rotary
 - Filter Tracking at 127 turns gold; double-click goes there
+- Fast wheel/bend/aftertouch moves (11-16, SynthLib synthlibCtlPoints.h): smooth, not stepping once a host block

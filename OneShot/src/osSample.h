@@ -21,6 +21,7 @@
 
 #include <stdbool.h>
 #include <stddef.h>
+#include <math.h>
 #include <stdint.h>
 
 
@@ -31,6 +32,7 @@ typedef struct {
     uint32_t channels;               // 1 or 2
     double   rate;                   // the file's own sample rate
     float *  data[2];                // data[1] == data[0] for mono
+    float    peak;                   // notes §7: the largest sample, either channel - what Normalise works from
     char     path[2048];
 } tOsSample;
 
@@ -38,6 +40,13 @@ typedef struct {
 // NULL on failure, with why in error.
 tOsSample * os_sample_load(const char * path, char * error, size_t errorLength);
 void os_sample_free(tOsSample * sample);
+
+// notes §7: Normalise's gain - amount 0..1 of the gain that brings the peak to full scale, never past it
+static inline double os_normalise_gain(const tOsSample * s, double amount) {
+    double most = ((s != NULL) && (s->peak > 0.0f)) ? fmax(0.0, -20.0 * log10((double)s->peak)) : 0.0;
+
+    return pow(10.0, fmin(1.0, fmax(0.0, amount)) * most / 20.0);
+}
 
 bool os_sample_is_audio_file(const char * name);    // by extension: what the loader can read
 

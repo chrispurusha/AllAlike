@@ -53,6 +53,7 @@ enum {
     kOsParamSatOutput,
     kOsParamSatWarmth,
     kOsParamSatHf,
+    kOsParamNormalise,   // osSample notes §7: a share of the gain to full scale
     kOsParamCount
 };
 

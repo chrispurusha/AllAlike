@@ -76,6 +76,7 @@ Missing everywhere, or built in one and wanted in the others:
 - **Performance controllers reset on load** (2026-11-16, SynthLib, owner): wheel, pitch bend, sustain and the other
   pedals, breath and aftertouch go back to their rest position whenever a project or state loads, in every Alike, so a
   wheel left up in a saved project cannot carry into the next session (it did in Nl3Alike, 1:4).
+- **Performance controllers at their own frame** (2026-11-16, SynthLib `synthlibCtlPoints.h`): a fast wheel, bend or pressure is played point by point, not once a host block (3-10 ms in Live). Built in Nl3Alike, Sn2Alike, TiAlike and UltraAlike; Pulse2Alike to follow. Nl3Alike also steps to each new wheel value as its instrument does.
 - **Windows releases** (2026-11-14): `./do-release` builds the Windows half too, one `.zip` with an `x64` and an `arm64` folder of all six plug-ins (Nl3Alike, OneShot and ModAlike added; ModAlike's engine library now builds for Windows). Untested on Windows.
 - **Panel pages, in common** (CT 2026-11-06): OSC, FILTER, AMP, ENV, LFO, MOD, then the instrument's own pages (ARP, TABLES beside OSC, the effects), GLOBAL always last. Short names as on the instruments' panels; a new Alike follows the same.
 - **The panel code** (`p2Draw.c`, copied as `tiDraw.c` and `sn2Draw.c`) is three near-copies: a fix in one probably belongs in all three until it moves into SynthLib.
@@ -213,6 +214,7 @@ Started 2026-11-14 from OneShot's skeleton (`aumu Ultr CPur`); a reproduction in
 - **Polarity**: the E5000's main outputs are inverted (its sub outputs are not); Normal (default, corrected) or Inverted.
 - **Sustain pedal** (CC 64), **pitch bend** (bends sounding notes; Bend range 0-12, default 2) and **mod wheel** (received, drives nothing yet).
 - A loose WAV plays as a one-voice preset through the same voice.
+- **Voices** (2026-11-16): Voice Limit (1-64, the E5000's 64 by default), Steal (Released - the quietest voice whose key is up - or Oldest) and Same Note (Stack, as the E5000: a repeated key adds a voice, measured; or Piano, fading the key's last voice) on GLOBAL; voices decayed under -100 dB are let go. Which voice the E5000 itself steals is still to measure.
 
 **Needs more work**
 - Bank envelope scale: stored values read as rate / 254, inferred from the libraries, not yet confirmed against Emulator X.

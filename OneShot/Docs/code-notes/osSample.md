@@ -23,3 +23,9 @@ Files of more than two channels play their first two.
 `os_zero_crossing` works on any two buffers, so Snap can look in a stretched copy too (osVoice §9).
 For Snap: from the Start (or End) frame outward, the first place either side where left + right changes sign; of the two
 frames there, the one nearer zero. A frame that is exactly 0 is taken as it is. With none in reach, the frame itself.
+
+## 7. Normalise
+A sample's peak (the largest value in either channel) is measured as it loads. Normalise (0-100%) applies that share,
+in dB, of the gain that brings the peak to full scale: 100% puts the peak at 0 dBFS, and the dial cannot go past it,
+so the sample is never pushed over full scale by it. A sample already at full scale gets nothing. It multiplies
+Volume's gain.

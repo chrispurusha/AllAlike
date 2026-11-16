@@ -17,3 +17,6 @@ Built but not yet checked in a host or against the instrument. Confirmed: delete
 - Sustain pedal (11-16, uaBankVoice §9, uaPlugin §17): CC 64 holds released notes on the piano until the pedal lifts, in the VST3 and the AU
 - Pitch bend and mod wheel (11-16, uaBankVoice §10, uaParams §16): the wheel bends held and releasing notes by Bend Range (default 2); the mod wheel is received but drives nothing yet
 - Output headroom (11-16, uaPlugin notes §18): the plug-in plays 6 dB quieter than before, as the other Alikes; Polarity still flips it
+- Voice Limit, Steal, Same Note on GLOBAL (11-16, uaBankVoice notes §11): a pedalled repeated note stops at the limit (CPU levels off); lower the limit and the CPU falls; Steal Released takes faded tails before held notes; Same Note Piano keeps a repeated key to one voice without a click; a pedalled chord's CPU falls as its tail dies away (voices under -100 dB let go)
+- Page tabs (11-16, uaDraw notes §22): OSC / AMP / GLOBAL under the waveform switch on release; each page shows its sections (AMP: Output and both envelope rows; GLOBAL: Anti-alias, Polarity, Voices, Steal, Same Note)
+- Fast wheel/bend/aftertouch moves (11-16, SynthLib synthlibCtlPoints.h): smooth, not stepping once a host block

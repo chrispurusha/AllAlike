@@ -35,6 +35,7 @@
 #include "uaSample.h"
 #include "uaVoice.h"
 #include "uaBankVoice.h"
+#include "synthlibCtlPoints.h"
 #include "emuBank.h"
 
 // touch /tmp/ultraalike-log, read /tmp/ultraalike.log - see SynthLib's plugin/synthlibLog.h.
@@ -121,19 +122,20 @@ typedef struct {
 #define NO_AUDITION    (-1)
 
 typedef struct {
-    tUaLayer     layer[UA_LAYERS];
-    double       hostRate;
-    double       hostTempo;                      // audio thread: the host's, kept when it stops sending one
-    tUaEvent     events[MAX_EVENTS];
-    uint32_t     eventCount;
-    _Atomic int  audition;                       // notes §6: a layer, + UA_LAYERS for the stack; NO_AUDITION
+    tUaLayer           layer[UA_LAYERS];
+    double             hostRate;
+    double             hostTempo;                // audio thread: the host's, kept when it stops sending one
+    tUaEvent           events[MAX_EVENTS];
+    uint32_t           eventCount;
+    _Atomic int        audition;         // notes §6: a layer, + UA_LAYERS for the stack; NO_AUDITION
 
-    tUaCache     cache;                          // notes §4: resampled copies for every layer, built by its one thread
-    _Atomic(const tUaSample *) borrowed;         // the sample the cache's thread is reading; never freed under it
-    _Atomic bool oversample;                     // notes §10: saturation at 2x, every layer UA_FX_LATENCY late
-    uint32_t     auditionLeft;                   // notes §12: audio thread - frames until a program's audition is let go
-    uint8_t      auditionKey;
-    bool         oversampling;                   // audio thread: what it last ran with
+    tUaCache           cache;            // notes §4: resampled copies for every layer, built by its one thread
+    _Atomic(const tUaSample *) borrowed; // the sample the cache's thread is reading; never freed under it
+    _Atomic bool       oversample;       // notes §10: saturation at 2x, every layer UA_FX_LATENCY late
+    uint32_t           auditionLeft;     // notes §12: audio thread - frames until a program's audition is let go
+    uint8_t            auditionKey;
+    bool               oversampling;     // audio thread: what it last ran with
+    tSynthLibCtlPoints ctl;              // notes §19: this block's bend, wheel and pedal, each at its frame
 } tUaPlugin;
 
 // ---- parameters: every layer's - notes §6 ------------------------------------------------------------------
@@ -570,6 +572,9 @@ static tUaPlay make_play(const tUaLayer * l) {
         .delay        = ua_delay_time(value(l, kUaParamDelay)),
         .antiAlias    = step(l, kUaParamAntiAlias) > 0,
         .invert       = step(l, kUaParamPolarity) > 0,
+        .voiceLimit   = 1 + (int)step(l, kUaParamVoiceLimit),
+        .stealOldest  = step(l, kUaParamSteal) > 0,
+        .piano        = step(l, kUaParamSameNote) > 0,
         .eosEnv       = {
             .rate  = {
                 (uint8_t)step(l, kUaParamAtk1Rate), (uint8_t)step(l, kUaParamAtk2Rate), (uint8_t)step(l, kUaParamDcy1Rate),
@@ -721,6 +726,24 @@ static void render(tUaPlugin * t, const tUaPlay * p, const tUaFx * fx, float * l
     }
 }
 
+static void ua_set_param(void * inst, uint32_t globalId, double normalized);
+
+// notes §19: a layer's play settings remade after a controller moved mid-block, the pedal's lift releasing as at a
+// block's start
+static void replay(tUaPlugin * t, int i, const tUaProgram * program, tUaPlay * p) {
+    tUaLayer * l   = &t->layer[i];
+    tUaPlay    now = make_play(l);
+
+    now.loose   = (program != NULL) && program->loose;
+
+    if (l->pedalWas && !now.pedal) {
+        ua_bank_voices_pedal_up(&l->bankVoices);
+    }
+    l->pedalWas = now.pedal;
+    apply_stretch(l, t->hostTempo, &now);
+    *p          = now;
+}
+
 static void ua_process(void * inst, const float *const * in, uint32_t numIn, float ** out, uint32_t numOut,
                        uint32_t frames, const tSynthLibTransport * transport) {
     tUaPlugin *        t            = (tUaPlugin *)inst;
@@ -816,6 +839,12 @@ static void ua_process(void * inst, const float *const * in, uint32_t numIn, flo
     }
 
     if ((out == NULL) || (numOut == 0) || (out[0] == NULL)) {
+        for (uint32_t k = 0; k < t->ctl.count; k++) {
+            ua_set_param(t, t->ctl.point[k].id, t->ctl.point[k].value);
+        }
+
+        synthlib_ctl_points_clear(&t->ctl);
+
         for (uint32_t i = 0; i < t->eventCount; i++) {
             play(t, sample, program, p, &t->events[i]);
         }
@@ -834,8 +863,28 @@ static void ua_process(void * inst, const float *const * in, uint32_t numIn, flo
     }
 
     // up to each note, then the note - every layer in the same block, on this thread (notes §6)
-    for (uint32_t i = 0; i < t->eventCount; i++) {
-        uint32_t at = (t->events[i].offset < frames) ? t->events[i].offset : frames;
+    for (uint32_t i = 0; i <= t->eventCount; i++) {
+        uint32_t          at = (i < t->eventCount) ? ((t->events[i].offset < frames) ? t->events[i].offset : frames) : frames;
+        tSynthLibCtlPoint c;
+
+        // notes §19: each bend, wheel and pedal value at its own frame
+        while (synthlib_ctl_points_due(&t->ctl, at, &c)) {
+            uint32_t w = (c.offset < frames) ? c.offset : frames;
+
+            if (w > done) {
+                render(t, p, fx, left + done, (right != NULL) ? right + done : NULL, w - done);
+                done = w;
+            }
+            ua_set_param(t, c.id, c.value);
+
+            for (int k = 0; k < UA_LAYERS; k++) {
+                replay(t, k, program[k], &p[k]);
+            }
+        }
+
+        if (i == t->eventCount) {
+            break;
+        }
 
         if (at > done) {
             render(t, p, fx, left + done, (right != NULL) ? right + done : NULL, at - done);
@@ -845,11 +894,11 @@ static void ua_process(void * inst, const float *const * in, uint32_t numIn, flo
     }
 
     t->eventCount = 0;
+    synthlib_ctl_points_clear(&t->ctl);
 
     if (done < frames) {
         render(t, p, fx, left + done, (right != NULL) ? right + done : NULL, frames - done);
     }
-
     // notes §18: 6 dB of headroom as every Alike; notes §14: Polarity Inverted, as the E5000's main outputs
     float outGain = p[0].invert ? -OUTPUT_HEADROOM : OUTPUT_HEADROOM;
 
@@ -880,6 +929,21 @@ static void ua_set_param(void * inst, uint32_t globalId, double normalized) {
 
     if (split_id(globalId, &layer, &id)) {
         atomic_store(&((tUaPlugin *)inst)->layer[layer].values[id], normalized);
+    }
+}
+
+// notes §19: every value a block brings, at its frame - bend, wheel and pedal kept for the block, the rest at once
+static void ua_param_points(void * inst, uint32_t globalId, const tSynthLibParamPoint * points, uint32_t count) {
+    uint32_t layer, id;
+
+    if ((count == 0u) || !split_id(globalId, &layer, &id)) {
+        return;
+    }
+
+    if ((id == kUaParamPitchBend) || (id == kUaParamModWheel) || (id == kUaParamSustainPedal)) {
+        synthlib_ctl_points_add(&((tUaPlugin *)inst)->ctl, globalId, points, count);
+    } else {
+        ua_set_param(inst, globalId, points[count - 1].value);
     }
 }
 
@@ -1151,6 +1215,7 @@ static const tSynthLibPluginDesc gDescriptor = {
         .noteOn         = ua_note_on,
         .noteOff        = ua_note_off,
         .setParam       = ua_set_param,
+        .paramPoints    = ua_param_points,
         .getParam       = ua_get_param,
         .paramText      = ua_param_text_cb,
         .getState       = ua_get_state,

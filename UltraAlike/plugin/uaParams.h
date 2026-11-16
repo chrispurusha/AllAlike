@@ -74,6 +74,9 @@ enum {
     kUaParamPitchBend,       // notes §16: the wheel, not on the panel, not saved
     kUaParamModWheel,        // notes §16: CC 1, kept for the modulation to come
     kUaParamBendRange,
+    kUaParamVoiceLimit,      // uaBankVoice notes §11: voices at most, the steal rule and Same Note
+    kUaParamSteal,
+    kUaParamSameNote,
     kUaParamCount
 };
 

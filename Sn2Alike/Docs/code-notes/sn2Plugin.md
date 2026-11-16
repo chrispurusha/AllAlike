@@ -57,3 +57,9 @@ The output is 6 dB under the instrument's own level (OUTPUT_HEADROOM 0.5, CT 202
 the loudest programs stay under a host's full scale. It is applied after the output ceiling, so the instrument's
 clipping is unchanged and only what the host receives is lower; `tools/sn2render` renders the engine itself and so
 keeps the instrument's level for comparisons.
+
+## 17. Wheel and bend at their own frame
+Each wheel and pitch-bend value a block brings is played at its own frame (paramPoints, SynthLib synthlibCtlPoints.h):
+the loop stops at each, sets it, and remakes the sound. Without it a host hands over only a block's last value and a
+fast wheel or bend moves once a block - 3 to 10 ms apart in Live. As Nl3Alike (2026-11-16); the instrument's own
+smoothing of them is not measured, so none is added.

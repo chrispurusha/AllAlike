@@ -580,10 +580,10 @@ static void view_peaks(const tOsSample * s, int64_t from, int64_t to, bool rever
 
         for (int64_t j = a; (j < b) && (j < (int64_t)s->frames); j++) {
             uint32_t k = reverse ? (uint32_t)(s->frames - 1 - j) : (uint32_t)j;
-            float    v = 0.5f * (s->data[0][k] + s->data[1][k]);
 
-            lo = fminf(lo, v);
-            hi = fmaxf(hi, v);
+            // notes §19: either channel's extremes, so Normalise at 100% takes the tallest column to the top
+            lo = fminf(lo, fminf(s->data[0][k], s->data[1][k]));
+            hi = fmaxf(hi, fmaxf(s->data[0][k], s->data[1][k]));
         }
 
         gView.lo[i] = lo;
@@ -709,9 +709,21 @@ static void draw_waveform(void) {
         level[i] = peak;
     }
 
+    // notes §19: drawn at Normalise's gain, with the gain and the most there is written in the corner
+    double norm = os_normalise_gain(s, gValue[kOsParamNormalise]);
+    double most = os_normalise_gain(s, 1.0);
+
+    if (most > 1.0) {
+        char gainText[48];
+
+        snprintf(gainText, sizeof(gainText), "Normalise %+.1f dB of %+.1f", 20.0 * log10(norm), 20.0 * log10(most));
+        set_rgb_colour((tRgb){0.55, 0.60, 0.65});
+        render_text(mainArea, (tRectangle){{gWaveRect.coord.x + gWaveRect.size.w - 190.0, gWaveRect.coord.y + 4.0}, {0.0, 11.0}}, gainText);
+    }
+
     for (int i = 0; i < WAVE_COLUMNS; i++) {
         double x = gWaveRect.coord.x + ((i + 0.5) * gWaveRect.size.w / WAVE_COLUMNS);
-        double lo = fmax(-1.0, gView.lo[i]), hi = fmin(1.0, gView.hi[i]);
+        double lo = fmax(-1.0, gView.lo[i] * norm), hi = fmin(1.0, gView.hi[i] * norm);
 
         set_rgb_colour((tRgb){0.28, 0.32, 0.38});
         render_line(mainArea, (tCoord){x, mid - (hi * half)}, (tCoord){x, mid - (lo * half) + 0.5}, 1.0);

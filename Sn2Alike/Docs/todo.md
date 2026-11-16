@@ -47,3 +47,5 @@
 - Self Osc (6:85): Resonance 127, Q Normalise 127, a short Env 2 noise burst - ours starts self-oscillating from 33 dB lower and reaches full 0.3 s late; the filter words match ours, the cause is elsewhere
 - Free LFO restart: whether it restarts under held notes too, and S+H's start
 
+- Same key again (11-16, Square Basics A16 against the reference, effects off, six C4s 0.2 s apart in the release): Osc Trigger Percussive's re-strikes carry 5-10 dB more above 8 kHz at the note-on than the reference's (-45..-47 against -52..-61 dB re peak); Ensemble within a few dB. The reference restarts something too - find what (phase, envelope from its level, voice) before changing it
+- Square Basics (A16) held: 19 dB less above 8 kHz than the reference (-100 against -81 dB re peak) - the oscillator's top end or the filter

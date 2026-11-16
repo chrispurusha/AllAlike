@@ -18,6 +18,10 @@ Work that spans the plug-ins. One line per item; each product's own list is in i
 - Import no longer replaces the presets: becomes "Replace All Presets..." (confirmed, the presets file backed up first) once the browse folder exists
 - If import stays as an add: append from the first empty bank, a file per bank, skip singles identical apart from their address, report what was added - and the fixed preset counts (TiAlike 23 banks) would have to grow
 
+## Controllers, every Alike
+
+- Performance controllers per frame (owner 11-16): BUILT 11-16 in Nl3Alike (wheel, bend, pressure), Sn2Alike (wheel, bend), TiAlike (bend through Sostenuto), UltraAlike (bend, wheel, pedal) - SynthLib synthlibCtlPoints.h; Pulse2Alike still takes a block's last value (its engines render a whole block each - the loop needs splitting at the points); each instrument's own smoothing measured only for the NL3 (8 steps over 6.5 ms)
+
 ## Panels, every Alike
 
 - Double-click to default BUILT 11-14 in every Alike panel; keyboard tracking's 1:1 marked and the double-click target in Pulse2Alike and Sn2Alike (TiAlike has no fixed point)

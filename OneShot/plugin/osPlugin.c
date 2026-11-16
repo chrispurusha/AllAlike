@@ -418,7 +418,7 @@ static tOsPlay make_play(const tOsLayer * l) {
         .gate        = step(l, kOsParamMode) > 0,
         .mono        = step(l, kOsParamVoices) > 0,
         .pan         = (double)(step(l, kOsParamPan) - 64) / 64.0,
-        .gain        = os_volume_gain(value(l, kOsParamVolume)),
+        .gain        = os_volume_gain(value(l, kOsParamVolume)) * os_normalise_gain(atomic_load(&((tOsLayer *)l)->sample), value(l, kOsParamNormalise)),
         .env         = os_env_shape(values),
         .start       = os_start_time(value(l, kOsParamStart)),
         .snap        = step(l, kOsParamSnap) > 0,

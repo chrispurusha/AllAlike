@@ -59,6 +59,9 @@ typedef struct {
     bool           pedal;        // the sustain pedal is down: a note off leaves its voices sounding
     double         bend;         // the pitch wheel as a ratio on every sounding voice's rate (uaBankVoice notes §10)
     double         modWheel;     // 0..1, kept for the modulation to come
+    int            voiceLimit;   // uaBankVoice notes §11: 1..UA_BANK_VOICES sounding at once
+    bool           stealOldest;  // a voice taken at the limit: the oldest, not the quietest let go
+    bool           piano;        // Same Note Piano: a key struck again fades its last voice
 } tUaPlay;
 
 typedef struct {

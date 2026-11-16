@@ -39,6 +39,7 @@
 #include "tiOsc.h"
 #include "tiUserTable.h"
 #include "tiVoices.h"
+#include "synthlibCtlPoints.h"
 
 // touch /tmp/tialike-log, read /tmp/tialike.log - see SynthLib's plugin/synthlibLog.h.
 
@@ -118,6 +119,7 @@ typedef struct {
     _Atomic uint64_t       blocks;   // audio blocks begun, so a retired table is freed only once none can read it
     char                   userName[2][64];
     char                   userPath[2][1024];
+    tSynthLibCtlPoints     ctl; // notes §16: this block's controllers, each at its frame
 } tTiPlugin;
 
 static uint32_t voice_limit(const tTiPlugin * t) {
@@ -473,6 +475,8 @@ static void take_start_preset(tTiPlugin * t);
 static void take_program_change(tTiPlugin * t);
 
 // notes §13: the voices straight into the host's buffers, or at their own rate and converted
+static void ti_set_param(void * inst, uint32_t id, double normalized);
+
 static void render_host(tTiPlugin * t, float * left, float * right, uint32_t frames) {
     if (!t->resampling) {
         ti_voices_render(&t->voices, &t->sound, left, right, frames);
@@ -526,6 +530,12 @@ static void ti_process(void * inst, const float *const * in, uint32_t numIn, flo
                             (transport != NULL) ? transport->projectTimeMusic : 0.0);
 
     if ((out == NULL) || (numOut == 0) || (out[0] == NULL)) {
+        for (uint32_t k = 0; k < t->ctl.count; k++) {
+            ti_set_param(t, t->ctl.point[k].id, t->ctl.point[k].value);
+        }
+
+        synthlib_ctl_points_clear(&t->ctl);
+
         for (uint32_t i = 0; i < t->eventCount; i++) {
             play(t, &t->events[i]);
         }
@@ -545,8 +555,24 @@ static void ti_process(void * inst, const float *const * in, uint32_t numIn, flo
     // notes §2: up to each note, then the note; the host sends them in time order
     uint32_t done  = 0;
 
-    for (uint32_t i = 0; i < t->eventCount; i++) {
-        uint32_t at = (t->events[i].offset < frames) ? t->events[i].offset : frames;
+    for (uint32_t i = 0; i <= t->eventCount; i++) {
+        uint32_t          at = (i < t->eventCount) ? ((t->events[i].offset < frames) ? t->events[i].offset : frames) : frames;
+        tSynthLibCtlPoint c;
+
+        // notes §16: each controller value at its own frame
+        while (synthlib_ctl_points_due(&t->ctl, at, &c)) {
+            uint32_t w = (c.offset < frames) ? c.offset : frames;
+
+            if (w > done) {
+                render_host(t, left + done, right + done, w - done);
+                done = w;
+            }
+            ti_set_param(t, c.id, c.value);
+        }
+
+        if (i == t->eventCount) {
+            break;
+        }
 
         if (at > done) {
             render_host(t, left + done, right + done, at - done);
@@ -556,6 +582,7 @@ static void ti_process(void * inst, const float *const * in, uint32_t numIn, flo
     }
 
     t->eventCount = 0;
+    synthlib_ctl_points_clear(&t->ctl);
 
     if (done < frames) {
         render_host(t, left + done, right + done, frames - done);
@@ -641,6 +668,21 @@ static void ti_set_param(void * inst, uint32_t id, double normalized) {
         ti_voices_control(&t->voices, (tTiControlId)(id - kTiParamBend), (id == kTiParamBend) ? ((2.0 * normalized) - 1.0) : normalized);
     } else {
         atomic_store(&t->soundStale, true);
+    }
+}
+
+// notes §16: every value a block brings, at its frame - the controllers' kept for the block, the rest at once
+static void ti_param_points(void * inst, uint32_t id, const tSynthLibParamPoint * points, uint32_t count) {
+    tTiPlugin * t = (tTiPlugin *)inst;
+
+    if ((count == 0u) || (id >= kTiParamCount)) {
+        return;
+    }
+
+    if ((id >= kTiParamBend) && (id <= kTiParamSostenuto)) {
+        synthlib_ctl_points_add(&t->ctl, id, points, count);
+    } else {
+        ti_set_param(inst, id, points[count - 1].value);
     }
 }
 
@@ -1078,19 +1120,20 @@ static const tSynthLibPluginDesc gDescriptor = {
     .editorAspect       = TI_CANVAS_W / TI_CANVAS_H,
 
     .cb                 = {
-        .create     = ti_create,
-        .destroy    = ti_destroy,
-        .prepare    = ti_prepare,
-        .setActive  = ti_set_active,
-        .process    = ti_process,
-        .noteOn     = ti_note_on,
-        .noteOff    = ti_note_off,
-        .setParam   = ti_set_param,
-        .getParam   = ti_get_param,
-        .paramText  = ti_param_text,
-        .getState   = ti_get_state,
-        .setState   = ti_set_state,
-        .createView = ti_create_view,
+        .create      = ti_create,
+        .destroy     = ti_destroy,
+        .prepare     = ti_prepare,
+        .setActive   = ti_set_active,
+        .process     = ti_process,
+        .noteOn      = ti_note_on,
+        .noteOff     = ti_note_off,
+        .setParam    = ti_set_param,
+        .paramPoints = ti_param_points,
+        .getParam    = ti_get_param,
+        .paramText   = ti_param_text,
+        .getState    = ti_get_state,
+        .setState    = ti_set_state,
+        .createView  = ti_create_view,
     }
 };
 

@@ -74,3 +74,7 @@ steps from where it was to the host's, the host block ends at each step, and eac
 voice's morphed sound - morphs, the wheel's pitch and vibrato all follow it alike. A wheel arriving in 7-bit steps
 from a controller is interpolated step by step; a first message far from 0 after a load still lands in 6.5 ms, as
 on the instrument.
+Each wheel, bend and pressure value is also played at its own frame within the host's block (paramPoints, SynthLib synthlibCtlPoints.h): without it a host hands
+over only a block's last value, so a fast wheel reached the engine as one jump a block - 3 to 10 ms apart in Live -
+where the instrument steps from every controller message as it comes (owner: rapid moves smoothed less than the
+instrument's, 2026-11-16).

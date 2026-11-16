@@ -118,3 +118,9 @@ held (uaBankVoice §9) before the block's notes play.
 The output is half the engine's level, 6 dB down, as in every Alike (AllAlike feature status, "Output headroom"), so
 a loud preset or a chord stays under full scale in the host. It is the last step, folded into Polarity's sign. The
 engine and its offline harnesses keep the instrument's own level for comparisons with the E5000.
+
+## 19. Bend, wheel and pedal at their own frame
+Each pitch-bend, mod-wheel and sustain-pedal value a block brings is played at its own frame (paramPoints, SynthLib
+synthlibCtlPoints.h): the loop stops at each, sets it and remakes the layer's play settings - the pedal's lift
+releasing what it held there, not at the next block. Without it a host hands over only a block's last value, so a
+fast bend moved once a block. As the other Alikes (2026-11-16).

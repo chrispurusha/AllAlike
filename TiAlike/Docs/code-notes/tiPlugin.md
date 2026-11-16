@@ -74,3 +74,9 @@ and every frame's built cycle as 16-bit samples. A table rebuilt from those is t
 (-95 dB). A project without them - saved before user tables existed - loads with none.
 
 A Single keeps only the Wave byte, 100: sent to the instrument or saved as a `.syx`, it carries no table.
+
+## 16. Controllers at their own frame
+Each value a block brings for the performance controllers - bend, pressure, wheel and the rest through Sostenuto -
+is played at its own frame (paramPoints, SynthLib synthlibCtlPoints.h): the loop stops at each and sets it. Without
+it a host hands over only a block's last value and a fast wheel or bend moves once a block - 3 to 10 ms apart in
+Live. As Nl3Alike (2026-11-16); the instrument's own smoothing of them is not measured, so none is added.

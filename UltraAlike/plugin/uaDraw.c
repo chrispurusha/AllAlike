@@ -68,11 +68,14 @@
 #define TAB_Y                   (54.0)       // notes §14: the layer tabs, between the sample bar and the waveform
 #define TAB_H                   (18.0)
 #define TAB_GAP                 (6.0)
-#define MUTE_Y                  (TAB_Y + TAB_H + 3.0) // notes §15: a Mute under each tab
+#define MUTE_Y                  (TAB_Y + TAB_H + 3.0)   // notes §15: a Mute under each tab
 #define MUTE_H                  (13.0)
-#define WAVE_Y                  (58.0)                // notes §21: where the layer tabs were
+#define WAVE_Y                  (58.0)                  // notes §21: where the layer tabs were
 #define WAVE_H                  (130.0)
-#define PAGE_Y                  (208.0)
+#define PAGE_TAB_Y              (WAVE_Y + WAVE_H + 6.0) // notes §22: the page tabs, under the waveform
+#define PAGE_TAB_W              (76.0)
+#define MAX_PAGE_TABS           (8)
+#define PAGE_Y                  (PAGE_TAB_Y + TAB_H + 14.0)
 #define ROW_H                   (112.0)
 #define SECTION_GAP             (16.0)
 #define CONTROL_W               (50.0)     // twelve controls across the first row
@@ -152,6 +155,8 @@ static double                gLastPressAt;
 static const tUaSampleHost * gHost;
 static void *                gUser;
 static tRectangle            gPrevRect, gNextRect, gLoadRect, gPlayRect, gResetRect, gWaveRect;
+static tRectangle            gPageTab[MAX_PAGE_TABS];   // notes §22
+static uint32_t              gPage;
 
 // notes §1 (SynthLib buttonPress.h): a button is lit while held, and acts on the release
 static tRgb held_colour(const void * id, tRgb colour) {
@@ -543,7 +548,18 @@ static void draw_sample_bar(void) {
     draw_button(mainArea, gPlayRect, "Play", held_colour(&gPlayRect, (tRgb)RGB_GREEN_ON));
     draw_button(mainArea, gResetRect, "Reset", held_colour(&gResetRect, (tRgb)RGB_GREY_7));
 
-    x          = gResetRect.coord.x + draw_button_bounds(gResetRect).size.w + 10.0;
+    // notes §22: one tab a page, the shown one lit
+    for (uint32_t p = 0; (p < gPageCount) && (p < MAX_PAGE_TABS); p++) {
+        gPageTab[p] = (tRectangle){{
+                                       MARGIN_X + (p * (PAGE_TAB_W + TAB_GAP)), PAGE_TAB_Y
+                                   }, {
+                                       PAGE_TAB_W, TAB_H
+                                   }
+        };
+        draw_button(mainArea, gPageTab[p], gPages[p].title, held_colour(&gPageTab[p], (p == gPage) ? (tRgb)RGB_GREEN_ON : (tRgb)RGB_GREY_7));
+    }
+
+    x = gResetRect.coord.x + draw_button_bounds(gResetRect).size.w + 10.0;
 
     if ((base == NULL) || (base[1] == '\0')) {
         set_rgb_colour((tRgb)RGB_GREY_5);
@@ -806,7 +822,7 @@ static void layout(void) {
     if ((gPages == NULL) || (gPageCount == 0)) {
         return;
     }
-    const tUaPage * page = &gPages[0];
+    const tUaPage * page = &gPages[(gPage < gPageCount) ? gPage : 0];
     double          x    = MARGIN_X;
     double          y    = PAGE_Y;
 
@@ -992,6 +1008,13 @@ bool ua_draw_press(double x, double y, tUaEdit * edit, bool * grabbed) {
     }
 
     // notes §1 (SynthLib buttonPress.h): the buttons are armed here and act in ua_draw_release()
+    for (uint32_t p = 0; (p < gPageCount) && (p < MAX_PAGE_TABS); p++) {
+        if (within_rectangle(at, draw_button_bounds(gPageTab[p]))) {
+            synthlib_button_press(&gPageTab[p]);
+            return true;
+        }
+    }
+
     if (within_rectangle(at, draw_button_bounds(gPrevRect))) {
         synthlib_button_press(&gPrevRect);
         return true;
@@ -1124,6 +1147,13 @@ bool ua_draw_drag_to(double x, double y, tUaEdit * edit) {
 
 // A release ends a drag, and is where a menu's choice is taken
 static void release_button(const void * held, tCoord at, tUaEdit * edit) {
+    for (uint32_t p = 0; (p < gPageCount) && (p < MAX_PAGE_TABS); p++) {
+        if (synthlib_button_clicked(held, &gPageTab[p], draw_button_bounds(gPageTab[p]), at)) {
+            gPage = p;   // notes §22
+            return;
+        }
+    }
+
     if (synthlib_button_clicked(held, &gPrevRect, draw_button_bounds(gPrevRect), at)) {
         ua_draw_step_sample(-1);
     } else if (synthlib_button_clicked(held, &gNextRect, draw_button_bounds(gNextRect), at)) {

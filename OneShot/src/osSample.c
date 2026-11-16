@@ -311,6 +311,7 @@ tOsSample * os_sample_load(const char * path, char * error, size_t errorLength) 
 
                 for (uint32_t c = 0; c < keep; c++) {
                     s->data[c][i] = read_value(frame + (c * (fmt.bits / 8)), &fmt);
+                    s->peak       = fmaxf(s->peak, fabsf(s->data[c][i]));   // notes §7
                 }
             }
 

@@ -36,6 +36,7 @@
 #include "nl3Patch.h"
 #include "nl3Prefs.h"
 #include "nl3Hardware.h"
+#include "synthlibCtlPoints.h"
 #include "nl3Effects.h"
 #include "nl3Voices.h"
 
@@ -85,24 +86,25 @@ typedef struct {
     tSynthLibResampler resamplerR;
     tNl3Effects        effects;
     double             hostRate;
-    double             wheelHeard, wheelFrom, wheelTo;   // notes §18: the wheel the engine hears, stepping to the host's
-    int                wheelStep;                        // 0..WHEEL_STEPS, WHEEL_STEPS when arrived
-    double             wheelLeft;                        // host frames to the next step
+    double             wheelHeard, wheelFrom, wheelTo; // notes §18: the wheel the engine hears, stepping to the host's
+    int                wheelStep;                      // 0..WHEEL_STEPS, WHEEL_STEPS when arrived
+    tSynthLibCtlPoints ctl;                            // notes §18: this block's wheel, bend and pressure, each at its frame
+    double             wheelLeft;                      // host frames to the next step
     double             tempo;
     float              engine[ENGINE_FRAMES];
     float              engineL[ENGINE_FRAMES], engineR[ENGINE_FRAMES];
     float              engineRight[ENGINE_FRAMES];   // voices notes §26: the voices' right channel
     tNl3Event          events[MAX_EVENTS];
     uint32_t           eventCount;
-    double             values[kNl3ParamCount];  // normalized
-    double             morphed[kNl3ParamCount]; // voices notes §25: one voice's values with its morphs, audio thread only
+    double             values[kNl3ParamCount];   // normalized
+    double             morphed[kNl3ParamCount];  // voices notes §25: one voice's values with its morphs, audio thread only
     // notes §5: the sound, beyond its parameters - main thread, and the host's state calls
     char               soundName[NL3_SINGLE_NAME_LENGTH + 1];
     bool               haveBase;
-    uint8_t            base[NL3_SINGLE_LENGTH]; // the Single it came from, whose bytes a save keeps
+    uint8_t            base[NL3_SINGLE_LENGTH];  // the Single it came from, whose bytes a save keeps
     char               patchPath[1024];
-    int                patchIndex;              // its place in that file
-    int                preset;                  // 1..NL3_PRESETS, 0 none
+    int                patchIndex;               // its place in that file
+    int                preset;                   // 1..NL3_PRESETS, 0 none
     double             presetsChecked;
     tSynthLibSwapFade  fade;
     _Atomic bool       clipped;     // the audio thread saw the ceiling; the panel holds the lamp
@@ -112,10 +114,10 @@ typedef struct {
     bool               hwSent, hwExtensionDue;
     double             hwSentAt;
     uint8_t            hwLast[NL3_SINGLE_LENGTH];
-    double             hwLastValues[kNl3ParamCount]; // notes §14: as last sent, to find what changed
-    _Atomic bool       startPreset;                  // notes: a new instance plays 1:1
-    _Atomic int        wantPreset;                   // a program change waiting for the fade
-    _Atomic bool       clearEffects;                 // notes §15: a new sound starts with empty effects, the old one's echoes gone
+    double             hwLastValues[kNl3ParamCount];  // notes §14: as last sent, to find what changed
+    _Atomic bool       startPreset;                   // notes: a new instance plays 1:1
+    _Atomic int        wantPreset;                    // a program change waiting for the fade
+    _Atomic bool       clearEffects;                  // notes §15: a new sound starts with empty effects, the old one's echoes gone
 } tNl3Plugin;
 
 static uint32_t voice_limit(const tNl3Plugin * t) {
@@ -332,6 +334,8 @@ static void nl3_set_active(void * inst, bool active) {
     nl3_voices_all_off(&((tNl3Plugin *)inst)->voices);
 }
 
+static void nl3_set_param(void * inst, uint32_t id, double normalized);
+
 static tNl3Sound make_sound(const tNl3Plugin * t) {
     tNl3Sound sound;
 
@@ -412,6 +416,12 @@ static void nl3_process(void * inst, const float *const * in, uint32_t numIn, fl
     }
 
     if ((out == NULL) || (numOut == 0) || (out[0] == NULL)) {
+        for (uint32_t k = 0; k < t->ctl.count; k++) {
+            nl3_set_param(t, t->ctl.point[k].id, t->ctl.point[k].value);
+        }
+
+        synthlib_ctl_points_clear(&t->ctl);
+
         for (uint32_t i = 0; i < t->eventCount; i++) {
             play(t, &sound, &t->events[i]);
         }
@@ -419,14 +429,31 @@ static void nl3_process(void * inst, const float *const * in, uint32_t numIn, fl
         t->eventCount = 0;
         return;
     }
-    float *      left   = out[0];
-    float *      right  = (numOut > 1) ? out[1] : NULL;
+    float *  left  = out[0];
+    float *  right = (numOut > 1) ? out[1] : NULL;
 
-    // notes §2: up to each note, then the note; the host sends them in time order
-    uint32_t     done   = 0;
+    // notes §2: up to each note, then the note; the host sends them in time order. Notes §18: each wheel value at its frame
+    uint32_t done  = 0;
 
-    for (uint32_t i = 0; i < t->eventCount; i++) {
-        uint32_t at = (t->events[i].offset < frames) ? t->events[i].offset : frames;
+    for (uint32_t i = 0; i <= t->eventCount; i++) {
+        uint32_t          at = (i < t->eventCount) ? ((t->events[i].offset < frames) ? t->events[i].offset : frames) : frames;
+
+        tSynthLibCtlPoint c;
+
+        while (synthlib_ctl_points_due(&t->ctl, at, &c)) {
+            uint32_t w = (c.offset < frames) ? c.offset : frames;
+
+            if (w > done) {
+                render_host(t, &sound, left + done, (right != NULL) ? (right + done) : NULL, w - done, gain);
+                done = w;
+            }
+            nl3_set_param(t, c.id, c.value);
+            sound = make_sound(t);
+        }
+
+        if (i == t->eventCount) {
+            break;
+        }
 
         if (at > done) {
             render_host(t, &sound, left + done, (right != NULL) ? (right + done) : NULL, at - done, gain);
@@ -436,6 +463,7 @@ static void nl3_process(void * inst, const float *const * in, uint32_t numIn, fl
     }
 
     t->eventCount = 0;
+    synthlib_ctl_points_clear(&t->ctl);
 
     if (done < frames) {
         render_host(t, &sound, left + done, (right != NULL) ? (right + done) : NULL, frames - done, gain);
@@ -482,6 +510,22 @@ static void nl3_set_param(void * inst, uint32_t id, double normalized) {
         nl3_voices_set_fixed(&t->voices, normalized >= 0.5);
     } else if (id == kNl3ParamAliasing) {
         nl3_voices_set_clean(&t->voices, normalized >= 0.5);
+    }
+}
+
+// notes §18: every value a block brings, at its frame - the performance controllers' are kept for the block, the rest
+// settle at once
+static void nl3_param_points(void * inst, uint32_t id, const tSynthLibParamPoint * points, uint32_t count) {
+    tNl3Plugin * t = (tNl3Plugin *)inst;
+
+    if ((count == 0u) || (id >= kNl3ParamCount)) {
+        return;
+    }
+
+    if ((id == kNl3ParamModWheel) || (id == kNl3ParamPitchBend) || (id == kNl3ParamPressure)) {
+        synthlib_ctl_points_add(&t->ctl, id, points, count);
+    } else {
+        nl3_set_param(inst, id, points[count - 1].value);
     }
 }
 
@@ -979,6 +1023,7 @@ static const tSynthLibPluginDesc gDescriptor = {
         .noteOn         = nl3_note_on,
         .noteOff        = nl3_note_off,
         .setParam       = nl3_set_param,
+        .paramPoints    = nl3_param_points,
         .getParam       = nl3_get_param,
         .paramText      = nl3_param_text,
         .getState       = nl3_get_state,

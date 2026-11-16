@@ -36,6 +36,7 @@
 #include "sn2Patch.h"
 #include "sn2Prefs.h"
 #include "sn2Hardware.h"
+#include "synthlibCtlPoints.h"
 #include "sn2Effects.h"
 #include "sn2Voices.h"
 
@@ -108,6 +109,7 @@ typedef struct {
     _Atomic bool       startPreset;  // notes: a new instance plays A000
     _Atomic int        wantPreset;   // a program change waiting for the fade
     _Atomic bool       clearEffects; // notes §15: a new sound starts with empty effects, the old one's echoes gone
+    tSynthLibCtlPoints ctl;          // notes §17: this block's wheel and bend, each at its frame
 } tSn2Plugin;
 
 static uint32_t voice_limit(const tSn2Plugin * t) {
@@ -274,6 +276,8 @@ static void sn2_set_active(void * inst, bool active) {
     sn2_voices_all_off(&((tSn2Plugin *)inst)->voices);
 }
 
+static void sn2_set_param(void * inst, uint32_t id, double normalized);
+
 static tSn2Sound make_sound(const tSn2Plugin * t) {
     tSn2Sound sound = (tSn2Sound){
         .osc            = {
@@ -384,6 +388,12 @@ static void sn2_process(void * inst, const float *const * in, uint32_t numIn, fl
     }
 
     if ((out == NULL) || (numOut == 0) || (out[0] == NULL)) {
+        for (uint32_t k = 0; k < t->ctl.count; k++) {
+            sn2_set_param(t, t->ctl.point[k].id, t->ctl.point[k].value);
+        }
+
+        synthlib_ctl_points_clear(&t->ctl);
+
         for (uint32_t i = 0; i < t->eventCount; i++) {
             play(t, &sound, &t->events[i]);
         }
@@ -391,14 +401,31 @@ static void sn2_process(void * inst, const float *const * in, uint32_t numIn, fl
         t->eventCount = 0;
         return;
     }
-    float *      left   = out[0];
-    float *      right  = (numOut > 1) ? out[1] : NULL;
+    float *  left  = out[0];
+    float *  right = (numOut > 1) ? out[1] : NULL;
 
     // notes §2: up to each note, then the note; the host sends them in time order
-    uint32_t     done   = 0;
+    uint32_t done  = 0;
 
-    for (uint32_t i = 0; i < t->eventCount; i++) {
-        uint32_t at = (t->events[i].offset < frames) ? t->events[i].offset : frames;
+    for (uint32_t i = 0; i <= t->eventCount; i++) {
+        uint32_t          at = (i < t->eventCount) ? ((t->events[i].offset < frames) ? t->events[i].offset : frames) : frames;
+        tSynthLibCtlPoint c;
+
+        // notes §17: each wheel and bend value at its own frame
+        while (synthlib_ctl_points_due(&t->ctl, at, &c)) {
+            uint32_t w = (c.offset < frames) ? c.offset : frames;
+
+            if (w > done) {
+                render_host(t, &sound, left + done, (right != NULL) ? (right + done) : NULL, w - done, gain);
+                done = w;
+            }
+            sn2_set_param(t, c.id, c.value);
+            sound = make_sound(t);
+        }
+
+        if (i == t->eventCount) {
+            break;
+        }
 
         if (at > done) {
             render_host(t, &sound, left + done, (right != NULL) ? (right + done) : NULL, at - done, gain);
@@ -408,6 +435,7 @@ static void sn2_process(void * inst, const float *const * in, uint32_t numIn, fl
     }
 
     t->eventCount = 0;
+    synthlib_ctl_points_clear(&t->ctl);
 
     if (done < frames) {
         render_host(t, &sound, left + done, (right != NULL) ? (right + done) : NULL, frames - done, gain);
@@ -452,6 +480,21 @@ static void sn2_set_param(void * inst, uint32_t id, double normalized) {
         sn2_voices_set_clean(&t->voices, normalized >= 0.5);   // voices notes §17
     } else if (id == kSn2ParamVoiceLimit) {
         sn2_voices_set_limit(&t->voices, voice_limit(t));
+    }
+}
+
+// notes §17: every value a block brings, at its frame - the performance controllers' kept for the block, the rest at once
+static void sn2_param_points(void * inst, uint32_t id, const tSynthLibParamPoint * points, uint32_t count) {
+    tSn2Plugin * t = (tSn2Plugin *)inst;
+
+    if ((count == 0u) || (id >= kSn2ParamCount)) {
+        return;
+    }
+
+    if ((id == kSn2ParamModWheel) || (id == kSn2ParamPitchBend)) {
+        synthlib_ctl_points_add(&t->ctl, id, points, count);
+    } else {
+        sn2_set_param(inst, id, points[count - 1].value);
     }
 }
 
@@ -951,6 +994,7 @@ static const tSynthLibPluginDesc gDescriptor = {
         .noteOn         = sn2_note_on,
         .noteOff        = sn2_note_off,
         .setParam       = sn2_set_param,
+        .paramPoints    = sn2_param_points,
         .getParam       = sn2_get_param,
         .paramText      = sn2_param_text,
         .getState       = sn2_get_state,

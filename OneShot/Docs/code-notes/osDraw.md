@@ -91,3 +91,9 @@ A sample's name (the tabs, the sample bar, a load error) and its folder (Prev/Ne
 With Shift held, dragging a dial moves it a tenth as far for the same distance - the same on the Mac and Windows
 (SynthLib's panel views read the modifiers on every drag event). Rotary mode, where the dial follows the pointer's
 angle, is unchanged. Added across the Alikes 2026-11-14.
+
+## 19. Normalise on the waveform
+The waveform is drawn at Normalise's gain (osSample notes §7), so turning it up grows the sample in the display; the
+corner says the gain applied and the most there is ("Normalise +4.2 dB of +8.4"), and says nothing for a sample
+already at full scale. Each column shows the extremes of either channel (it was their average), so the zoom matches
+what Normalise measures: at 100% the tallest column reaches the top.

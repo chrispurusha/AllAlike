@@ -105,3 +105,9 @@ gives the file browser all its rows (§8).
 With one layer (uaPlugin §13) the tab row and its Mute and Clear are not drawn - their rectangles stay empty, so no
 press reaches them - and the waveform and controls move up 40 into the space. The height stays 540: the file browser
 wants it, and the voices' own settings are still to come onto the panel.
+
+## 22. Page tabs
+The panel has pages as every Alike does, in their common order - OSC (PITCH, PLAY), AMP (OUTPUT and the amplifier
+envelope), GLOBAL (Anti-alias, Polarity, Voice Limit, Steal, Same Note) - one tab each under the waveform, the shown
+one lit, acting on the release. FILTER, ENV (the auxiliary envelope), LFO and MOD join as they are built. It was one
+page (SAMPLE) with every section on it, OneShot's layout, until 2026-11-16.

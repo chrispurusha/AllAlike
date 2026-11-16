@@ -60,6 +60,7 @@ const tSynthLibParam gOsParams[kOsParamCount] = {
     {kOsParamSatOutput,    "Sat Output",    "Output",  GEN,                     -30.0,    6.0,    60.0 / 72.0,   72, NONE,    0},
     {kOsParamSatWarmth,    "Sat Warmth",    "Warmth",  GEN,                     -12.0,   12.0,            0.5,   48, NONE,    0},
     {kOsParamSatHf,        "Sat HF",        "HF",      GEN,                       0.0, 1000.0,            1.0, 1000, NONE,    0},
+    {kOsParamNormalise,    "Normalise",     "Normal",  eSynthLibUnitPercent,      0.0,  100.0,            0.0,  100, NONE,    0},
 };
 
 static const char *const kOffOn[]    = {"Off", "On"};
@@ -227,6 +228,10 @@ void os_param_text(uint32_t id, double normalized, char * out, size_t len) {
     long                     step     = step_of(id, normalized);
 
     switch (id) {
+        case kOsParamNormalise:   // osSample notes §7: a share of the gain to full scale
+            snprintf(out, len, "%ld%%", lround(normalized * 100.0));
+            break;
+
         case kOsParamVolume:
         {
             double gain = os_volume_gain(normalized);
@@ -379,7 +384,7 @@ static const tOsControl kTrim[]      = {
     DIAL(kOsParamDelay, "Delay"), DIAL(kOsParamStart, "Start"), DIAL(kOsParamEnd, "End"), TOGGLE(kOsParamSnap, "Snap"),
 };
 static const tOsControl kOutput[]    = {
-    DIAL(kOsParamVelocity, "Velocity"), DIAL(kOsParamPan, "Pan"), DIAL(kOsParamVolume, "Volume"),
+    DIAL(kOsParamVelocity, "Velocity"), DIAL(kOsParamPan, "Pan"), DIAL(kOsParamVolume, "Volume"), DIAL(kOsParamNormalise, "Normalise"),
 };
 
 static const tOsControl kEnvelope[]  = {

@@ -10,9 +10,7 @@ One line per item.
 - Instances: at most 32 per host process (the engine library's limit) - a 33rd fails to load; raise it, or engines per effect
 
 ## Later
-- Double-click a dial to its default (OneShot has it; AllAlike todo for every Alike)
 - Plug-in exports: only the entry points (GetPluginFactory, SynthLibAUFactory), so -dead_strip can drop unused library calls - every Alike's do-plugin
 - Wide for the Chorus: g2am_lfo_link handles only the Phaser and Flanger
 - More effects from the same engine: FreqShift, Delay, Reverb, Compressor
-- Windows: needs the engine library's Windows build first
 - Measure on the instrument whether In -> Out loses 4.6 dB there too (design §3)

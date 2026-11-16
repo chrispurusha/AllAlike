@@ -26,8 +26,9 @@
 
 #define OUTPUT_SMOOTH_S    (0.005)
 #define OUTPUT_CHUNK       (64)
+#define SILENT_GAIN        (1e-5)                                // notes §11: -100 dB, past the attack: the voice is let go
 #define STEAL_FADE_S       (0.003)
-#define GATHER_HALF        ((int64_t)(UA_RESAMPLE_HALF * 4) + 2)   // the widest kernel's reach, 1 / its narrowest cutoff
+#define GATHER_HALF        ((int64_t)(UA_RESAMPLE_HALF * 4) + 2) // the widest kernel's reach, 1 / its narrowest cutoff
 #define GATHER_SIZE        ((2 * GATHER_HALF) + 1)
 
 void ua_bank_voices_init(tUaBankVoices * v, double hostRate) {
@@ -59,15 +60,49 @@ void ua_bank_voices_fade_all(tUaBankVoices * v) {
     }
 }
 
-// A free voice, else the oldest, faded out under the new note
-static tUaBankVoice * take_voice(tUaBankVoices * v) {
-    tUaBankVoice * oldest = &v->voice[0];
+// notes §11: a voice for a new note - Same Note Piano fades the key's last voice first; at the limit the quietest
+// voice whose key is up (else the oldest), or with Steal Oldest the oldest, fades out under the new note
+static tUaBankVoice * take_voice(tUaBankVoices * v, const tUaPlay * play, uint8_t note) {
+    int            limit    = (play->voiceLimit < 1) ? 1 : ((play->voiceLimit > UA_BANK_VOICES) ? UA_BANK_VOICES : play->voiceLimit);
+    int            sounding = 0;
+    tUaBankVoice * victim   = NULL;
+    tUaBankVoice * oldest   = NULL;
+
+    for (int i = 0; i < UA_BANK_VOICES; i++) {
+        tUaBankVoice * voice = &v->voice[i];
+
+        if (!voice->active || (voice->fadeStep > 0.0)) {
+            continue;
+        }
+
+        if (play->piano && (voice->note == note)) {
+            fade_out(v, voice);
+            continue;
+        }
+        sounding++;
+
+        if ((oldest == NULL) || ((int32_t)(voice->age - oldest->age) < 0)) {
+            oldest = voice;
+        }
+
+        if (!play->stealOldest && (voice->pedalHeld || (voice->env.stage >= 5)) && ((victim == NULL) || (voice->env.gain < victim->env.gain))) {
+            victim = voice;
+        }
+    }
+
+    if (sounding >= limit) {
+        fade_out(v, (play->stealOldest || (victim == NULL)) ? oldest : victim);
+    }
 
     for (int i = 0; i < UA_BANK_VOICES; i++) {
         if (!v->voice[i].active) {
             return &v->voice[i];
         }
+    }
 
+    oldest = &v->voice[0];   // every slot busy, fading ones included: the oldest is taken outright
+
+    for (int i = 1; i < UA_BANK_VOICES; i++) {
         if ((int32_t)(v->voice[i].age - oldest->age) < 0) {
             oldest = &v->voice[i];
         }
@@ -102,7 +137,7 @@ void ua_bank_voices_note_on(tUaBankVoices * v, const tEmuPreset * preset, const 
         if ((note < zone->keyLow) || (note > zone->keyHigh) || (vel < zone->velLow) || (vel > zone->velHigh)) {
             continue;
         }
-        tUaBankVoice *   voice = take_voice(v);
+        tUaBankVoice *   voice = take_voice(v, play, note);
         int              root  = play->loose ? play->rootKey : zone->rootNote;
         double           semis = (play->nonTranspose ? 0.0 : (double)note - root) + play->tune;
         double           step  = (zone->sample->rate / v->hostRate) * pow(2.0, semis / 12.0);
@@ -238,7 +273,7 @@ void ua_bank_voices_render(tUaBankVoices * v, const tUaPlay * play, float * left
 
             for (uint32_t i = 0; i < count; i++) {
                 double e    = ua_eos_env_step(&voice->env, &voice->amp, play->depth, dt);
-                bool   done = ua_eos_env_done(&voice->env);
+                bool   done = ua_eos_env_done(&voice->env) || ((voice->env.stage >= 2) && ((e * voice->level) < SILENT_GAIN));   // notes §11
 
                 if ((!s->looped && (voice->position >= end)) || (voice->fade <= 0.0) || done) {
                     voice->active = false;
