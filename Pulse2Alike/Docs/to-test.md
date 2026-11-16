@@ -69,3 +69,4 @@ Built, not yet checked against the instrument or in a host. Confirmed → delete
 - Sort menu: Prev/Next following Bank / Location, Category and A-Z
 - Shift-drag a dial: a tenth the movement, in each dial mode but Rotary
 - Filter Keytrack at 96 turns gold; double-click goes there
+- Aftertouch from a keyboard sending polyphonic pressure (11-16, p2Plugin notes §68): pressure routes respond (they ignored poly pressure)

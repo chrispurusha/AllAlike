@@ -39,3 +39,4 @@ Built but not yet checked by ear or in a host. Confirmed: delete the line. Faile
 - Double-click a dial: back to its default, undoable in the host
 - Shift-drag a dial: a tenth the movement, in each dial mode but Rotary
 - Fast wheel/bend/aftertouch moves (11-16, SynthLib synthlibCtlPoints.h): smooth, not stepping once a host block
+- Aftertouch from a keyboard sending polyphonic pressure (11-16, tiPlugin notes §17): pressure routes respond (they ignored poly pressure)

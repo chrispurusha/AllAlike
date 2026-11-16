@@ -49,3 +49,4 @@
 
 - Same key again (11-16, Square Basics A16 against the reference, effects off, six C4s 0.2 s apart in the release): Osc Trigger Percussive's re-strikes carry 5-10 dB more above 8 kHz at the note-on than the reference's (-45..-47 against -52..-61 dB re peak); Ensemble within a few dB. The reference restarts something too - find what (phase, envelope from its level, voice) before changing it
 - Square Basics (A16) held: 19 dB less above 8 kHz than the reference (-100 against -81 dB re peak) - the oscillator's top end or the filter
+- Aftertouch (11-16): no pressure parameter yet - the Supernova takes it as a modulation source; add it with the routes, poly pressure included (Nl3Alike/TiAlike/Pulse2Alike take it since 11-16)
