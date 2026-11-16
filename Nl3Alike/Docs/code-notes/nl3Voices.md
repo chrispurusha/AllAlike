@@ -75,7 +75,7 @@ A note starts away from its pitch and arrives in a time set by Glide Time alone,
 Polyphony 1 in a program. One voice and a list of the keys down, last note priority: a released key returns to the newest still held. Measured: value 34 of the trigger byte, and 35-37, restart the envelope on each change including the return; 32, 33 and 38 do not. Glide Auto counts a key still held on the one voice.
 
 ## 14. Volume and the output
-A program's Volume is part of the sound. Measured: gain is Volume/84, and 127 plays as 84, not as the loudest; the Nord Lead 3 gives 18.6 dB between 9 and 127, against 19.4 from this law. The output saturates hard at 0.97675 of full scale: flat tops, with no gain reduction, whatever the voice count, with the effects on or bypassed.
+A program's Volume is part of the sound. Measured (2026-11-16, 1:5 with its level morph off, Volume 23/46/92/115/126/127, peaks under 0.14 of full scale): gain is the square of Volume, within 0.2 dB everywhere, 127 included - halving Volume costs 12 dB. NL3_VOLUME_UNITY (91.2) keeps Volume 100 exactly as loud as the earlier law did. That law (Volume/84, 127 playing as 84) came from one 9-against-127 reading and was wrong. The output saturates hard at 0.97675 of full scale: flat tops, with no gain reduction, whatever the voice count, with the effects on or bypassed.
 
 ## 15. LFOs
 Two per voice, stepped every sub-block. Rate 2.5 Hz x (Speed/64)^2, Range x1, x10, x100. Square, rising saw from -1, triangle rising from 0 and sample and hold, all +-1; Offset adds Offset/127 of the amount. Key restarts the phase with a note, Free runs on. Delay is a straight fade in: 0.125 s at 40, 0.34 s at 64, 1.33 s at 90. Pitch and cutoff go as amount^2/57.6 semitones, width in step with the amount, one unit in the panel's 64 a unit. Measured.
@@ -182,8 +182,7 @@ than the instrument at the fundamental; switching Unison off on both made the be
 ## 28. Voice stealing
 With every voice busy, a note takes the quietest voice already let go, and a held one (the oldest) only when none
 is. Long releases keep voices busy for a long time - String Pad's (103) for half a minute - so this is common. A note
-on a key still sounding restarts that voice, its envelopes from where they are; whether the instrument does the
-same is not yet settled (the beating hid it in the one comparison made).
+on a key still sounding takes another voice (§34).
 
 ## 29. Every voice its own LFO
 A free-running LFO (not keyed) runs in each voice at that voice's own rate, so a morph that moves the rate with the
@@ -208,3 +207,26 @@ are 1 for aftertouch and 2 for the wheel (the manual lists the wheel first); the
 order. Rate 3.98 Hz at 0 to 8.00 Hz at 127, measured at 0, 32, 64, 96 and 127 and drawn straight between, the
 plug-in within 0.25% of every point. Measured on the instrument 2026-11-14 with the Init saw at A4, the pressure and
 the wheel sent over MIDI.
+
+## 32. Morph offsets per voice
+A morph moves a voice's own sound (§25); its Filter Frequency 1, Resonance and Output Level offsets from the panel's
+values glide toward their targets with a 12 ms time constant, because a wheel arrives in 128 steps - Mod Wheel Sweep
+(1:5) morphs the cutoff by 121, nearly a semitone a step, and through a resonant band-pass each step was heard. A
+voice's first block takes its targets at once, so a new note starts where the morph puts it. Output Level is a
+morph target like the rest, additive in knob steps and through the same square law (§14): measured on 1:5, +46 at
+full wheel adds 12.0 dB, at half wheel 7.0. Rendered with the wheel stepped through 0-127 over 4 s, the spectral
+centroid's step-to-step jitter fell from 0.24 to 0.04 semitones a millisecond.
+
+## 33. Octave Shift
+A program's Octave Shift (-2..+2) moves every note by whole octaves: measured on 1:5 (Octave Shift -1), C4 sounds at
+130.8 Hz on the instrument. It was read from the program and never applied, so 354 of the 1024 programs played in the
+wrong octave. It is added to the note for pitch and for the filter's Keyboard Track (assumed - the track with a shift
+not yet measured); the keyboard morph still takes the key played. Transpose is 48 in every program and not applied.
+
+## 34. The same key again
+A key played again while its last note still sounds takes another voice; the old one is let go (if it was still
+held) and releases to its end beside the new one. Restarting the old voice instead - the first version - set its
+oscillators back to their starting phase mid-cycle, a tick at every repeated note of a program with a long release
+(1:4), which the instrument does not make (owner, 2026-11-16). A run of notes rendered through 1:4 now starts every
+note without a step. A repeated key with a long release uses voices faster; §28's stealing takes the quietest
+released one when they run out.

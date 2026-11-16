@@ -66,6 +66,7 @@ typedef struct {
 tNl3FilterMode nl3_filter_mode(uint32_t type, uint32_t slope);   // type 0-5 LP HP BP BR Classic Dist, slope 0-2: 6 12 24 dB
 // cutoff on the panel's 0..127, plus modulation in semitones; resonance 0..127
 void nl3_filter_coeffs(tNl3FilterMode mode, double cutoff, double resonance, tNl3FilterCoeffs * c);
+void nl3_noise_coeffs(double shape, double * f, double * k);   // osc notes §15: the Noise waveform's filter, Shape 0..127
 // notes §15: a multi mode's two filters, on cutoff and cutoff2
 void nl3_filter_coeffs_multi(tNl3FilterMode mode, double cutoff, double cutoff2, double resonance, tNl3FilterCoeffs * c);
 void nl3_filter_reset(tNl3Filter * f);

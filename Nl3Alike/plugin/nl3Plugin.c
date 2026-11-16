@@ -232,6 +232,18 @@ static void render_host(tNl3Plugin * t, const tNl3Sound * sound, float * outL, f
 
         nl3_voices_render(&t->voices, sound, t->engine, t->engineRight, need, gain);
 
+        // notes §17: a sample that is not a number would silence everything after it for good - the block is let go and
+        // the voices cleared, so the next note plays
+        for (uint32_t k = 0; k < need; k++) {
+            if (!isfinite(t->engine[k]) || !isfinite(t->engineRight[k])) {
+                memset(t->engine, 0, need * sizeof(t->engine[0]));
+                memset(t->engineRight, 0, need * sizeof(t->engineRight[0]));
+                nl3_voices_all_off(&t->voices);
+                synthlib_log_line("non-finite voice output - voices cleared");
+                break;
+            }
+        }
+
         nl3_effects_bypass(&t->effects, t->engine, t->engineRight, t->engineL, t->engineR, need);    // notes §15: the instrument has no effects
 
         if (t->effects.clipped) {

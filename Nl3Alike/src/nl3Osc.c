@@ -238,8 +238,9 @@ double nl3_sine_feedback(double phase, double shape, double last, double out) {
 #define MANTISSA_SHIFT    (6)
 #define PITCH_SHIFT       (3)         // the exponent at the octave from E4
 
+// notes §8a: held below Nyquist as the word is - beyond it the phase would outrun its wrap
 double nl3_pitch_increment(double note) {
-    return nl3_word_value(TUNE_WORD) * pow(2.0, ((note - PITCH_E) / 12.0) - PITCH_SHIFT - 2.0);
+    return fmin(nl3_word_value(NL3_WORD_MAX), nl3_word_value(TUNE_WORD) * pow(2.0, ((note - PITCH_E) / 12.0) - PITCH_SHIFT - 2.0));
 }
 
 tNl3Word nl3_pitch_increment_fixed(double note) {

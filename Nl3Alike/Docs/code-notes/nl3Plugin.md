@@ -59,3 +59,9 @@ to two channels (2026-11-07). The effects code stays until the outputs are rebui
 The output is 6 dB under the instrument's own level (OUTPUT_HEADROOM 0.5, CT 2026-11-08, as Pulse2Alike's and
 Sn2Alike's), so the loudest sounds stay under a host's full scale. It is applied after the output ceiling, so the instrument's clipping is unchanged; `tools/nl3render` renders the engine itself
 and so keeps the instrument's level for comparisons.
+
+## 17. A non-finite sample (2026-11-16)
+If the voices ever return a sample that is not a finite number, the block is zeroed before the effects and the
+resampler see it and every voice is cleared (Unison's rings included), with a log line - otherwise one bad value
+stays in the filters and delay lines and the plug-in is silent until reloaded, as it was at 1:4's full mod wheel
+before osc notes §8a. It is a net, not the fix: a log line means something to chase.

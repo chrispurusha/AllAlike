@@ -1,5 +1,5 @@
 // Renders a program through the engine: nl3render <file.syx> <index> <out.wav> <note> <seconds>
-//   $NL3_FIXED: fixed-point arithmetic; $NL3_CLEAN: the Clean aliasing setting
+//   $NL3_FIXED: fixed-point arithmetic; $NL3_CLEAN: the Clean aliasing setting; $NL3_WHEEL: the mod wheel 0..1
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -27,8 +27,8 @@ int main(int argc, char ** argv) {
     if (argc < 6) {
         return 1;
     }
-    int               count  = nl3_patch_read_file(argv[1], gPrograms, NL3_MAX_SINGLES);
-    int               index  = atoi(argv[2]);
+    int               count = nl3_patch_read_file(argv[1], gPrograms, NL3_MAX_SINGLES);
+    int               index = atoi(argv[2]);
 
     if (index >= count) {
         fprintf(stderr, "%d programs\n", count);
@@ -42,6 +42,10 @@ int main(int argc, char ** argv) {
     }
 
     nl3_patch_from_single(gPrograms[index], values);
+
+    if (getenv("NL3_WHEEL") != NULL) {   // NL3_WHEEL=0..1: the mod wheel, morphs included
+        values[kNl3ParamModWheel] = atof(getenv("NL3_WHEEL"));
+    }
     nl3_patch_name(gPrograms[index], name);
     tNl3Sound         sound;
 

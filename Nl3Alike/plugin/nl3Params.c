@@ -969,6 +969,7 @@ void nl3_sound_from_values(const double * v, tNl3Sound * s) {
 
     memset(s, 0, sizeof(*s));
     s->osc[0].shape     = osc_shape(choice(v, kNl3ParamOsc1Waveform));
+    s->osc[0].noise     = choice(v, kNl3ParamOsc1Waveform) == 4;                              // osc notes §15
     s->osc[0].width     = nl3_word_value(nl3_pulse_width_word(plain(v, kNl3ParamOsc1Shape))); // osc notes §11
     s->osc[0].sync      = on(v, kNl3ParamOsc1Sync);                                           // osc notes §13
     s->osc[0].syncTune  = plain(v, kNl3ParamOsc1SyncTune);
@@ -989,9 +990,11 @@ void nl3_sound_from_values(const double * v, tNl3Sound * s) {
 
     s->cutoff           = plain(v, kNl3ParamCutoff);
     s->resonance        = plain(v, kNl3ParamResonance);
+    s->level            = v[kNl3ParamLevel];
+    s->keyShift         = 12.0 * (choice(v, kNl3ParamOctaveShift) - 2); // voices notes §33
     s->tracking         = on(v, kNl3ParamFilterTrack) ? 1.0 : 0.0;
-    s->filterType       = (uint32_t)choice(v, kNl3ParamFilterType);   // LP HP BP BR Classic Dist (filter notes)
-    s->filterSlope      = (uint32_t)slope;                            // 6, 12, 24 dB
+    s->filterType       = (uint32_t)choice(v, kNl3ParamFilterType);     // LP HP BP BR Classic Dist (filter notes)
+    s->filterSlope      = (uint32_t)slope;                              // 6, 12, 24 dB
     s->filterMulti      = choice(v, kNl3ParamFilterMode) == 1;
     s->filter2Type      = (uint32_t)choice(v, kNl3ParamFilter2Type);
     s->cutoff2          = plain(v, kNl3ParamCutoff2);

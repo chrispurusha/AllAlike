@@ -64,6 +64,13 @@ increment = (0x3D376D / 2²³) · 2^((note − 64)/12 − 5), within 5·10⁻⁷
 Not yet known: the resolution for fractions of a semitone (assumed the same formula), and whether the tuning word
 follows the instrument's Master Tune.
 
+## 8a. Held below Nyquist (2026-11-16)
+The increment saturates just below Nyquist in both arithmetics, as the instrument's word does (`nl3_word_limit`).
+The float one used not to: a pitch far above the top - 1:4 "Ethereality" at full mod wheel, whose wheel morph swings
+Osc 2 by 128 semitones - made it larger than a period, the phase outran its one-step wrap, the Sine's polynomial left
+its range and, with Shape feeding it back, the output grew without bound until the plug-in went silent. Held, every
+waveform wraps correctly and float and fixed agree; all 1,024 programs at full wheel stay bounded.
+
 ## 9. The Triangle
 The same phase as the Saw, -1..1 a cycle and advanced before use. The wave is |p| - |p - 1|, with p - 1 wrapped back
 into -1..1: +1 at phase -1, -1 at phase 0, +1 again at 1. The corner nearer the phase is band-limited: its distance,
@@ -124,3 +131,18 @@ Measured on the instrument at A4 (Init, filter open), sync tune 64 and 127: harm
 (median) of the plug-in, against 3.6 and 7.4 dB without the fade. The reset phase is within 18 LSB of the
 instrument's, whose share of a sample comes through a reciprocal table. Only the saw was checked; the other
 waveforms take the same restart and fade.
+
+## 15. The Noise waveform (Osc 1), 2026-11-16
+Measured on the instrument (test programs sent to its slot: Osc 1 Noise, filter open, Shape 0-127, captured) and
+built to match:
+- A 24-bit generator per voice: s' = (0x0B2D9D s + 0x361963) mod 2^24 - full period - read as a signed word.
+- Averaged with its last average (a one-pole at 1/2), halved.
+- The two-pole lowpass the filter uses, at q 1, its word from Shape by the filter's own cutoff law (Shape in place of
+  Cutoff), the normalisation read from the 1/root table without a straight line between entries; twice the
+  coefficient a step, as the filter. Out the mean of its last two lowpass values, at full level (a halving tried
+  first was making up for the Volume law, voices notes §14, which put Volume 127 7 dB too low against 86).
+- Shape modulation (LFO, morphs) moves the colour: the word comes from the modulated width.
+Against the instrument: spectral shape within about 1 dB (3 dB at worst) at Shape 32-127, level within 0-1 dB;
+1:6 "White Noise" peaks at 105 Hz (instrument 108) and at half wheel at 1,332 Hz (instrument 1,336). It used to play
+as a Saw. Osc 2's Noise (Noise Type, Noise Frequency) is another routine and still plays as a Saw; the Noise 3 mix
+path's colour is still unset.

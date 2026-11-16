@@ -30,7 +30,7 @@
 #define NL3_MOD_ENVS        (2)    // Env 2 and 3
 #define NL3_LFOS            (2)
 #define NL3_MAX_VOICES      (32)
-#define NL3_VOLUME_UNITY    (83.2) // voices notes §14: the Volume that plays at unity
+#define NL3_VOLUME_UNITY    (91.2) // voices notes §14: the Volume that plays at unity (Volume 100 as loud as the old law)
 
 // notes §6: how the two filters are put together
 typedef struct {
@@ -59,6 +59,10 @@ typedef struct {
     double     sineLast[NL3_OSCS];  // osc notes §12: the Sine's last sample, for its Shape
     double     syncPhase[NL3_OSCS]; // osc notes §13: the hidden oscillator's phase
     double     syncLast[NL3_OSCS];  // osc notes §13: the synced oscillator's last sample, faded at a restart
+    uint32_t   noiseWord[NL3_OSCS]; // osc notes §15: the Noise waveform's generator, its average and its filter
+    double     noiseAvg[NL3_OSCS], noiseA[NL3_OSCS], noiseB[NL3_OSCS];
+    uint64_t   morphFor;            // voices notes §32: the start its morph offsets follow, so a new note starts on its target
+    double     morphCut, morphRes, morphLevel;
 } tNl3Voice;
 
 #define NL3_LFOS    (2)
@@ -78,6 +82,7 @@ typedef struct {
     tNl3OscShape shape;
     double       octaves, semitones, cents;
     double       width;              // osc notes §11: the pulse's width word, 0 (square) to 1.0
+    bool         noise;              // osc notes §15: the Noise waveform, its colour from the width
     double       soften;             // 0..127
     double       level;              // 0..1
     double       bendRange;          // semitones at full bend, negative inverts the wheel
@@ -101,6 +106,8 @@ typedef struct {
     tNl3OscSound osc[NL3_OSCS];
     double       cutoff;                                      // 0..127
     double       resonance;                                   // 0..127
+    double       level;                                       // the normalised Output Level (voices notes §32: a morph moves it)
+    double       keyShift;                                    // voices notes §33: Octave Shift, in semitones
     double       tracking;                                    // 0 or 1: Keyboard Track off or on
     double       overdrive;                                   // 0..127
     double       normalise;                                   // 0..127, Q Normalise
@@ -191,9 +198,9 @@ typedef struct {
 
 // voices notes §14: from the normalised Volume
 static inline double nl3_volume_gain(double normalized) {
-    double volume = normalized * 127.0;
+    double v = normalized * 127.0 / NL3_VOLUME_UNITY;
 
-    return ((volume >= 126.5) ? 84.0 : volume) / NL3_VOLUME_UNITY;
+    return v * v;
 }
 
 void nl3_voices_init(tNl3Voices * v);

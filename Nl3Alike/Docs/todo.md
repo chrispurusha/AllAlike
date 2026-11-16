@@ -14,7 +14,7 @@
 - Filter: how modulation reaches the cutoff word (envelope amount, key track, velocity), measured
 - Filter: check against the instrument on the rig (QU-24 9/10) - responses and self-oscillation level
 - Fixed point beyond the filter, per the Arithmetic parameter
-- Oscillators: sync BUILT 11-14 (osc notes §13, saw measured; check pulse, triangle and sine against the instrument); Noise, Dual Sine, Shape on the other waves
+- Oscillators: sync BUILT 11-14 (osc notes §13, saw measured; check pulse, triangle and sine against the instrument); Osc 1 Noise BUILT 11-16 (osc notes §15, matches the instrument); Osc 2 Noise (Noise Type/Frequency), Noise 3's colour (noiseSoften never set), Dual Sine, Shape on the other waves
 - Pulse width modulation (osc notes §11): the LFO and modulation-envelope depth on the width word is a placeholder
 - Pitch (osc notes §8): fractions of a semitone - their resolution; whether the tuning word follows Master Tune
 - Master Tune per instance (GLOBAL): ±6 semitones and ±100 cents, as the instrument's, scaling the tuning word
@@ -26,3 +26,4 @@
 - The MIDI link: send single parameters as the instrument's CCs (the whole program goes now)
 - Panel: the pages for the Nord Lead 3's sections
 - `Docs/code-notes/` came across from Sn2Alike with the code: rewrite each as its file changes
+- Octave Shift with Filter Keyboard Track on: check the track follows the shifted note (voices notes §33, assumed)

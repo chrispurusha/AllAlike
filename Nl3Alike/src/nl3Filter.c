@@ -784,3 +784,14 @@ tNl3Word nl3_filter_process_fixed(tNl3Filter * f, const tNl3FilterCoeffs * c, tN
             return out_fixed(nl3_asl(nl3_acc(f->lowW[0]), 1), c->gainw);
     }
 }
+
+// osc notes §15: the Noise waveform's colour filter - the two-pole lowpass at q 1, its word from Shape by the cutoff's
+// law, the normalisation read straight from the table (no straight line between entries)
+void nl3_noise_coeffs(double shape, double * f, double * k) {
+    double w = (shape >= 127.0) ? CUTOFF_WORD_OPEN : fmin(CUTOFF_WORD_OPEN, CUTOFF_WORD_AT_0 * pow(2.0, fmax(0.0, shape) / 12.0));
+    int    i = (int)fmin((double)NORM_LAST, floor(((4.0 * w * w) + w) * 128.0));
+    double n = norm_table(i);
+
+    *f = G_PER_WORD * w * n;
+    *k = n;
+}
