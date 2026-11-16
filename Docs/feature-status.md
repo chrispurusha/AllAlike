@@ -1,7 +1,7 @@
 # Feature status
 
 Where each plug-in stands: what is **missing**, what is **built but needs more work**, and what is **built but not
-yet checked** in a host or against the instrument. Updated 2026-11-16 (UltraAlike measured against an E5000 Ultra: its interpolation, amplifier envelope and output; the panel remapped to the E5000's controls; sustain pedal, pitch bend and mod wheel). Before that 2026-11-14 (Nl3Alike's modulation, envelopes, morphs, Unison, Pulse and most filter modes; panel buttons on release across the Alikes; Windows releases of all six; UltraAlike plays Emulator X bank presets). Before that 2026-11-12 (TiAlike user wavetables, delay modulation, Pan Spread; Pulse2Alike's unison, PARA-8 and thump refitted through the QU-24, P016-P029 heard; TiAlike's Bank A heard against the instrument, its 11-08 oscillator, portamento and LFO work; preset browsers by category).
+yet checked** in a host or against the instrument. Updated 2026-11-16, later (Nl3Alike: Osc 1 Noise, Osc 2 Partial, the Osc Mix and Volume laws, Octave Shift, the Mod Env to LFO 1, the instrument's voice placement and free-running oscillators, Link by controllers - each measured on the instrument; across every Alike: resizable Audio Unit editors, host tempo in the Audio Unit, performance controllers reset on load). Before that 2026-11-16 (UltraAlike measured against an E5000 Ultra: its interpolation, amplifier envelope and output; the panel remapped to the E5000's controls; sustain pedal, pitch bend and mod wheel). Before that 2026-11-14 (Nl3Alike's modulation, envelopes, morphs, Unison, Pulse and most filter modes; panel buttons on release across the Alikes; Windows releases of all six; UltraAlike plays Emulator X bank presets). Before that 2026-11-12 (TiAlike user wavetables, delay modulation, Pan Spread; Pulse2Alike's unison, PARA-8 and thump refitted through the QU-24, P016-P029 heard; TiAlike's Bank A heard against the instrument, its 11-08 oscillator, portamento and LFO work; preset browsers by category).
 
 This is a summary for planning. The working lists stay in each plug-in's `Docs/todo.md` (one line per item) and
 `Docs/to-test.md`; the reasoning and measurements in `Docs/findings.md` and `Docs/code-notes/`. Work spanning the
@@ -9,9 +9,9 @@ plug-ins is listed in `Docs/todo.md` beside this file. When an item here is done
 
 | | Pulse2Alike | TiAlike | Sn2Alike | Nl3Alike |
 |---|---|---|---|---|
-| State | Beta: the whole instrument plays | Ready for beta (owner, 2026-11-14): the voice is nearly complete, effects partly | Nearly ready for beta (owner, 2026-11-14) | Work in progress: Saw, Pulse, Triangle, Sine, most filter modes, envelopes, LFOs, morphs and Unison measured; Osc Mod, Noise, Dual Sine, sync and vibrato to come |
+| State | Beta: the whole instrument plays | Ready for beta (owner, 2026-11-14): the voice is nearly complete, effects partly | Nearly ready for beta (owner, 2026-11-14) | Work in progress: Saw, Pulse, Triangle, Sine, Osc 1 Noise, sync, most filter modes, envelopes, LFOs, morphs, Unison and vibrato measured; Osc Mod, Osc 2 Noise, Dual Sine and filter distortion to come |
 | Scope | One sound per instance, optional extra voices | One Single per instance, a voice limit, no Multi | One program per instance (to confirm), no performances yet | One Program per instance |
-| Hardware link | Built: follows the sound, backs up the instrument's sounds, stores one sound to a slot | Built: follows the sound; bank backup and restore built, not yet tried | Built: follows the sound, reads a backup | Built: sends the whole program; reading its 1024 programs built, untried |
+| Hardware link | Built: follows the sound, backs up the instrument's sounds, stores one sound to a slot | Built: follows the sound; bank backup and restore built, not yet tried | Built: follows the sound, reads a backup | Built: knob changes as the instrument's controllers (a held note follows), anything else as the whole program (the next note takes it); reading its 1024 programs built, untried |
 
 ## Across all of them
 
@@ -66,6 +66,15 @@ Missing everywhere, or built in one and wanted in the others:
 - **Shift for fine adjustment** (2026-11-14): every Alike panel, OneShot and UltraAlike included - a dial dragged with
   Shift held moves a tenth as far, on the Mac and Windows; Rotary mode unchanged.
 - **Panel buttons act on the release** (CT 2026-11-14), in every Alike with a panel (SynthLib `buttonPress.h`): Prev, Next, Load, the tabs, Link and the Off/On buttons light while held and act only when released on the same button; menus still open on the press. Built in Pulse2Alike, TiAlike, Sn2Alike, Nl3Alike and OneShot (whose toggles now flip on release too); Nl3Alike's Off/On choices are toggle buttons rather than menus. Not yet tried in a host.
+- **Resizable editors in the Audio Unit** (2026-11-16, SynthLib): every Alike's editor resizes in an AU host that
+  gives it no window corner (Ableton, Logic) by a grip in its bottom-right corner, with the system's diagonal resize
+  cursor from macOS 15 (a crosshair before); the VST3 resizes as before. Not yet tried in Logic; the cursor to confirm
+  in Ableton.
+- **Host tempo in the Audio Unit** (2026-11-16, SynthLib): the AU now passes the host's tempo and transport as the
+  VST3 does, so tempo-synced LFOs, delays and arpeggiators follow it there too (owner confirmed in Ableton).
+- **Performance controllers reset on load** (2026-11-16, SynthLib, owner): wheel, pitch bend, sustain and the other
+  pedals, breath and aftertouch go back to their rest position whenever a project or state loads, in every Alike, so a
+  wheel left up in a saved project cannot carry into the next session (it did in Nl3Alike, 1:4).
 - **Windows releases** (2026-11-14): `./do-release` builds the Windows half too, one `.zip` with an `x64` and an `arm64` folder of all six plug-ins (Nl3Alike, OneShot and ModAlike added; ModAlike's engine library now builds for Windows). Untested on Windows.
 - **Panel pages, in common** (CT 2026-11-06): OSC, FILTER, AMP, ENV, LFO, MOD, then the instrument's own pages (ARP, TABLES beside OSC, the effects), GLOBAL always last. Short names as on the instruments' panels; a new Alike follows the same.
 - **The panel code** (`p2Draw.c`, copied as `tiDraw.c` and `sn2Draw.c`) is three near-copies: a fix in one probably belongs in all three until it moves into SynthLib.
@@ -170,21 +179,25 @@ delays, the sine LFO's Symmetry.
 
 Started 2026-11-02 from Sn2Alike's skeleton. Everything below is measured on the instrument; the fixed-point paths reproduce the measured output exactly, and floating point takes the same steps.
 **Built and measured**
-- **Oscillators:** Saw, Pulse (Shape sets the width, 50% to almost nothing), Triangle, Sine (Shape is a feedback); sync (saw measured, 2026-11-14); pitch; the Anti-alias switch.
+- **Oscillators:** Saw, Pulse (Shape sets the width, 50% to almost nothing), Triangle, Sine (Shape is a feedback), Osc 1 Noise (Shape its colour, 2026-11-16); sync (saw measured, 2026-11-14); pitch, Osc 2's Coarse in semitones (-64 to +63) or partials (2026-11-16: 366 programs use Partial, all played mistuned before), Octave Shift (2026-11-16: 354 programs played in the wrong octave); the Anti-alias switch. Oscillators run free - no note sets their phase, as on the instrument (2026-11-16; resetting it ticked on repeated and mono notes).
+- **Osc Mix** (2026-11-16): the instrument's own law, 1 - x² and 2x - x², each oscillator 2.5 dB down at the middle - within 0.1 dB of the instrument at every setting (a straight crossfade had left balanced programs up to 3.5 dB quiet).
 - **Filter:** LP and HP at 6, 12 and 24 dB, BP 12 and 24, BR, Classic (a ladder as two stages), and multi mode types 1 (lowpass beside highpass on the two cutoffs), 4 and 5 (three all-pass stages with feedback - peaks or notches, Freq 2 setting their width); coefficient laws, level compensation, key tracking (a semitone a note above C2).
 - **Envelopes:** one law for all three (the G2's (dial + 40.15)⁸ time form), Exp Attack, the Amp's squared sustain, the Mod envelope's AD, AR and Repeat.
+- **Level:** Volume is a square law (2026-11-16: halving it costs 12 dB, measured 23-127; Volume 100 as loud as before).
 - **LFOs:** rate (0.03 to 523 Hz), Saw, Triangle, Square and Random, and their depths to pitch (cubic), filter, Shape, Osc Mix and Amp.
-- **Modulation:** the Filter envelope's Amount and velocity; the Mod envelope to pitch, filter, Shape and Osc Mix; all four morph groups by their measured sources (aftertouch has no source yet).
+- **Modulation:** the Filter envelope's Amount and velocity; the Mod envelope to pitch, filter, Shape, Osc Mix and LFO 1's Amount (2026-11-16: the vibrato SawLead fades in); all four morph groups by their measured sources, Output Level among their targets (2026-11-16), each morph's offsets gliding so a wheel sweep does not step.
+- **Voices:** the instrument's own placement (2026-11-16): after every note event the voices are ranked - keys up quietest first, then held ones oldest first sparing the lowest held key - and the next notes take them in order; Mono is one voice. Every run tried places notes as the instrument does.
 - **Unison:** the voice beside a mirrored pair of copies each side, one sharp and one as flat - the voices are stereo for it.
 - **Vibrato:** one sine for every voice, a cent an Amount step, 3.98-8 Hz, by aftertouch or the wheel.
 - **Program:** one parameter per field, programs read and written back byte for byte; the Sort menu; Off/On choices as toggle buttons.
+- **Link:** a change to any of 45 knobs goes as the instrument's controller and a held note follows it; anything else as the whole program, which the instrument takes from the next note (2026-11-16).
 
 **Missing**
-- **Filter:** the other three multi modes, Distorted LP and filter distortion.
-- **Oscillators:** Noise, Dual Sine, Shape on the Saw and Triangle; sync on the other waves checked.
-- **Osc Mod** (DM, Dist, Filt FM, FM, DFM, RM); the LFOs' Smooth Random and Special waves, Env/KB-sync and Mono modes; LFO 2 to Resonance and Pan.
-- **Level calibration** against the instrument (the oscillator mix law and the output level), and an A/B harness scoring renders against captures of the first 20 programs.
-- Single-parameter MIDI to the instrument; reading its 1024 programs is built but untried.
+- **Filter:** the other three multi modes, Distorted LP and filter distortion (1:1, and SawLead's level).
+- **Oscillators:** Osc 2 Noise (Noise Type and Frequency), Noise 3's colour, Dual Sine, Shape on the Saw and Triangle; sync on the other waves checked.
+- **Osc Mod** (DM, Dist, Filt FM, FM, DFM, RM); the Mod Env to Osc Mod (164 programs) and Filter 2 (13); the LFOs' Smooth Random and Special waves, Env/KB-sync and Mono modes; LFO 2 to Resonance and Pan.
+- **Level across the library:** a sweep of bank 1 against the instrument at three wheel positions, the worst narrowed by switching features off on both sides (owner, 2026-11-16) - 1:2, 1:7, 1:15, 1:17, 1:18 and 1:19 noted by ear; an A/B harness scoring renders against captures.
+- Reading its 1024 programs is built but untried.
 
 **Built, not yet checked** - `Nl3Alike/Docs/to-test.md`: nearly all of the above by ear in a host; the float path parts from fixed in the 6 dB modes and band-reject only with the filter fully open and a near-full-scale input.
 

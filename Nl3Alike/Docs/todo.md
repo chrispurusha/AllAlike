@@ -3,7 +3,7 @@
 ## First
 - Priority (CT 2026-11-14): programs 2-4 (String Pad, Happy ending, Ethereality) - Unison done; multi types 1, 4, 5 and the Sine's Shape done (filter notes §15-16, osc notes §12) - vibrato BUILT 11-14 (voices notes §31; source 1 = aftertouch, 2 = wheel); what reaches the second cutoff (Filter 2 Env, key track, LFO to Filter 2) measured, then the Sine's Shape (program 4); vibrato later
 - Modulation (CT 2026-11-14: first): LFO 2 to Resonance and Pan, Invert on the positive-only destinations, LFO to Osc Mod once Osc Mod exists (pitch, filter, Shape, Osc Mix and Amp done, voices notes §21-22); Smooth Random and Special waves; keyed start phase; Env (single cycle) and Mono modes
-- Modulation: the Mod Env to destinations other than the filter (pitch cubic as the LFO's, the rest presumably as voices notes §22); what Amount 127 does to pitch (the offset reads zero)
+- Modulation: what the Mod Env's Amount 127 does to pitch (the offset reads zero); its other destinations are built bar OSCMOD and FILT 2 (below)
 - Morph: aftertouch BUILT 11-14 (channel pressure, the wheel's law assumed - measure it); the Control Pedal as a source; whether a morphed knob is clamped to its range before or after the groups add
 - Check the switch names against the instrument (stored value = panel position is measured; the names follow the
   manual's order)
@@ -23,12 +23,12 @@
   Distortion the instrument has (Flt Dist, and the Distorted LP modes)
 - Osc Bypass (a switch, per program): sends an oscillator around the filter, added after it; the filter takes that
   second input already (both arithmetics). Build it with the oscillators
-- The MIDI link: send single parameters as the instrument's CCs (the whole program goes now)
+- The MIDI link: knobs go as CCs BUILT 11-16 (plugin notes §14); switches and choices still go whole and reach only the next note - send those as CCs too once their CC values are measured (scaled, not the knob value)
 - Panel: the pages for the Nord Lead 3's sections
 - `Docs/code-notes/` came across from Sn2Alike with the code: rewrite each as its file changes
 - Octave Shift with Filter Keyboard Track on: check the track follows the shifted note (voices notes §33, assumed)
 - Owner A/B 11-16, bank 1 against the instrument:
-  - 1:2 String Pad, 1:3 Happy ending: louder on the instrument (unison?)
+  - 1:2 String Pad: louder on the instrument (unison?); 1:3 Happy ending explained by the Osc Mix law, FIXED 11-16 - recheck both
   - 1:7 Self Mod Filter: louder in Nl3Alike
   - 1:15 Open Air: very different - a missing feature?
   - 1:17 Icisematta: tonally different

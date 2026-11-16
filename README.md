@@ -8,7 +8,7 @@ Reproductions of synthesizers and their effects, and a sample player, as VST3 an
 | [Pulse2Alike](Pulse2Alike/) | A reproduction inspired by the Waldorf Pulse 2 | Beta |
 | [TiAlike](TiAlike/) | A reproduction inspired by the Access Virus TI's single-patch engine | Ready for beta |
 | [Sn2Alike](Sn2Alike/) | A reproduction inspired by the Novation Supernova II | Nearly ready for beta |
-| [Nl3Alike](Nl3Alike/) | A reproduction inspired by the Clavia Nord Lead 3 | Work in progress: most filter modes, envelopes, LFOs, morphs, Unison and four waveforms measured |
+| [Nl3Alike](Nl3Alike/) | A reproduction inspired by the Clavia Nord Lead 3 | Work in progress: most filter modes, envelopes, LFOs, morphs, Unison, vibrato, the voice placement, the mix and level laws and five waveforms measured; Osc Mod and filter distortion to come |
 | [UltraAlike](UltraAlike/) | A reproduction inspired by the E-mu Ultra samplers | Work in progress: plays Emulator X banks with the E5000's envelope and interpolation, measured; filters, LFOs and modulation to come |
 | [ModAlike](ModAlike/) | A Phaser, Chorus and Flanger as an effect, with stereo modes and Mix | Work in progress: plays, with its panel; not yet tried in a host |
 | [OneShot](OneShot/) | A one-sample player: one drum hit per instance, with an envelope | Work in progress: plays, browses its folder |
