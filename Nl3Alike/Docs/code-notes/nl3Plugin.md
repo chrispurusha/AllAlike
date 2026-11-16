@@ -78,3 +78,9 @@ Each wheel, bend and pressure value is also played at its own frame within the h
 over only a block's last value, so a fast wheel reached the engine as one jump a block - 3 to 10 ms apart in Live -
 where the instrument steps from every controller message as it comes (owner: rapid moves smoothed less than the
 instrument's, 2026-11-16).
+
+## 19. Polyphonic pressure
+Many keyboards send polyphonic key pressure (0xA0), which a VST3 host delivers as an event, not through the channel
+pressure parameter IMidiMapping maps - so aftertouch did nothing from such a keyboard (owner, 1:16's vibrato,
+2026-11-16). The instrument has one pressure, so each key's pressure is taken as it, at its own frame, through the same
+controller points as the wheel (§18).

@@ -62,6 +62,7 @@ typedef struct {
     uint32_t   noiseWord[NL3_OSCS]; // osc notes §15: the Noise waveform's generator, its average and its filter
     double     noiseAvg[NL3_OSCS], noiseA[NL3_OSCS], noiseB[NL3_OSCS];
     double     morphCut, morphRes, morphLevel;
+    double     fmLast[2];           // osc notes §17: Osc 2's last two outputs, Osc Mod FM/DFM's modulator
 } tNl3Voice;
 
 #define NL3_LFOS    (2)
@@ -159,6 +160,9 @@ typedef struct {
     double       modEnvPitch[NL3_OSCS];                       // voices notes §24: semitones at the Mod envelope's top
     double       modEnvWidth[NL3_OSCS];                       // voices notes §24: width word at its top
     double       modEnvMix;                                   // voices notes §24: Osc Mix at its top, a fraction of the dial
+    int          oscModType;                                  // osc notes §17: 0 DM 1 DIST 2 FILT 3 FM 4 DFM 5 RM
+    double       oscModAmount;                                // 0..127
+    double       modEnvOscMod;                                // Amount steps the Mod Env adds at its top
     double       mixX;                                        // voices notes §36: Osc Mix as x, 0..1
     double       modEnvLfo1;                                  // voices notes §24: LFO 1 Amount steps added at its top
     double       vibratoSemis;                                // voices notes §31: the vibrato's depth now, its source applied

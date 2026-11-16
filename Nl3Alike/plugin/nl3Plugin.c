@@ -529,6 +529,17 @@ static void nl3_param_points(void * inst, uint32_t id, const tSynthLibParamPoint
     }
 }
 
+// notes §19: a keyboard sending polyphonic pressure (0xA0) reaches the plug-in as an event, never as the channel pressure
+// parameter - the instrument has one pressure, so each key's pressure stands for it, at its own frame
+static void nl3_poly_pressure(void * inst, uint8_t channel, uint8_t note, float pressure, uint32_t sampleOffset) {
+    tNl3Plugin *        t     = (tNl3Plugin *)inst;
+    tSynthLibParamPoint point = {sampleOffset, (double)pressure};
+
+    (void)channel;
+    (void)note;
+    synthlib_ctl_points_add(&t->ctl, kNl3ParamPressure, &point, 1);
+}
+
 static double nl3_get_param(void * inst, uint32_t id) {
     return (id < kNl3ParamCount) ? ((tNl3Plugin *)inst)->values[id] : 0.0;
 }
@@ -1022,6 +1033,7 @@ static const tSynthLibPluginDesc gDescriptor = {
         .process        = nl3_process,
         .noteOn         = nl3_note_on,
         .noteOff        = nl3_note_off,
+        .polyPressure   = nl3_poly_pressure,
         .setParam       = nl3_set_param,
         .paramPoints    = nl3_param_points,
         .getParam       = nl3_get_param,

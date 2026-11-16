@@ -197,7 +197,7 @@ Started 2026-11-02 from Sn2Alike's skeleton. Everything below is measured on the
 **Missing**
 - **Filter:** the other three multi modes, Distorted LP and filter distortion (1:1, and SawLead's level).
 - **Oscillators:** Osc 2 Noise (Noise Type and Frequency), Noise 3's colour, Dual Sine, Shape on the Saw and Triangle; sync on the other waves checked.
-- **Osc Mod** (DM, Dist, Filt FM, FM, DFM, RM); the Mod Env to Osc Mod (164 programs) and Filter 2 (13); the LFOs' Smooth Random and Special waves, Env/KB-sync and Mono modes; LFO 2 to Resonance and Pan.
+- **Osc Mod** DM, Dist, Filt FM and RM (FM and DFM BUILT 2026-11-16 from the instrument's arithmetic, with the Mod Env to them); the Mod Env to Filter 2 (13); the LFOs' Smooth Random and Special waves, Env/KB-sync and Mono modes; LFO 2 to Resonance and Pan.
 - **Level across the library:** a sweep of bank 1 against the instrument at three wheel positions, the worst narrowed by switching features off on both sides (owner, 2026-11-16) - 1:2, 1:7, 1:15, 1:17, 1:18 and 1:19 noted by ear; an A/B harness scoring renders against captures.
 - Reading its 1024 programs is built but untried.
 

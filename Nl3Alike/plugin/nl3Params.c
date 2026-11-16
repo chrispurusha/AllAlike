@@ -1011,6 +1011,8 @@ void nl3_sound_from_values(const double * v, tNl3Sound * s) {
     s->osc[2].width     = 0.0;
     s->noiseLevel       = noise3 ? mix : 0.0;
     s->mixX             = mixX;
+    s->oscModType       = choice(v, kNl3ParamOscModType);   // osc notes §17
+    s->oscModAmount     = plain(v, kNl3ParamOscModAmount);
 
     for (int o = 0; o < NL3_OSCS; o++) {
         s->osc[o].bendRange = BEND_SEMIS;
@@ -1068,6 +1070,7 @@ void nl3_sound_from_values(const double * v, tNl3Sound * s) {
         s->modEnvWidth[1] = ((dest == 7) || (dest == 8)) ? (sign * amount / 128.0) : 0.0;
         s->modEnvMix      = (dest == 10) ? (sign * amount / 127.0) : 0.0;
         s->modEnvLfo1     = (dest == 11) ? (sign * amount) : 0.0;
+        s->modEnvOscMod   = (dest == 9) ? (sign * amount) : 0.0;   // osc notes §17
     }
 
     for (int l = 0; l < NL3_LFOS; l++) {

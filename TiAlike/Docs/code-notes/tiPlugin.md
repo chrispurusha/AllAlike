@@ -80,3 +80,8 @@ Each value a block brings for the performance controllers - bend, pressure, whee
 is played at its own frame (paramPoints, SynthLib synthlibCtlPoints.h): the loop stops at each and sets it. Without
 it a host hands over only a block's last value and a fast wheel or bend moves once a block - 3 to 10 ms apart in
 Live. As Nl3Alike (2026-11-16); the instrument's own smoothing of them is not measured, so none is added.
+
+## 17. Polyphonic pressure (2026-11-16)
+Many keyboards send polyphonic key pressure (0xA0), which a VST3 host delivers as an event, not through the channel
+pressure parameter IMidiMapping maps, so aftertouch did nothing from such a keyboard. Each key's pressure is taken as
+the channel's, at its own frame, through the controller points (§16).

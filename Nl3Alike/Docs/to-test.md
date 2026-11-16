@@ -40,3 +40,5 @@ Finished work not yet checked against the instrument or in a host.
 - Mod Env to LFO 1 (11-16, voices notes §24): 1:21 SawLead's vibrato fades in over the first second, as on the instrument - and the 55 other programs that use it
 - Osc Mix law (11-16, voices notes §36): programs balancing both oscillators as loud as on the instrument (were up to 3.5 dB quiet); Link moves Osc Mix and the other knobs on a held note (plugin notes §14)
 - Fast wheel/bend/aftertouch moves (11-16, SynthLib synthlibCtlPoints.h): smooth, not stepping once a host block
+- Osc Mod FM and DFM (11-16, osc notes §17): programs using them (DFM 185, FM 108) sound as on the instrument - DFM's tone the same up the keyboard, FM's brighter low down; the Mod Env sweeping OSCMOD on those
+- Glide (11-16, voices notes §12a): 1:16 Lean to lean (Mono, Legato, Auto) glides between overlapping notes - every glide had started from its own target note, so none moved

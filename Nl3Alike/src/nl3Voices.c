@@ -267,8 +267,8 @@ static void mono_play(tNl3Voices * v, const tNl3Sound * sound, uint8_t note, flo
 
     vc->active = true;
     vc->gate   = true;
+    start_glide(v, sound, vc, note, over);   // voices notes §12a: from the note it was on, so before taking the new one
     vc->note   = note;
-    start_glide(v, sound, vc, note, over);
 
     if (restart) {
         vc->velocity  = velocity;
@@ -378,10 +378,10 @@ void nl3_voices_note_on(tNl3Voices * v, const tNl3Sound * sound, uint8_t note, f
 
     pick->active             = true;
     pick->gate               = true;
-    pick->note               = note;
     pick->velocity           = velocity;
 
     start_glide(v, sound, pick, note, false);
+    pick->note               = note;   // voices notes §12a: after the glide has read the note it was on
     set_pitch(pick, sound);
 
     pick->started            = ++v->clock;
@@ -670,6 +670,9 @@ static void render_sub_block(tNl3Voices * v, const tNl3Sound * sound, double cut
         double               modEnv   = vc->env[1].level;
 
         lfoMix += modEnv * vs->modEnvMix;
+        // osc notes §17: Osc Mod's depth, the square of its Amount (127 as 128), the Mod Env adding steps first
+        double               fmAmount = fmin(127.0, fmax(0.0, vs->oscModAmount + (modEnv * vs->modEnvOscMod)));
+        double               fmDepth  = ((vs->oscModType == 3) || (vs->oscModType == 4)) ? ((fmAmount >= 127.0) ? 1.0 : ((fmAmount / 128.0) * (fmAmount / 128.0))) : 0.0;
 
         for (int o = 0; o < NL3_OSCS; o++) {
             vc->lfoSemis[o] += modEnv * vs->modEnvPitch[o];
@@ -745,6 +748,14 @@ static void render_sub_block(tNl3Voices * v, const tNl3Sound * sound, double cut
                 tNl3Word             incW = syncWord[o];   // the increment it sounds at (osc notes §13)
                 double               inc  = syncInc[o];
 
+                // osc notes §17: Osc Mod FM adds Osc 2's last output to Osc 1's increment, DFM its last change
+                if ((o == 0) && (fmDepth > 0.0)) {
+                    double add = (vs->oscModType == 3) ? (4.0 * fmDepth * vc->fmLast[0]) : (16.0 * fmDepth * (vc->fmLast[1] - vc->fmLast[0]));
+
+                    inc += add;
+                    incW = nl3_word(fmax(-0.999, fmin(0.999, nl3_word_value(incW) + add)));
+                }
+
                 if (os->noise) {                       // osc notes §15
                     wave[o] = osc_noise(vc, o, fmin(127.0, fmax(0.0, width[o] * 128.0)));
                 } else if (os->shape == eNl3OscSine) { // osc notes §10, §12
@@ -807,6 +818,8 @@ static void render_sub_block(tNl3Voices * v, const tNl3Sound * sound, double cut
             }
 
             mix                 += RING_GAIN * wave[2] * ((wave[0] * vs->ring13) + (wave[1] * vs->ring23));
+            vc->fmLast[1]        = vc->fmLast[0];   // osc notes §17
+            vc->fmLast[0]        = wave[1];
             mix                 += next_noise(vc, vs->noiseSoften, corner) * noiseMix;
 
             double x   = drive(mix * DRIVE_IN, driveW) * FILTER_IN;

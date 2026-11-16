@@ -2222,6 +2222,15 @@ static bool p2_midi_mapping(const tSynthLibPluginDesc * desc, void * inst, uint8
     return false;
 }
 
+// notes §68: a keyboard sending polyphonic pressure (0xA0) reaches the plug-in as an event, never as the channel pressure
+// parameter - the instrument has one pressure, so each key's pressure stands for it
+static void p2_poly_pressure(void * inst, uint8_t channel, uint8_t note, float pressure, uint32_t sampleOffset) {
+    (void)channel;
+    (void)note;
+    (void)sampleOffset;
+    p2_set_param(inst, kP2ParamPressure, (double)pressure);
+}
+
 static void p2_set_param(void * inst, uint32_t id, double normalized) {
     tP2Plugin * p = (tP2Plugin *)inst;
 
@@ -3017,6 +3026,7 @@ static const tSynthLibPluginDesc gDescriptor = {
         .process     = p2_process,
         .noteOn      = p2_note_on,
         .noteOff     = p2_note_off,
+        .polyPressure = p2_poly_pressure,
         .setParam    = p2_set_param,
         .getParam    = p2_get_param,
         .midiMapping = p2_midi_mapping,

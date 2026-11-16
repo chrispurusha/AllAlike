@@ -671,3 +671,8 @@ voice lists a note, is marked held, or starts an envelope with no key down. It f
   retriggering it for a moment. They now go together, and only a key still down is returned to. Switching the
   arpeggiator on lets go of the held keys the same way (`release_all`).
 After the fixes: no failures in 120 000 events over P001-P060, six seeds.
+
+## 68. Polyphonic pressure (2026-11-16)
+Many keyboards send polyphonic key pressure (0xA0), which a VST3 host delivers as an event, not through the channel
+pressure parameter IMidiMapping maps, so aftertouch did nothing from such a keyboard. The instrument has one pressure,
+so each key's pressure is taken as it (a block's value, as every parameter here).

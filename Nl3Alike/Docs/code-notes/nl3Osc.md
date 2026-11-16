@@ -155,3 +155,13 @@ built. With Partial on it is a frequency ratio: 25 is unison, 26-43 run 1.5 to 1
 fractions - 20-23 are 5/16 to 8/16, 12-19 are 9/64 to 16/64, 6-11 are 11/128 to 16/128, 2-5 are 17/256 to
 20/256, 0 and 1 both 1/16. Partial was read from the program and ignored before: SawLead (1:21, Coarse 25 with
 Partial) played Osc 2 39 semitones down instead of in unison. Fine Tune adds its cents in both modes.
+
+## 17. Osc Mod FM and DFM
+Measured on the instrument's own arithmetic (2026-11-16, both oscillators sine, the multiply traced at Amount 16, 32,
+64 and 127): Osc Mod's depth is the square of its Amount over 128 - 1/64, 1/16, 1/4 - and 127 counts as 1. With FM,
+Osc 1's increment gains 4 x depth x Osc 2's last output, a fixed deviation whatever the note, so the spectrum changes
+across the keyboard; with DFM it gains 16 x depth x the change in Osc 2's output between its last two samples - phase
+modulation, the index the same at every pitch, as the instrument's manual describes. Increments are in the units the
+phase uses (2.0 a cycle). The Mod Env's OSCMOD destination adds its Amount steps to Osc Mod's before the square. Not
+yet: DM, DIST, FILT and RM; LFO to OSCMOD; Osc 2's output taken before or after its level (taken raw here); a check
+of the result against the instrument's sound.

@@ -35,4 +35,5 @@
   - 1:18 Albatross: zipper/tick in Nl3Alike
   - 1:19 ChimeOrch: louder on the instrument
   - 1:21 SawLead: detuning FIXED 11-16 (Osc 2 Partial, osc notes §16) - recheck the ticking; 5-7 dB quiet against the other programs (Classic filter, Distortion 100?)
-- Mod Env destinations OSCMOD (164 programs) and FILT 2 (13) do nothing yet
+- Osc Mod: FM and DFM BUILT 11-16 (osc notes §17, the firmware's arithmetic; Mod Env OSCMOD reaches them - 129 of its 164 programs); still DM, DIST (21 Mod Env programs), FILT, RM, LFO to OSCMOD, and a check against the instrument's sound; Mod Env FILT 2 (13) does nothing yet
+- Glide in poly (owner 11-16, not sure it is right): each voice now glides from the pitch that voice was last on (voices notes §12a; the voice is chosen by the instrument's ranking, so the start pitch may not be the last note played) - find what the instrument does: from the last note played, from that voice's own last pitch, or no glide in poly; Auto's 'held' test in poly too

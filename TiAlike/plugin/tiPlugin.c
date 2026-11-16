@@ -686,6 +686,16 @@ static void ti_param_points(void * inst, uint32_t id, const tSynthLibParamPoint 
     }
 }
 
+// notes §17: a keyboard sending polyphonic pressure (0xA0) reaches the plug-in as an event, never as the channel pressure
+// parameter - the voice takes one pressure, so each key's pressure stands for it, at its own frame
+static void ti_poly_pressure(void * inst, uint8_t channel, uint8_t note, float pressure, uint32_t sampleOffset) {
+    tSynthLibParamPoint point = {sampleOffset, (double)pressure};
+
+    (void)channel;
+    (void)note;
+    synthlib_ctl_points_add(&((tTiPlugin *)inst)->ctl, kTiParamPressure, &point, 1);
+}
+
 static double ti_get_param(void * inst, uint32_t id) {
     return (id < kTiParamCount) ? ((tTiPlugin *)inst)->values[id] : 0.0;
 }
@@ -1127,6 +1137,7 @@ static const tSynthLibPluginDesc gDescriptor = {
         .process     = ti_process,
         .noteOn      = ti_note_on,
         .noteOff     = ti_note_off,
+        .polyPressure = ti_poly_pressure,
         .setParam    = ti_set_param,
         .paramPoints = ti_param_points,
         .getParam    = ti_get_param,
