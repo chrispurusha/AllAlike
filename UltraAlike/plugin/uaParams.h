@@ -71,6 +71,9 @@ enum {
     kUaParamRls1Level,
     kUaParamRls2Level,
     kUaParamSustainPedal,    // notes §15: CC 64, not on the panel, not saved
+    kUaParamPitchBend,       // notes §16: the wheel, not on the panel, not saved
+    kUaParamModWheel,        // notes §16: CC 1, kept for the modulation to come
+    kUaParamBendRange,
     kUaParamCount
 };
 

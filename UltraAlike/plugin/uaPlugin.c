@@ -583,6 +583,8 @@ static tUaPlay make_play(const tUaLayer * l) {
         .nonTranspose = step(l, kUaParamKeyTrack) > 0,
         .solo         = step(l, kUaParamSolo) > 0,
         .pedal        = step(l, kUaParamSustainPedal) >= 64,
+        .bend         = pow(2.0, ((value(l, kUaParamPitchBend) * 2.0) - 1.0) * (double)step(l, kUaParamBendRange) / 12.0),
+        .modWheel     = value(l, kUaParamModWheel),
     };
 }
 

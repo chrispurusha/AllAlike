@@ -57,6 +57,8 @@ typedef struct {
     bool           solo;         // any Solo mode but Off: a new note ends the ones sounding
     bool           loose;        // a loose sample, played as a one-voice preset: its root is rootKey
     bool           pedal;        // the sustain pedal is down: a note off leaves its voices sounding
+    double         bend;         // the pitch wheel as a ratio on every sounding voice's rate (uaBankVoice notes §10)
+    double         modWheel;     // 0..1, kept for the modulation to come
 } tUaPlay;
 
 typedef struct {

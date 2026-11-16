@@ -253,7 +253,7 @@ void ua_bank_voices_render(tUaBankVoices * v, const tUaPlay * play, float * left
                 if (right != NULL) {
                     right[at + i] += r * f * gainR[i];
                 }
-                voice->position += voice->step;
+                voice->position += voice->step * play->bend;   // notes §10
                 voice->fade     -= voice->fadeStep;
 
                 if (s->looped && (voice->position >= (double)s->loopEnd)) {   // notes §2

@@ -40,3 +40,8 @@ or, for a loose sample, the Root dial; Non-Transpose plays every key at the root
 ## 9. The sustain pedal
 With the pedal down a note off leaves its voices sounding, marked as held by the pedal; when it lifts, every voice so
 held releases. A held voice whose key is struck again keeps sounding beside the new note, as the voices do anyway.
+
+## 10. Pitch bend
+Every sounding voice reads its sample at its note's rate times the wheel's ratio, 2^(wheel x Bend Range / 12) with the
+wheel -1..1, read once a block - so a bend moves held and releasing notes too. The interpolation kernel (§4) stays the
+one chosen at the note on.

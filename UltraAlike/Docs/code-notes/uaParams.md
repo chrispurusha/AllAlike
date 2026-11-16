@@ -70,3 +70,8 @@ Coarse, Fine, Volume and Non-Transpose reuse old ids with new ranges - projects 
 
 ## 15. Sustain Pedal
 Hidden, not saved, driven by CC 64; 0-127 as the controller sends it.
+
+## 16. Pitch bend, mod wheel, bend range
+Pitch Bend (the wheel, 14-bit) and Mod Wheel (CC 1) are hidden, not saved, and driven through the wrappers' controller
+mapping. Bend Range, 0-12 semitones, default 2, is on the panel under PLAY: on the E5000 a preset's PitWl -> Pitch
+modulation sets it. The mod wheel is kept for the modulation still to come and moves nothing yet.
