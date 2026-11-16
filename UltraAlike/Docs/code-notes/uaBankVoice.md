@@ -55,8 +55,8 @@ every voice. Three GLOBAL settings bound it:
   and only if every voice is held, the oldest; *Oldest* fades the oldest. The stolen voice fades over the steal
   fade while the new note takes a free slot. What the E5000 itself takes is not yet measured; the default follows it
   once it is.
-- **Same Note**: *Stack* (default) as the E5000; *Piano* fades a key's last voice when it is struck again, as a
-  piano's damper - not the E5000's behaviour, an option.
+- **Same Note**: *Piano* (default, owner 2026-11-16) fades a key's last voice when it is struck again, as a
+  piano's damper - the better choice with a sustain pedal; *Stack* is the E5000's own behaviour.
 A voice past its attack whose level is under -100 dB is let go, pedal or not: a pedalled tail that has died away
 stops costing anything. Before this a note took a free slot, else the oldest outright, and nothing below the limit
 of 64 ever ended while the pedal was down.

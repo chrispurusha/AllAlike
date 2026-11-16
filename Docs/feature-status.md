@@ -214,7 +214,7 @@ Started 2026-11-14 from OneShot's skeleton (`aumu Ultr CPur`); a reproduction in
 - **Polarity**: the E5000's main outputs are inverted (its sub outputs are not); Normal (default, corrected) or Inverted.
 - **Sustain pedal** (CC 64), **pitch bend** (bends sounding notes; Bend range 0-12, default 2) and **mod wheel** (received, drives nothing yet).
 - A loose WAV plays as a one-voice preset through the same voice.
-- **Voices** (2026-11-16): Voice Limit (1-64, the E5000's 64 by default), Steal (Released - the quietest voice whose key is up - or Oldest) and Same Note (Stack, as the E5000: a repeated key adds a voice, measured; or Piano, fading the key's last voice) on GLOBAL; voices decayed under -100 dB are let go. Which voice the E5000 itself steals is still to measure.
+- **Voices** (2026-11-16): Voice Limit (1-64, the E5000's 64 by default), Steal (Released - the quietest voice whose key is up - or Oldest) and Same Note (Piano by default, fading the key's last voice - the better choice with a sustain pedal; or Stack, as the E5000: a repeated key adds a voice, measured) on GLOBAL; voices decayed under -100 dB are let go. Which voice the E5000 itself steals is still to measure.
 
 **Needs more work**
 - Bank envelope scale: stored values read as rate / 254, inferred from the libraries, not yet confirmed against Emulator X.

@@ -85,7 +85,7 @@ const tSynthLibParam gUaParams[kUaParamCount] = {
     {kUaParamBendRange,    "Bend Range",      "Bend",    eSynthLibUnitSemitones,     0.0,   12.0,     2.0 / 12.0,    12, NONE,                                                                  0},
     {kUaParamVoiceLimit,   "Voice Limit",     "Voices",  IDX,                        1.0,   64.0,            1.0,    63, NONE,                                                                  0},
     {kUaParamSteal,        "Steal",           "Steal",   IDX,                        0.0,    1.0,            0.0,     1, NONE,                     LIST                                          },
-    {kUaParamSameNote,     "Same Note",       "Same",    IDX,                        0.0,    1.0,            0.0,     1, NONE,                     LIST                                          },
+    {kUaParamSameNote,     "Same Note",       "Same",    IDX,                        0.0,    1.0,            1.0,     1, NONE,                     LIST                                          },
 };
 
 static const char *const kOffOn[]    = {"Off", "On"};
