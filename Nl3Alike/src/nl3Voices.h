@@ -61,7 +61,6 @@ typedef struct {
     double     syncLast[NL3_OSCS];  // osc notes §13: the synced oscillator's last sample, faded at a restart
     uint32_t   noiseWord[NL3_OSCS]; // osc notes §15: the Noise waveform's generator, its average and its filter
     double     noiseAvg[NL3_OSCS], noiseA[NL3_OSCS], noiseB[NL3_OSCS];
-    uint64_t   morphFor;            // voices notes §32: the start its morph offsets follow, so a new note starts on its target
     double     morphCut, morphRes, morphLevel;
 } tNl3Voice;
 

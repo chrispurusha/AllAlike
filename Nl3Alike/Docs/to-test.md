@@ -31,7 +31,7 @@ Finished work not yet checked against the instrument or in a host.
 - Vibrato (voices notes §31): a lead with vibrato on aftertouch (TD Style Lead, Early lead) pressed beside the instrument - depth and rate
 - Classic filter (filter notes §13): swept against the instrument, resonance up - the ladder's character; Early lead still dull (its envelope/key track)
 - 1:6 'White Noise' (11-16, osc notes §15): plays noise, heavily band-passed, sweeping up with the mod wheel as on the instrument - was a pitched Saw
-- 1:5 Mod Wheel Sweep (11-16, voices notes §32): the wheel sweep is smooth (no stepping), and its level rises with the wheel as on the instrument (Output Level morph now applied)
+- 1:5 Mod Wheel Sweep (11-16, plugin notes §18 - the wheel steps as the instrument's, 8 steps over 6.5 ms): the wheel sweep is smooth (no stepping), a wheel jump (as the first move after a load) eases in over 6.5 ms as on the instrument - still quick, and its level rises with the wheel as on the instrument (Output Level morph now applied)
 - Volume law (11-16, voices notes §14): now the square of Volume, as measured - programs at low Volume are quieter than before, 127 louder; Volume 100 unchanged
 - Octave Shift (11-16, voices notes §33): programs with Octave Shift -2..+2 (a third of them, e.g. 1:5) now play in the instrument's octave - were all at 0
 - 1:4 (11-16, voices notes §34): no tick at the start of a repeated note - a replayed key now takes another voice

@@ -43,7 +43,6 @@
 #define LFO_FADE_HOLD            (0.0125)
 #define LFO_FADE_FALL            (5.7)
 #define SUB_BLOCK                (32u)   // notes §4
-#define MORPH_GLIDE_S            (0.012) // voices notes §32
 #define UNISON_SPAN              (244.0) // voices notes §26: delay samples across the word
 #define UNISON_SECOND            (0.7)   // voices notes §26: the second read's step against the first's
 
@@ -692,24 +691,15 @@ static void render_sub_block(tNl3Voices * v, const tNl3Sound * sound, double cut
             moved += vc->env[e].level * vs->env[e].amount * ((vs->env[e].velocity > 64.0) ? (vc->velocity * 127.0 / 128.0) : 1.0);   // voices notes §23
         }
 
-        // voices notes §32: a morph's offsets glide as the panel's own values do - a wheel arrives in 128 steps
+        // voices notes §32: a morph's offsets on the panel's values; the wheel itself steps (plugin notes §18)
         double               cutTo    = vs->cutoff - sound->cutoff;
         double               resTo    = vs->resonance - sound->resonance;
         double               levelTo  = (sound->level > 0.0) ? (nl3_volume_gain(vs->level) / nl3_volume_gain(sound->level)) : 1.0;
 
-        if (vc->morphFor != vc->started) {
-            vc->morphFor   = vc->started;
-            vc->morphCut   = cutTo;
-            vc->morphRes   = resTo;
-            vc->morphLevel = levelTo;
-        } else {
-            double k = 1.0 - exp(-(double)frames / (MORPH_GLIDE_S * v->rate));
-
-            vc->morphCut   += k * (cutTo - vc->morphCut);
-            vc->morphRes   += k * (resTo - vc->morphRes);
-            vc->morphLevel += k * (levelTo - vc->morphLevel);
-        }
-        level *= vc->morphLevel;
+        vc->morphCut   = cutTo;
+        vc->morphRes   = resTo;
+        vc->morphLevel = levelTo;
+        level         *= vc->morphLevel;
         double               voiceRes = fmin(127.0, fmax(0.0, res + vc->morphRes + (vs->wheel * vs->wheelResonance)));
 
         if (vs->filterMulti && ((vs->filter2Type == 1) || (vs->filter2Type == 4) || (vs->filter2Type == 5))) {   // filter notes §15-16

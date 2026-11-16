@@ -66,9 +66,11 @@ static const uint8_t gControllerUid[16] = {0xDB, 0xDA, 0x8B, 0x35, 0x1F, 0xAB, 0
 #define DEFAULT_TEMPO          (120.0) // notes §13: until the host gives one
 #define CLIP_HOLD_S            (1.5)
 #define HOST_CEILING           (0.97675f)
-#define OUTPUT_HEADROOM        (0.5f)  // notes §16: 6 dB under the instrument's level, after its ceiling
+#define OUTPUT_HEADROOM        (0.5f)           // notes §16: 6 dB under the instrument's level, after its ceiling
 #define HOST_CHUNK             (256u)
-#define ENGINE_FRAMES          (4096u) // notes §12: HOST_CHUNK at a host rate down to 2.5 kHz
+#define WHEEL_STEPS            (8)              // notes §18: a new wheel value is reached in 8 equal steps
+#define WHEEL_STEP_S           (20.0 / 22050.0) // about 0.9 ms apart (6.5 ms in all)
+#define ENGINE_FRAMES          (4096u)          // notes §12: HOST_CHUNK at a host rate down to 2.5 kHz
 
 typedef struct {
     uint32_t offset;
@@ -83,6 +85,9 @@ typedef struct {
     tSynthLibResampler resamplerR;
     tNl3Effects        effects;
     double             hostRate;
+    double             wheelHeard, wheelFrom, wheelTo;   // notes §18: the wheel the engine hears, stepping to the host's
+    int                wheelStep;                        // 0..WHEEL_STEPS, WHEEL_STEPS when arrived
+    double             wheelLeft;                        // host frames to the next step
     double             tempo;
     float              engine[ENGINE_FRAMES];
     float              engineL[ENGINE_FRAMES], engineR[ENGINE_FRAMES];
@@ -190,7 +195,7 @@ static void nl3_set_state(void * inst, const void * data, size_t len) {
     if ((data == NULL) || (len < STATE_LENGTH) || (memcmp(d, STATE_MAGIC, 4) != 0)) {
         return;
     }
-    atomic_store(&t->startPreset, false);   // a project's sound, not 1:1
+    atomic_store(&t->startPreset, false);                                                                                                         // a project's sound, not 1:1
     d                                   += 4;
     memcpy(t->soundName, d, NL3_SINGLE_NAME_LENGTH + 1);
     t->soundName[NL3_SINGLE_NAME_LENGTH] = '\0';
@@ -212,10 +217,40 @@ static void render_host(tNl3Plugin * t, const tNl3Sound * sound, float * outL, f
         nl3_effects_reset(&t->effects);   // notes §15
         nl3_voices_all_off(&t->voices);   // the old sound's notes stop too, rather than playing on in the new one
     }
+    const tNl3Sound * given = sound;
 
     while (frames > 0) {
-        uint32_t chunk = (frames < HOST_CHUNK) ? frames : HOST_CHUNK;
-        uint32_t need  = synthlib_resample_needed(&t->resampler, chunk);
+        uint32_t  chunk = (frames < HOST_CHUNK) ? frames : HOST_CHUNK;
+
+        // notes §18: the wheel steps to a new value - the chunk ends at the next step
+        if (t->values[kNl3ParamModWheel] != t->wheelTo) {
+            t->wheelFrom = t->wheelHeard;
+            t->wheelTo   = t->values[kNl3ParamModWheel];
+            t->wheelStep = 0;
+            t->wheelLeft = 0.0;
+        }
+
+        if ((t->wheelStep < WHEEL_STEPS) && (t->wheelLeft <= 0.0)) {
+            t->wheelStep++;
+            t->wheelHeard = t->wheelFrom + ((t->wheelTo - t->wheelFrom) * t->wheelStep / WHEEL_STEPS);
+            t->wheelLeft += WHEEL_STEP_S * t->hostRate;
+        }
+
+        if (t->wheelStep < WHEEL_STEPS) {
+            chunk = (uint32_t)fmin((double)chunk, fmax(1.0, ceil(t->wheelLeft)));
+        }
+        double    heard[kNl3ParamCount];
+        tNl3Sound stepped;
+
+        memcpy(heard, t->values, sizeof(heard));
+        heard[kNl3ParamModWheel] = t->wheelHeard;
+        sound                    = given;
+
+        if (t->wheelHeard != t->values[kNl3ParamModWheel]) {
+            nl3_sound_from_values(heard, &stepped);
+            sound = &stepped;
+        }
+        uint32_t  need = synthlib_resample_needed(&t->resampler, chunk);
 
         memset(t->engine, 0, (size_t)need * sizeof(float));
         memset(t->engineRight, 0, (size_t)need * sizeof(float));
@@ -224,7 +259,7 @@ static void render_host(tNl3Plugin * t, const tNl3Sound * sound, float * outL, f
         for (uint32_t i = 0; i < NL3_MAX_VOICES; i++) {
             const tNl3Voice * vc = &t->voices.voice[i];
 
-            t->voices.voiceMorphed[i] = vc->active && nl3_morph_values(t->values, vc->velocity, vc->note, t->morphed);
+            t->voices.voiceMorphed[i] = vc->active && nl3_morph_values(heard, vc->velocity, vc->note, t->morphed);
 
             if (t->voices.voiceMorphed[i]) {
                 nl3_sound_from_values(t->morphed, &t->voices.voiceSound[i]);
@@ -232,6 +267,7 @@ static void render_host(tNl3Plugin * t, const tNl3Sound * sound, float * outL, f
         }
 
         nl3_voices_render(&t->voices, sound, t->engine, t->engineRight, need, gain);
+        t->wheelLeft -= chunk;
 
         // notes §17: a sample that is not a number would silence everything after it for good - the block is let go and
         // the voices cleared, so the next note plays

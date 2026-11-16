@@ -225,12 +225,10 @@ the wheel sent over MIDI.
 
 ## 32. Morph offsets per voice
 A morph moves a voice's own sound (§25); its Filter Frequency 1, Resonance and Output Level offsets from the panel's
-values glide toward their targets with a 12 ms time constant, because a wheel arrives in 128 steps - Mod Wheel Sweep
-(1:5) morphs the cutoff by 121, nearly a semitone a step, and through a resonant band-pass each step was heard. A
-voice's first block takes its targets at once, so a new note starts where the morph puts it. Output Level is a
-morph target like the rest, additive in knob steps and through the same square law (§14): measured on 1:5, +46 at
-full wheel adds 12.0 dB, at half wheel 7.0. Rendered with the wheel stepped through 0-127 over 4 s, the spectral
-centroid's step-to-step jitter fell from 0.24 to 0.04 semitones a millisecond.
+values are applied as they are. They glided over 12 ms for a while (2026-11-16, for Mod Wheel Sweep's stepping);
+that went when the wheel itself was made to step as the instrument does (plugin notes §18), which smooths every
+wheel target the same way. Output Level is a morph target like the rest, additive in knob steps and through the same
+square law (§14): measured on 1:5, +46 at full wheel adds 12.0 dB, at half wheel 7.0.
 
 ## 33. Octave Shift
 A program's Octave Shift (-2..+2) moves every note by whole octaves: measured on 1:5 (Octave Shift -1), C4 sounds at

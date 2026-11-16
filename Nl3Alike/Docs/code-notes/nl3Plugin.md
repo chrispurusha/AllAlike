@@ -65,3 +65,12 @@ If the voices ever return a sample that is not a finite number, the block is zer
 resampler see it and every voice is cleared (Unison's rings included), with a log line - otherwise one bad value
 stays in the filters and delay lines and the plug-in is silent until reloaded, as it was at 1:4's full mod wheel
 before osc notes §8a. It is a net, not the fix: a log line means something to chase.
+
+## 18. The wheel steps to a new value
+The instrument reaches each new wheel value in 8 equal steps about 0.9 ms apart, 6.5 ms in all, whatever the size of
+the move - measured on its own control arithmetic: a cutoff morph and a pitch morph each moved in 8 steps for wheel
+jumps of 32, 8, 87 and 127. So the plug-in does the same before anything reads the wheel: the value the engine hears
+steps from where it was to the host's, the host block ends at each step, and each step remakes the sound and every
+voice's morphed sound - morphs, the wheel's pitch and vibrato all follow it alike. A wheel arriving in 7-bit steps
+from a controller is interpolated step by step; a first message far from 0 after a load still lands in 6.5 ms, as
+on the instrument.
