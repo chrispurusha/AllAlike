@@ -676,3 +676,5 @@ After the fixes: no failures in 120 000 events over P001-P060, six seeds.
 Many keyboards send polyphonic key pressure (0xA0), which a VST3 host delivers as an event, not through the channel
 pressure parameter IMidiMapping maps, so aftertouch did nothing from such a keyboard. The instrument has one pressure,
 so each key's pressure is taken as it (a block's value, as every parameter here).
+Only a key actually sounding is taken, as G2Alike does: in Mono a key still held underneath would otherwise fight the
+one being played.

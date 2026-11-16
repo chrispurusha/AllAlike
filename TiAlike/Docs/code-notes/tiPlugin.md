@@ -85,3 +85,5 @@ Live. As Nl3Alike (2026-11-16); the instrument's own smoothing of them is not me
 Many keyboards send polyphonic key pressure (0xA0), which a VST3 host delivers as an event, not through the channel
 pressure parameter IMidiMapping maps, so aftertouch did nothing from such a keyboard. Each key's pressure is taken as
 the channel's, at its own frame, through the controller points (§16).
+Only a key actually sounding is taken, as G2Alike does: in Mono a key still held underneath would otherwise fight the
+one being played.

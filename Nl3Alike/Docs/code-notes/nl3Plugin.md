@@ -84,3 +84,5 @@ Many keyboards send polyphonic key pressure (0xA0), which a VST3 host delivers a
 pressure parameter IMidiMapping maps - so aftertouch did nothing from such a keyboard (owner, 1:16's vibrato,
 2026-11-16). The instrument has one pressure, so each key's pressure is taken as it, at its own frame, through the same
 controller points as the wheel (§18).
+Only a key actually sounding is taken, as G2Alike does: in Mono a key still held underneath would otherwise fight the
+one being played.

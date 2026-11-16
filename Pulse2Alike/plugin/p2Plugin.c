@@ -2225,10 +2225,20 @@ static bool p2_midi_mapping(const tSynthLibPluginDesc * desc, void * inst, uint8
 // notes §68: a keyboard sending polyphonic pressure (0xA0) reaches the plug-in as an event, never as the channel pressure
 // parameter - the instrument has one pressure, so each key's pressure stands for it
 static void p2_poly_pressure(void * inst, uint8_t channel, uint8_t note, float pressure, uint32_t sampleOffset) {
+    tP2Plugin * p        = (tP2Plugin *)inst;
+    bool        sounding = (poly_voices(p) <= 1) && (p->noteCount > 0) && (p->notes[p->noteCount - 1] == note);
+
     (void)channel;
-    (void)note;
     (void)sampleOffset;
-    p2_set_param(inst, kP2ParamPressure, (double)pressure);
+
+    // as G2Alike: only a key actually sounding moves it - a key held underneath would fight the one played
+    for (int i = 0; (i < POLY_VOICES_MAX) && (poly_voices(p) > 1); i++) {
+        sounding = sounding || (p->poly[i].held && (p->poly[i].note == note));
+    }
+
+    if (sounding) {
+        p2_set_param(inst, kP2ParamPressure, (double)pressure);
+    }
 }
 
 static void p2_set_param(void * inst, uint32_t id, double normalized) {

@@ -689,11 +689,20 @@ static void ti_param_points(void * inst, uint32_t id, const tSynthLibParamPoint 
 // notes §17: a keyboard sending polyphonic pressure (0xA0) reaches the plug-in as an event, never as the channel pressure
 // parameter - the voice takes one pressure, so each key's pressure stands for it, at its own frame
 static void ti_poly_pressure(void * inst, uint8_t channel, uint8_t note, float pressure, uint32_t sampleOffset) {
+    tTiPlugin *         t     = (tTiPlugin *)inst;
     tSynthLibParamPoint point = {sampleOffset, (double)pressure};
+    bool                sounding = false;
 
     (void)channel;
-    (void)note;
-    synthlib_ctl_points_add(&((tTiPlugin *)inst)->ctl, kTiParamPressure, &point, 1);
+
+    // as G2Alike: only a key actually sounding moves it - in Mono a key held underneath would fight the one played
+    for (uint32_t i = 0; i < TI_MAX_VOICES; i++) {
+        sounding = sounding || (t->voices.voice[i].active && t->voices.voice[i].gate && (t->voices.voice[i].note == note));
+    }
+
+    if (sounding) {
+        synthlib_ctl_points_add(&t->ctl, kTiParamPressure, &point, 1);
+    }
 }
 
 static double ti_get_param(void * inst, uint32_t id) {
