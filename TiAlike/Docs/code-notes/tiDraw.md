@@ -91,7 +91,9 @@ presets hold 127) is shown as Off.
 Beside each oscillator's Wave, Prev above Next step through the folder of its user table: the folder's table files
 (tiUserTable notes §1), sorted by name without regard to case, the one before or after the current file, wrapping round;
 a file that will not load is passed over, and with no table yet either opens the browser. They are live only while
-the oscillator reads a table and its Wave is 100, and greyed otherwise. The Wavetable menu's Load opens the file
+the oscillator reads a table and its Wave is 100, and greyed otherwise (SynthLib's `RGB_PANEL_UNAVAILABLE`). Like
+the panel's other buttons they light while held and step only on a release that lands on the same button (SynthLib
+buttonPress.h §1, owner 2026-11-17), each keyed by its oscillator and direction (`gTableStepKey`). The Wavetable menu's Load opens the file
 browser in the folder of the current table. A Wave set to 100 shows the table's name in place of "User".
 
 The canvas grew from 780 to 810 units wide for them (2026-11-12), so Osc 1 and Osc 2 still share the first row of

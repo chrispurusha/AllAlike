@@ -1272,12 +1272,19 @@ static tRectangle table_step_rect(const tPlaced * pc, int which) {
     };
 }
 
-static void draw_table_steps(const tPlaced * pc, tRgb colour) {
-    bool live = table_steps_live(pc->control);
-    tRgb tint = live ? colour : (tRgb)RGB_GREY_3;
+// notes §16: each button's identity for SynthLib's press-and-release (buttonPress.h §1), per oscillator and direction
+static const char gTableStepKey[2][2];
 
-    fitted_button(table_step_rect(pc, 0), "< Prev", tint);
-    fitted_button(table_step_rect(pc, 1), "Next >", tint);
+static void draw_table_steps(const tPlaced * pc, tRgb colour) {
+    bool         live    = table_steps_live(pc->control);
+    tRgb         tint    = live ? colour : (tRgb)RGB_PANEL_UNAVAILABLE;
+    const char * names[] = {"< Prev", "Next >"};
+
+    for (int which = 0; which < 2; which++) {
+        const void * key = &gTableStepKey[table_osc(pc->control)][which];
+
+        fitted_button(table_step_rect(pc, which), names[which], synthlib_button_held(key) ? synthlib_button_held_colour(tint) : tint);
+    }
 }
 
 static const tPlaced * hit(double x, double y) {
@@ -1375,9 +1382,9 @@ bool ti_draw_press(double x, double y, tTiEdit * edit, bool * grabbed) {
         return false;
     }
 
-    if (pc->control->kind == eTiControlTableStep) {
+    if (pc->control->kind == eTiControlTableStep) {   // notes §16: lit while held, steps on the release
         if (table_steps_live(pc->control)) {
-            ti_draw_step_table(table_osc(pc->control), (y < table_step_rect(pc, 1).coord.y) ? -1 : 1);
+            synthlib_button_press(&gTableStepKey[table_osc(pc->control)][(y < table_step_rect(pc, 1).coord.y) ? 0 : 1]);
         }
         return true;
     }
@@ -1467,6 +1474,19 @@ void ti_draw_release(double x, double y, tTiEdit * edit) {
         for (uint32_t p = 0; p < gPageCount; p++) {
             if (synthlib_button_clicked(held, &gTabs[p], draw_button_bounds(gTabs[p]), at)) {
                 gPage = p;
+            }
+        }
+
+        // notes §16: a table's Prev or Next steps if the release lands on it
+        for (uint32_t i = 0; i < gPlacedCount; i++) {
+            const tPlaced * pc = &gPlaced[i];
+
+            for (int which = 0; (which < 2) && (pc->control->kind == eTiControlTableStep); which++) {
+                tRectangle r = table_step_rect(pc, which);
+
+                if (synthlib_button_clicked(held, &gTableStepKey[table_osc(pc->control)][which], draw_button_bounds(r), at)) {
+                    ti_draw_step_table(table_osc(pc->control), (which == 0) ? -1 : 1);
+                }
             }
         }
 
