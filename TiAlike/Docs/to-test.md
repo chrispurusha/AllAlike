@@ -42,3 +42,4 @@ Built but not yet checked by ear or in a host. Confirmed: delete the line. Faile
 - Aftertouch from a keyboard sending polyphonic pressure (11-16, tiPlugin notes §17): pressure routes respond (they ignored poly pressure)
 - Same Note (11-17, tiVoices notes §34): Piano with the pedal down, one key struck over and over - its voices reused (unison too); Stack as before
 - GLOBAL page (11-17, ../Docs/panel-layout.md): PLUG-IN (Voices, Same Note, Anti-alias, Maths, Delay, Reverb), HARDWARE (Link), PLAY, UNISON, CONTROL - all fit; the Global help in the same order
+- Panel colours (11-17, ../Docs/panel-layout.md Colours): no grey sections; OFF/ON settings are buttons that flip on release, dimmed when off; CLIP and Link HW dimmed when off - all readable

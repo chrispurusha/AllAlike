@@ -253,7 +253,7 @@ static const char *const kHelpTexts[HELP_TOPICS]  = {
     "to its default.\n\n"
     "A host project keeps its sound as edited: reopening it does not reload the preset.",
 
-    "Link HW (left of Prev, or Link on the GLOBAL page) makes a Pulse 2 on USB follow the sound: each change goes "
+    "Link (HARDWARE, GLOBAL page; amber BUSY while another instance has the instrument) makes a Pulse 2 on USB follow the sound: each change goes "
     "to it as it is made, by MIDI controller where the instrument has one and as a sound dump otherwise. A sound "
     "loaded by number also selects that number on the instrument.\n\n"
     "Set Channel on the GLOBAL page to the instrument's MIDI channel; it is remembered for every project.\n\n"

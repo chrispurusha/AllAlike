@@ -45,3 +45,5 @@ Finished work not yet checked against the instrument or in a host.
 - Glide in poly (11-17, voices notes §12a): Mono off, Legato off - no glide; Legato on - a note played while another is held glides (stopgap)
 - Same Note (11-17, voices notes §34): Piano with the sustain pedal down, one key struck over and over - one voice, no tick, no pile-up; Stack as before
 - GLOBAL page (11-17, ../Docs/panel-layout.md): PLUG-IN (Voices, Same Note, Anti-alias, Maths), HARDWARE (Link, Channel, Device) - all fit
+- Panel colours (11-17, ../Docs/panel-layout.md Colours): Off buttons (Link, Mono, Legato...) dimmed in their section's colour with light text, not grey; CLIP the same when not lit; PLUG-IN/HARDWARE steel blue, OUTPUT sage, PLAY page rose, MOD / MIX blue-teal - all readable
+- Link (11-17): on with no MIDI output chosen, the GLOBAL Link button is amber and reads NO PORT

@@ -100,8 +100,6 @@ typedef struct {
     double              x, y, w;
 } tPlacedSection;
 
-#define TOGGLE_OFF_COLOUR    {0.30, 0.30, 0.32}   // notes §16: an Off button
-
 // notes §16: an Off/On choice is a button that flips, not a menu of two
 static bool is_toggle(const tNl3Control * c) {
     return (c->kind == eTiControlChoice) && (c->steps == 1) && (c->names != NULL)
@@ -864,9 +862,11 @@ static void draw_patch_bar(void) {
 }
 
 // A button whose label is shrunk to fit it (a mod target's name is wider than its box)
-#define LABEL_MIN_H    (7.0)
+#define CLIP_COLOUR         {1.0, 0.15, 0.1}
+#define LINK_WARN_COLOUR    {0.85, 0.6, 0.15}
+#define LABEL_MIN_H         (7.0)
 
-static void fitted_button(tRectangle r, const char * text, tRgb colour) {
+static void fitted_button(tRectangle r, const char * text, tRgb colour, tRgb textColour) {
     double h = r.size.h;
 
     while ((h > LABEL_MIN_H) && (get_text_width(text, h, eNoCache) > r.size.w)) {
@@ -874,7 +874,7 @@ static void fitted_button(tRectangle r, const char * text, tRgb colour) {
     }
     // where draw_button puts its own label: the box grows by its margin all round, the text starts a margin in
     draw_button(mainArea, r, "", colour);
-    set_rgb_colour((tRgb)RGB_BLACK);
+    set_rgb_colour(textColour);
     render_text(mainArea, (tRectangle){{r.coord.x + DRAW_BUTTON_MARGIN, r.coord.y + DRAW_BUTTON_MARGIN + ((r.size.h - h) / 2.0)}, {0.0, h}}, text);
 }
 
@@ -990,8 +990,8 @@ void nl3_draw_frame(int pixelWidth, int pixelHeight) {
     }
     set_rgb_colour((tRgb){0.95, 0.95, 0.97});
     render_text(mainArea, (tRectangle){{MARGIN_X, TITLE_Y}, {0.0, 18.0}}, "Nl3Alike");
-    fitted_button((tRectangle){{MARGIN_X + 92.0, TITLE_Y + 1.0}, {38.0, 15.0}}, "CLIP", gClip ? (tRgb){1.0, 0.15, 0.1}
-                                                                                                                       : (tRgb){0.32, 0.32, 0.32});
+    fitted_button((tRectangle){{MARGIN_X + 92.0, TITLE_Y + 8.5 - (PANEL_CLIP_H / 2.0)}, {PANEL_CLIP_W, PANEL_CLIP_H}}, "CLIP", gClip ? (tRgb)CLIP_COLOUR : synthlib_button_off_colour((tRgb)CLIP_COLOUR),
+                  gClip ? (tRgb)RGB_BLACK : (tRgb)RGB_PANEL_OFF_TEXT);
 
     draw_tabs();
     layout();
@@ -1022,13 +1022,19 @@ void nl3_draw_frame(int pixelWidth, int pixelHeight) {
             shown = (shown < 0) ? 0 : ((shown > c->steps) ? c->steps : shown);
         }
 
-        if (is_toggle(c)) {   // notes §16: lit in the section's colour when on
-            tRgb lit = (shown > 0) ? colour : (tRgb)TOGGLE_OFF_COLOUR;
+        if (is_toggle(c)) {                                              // notes §16: lit in the section's colour when on
+            bool on  = shown > 0;
+            tRgb lit = on ? colour : synthlib_button_off_colour(colour); // notes §16
 
+            if (on && (c->paramId == kNl3ParamHwLink) && (nl3_hw_port()[0] == '\0')) {   // notes §16: Link on with no output
+                lit = (tRgb)LINK_WARN_COLOUR;
+                snprintf(text, sizeof(text), "%s", "NO PORT");
+            }
             lit = synthlib_button_held(pc) ? synthlib_button_held_colour(lit) : lit;
-            fitted_button((tRectangle){{pc->x, pc->dial.coord.y + ((DIAL_SIZE - BUTTON_H) / 2.0)}, {CONTROL_W - 6.0, BUTTON_H}}, text, lit);
+            fitted_button((tRectangle){{pc->x, pc->dial.coord.y + ((DIAL_SIZE - BUTTON_H) / 2.0)}, {CONTROL_W - 6.0, BUTTON_H}}, text, lit,
+                          on ? (tRgb)RGB_BLACK : (tRgb)RGB_PANEL_OFF_TEXT);
         } else if (c->kind == eTiControlChoice) {
-            fitted_button((tRectangle){{pc->x, pc->dial.coord.y + ((DIAL_SIZE - BUTTON_H) / 2.0)}, {CONTROL_W - 6.0, BUTTON_H}}, text, colour);
+            fitted_button((tRectangle){{pc->x, pc->dial.coord.y + ((DIAL_SIZE - BUTTON_H) / 2.0)}, {CONTROL_W - 6.0, BUTTON_H}}, text, colour, (tRgb)RGB_BLACK);
         } else {
             render_dial(mainArea, pc->dial, (uint32_t)shown, (uint32_t)c->steps + 1u, 0, colour);
             set_rgb_colour((tRgb)RGB_WHITE);

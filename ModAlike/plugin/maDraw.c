@@ -22,6 +22,7 @@
 #include <time.h>
 #include <stdio.h>
 #include <string.h>
+#include <strings.h>
 
 #include "maDraw.h"
 #include "maMenu.h"
@@ -35,6 +36,7 @@
 #include "utilsGraphics.h"
 #include "renderBackend.h"
 #include "contextMenu.h"
+#include "buttonPress.h"
 #include "inputState.h"
 #include "menuBar.h"
 #include "synthlibPopups.h"
@@ -64,7 +66,6 @@
 #define MENU_CELL_W             (96.0)
 #define MENU_ROWS_PER_COLUMN    (8)
 #define OPENING_RELEASE_SLOP    (4.0)        // how far the pointer may move and still be the opening click
-#define DIM                     (0.35)       // notes §2: how much of its colour a section not in use keeps
 
 typedef struct {
     const tMaControl * control;
@@ -171,7 +172,13 @@ bool ma_draw_menu_active(void) {
     return gContextMenu.active || synthlib_popups_modal_active();
 }
 
-static void fitted_button(tRectangle r, const char * text, tRgb colour) {
+// ../Docs/panel-layout.md: a choice of Off and On is a button that flips on the release, not a menu
+static bool is_toggle(const tMaControl * c) {
+    return (c->kind == eMaControlChoice) && (c->steps == 1) && (c->names != NULL)
+           && (strcasecmp(c->names[0], "OFF") == 0) && (strcasecmp(c->names[1], "ON") == 0);
+}
+
+static void fitted_button_text(tRectangle r, const char * text, tRgb colour, tRgb textColour) {
     double h = r.size.h;
 
     while ((h > LABEL_MIN_H) && (get_text_width(text, h, eNoCache) > r.size.w)) {
@@ -179,8 +186,12 @@ static void fitted_button(tRectangle r, const char * text, tRgb colour) {
     }
     // where draw_button puts its own label: the box grows by its margin all round, the text starts a margin in
     draw_button(mainArea, r, "", colour);
-    set_rgb_colour((tRgb)RGB_BLACK);
+    set_rgb_colour(textColour);
     render_text(mainArea, (tRectangle){{r.coord.x + DRAW_BUTTON_MARGIN, r.coord.y + DRAW_BUTTON_MARGIN + ((r.size.h - h) / 2.0)}, {0.0, h}}, text);
+}
+
+static void fitted_button(tRectangle r, const char * text, tRgb colour) {
+    fitted_button_text(r, text, colour, (tRgb)RGB_BLACK);
 }
 
 static int32_t step_of(const tMaControl * c) {
@@ -252,12 +263,6 @@ static void value_text(const tMaControl * c, char * out, size_t len) {
     }
 }
 
-static tRgb scaled(tRgb c, double by) {
-    return (tRgb){
-        c.red * by, c.green * by, c.blue * by
-    };
-}
-
 void ma_draw_frame(int pixelWidth, int pixelHeight) {
     char text[64];
 
@@ -295,12 +300,19 @@ void ma_draw_frame(int pixelWidth, int pixelHeight) {
         bool               lit    = section_lit(pc->section) && control_lit(c);
         tRgb               colour = {pc->section->colour[0], pc->section->colour[1], pc->section->colour[2]};
 
-        colour = lit ? colour : scaled(colour, DIM);
+        colour = lit ? colour : (tRgb)RGB_PANEL_UNAVAILABLE;   // ../Docs/panel-layout.md: grey means only this
         set_rgb_colour(lit ? (tRgb)RGB_GREY_7 : (tRgb)RGB_GREY_5);
         render_text(mainArea, (tRectangle){{pc->x, pc->dial.coord.y - 14.0}, {0.0, LABEL_H}}, c->label);
         value_text(c, text, sizeof(text));
 
-        if (c->kind == eMaControlChoice) {
+        if (is_toggle(c)) {   // lit when on, its colour dimmed when off
+            bool on   = step_of(c) > 0;
+            tRgb face = on ? colour : synthlib_button_off_colour(colour);
+
+            face = synthlib_button_held(pc) ? synthlib_button_held_colour(face) : face;
+            fitted_button_text((tRectangle){{pc->x, pc->dial.coord.y + ((DIAL_SIZE - BUTTON_H) / 2.0)}, {CONTROL_W - 6.0, BUTTON_H}}, text, face,
+                               (on && lit) ? (tRgb)RGB_BLACK : (tRgb)RGB_PANEL_OFF_TEXT);
+        } else if (c->kind == eMaControlChoice) {
             fitted_button((tRectangle){{pc->x, pc->dial.coord.y + ((DIAL_SIZE - BUTTON_H) / 2.0)}, {CONTROL_W - 6.0, BUTTON_H}}, text, colour);
         } else {
             render_dial(mainArea, pc->dial, (uint32_t)step_of(c), (uint32_t)c->steps + 1u, 0, colour);
@@ -368,6 +380,11 @@ bool ma_draw_press(double x, double y, tMaEdit * edit, bool * grabbed) {
         return false;
     }
 
+    if (is_toggle(pc->control)) {   // flips on the release
+        synthlib_button_press(pc);
+        return true;
+    }
+
     if (pc->control->kind == eMaControlChoice) {
         open_value_menu(pc);
         gOpeningClick = true;
@@ -426,6 +443,23 @@ void ma_draw_release(double x, double y, tMaEdit * edit) {
     edit->paramId = UINT32_MAX;
     gGrabbed      = NULL;
     gMenuChoice   = -1;
+
+    // an Off/On button flips if the release lands on it (SynthLib buttonPress.h §1)
+    const void * held = synthlib_button_release();
+
+    if (held != NULL) {
+        for (uint32_t i = 0; i < gPlacedCount; i++) {
+            const tPlaced * pc = &gPlaced[i];
+
+            if ((held == pc) && (hit(x, y) == pc)) {
+                edit->paramId                = pc->control->paramId;
+                edit->normalized             = (gValue[pc->control->paramId] >= 0.5) ? 0.0 : 1.0;
+                gValue[pc->control->paramId] = edit->normalized;
+            }
+        }
+
+        return;
+    }
 
     // the release of the click that opened a menu is not a choice, even where the menu opened under the pointer
     if (gOpeningClick) {

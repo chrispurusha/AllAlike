@@ -46,3 +46,4 @@ Built but not yet checked in a host. Confirmed: delete the line. Failed: move it
 - Panel buttons (2026-11-14, SynthLib buttonPress.h §1): Prev/Next/Load/Reset, tabs, Mute, Clear, 2x Oversample and the toggles light while held and act on the release, and not at all when released off the button; Play still sounds at the press
 - Shift-drag a dial: a tenth the movement, in each dial mode but Rotary
 - Normalise (11-16, osSample notes §7): 0% by default; turning it up grows the waveform and the corner shows the gain and the most there is; at 100% the peak is at full scale and it goes no further
+- Panel colours (11-17, ../Docs/panel-layout.md Colours): Off buttons dimmed in their section's colour, not grey; OUTPUT sage, PLAY rose; greyed controls still read as unavailable

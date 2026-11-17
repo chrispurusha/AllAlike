@@ -5,6 +5,7 @@
 #include <stdlib.h>
 
 #include "uaEnvelope.h"
+#include "synthlibDefs.h"
 #include "uaParams.h"
 
 #define LIST            SYNTHLIB_PARAM_LIST
@@ -466,17 +467,20 @@ static const tUaControl kGlobal[]     = {  // notes §13
     TOGGLE(kUaParamAntiAlias, "Anti-alias"), CHOICE(kUaParamPolarity, "Polarity", kPolarity),
     DIAL(kUaParamVoiceLimit,  "Voices"),     CHOICE(kUaParamSteal,    "Steal",    kSteal),   CHOICE(kUaParamSameNote,"Same Note", kSameNote),
 };
+#define COLOUR_PITCH    {0.90, 0.70, 0.30}
 static const tUaSection kOscPage[]    = {   // notes §12: the pages in the Alikes' common order (uaDraw notes §22)
-    {"PITCH", {0.90, 0.70, 0.30}, kPitch, COUNT(kPitch)},
-    {"PLAY",  {0.40, 0.70, 0.85}, kPlay,  COUNT(kPlay) },
+    {"PITCH", COLOUR_PITCH,     kPitch, COUNT(kPitch)},
+    {"PLAY",  RGB_SECTION_PLAY, kPlay,  COUNT(kPlay) },
 };
+#define COLOUR_AMP_ENV_RATE     {0.55, 0.80, 0.40}
+#define COLOUR_AMP_ENV_LEVEL    {0.55, 0.80, 0.40}
 static const tUaSection kAmpPage[]    = {
-    {"OUTPUT",        {0.75, 0.75, 0.75}, kOutput,   COUNT(kOutput)  },
-    {"AMP ENV RATE",  {0.55, 0.80, 0.40}, kEnvRate,  COUNT(kEnvRate) },
-    {"AMP ENV LEVEL", {0.55, 0.80, 0.40}, kEnvLevel, COUNT(kEnvLevel)},
+    {"OUTPUT",        RGB_SECTION_OUTPUT,   kOutput,   COUNT(kOutput)  },
+    {"AMP ENV RATE",  COLOUR_AMP_ENV_RATE,  kEnvRate,  COUNT(kEnvRate) },
+    {"AMP ENV LEVEL", COLOUR_AMP_ENV_LEVEL, kEnvLevel, COUNT(kEnvLevel)},
 };
 static const tUaSection kGlobalPage[] = {
-    {"GLOBAL", {0.85, 0.55, 0.55}, kGlobal, COUNT(kGlobal)},
+    {"GLOBAL", RGB_SECTION_PLUGIN, kGlobal, COUNT(kGlobal)},
 };
 
 const tUaPage           gUaPages[]    = {

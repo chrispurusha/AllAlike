@@ -206,7 +206,7 @@ static void action_panel_help(int index) {
                "Patches: < Prev and Next > step through the presets, A000-L127, in the order the Sort menu sets; Load... opens a .syx or .mid file of "
                "Singles, choosing one when it holds several. The name beside them edits on a click. A Single keeps "
                "every byte it came with, though only what is built so far plays.\n\n"
-               "Link HW (left of Prev, or Link on the GLOBAL page): the Supernova II follows this sound. Play it from the host on the instrument's own MIDI channel: Link sends no notes, so a key sounds once. Choose its output in the MIDI menu (the button reads No port until you do); Device (the SysEx ID) must match the instrument's own Global setting. Only its edit buffer is written, never a stored program.\n\n"
+               "Link (HARDWARE, GLOBAL page): the Supernova II follows this sound. Play it from the host on the instrument's own MIDI channel: Link sends no notes, so a key sounds once. Choose its output in the MIDI menu (the button reads NO PORT, in amber, until you do, and BUSY while another instance has the instrument); Device (the SysEx ID) must match the instrument's own Global setting. Only its edit buffer is written, never a stored program.\n\n"
                "Dials: drag to turn, Shift to turn finely. Controls chooses how a drag turns them: Rotary follows the "
                "pointer round the dial, Vertical and Horizontal count its movement.\n\n"
                "Lists (the oscillator's shape, the filter's mode) open a menu of their values on a click.\n\n"

@@ -1,6 +1,7 @@
 # UltraAlike todo
 
 ## First
+- Panel positioning (CT 2026-11-17): review against `../Docs/panel-layout.md` when the GUI gets its overhaul (it needs lots of work anyway) - plug-in settings are a section called GLOBAL, not PLUG-IN; Voice Limit, Same Note, Steal in the shared order and names; rows left to right in signal order
 - The E5000 Ultra is on the rig (2026-11-16): MIDI TM-1 ch 9, audio QU-24 17/18; parameter SysEx, preset dumps and SDS test samples all work
 - Output polarity switch (owner 11-16): the E5000's outputs are inverted, a known design flaw some owners fix in hardware - offer Normal / Inverted (as the hardware); measured 11-16: Main L/R inverted, Sub 1 normal, otherwise identical within 0.2 dB
 - Playback path measured at the sample's own pitch (11-16): THD 0.004%, a -1.3 dB dip at 8-10 kHz recovering by 16 kHz, -5 dB at 20 kHz; the filter wide open is out of the path - reproduce that response

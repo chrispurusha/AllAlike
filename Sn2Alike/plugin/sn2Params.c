@@ -19,6 +19,7 @@
 #include <math.h>
 
 #include "sn2Params.h"
+#include "synthlibDefs.h"
 #include "sn2Voices.h"
 
 #define LIST    SYNTHLIB_PARAM_LIST
@@ -324,13 +325,18 @@ static const tSn2Control kEffectsMain[]     = {
     {kSn2ParamEffectsOrder, "Order", eTiControlChoice,  18, 0.0, kOrders},
     {kSn2ParamEffectsDry,   "Dry",   eTiControlDial,   127, 0.0, NULL   },
 };
+#define COLOUR_CHORUS    {0.30, 0.70, 0.85}
+#define COLOUR_DELAY     {0.85, 0.65, 0.30}
+#define COLOUR_REVERB    {0.55, 0.45, 0.85}
+#define COLOUR_DRIVE     {0.90, 0.40, 0.30}
+#define COLOUR_EQ        {0.50, 0.75, 0.40}
 static const tSn2Section kEffectsPage[]     = {
-    {"CHORUS", {0.30, 0.70, 0.85}, kChorus,      COUNT(kChorus)     },
-    {"DELAY",  {0.85, 0.65, 0.30}, kDelay,       COUNT(kDelay)      },
-    {"REVERB", {0.55, 0.45, 0.85}, kReverb,      COUNT(kReverb)     },
-    {"DRIVE",  {0.90, 0.40, 0.30}, kDrive,       COUNT(kDrive)      },
-    {"EQ",     {0.50, 0.75, 0.40}, kEq,          COUNT(kEq)         },
-    {"OUTPUT", {0.60, 0.60, 0.65}, kEffectsMain, COUNT(kEffectsMain)},
+    {"CHORUS", COLOUR_CHORUS,      kChorus,      COUNT(kChorus)     },
+    {"DELAY",  COLOUR_DELAY,       kDelay,       COUNT(kDelay)      },
+    {"REVERB", COLOUR_REVERB,      kReverb,      COUNT(kReverb)     },
+    {"DRIVE",  COLOUR_DRIVE,       kDrive,       COUNT(kDrive)      },
+    {"EQ",     COLOUR_EQ,          kEq,          COUNT(kEq)         },
+    {"OUTPUT", RGB_SECTION_OUTPUT, kEffectsMain, COUNT(kEffectsMain)},
 };
 static const char *const kFxBypass[]        = {"On", "Bypass"};
 static const tSn2Control kGlobalFx[]        = {
@@ -349,12 +355,16 @@ static const tSn2Control kGlide[]           = {
     {kSn2ParamGlideType,  "Type",    eTiControlChoice,   9, 0.0, kGlideTypes },
     {kSn2ParamOscTrigger, "Trigger", eTiControlChoice,   1, 0.0, kTriggers   },
 };
+#define COLOUR_OSC_1    {0.30, 0.55, 0.85}
+#define COLOUR_MIXER    {0.30, 0.62, 0.72}
+#define COLOUR_OSC_2    {0.30, 0.70, 0.60}
+#define COLOUR_OSC_3    {0.85, 0.55, 0.30}
 static const tSn2Section kOscillatorsPage[] = {
-    {"OSC 1", {0.30, 0.55, 0.85}, kOsc1,  COUNT(kOsc1) },
-    {"MIXER", {0.60, 0.60, 0.65}, kMixer, COUNT(kMixer)},
-    {"OSC 2", {0.30, 0.70, 0.60}, kOsc2,  COUNT(kOsc2) },
-    {"GLIDE", {0.60, 0.60, 0.65}, kGlide, COUNT(kGlide)},
-    {"OSC 3", {0.85, 0.55, 0.30}, kOsc3,  COUNT(kOsc3) },
+    {"OSC 1", COLOUR_OSC_1,     kOsc1,  COUNT(kOsc1) },
+    {"MIXER", COLOUR_MIXER,     kMixer, COUNT(kMixer)},
+    {"OSC 2", COLOUR_OSC_2,     kOsc2,  COUNT(kOsc2) },
+    {"GLIDE", RGB_SECTION_PLAY, kGlide, COUNT(kGlide)},
+    {"OSC 3", COLOUR_OSC_3,     kOsc3,  COUNT(kOsc3) },
 };
 static const tSn2Section kFilterPage[]      = {
     {"FILTER", {0.90, 0.55, 0.20}, kFilter, COUNT(kFilter)},
@@ -380,7 +390,7 @@ static const tSn2Control kEnv3[]            = {
     {kSn2ParamEnv3Cutoff,      "Cutoff",  eTiControlDial, 127, -64.0, NULL},
 };
 static const tSn2Section kAmpPage[]         = {
-    {"OUTPUT", {0.65, 0.65, 0.65}, kAmp, COUNT(kAmp)},
+    {"OUTPUT", RGB_SECTION_OUTPUT, kAmp, COUNT(kAmp)},
 };
 static const tSn2Section kEnvelopesPage[]   = {
     {"AMP ENV", {0.85, 0.75, 0.25}, kAmpEnv, COUNT(kAmpEnv)},
@@ -433,12 +443,16 @@ static const tSn2Control kWheelFilter[]     = {
     {kSn2ParamWheelCutoff,    "Cutoff", eTiControlDial, 127, -64.0, NULL},
     {kSn2ParamWheelResonance, "Res",    eTiControlDial, 127, -64.0, NULL},
 };
+#define COLOUR_BEND_RANGE      {0.30, 0.55, 0.85}
+#define COLOUR_WHEEL_PITCH     {0.30, 0.70, 0.60}
+#define COLOUR_WHEEL_LEVEL     {0.85, 0.55, 0.30}
+#define COLOUR_WHEEL_FILTER    {0.90, 0.55, 0.20}
 static const tSn2Section kWheelPage[]       = {
-    {"BEND / WHEEL", {0.65, 0.65, 0.65}, kBendWheel,   COUNT(kBendWheel)  },
-    {"BEND RANGE",   {0.30, 0.55, 0.85}, kBendRange,   COUNT(kBendRange)  },
-    {"WHEEL PITCH",  {0.30, 0.70, 0.60}, kWheelPitch,  COUNT(kWheelPitch) },
-    {"WHEEL LEVEL",  {0.85, 0.55, 0.30}, kWheelLevel,  COUNT(kWheelLevel) },
-    {"WHEEL FILTER", {0.90, 0.55, 0.20}, kWheelFilter, COUNT(kWheelFilter)},
+    {"BEND / WHEEL", RGB_SECTION_CONTROL, kBendWheel,   COUNT(kBendWheel)  },
+    {"BEND RANGE",   COLOUR_BEND_RANGE,   kBendRange,   COUNT(kBendRange)  },
+    {"WHEEL PITCH",  COLOUR_WHEEL_PITCH,  kWheelPitch,  COUNT(kWheelPitch) },
+    {"WHEEL LEVEL",  COLOUR_WHEEL_LEVEL,  kWheelLevel,  COUNT(kWheelLevel) },
+    {"WHEEL FILTER", COLOUR_WHEEL_FILTER, kWheelFilter, COUNT(kWheelFilter)},
 };
 static const tSn2Control kEnv2Level[]       = {
     {kSn2ParamOsc1Env2Level,   "Osc 1", eTiControlDial, 127, -64.0, NULL},
@@ -489,12 +503,13 @@ static const tSn2Control kPan[]             = {
     {kSn2ParamPanDepth,   "Depth",   eTiControlDial,   127, 0.0, NULL  },
     {kSn2ParamPanEffects, "Effects", eTiControlChoice,   1, 0.0, kOffOn},
 };
+#define COLOUR_EFFECTS    {0.65, 0.55, 0.85}
 static const tSn2Section kGlobalPage[]      = {
-    {"PLUG-IN",  {0.65, 0.65, 0.65}, kVoices,   COUNT(kVoices)  },
-    {"HARDWARE", {0.65, 0.65, 0.65}, kHardware, COUNT(kHardware)},
-    {"PLAY",     {0.65, 0.65, 0.65}, kPlay,     COUNT(kPlay)    },
-    {"EFFECTS",  {0.65, 0.65, 0.65}, kGlobalFx, COUNT(kGlobalFx)},
-    {"PAN",      {0.65, 0.65, 0.65}, kPan,      COUNT(kPan)     },
+    {"PLUG-IN",  RGB_SECTION_PLUGIN, kVoices,   COUNT(kVoices)  },
+    {"HARDWARE", RGB_SECTION_PLUGIN, kHardware, COUNT(kHardware)},
+    {"PLAY",     RGB_SECTION_PLAY,   kPlay,     COUNT(kPlay)    },
+    {"EFFECTS",  COLOUR_EFFECTS,     kGlobalFx, COUNT(kGlobalFx)},
+    {"PAN",      RGB_SECTION_OUTPUT, kPan,      COUNT(kPan)     },
 };
 
 const tSn2Page           gSn2Pages[]        = {

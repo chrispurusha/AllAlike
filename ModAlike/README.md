@@ -16,7 +16,7 @@ VST3 SDK at `~/Documents/vst3sdk` (or `$VST3_SDK`); `./do-plugin au` does not. R
 ## The panel
 
 One page: the effect chosen at the top left, then the Phaser, Chorus and Flanger side by side - the two not in use
-dimmed, keeping their settings - and below them Stereo and Output. Dials drag; Controls chooses Rotary, Vertical or
+greyed, keeping their settings - and below them Stereo and Output. Dials drag; Controls chooses Rotary, Vertical or
 Horizontal dragging, remembered between sessions. Lists open a menu of their values. Help > The Panel and Help > Engine explain it.
 
 ## The parameters

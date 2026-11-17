@@ -5,6 +5,7 @@
 #include <stdlib.h>
 
 #include "osEnvelope.h"
+#include "synthlibDefs.h"
 #include "osParams.h"
 
 #define LIST            SYNTHLIB_PARAM_LIST
@@ -407,16 +408,23 @@ static const tOsControl kSaturate[]  = {
     DIAL(kOsParamSatWarmth,  "Warmth"), DIAL(kOsParamSatHf,     "HF"),  DIAL(kOsParamSatOutput, "Output"),
 };
 
+#define COLOUR_PITCH         {0.90, 0.70, 0.30}
+#define COLOUR_TRIM          {0.95, 0.80, 0.25}
+#define COLOUR_ENVELOPE      {0.55, 0.80, 0.40}
+#define COLOUR_CURVE         {0.55, 0.80, 0.40}
+#define COLOUR_STRETCH       {0.80, 0.55, 0.85}
+#define COLOUR_FILTER        {0.45, 0.80, 0.75}
+#define COLOUR_SATURATION    {0.90, 0.45, 0.40}
 static const tOsSection kMainPage[]  = {
-    {"PITCH",      {0.90, 0.70, 0.30}, kPitch,    COUNT(kPitch)   },
-    {"PLAY",       {0.40, 0.70, 0.85}, kPlay,     COUNT(kPlay)    },
-    {"TRIM",       {0.95, 0.80, 0.25}, kTrim,     COUNT(kTrim)    },
-    {"OUTPUT",     {0.75, 0.75, 0.75}, kOutput,   COUNT(kOutput)  },
-    {"ENVELOPE",   {0.55, 0.80, 0.40}, kEnvelope, COUNT(kEnvelope)},
-    {"CURVE",      {0.55, 0.80, 0.40}, kCurves,   COUNT(kCurves)  },
-    {"STRETCH",    {0.80, 0.55, 0.85}, kStretch,  COUNT(kStretch) },
-    {"FILTER",     {0.45, 0.80, 0.75}, kFilter,   COUNT(kFilter)  },
-    {"SATURATION", {0.90, 0.45, 0.40}, kSaturate, COUNT(kSaturate)},
+    {"PITCH",      COLOUR_PITCH,       kPitch,    COUNT(kPitch)   },
+    {"PLAY",       RGB_SECTION_PLAY,   kPlay,     COUNT(kPlay)    },
+    {"TRIM",       COLOUR_TRIM,        kTrim,     COUNT(kTrim)    },
+    {"OUTPUT",     RGB_SECTION_OUTPUT, kOutput,   COUNT(kOutput)  },
+    {"ENVELOPE",   COLOUR_ENVELOPE,    kEnvelope, COUNT(kEnvelope)},
+    {"CURVE",      COLOUR_CURVE,       kCurves,   COUNT(kCurves)  },
+    {"STRETCH",    COLOUR_STRETCH,     kStretch,  COUNT(kStretch) },
+    {"FILTER",     COLOUR_FILTER,      kFilter,   COUNT(kFilter)  },
+    {"SATURATION", COLOUR_SATURATION,  kSaturate, COUNT(kSaturate)},
 };
 
 const tOsPage           gOsPages[]   = {

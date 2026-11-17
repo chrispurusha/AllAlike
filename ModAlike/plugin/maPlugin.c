@@ -27,6 +27,7 @@
 #include <unistd.h>
 
 #include "synthlibPlugin.h"
+#include "synthlibDefs.h"
 #include "synthlibLog.h"
 #include "synthlibPanelView.h"
 #include "maDraw.h"
@@ -164,23 +165,28 @@ static const tMaControl     kOutputControls[]         = {
 };
 
 static const tMaControl     kEngineControls[]         = {
-    {kEconomy,     "Rate",       eMaControlChoice, 1, 0.0, 1.0, NULL, kEconomyShort,        0, 0, 0},
+    {kAntiAlias,   "Anti-alias", eMaControlChoice, 1, 0.0, 1.0, NULL, kOffOnName,    kEconomy, 1, 1},  // only at the host rate; ../Docs/panel-layout.md
     {kFixedPoint,  "Maths",      eMaControlChoice, 1, 0.0, 1.0, NULL, kFixedShort,          0, 0, 0},
+    {kEconomy,     "Rate",       eMaControlChoice, 1, 0.0, 1.0, NULL, kEconomyShort,        0, 0, 0},
     {kOutputStage, "Stage",      eMaControlChoice, 1, 0.0, 1.0, NULL, kStageShort,          0, 0, 0},
-    {kAntiAlias,   "Anti-alias", eMaControlChoice, 1, 0.0, 1.0, NULL, kOffOnName,    kEconomy, 1, 1},  // only at the host rate
 };
 
 #define COUNT(a)    ((uint32_t)(sizeof(a) / sizeof((a)[0])))
 
 // onlyWhen: the Effect entry a section belongs to, so the other two show dimmed
+#define COLOUR_EFFECT     {0.95, 0.80, 0.35}
+#define COLOUR_PHASER     {0.90, 0.60, 0.30}
+#define COLOUR_CHORUS     {0.40, 0.70, 0.90}
+#define COLOUR_FLANGER    {0.60, 0.85, 0.40}
+#define COLOUR_STEREO     {0.75, 0.55, 0.90}
 static const tMaSection     kSections[]               = {
-    {"EFFECT",  {0.75, 0.75, 0.78}, kEffectControls,  COUNT(kEffectControls),  false, -1},
-    {"PHASER",  {0.90, 0.60, 0.30}, kPhaserControls,  COUNT(kPhaserControls),  false,  0},
-    {"CHORUS",  {0.40, 0.70, 0.90}, kChorusControls,  COUNT(kChorusControls),  false,  1},
-    {"FLANGER", {0.60, 0.85, 0.40}, kFlangerControls, COUNT(kFlangerControls), false,  2},
-    {"STEREO",  {0.75, 0.55, 0.90}, kStereoControls,  COUNT(kStereoControls),  true,  -1},
-    {"OUTPUT",  {0.85, 0.85, 0.85}, kOutputControls,  COUNT(kOutputControls),  false, -1},
-    {"ENGINE",  {0.85, 0.75, 0.45}, kEngineControls,  COUNT(kEngineControls),  false, -1},
+    {"EFFECT",  COLOUR_EFFECT,      kEffectControls,  COUNT(kEffectControls),  false, -1},
+    {"PHASER",  COLOUR_PHASER,      kPhaserControls,  COUNT(kPhaserControls),  false,  0},
+    {"CHORUS",  COLOUR_CHORUS,      kChorusControls,  COUNT(kChorusControls),  false,  1},
+    {"FLANGER", COLOUR_FLANGER,     kFlangerControls, COUNT(kFlangerControls), false,  2},
+    {"STEREO",  COLOUR_STEREO,      kStereoControls,  COUNT(kStereoControls),  true,  -1},
+    {"OUTPUT",  RGB_SECTION_OUTPUT, kOutputControls,  COUNT(kOutputControls),  false, -1},
+    {"PLUG-IN", RGB_SECTION_PLUGIN, kEngineControls,  COUNT(kEngineControls),  false, -1},
 };
 
 // ---- The patch - notes §1 ------------------------------------------------------------------------------------

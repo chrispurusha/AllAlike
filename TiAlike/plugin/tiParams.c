@@ -17,6 +17,7 @@
 // Notes: Docs/code-notes/tiParams.md - "// notes §k" refers there.
 
 #include "tiParams.h"
+#include "synthlibDefs.h"
 #include "tiVoices.h"
 
 #define LIST    SYNTHLIB_PARAM_LIST
@@ -714,8 +715,8 @@ static const tTiSection  kFilterPage[]                  = {
     {"ENVELOPE", {0.90, 0.55, 0.20}, kNewEnvelope, COUNT(kNewEnvelope)},
 };
 static const tTiSection  kAmpPage[]                     = {
-    {"OUTPUT",   {0.65, 0.65, 0.65}, kAmp,         COUNT(kAmp)        },
-    {"VELOCITY", {0.65, 0.65, 0.65}, kNewVelocity, COUNT(kNewVelocity)},
+    {"OUTPUT",   RGB_SECTION_OUTPUT,  kAmp,         COUNT(kAmp)        },
+    {"VELOCITY", RGB_SECTION_CONTROL, kNewVelocity, COUNT(kNewVelocity)},
 };
 static const tTiSection  kEnvelopesPage[]               = {
     {"AMP ENV",    {0.85, 0.75, 0.25}, kAmpEnv,    COUNT(kAmpEnv)   },
@@ -740,11 +741,11 @@ static const tTiSection  kModPage2[]                    = {
     {"SLOT 6", {0.70, 0.45, 0.80}, kMod6, COUNT(kMod6)},
 };
 static const tTiSection  kGlobalPage[]                  = {
-    {"PLUG-IN",  {0.65, 0.65, 0.65}, kVoices,     COUNT(kVoices)    },
-    {"HARDWARE", {0.65, 0.65, 0.65}, kHardware,   COUNT(kHardware)  },
-    {"PLAY",     {0.65, 0.65, 0.65}, kPlay,       COUNT(kPlay)      },
-    {"UNISON",   {0.65, 0.65, 0.65}, kUnisonCtl,  COUNT(kUnisonCtl) },
-    {"CONTROL",  {0.65, 0.65, 0.65}, kNewControl, COUNT(kNewControl)},
+    {"PLUG-IN",  RGB_SECTION_PLUGIN,  kVoices,     COUNT(kVoices)    },
+    {"HARDWARE", RGB_SECTION_PLUGIN,  kHardware,   COUNT(kHardware)  },
+    {"PLAY",     RGB_SECTION_PLAY,    kPlay,       COUNT(kPlay)      },
+    {"UNISON",   RGB_SECTION_PLAY,    kUnisonCtl,  COUNT(kUnisonCtl) },
+    {"CONTROL",  RGB_SECTION_CONTROL, kNewControl, COUNT(kNewControl)},
 };
 
 static const tTiSection  kArpPage[]                     = {

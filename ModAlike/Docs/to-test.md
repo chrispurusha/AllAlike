@@ -15,3 +15,4 @@ Built, not yet tried in a host or against the instrument. Confirmed: delete the 
 - Flanger Range (2026-11-14, G2Alike reference §70.2): turning Range no longer zippers - Range and FB glide over 125 ms as every dial does
 - Double-click a dial: back to its default, undoable in the host
 - Shift-drag a dial: a tenth the movement, in each dial mode but Rotary
+- Panel colours (11-17, ../Docs/panel-layout.md Colours): the effects not chosen grey, not dimmed; Anti-alias and Stage flip buttons (Anti-alias grey at 96 kHz); PLUG-IN (was ENGINE) steel blue in the order Anti-alias, Maths, Rate, Stage; OUTPUT sage

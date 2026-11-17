@@ -31,7 +31,7 @@
     default and the test's first change was a rebuild). So the request is repeated every 50 ms for 200 ms: one lands
     after both. Re-making a link that already holds changes nothing. Not for the Chorus.
 15. **The panel**: `kSections` lays it out - EFFECT, PHASER, CHORUS, FLANGER on the first row, STEREO and OUTPUT on
-    the second. A section's `onlyWhen` names its Effect entry, so the two effects not in use draw dimmed. The panel
+    the second. A section's `onlyWhen` names its Effect entry, so the two effects not in use draw grey. The panel
     reads every parameter from the host at each sync and edits through `synthlib_plugin_param_edited()`.
 16. **Engine Rate** calls `g2am_set_economy()`; the latency changes with it, and the host is told from the apply
     thread. The engine clears the patch's state on the switch, so the LFO link is asked for again on every poll for

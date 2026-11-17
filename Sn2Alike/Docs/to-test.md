@@ -11,7 +11,7 @@ Finished work not yet checked against the instrument.
 - Sustain pedal in a host; order against notes in one block
 - The LFOS page: Shape, Speed, Range, Delay, Fade, Offset, Trigger, Cutoff; routes to pitch and width come from programs, with no dials yet
 - LFO Key and Free in a chord: Free programs cannot be compared with the reference by time window, its phase depends on its run time
-- Link in a host: MIDI menu, Link HW button (green / amber No port / Link busy), Channel, Device; notes, bend, wheel, pedal; editing a dial while holding notes
+- Link in a host: MIDI menu, Link on the GLOBAL page (lit / amber NO PORT / BUSY), Channel, Device; notes, bend, wheel, pedal; editing a dial while holding notes
 - GLOBAL page (11-17, ../Docs/panel-layout.md): PLUG-IN (Voices, Same Note, Anti-alias), HARDWARE, PLAY (Mode, Trigger), EFFECTS, PAN all fit
 - Presets > Read from Hardware in a host: the Reading count, the confirm, and the instrument's data carrying on after it
 - Anti-alias On and Off on a bright high Saw and Square with Soften up, the Sort menu with Prev/Next, and a note held across a preset change (it stops, no clip lamp) (2026-11-12): in a host
@@ -20,9 +20,10 @@ Finished work not yet checked against the instrument.
 - LEVELS page (Env 2, Env 3, LFO 1, LFO 2 to each mixer level) and the three new WHEEL LEVEL dials: WineGlass, Down Osc, Noise Sweep 3-6, Gated Pad now sound
 - Filter "Osc Byp": oscillators heard unfiltered with the filter closed, about 2 dB below an open filter; the Disco and 909 Toms
 - Free-running LFOs start the same way on every note from silence (Whiteout)
-- Panel buttons (2026-11-14, SynthLib buttonPress.h §1): Prev/Next/Load, the tabs (and Link HW where there is one) light while held and act on the release, and not at all when released off the button
+- Panel buttons (2026-11-14, SynthLib buttonPress.h §1): Prev/Next/Load and the tabs light while held and act on the release, and not at all when released off the button
 - Double-click a dial: back to its default, undoable in the host
 - Shift-drag a dial: a tenth the movement, in each dial mode but Rotary
 - Filter Tracking at 127 turns gold; double-click goes there
 - Fast wheel/bend/aftertouch moves (11-16, SynthLib synthlibCtlPoints.h): smooth, not stepping once a host block
 - Same Note (11-17, sn2Voices notes §21): Piano with the sustain pedal down, one key struck over and over - one voice; Stack - each strike rings on beside the last
+- Panel colours (11-17, ../Docs/panel-layout.md Colours): no grey sections; OFF/ON settings are buttons that flip on release, dimmed when off; CLIP dimmed when off; no Link HW in the patch bar (11-17) - Link is on the GLOBAL page only - all readable

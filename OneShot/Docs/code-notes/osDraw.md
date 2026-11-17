@@ -97,3 +97,10 @@ The waveform is drawn at Normalise's gain (osSample notes §7), so turning it up
 corner says the gain applied and the most there is ("Normalise +4.2 dB of +8.4"), and says nothing for a sample
 already at full scale. Each column shows the extremes of either channel (it was their average), so the zoom matches
 what Normalise measures: at 100% the tallest column reaches the top.
+
+## 20. Colours (2026-11-17)
+The panel follows `../../Docs/panel-layout.md` (Colours), on SynthLib's defaults (synthlibDefs.h §7). A control that
+does nothing in the current mode keeps the grey it had, now SynthLib's `RGB_PANEL_UNAVAILABLE`, and grey means only
+that: OUTPUT takes `RGB_SECTION_OUTPUT`, PLAY `RGB_SECTION_PLAY`. An Off button is its section's colour dimmed
+(`synthlib_button_off_colour()`) with light text, where it was a light grey that read as unavailable. In a section
+table that mixes a shared colour with numbers, the numbers are named (`COLOUR_...`), so uncrustify aligns the table.

@@ -62,9 +62,10 @@ step past Pattern Length is greyed. Each step is one parameter, the instrument's
 an edit changes only the bits it shows.
 
 ## 8. Link
-The Link HW button, in the title row above the AMP tab (left of Prev), shows and flips the Link setting (p2Plugin notes §41) - green while on. The work is the
-plug-in's, through the host's `send`; the panel only reports a failure. Amber, reading "Link busy", while Link is on
-but another instance owns the instrument (p2Plugin notes §49).
+Link is on the GLOBAL page only, under HARDWARE, as in the other Alikes (owner 2026-11-17: the title row's Link HW
+button is gone, and Prev starts where it was). It flips the Link setting (p2Plugin notes §41). The work is the
+plug-in's, through the host's `send`; the panel only reports a failure: amber, reading BUSY, while Link is on but
+another instance owns the instrument (p2Plugin notes §49).
 
 ## 9. Rotary drag
 Controls offers Rotary, Vertical and Horizontal, as the sibling editors do. Vertical and Horizontal hide the
@@ -117,3 +118,10 @@ angle, is unchanged. Added across the Alikes 2026-11-14.
 The filter's keyboard tracking dial (kP2ParamFilterKeytrack) turns gold at the one step where the cutoff follows the keys one
 semitone a note, like an oscillator; a double-click goes there rather than to the Init sound's own setting. The
 gold is shared by every Alike (`UNITY_COLOUR`). Added 2026-11-14 (CT 2026-11-08: the same in every Alike).
+
+## 18. Colours and Off/On buttons (2026-11-17)
+The panel follows `../../Docs/panel-layout.md` (Colours), on SynthLib's defaults (synthlibDefs.h §7). Grey means only
+a control that does nothing, so no section is grey: PLUG-IN and HARDWARE take `RGB_SECTION_PLUGIN`, OUTPUT and MASTER
+`RGB_SECTION_OUTPUT`, the play sections `RGB_SECTION_PLAY`, the performance controllers `RGB_SECTION_CONTROL`. A choice
+of OFF and ON is a button that flips on the release that lands on it (as Nl3Alike's), lit in its section's colour when
+on and that colour dimmed (`synthlib_button_off_colour()`) with light text when off. CLIP is the same when not lit.

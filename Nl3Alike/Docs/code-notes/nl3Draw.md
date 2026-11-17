@@ -79,7 +79,8 @@ and 14, which the factory Init sound holds, as No Cat - the instrument's 'Name: 
 
 ## 16. Off/On buttons
 A choice of two whose values are OFF and ON is a button that flips rather than a menu: lit in its section's colour when
-on, dark when off, lighter while held, and it changes on the release that lands on it (SynthLib buttonPress.h §1), as
+on, that colour dimmed with light text when off (SynthLib `synthlib_button_off_colour()`, never grey - grey is kept for
+a control that does nothing, `../../Docs/panel-layout.md`), lighter while held; Link, on with no MIDI output chosen, amber and reading NO PORT (`../../Docs/panel-layout.md`), and it changes on the release that lands on it (SynthLib buttonPress.h §1), as
 the panel's other buttons do. Two-valued choices with named values (AD/AR, the switch positions) keep their menu.
 
 ## 17. Double-click a dial

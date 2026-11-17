@@ -20,3 +20,4 @@ Built but not yet checked in a host or against the instrument. Confirmed: delete
 - Voice Limit, Steal, Same Note on GLOBAL (11-16, uaBankVoice notes §11): a pedalled repeated note stops at the limit (CPU levels off); lower the limit and the CPU falls; Steal Released takes faded tails before held notes; Same Note Piano keeps a repeated key to one voice without a click; a pedalled chord's CPU falls as its tail dies away (voices under -100 dB let go)
 - Page tabs (11-16, uaDraw notes §22): OSC / AMP / GLOBAL under the waveform switch on release; each page shows its sections (AMP: Output and both envelope rows; GLOBAL: Anti-alias, Polarity, Voices, Steal, Same Note)
 - Fast wheel/bend/aftertouch moves (11-16, SynthLib synthlibCtlPoints.h): smooth, not stepping once a host block
+- Panel colours (11-17, ../Docs/panel-layout.md Colours): Off buttons dimmed in their section's colour, not grey; OUTPUT sage, PLAY rose; greyed controls still read as unavailable

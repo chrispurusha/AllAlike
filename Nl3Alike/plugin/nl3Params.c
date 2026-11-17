@@ -22,6 +22,7 @@
 
 #include "nl3Params.h"
 #include "nl3Voices.h"
+#include "synthlibDefs.h"
 
 #define LIST    SYNTHLIB_PARAM_LIST
 
@@ -906,17 +907,18 @@ static const tNl3Control kHardware[]            = {
 };
 
 #define SECTION(title, r, g, b, controls)    {title, {r, g, b}, controls, sizeof(controls) / sizeof(controls[0])}
-static const tNl3Section kOscPage[]             = {SECTION("OSC 1", 0.30, 0.55, 0.85, kOsc1), SECTION("MOD / MIX", 0.60, 0.60, 0.65, kOscMod), SECTION("OSC 2", 0.30, 0.70, 0.60, kOsc2), SECTION("OSC 2 SYNC / FM / NOISE", 0.30, 0.70, 0.60, kOsc2More)};
+#define SECTION_RGB(title, rgb, controls)    {title, rgb, controls, sizeof(controls) / sizeof(controls[0])}   // a shared colour, ../Docs/panel-layout.md
+static const tNl3Section kOscPage[]             = {SECTION("OSC 1", 0.30, 0.55, 0.85, kOsc1), SECTION("MOD / MIX", 0.30, 0.62, 0.72, kOscMod), SECTION("OSC 2", 0.30, 0.70, 0.60, kOsc2), SECTION("OSC 2 SYNC / FM / NOISE", 0.30, 0.70, 0.60, kOsc2More)};
 static const tNl3Section kFilterPage[]          = {SECTION("FILTER", 0.90, 0.55, 0.20, kFilter), SECTION("FILTER ENV", 0.90, 0.70, 0.30, kFilterEnv)};
-static const tNl3Section kAmpPage[]             = {SECTION("AMP ENV", 0.85, 0.75, 0.25, kAmpEnv), SECTION("OUTPUT", 0.65, 0.65, 0.65, kOutput)};
+static const tNl3Section kAmpPage[]             = {SECTION("AMP ENV", 0.85, 0.75, 0.25, kAmpEnv), SECTION_RGB("OUTPUT", RGB_SECTION_OUTPUT, kOutput)};
 static const tNl3Section kLfoPage[]             = {SECTION("LFO 1", 0.80, 0.55, 0.85, kLfo1), SECTION("LFO 2", 0.55, 0.80, 0.85, kLfo2)};
 static const tNl3Section kModPage[]             = {SECTION("MOD ENV", 0.70, 0.45, 0.80, kModEnv)};
-static const tNl3Section kPlayPage[]            = {SECTION("GLIDE", 0.60, 0.60, 0.65, kGlide), SECTION("VIBRATO", 0.60, 0.60, 0.65, kVibrato), SECTION("VOICE", 0.60, 0.60, 0.65, kVoice), SECTION("ARP", 0.60, 0.60, 0.65, kArp)};
+static const tNl3Section kPlayPage[]            = {SECTION_RGB("GLIDE", RGB_SECTION_PLAY, kGlide), SECTION_RGB("VIBRATO", RGB_SECTION_PLAY, kVibrato), SECTION_RGB("VOICE", RGB_SECTION_PLAY, kVoice), SECTION_RGB("ARP", RGB_SECTION_PLAY, kArp)};
 static const tNl3Section kMorphWheelPage[]      = {SECTION("WHEEL: LFO / MOD ENV", 0.85, 0.55, 0.30, kMorphWheelLfo), SECTION("WHEEL: AMP", 0.85, 0.55, 0.30, kMorphWheelAmp), SECTION("WHEEL: OSC", 0.85, 0.55, 0.30, kMorphWheelOsc), SECTION("WHEEL: FILTER", 0.85, 0.55, 0.30, kMorphWheelFilter)};
 static const tNl3Section kMorphTouchPage[]      = {SECTION("AFTERTOUCH: LFO / MOD ENV", 0.85, 0.55, 0.30, kMorphTouchLfo), SECTION("AFTERTOUCH: AMP", 0.85, 0.55, 0.30, kMorphTouchAmp), SECTION("AFTERTOUCH: OSC", 0.85, 0.55, 0.30, kMorphTouchOsc), SECTION("AFTERTOUCH: FILTER", 0.85, 0.55, 0.30, kMorphTouchFilter)};
 static const tNl3Section kMorphVelocityPage[]   = {SECTION("VELOCITY: LFO / MOD ENV", 0.85, 0.55, 0.30, kMorphVelocityLfo), SECTION("VELOCITY: AMP", 0.85, 0.55, 0.30, kMorphVelocityAmp), SECTION("VELOCITY: OSC", 0.85, 0.55, 0.30, kMorphVelocityOsc), SECTION("VELOCITY: FILTER", 0.85, 0.55, 0.30, kMorphVelocityFilter)};
 static const tNl3Section kMorphKbdPage[]        = {SECTION("KEYBOARD: LFO / MOD ENV", 0.85, 0.55, 0.30, kMorphKbdLfo), SECTION("KEYBOARD: AMP", 0.85, 0.55, 0.30, kMorphKbdAmp), SECTION("KEYBOARD: OSC", 0.85, 0.55, 0.30, kMorphKbdOsc), SECTION("KEYBOARD: FILTER", 0.85, 0.55, 0.30, kMorphKbdFilter)};
-static const tNl3Section kGlobalPage[]          = {SECTION("PLUG-IN", 0.65, 0.65, 0.65, kPlugin), SECTION("HARDWARE", 0.65, 0.65, 0.65, kHardware)};
+static const tNl3Section kGlobalPage[]          = {SECTION_RGB("PLUG-IN", RGB_SECTION_PLUGIN, kPlugin), SECTION_RGB("HARDWARE", RGB_SECTION_PLUGIN, kHardware)};
 
 #define PAGE(title, sections)    {title, sections, sizeof(sections) / sizeof(sections[0])}
 const tNl3Page           gNl3Pages[]            = {

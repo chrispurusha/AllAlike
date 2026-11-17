@@ -20,3 +20,11 @@ not grab the dial. As OneShot's (osDraw notes §10), added across the Alikes 202
 ## 2. Shift for fine adjustment
 With Shift held, dragging a dial moves it a tenth as far for the same distance - the same on the Mac and Windows
 (SynthLib's panel views read the modifiers on every drag event). Rotary mode is unchanged. Added 2026-11-14.
+
+## 3. Colours and Off/On buttons (2026-11-17)
+The panel follows `../../Docs/panel-layout.md` (Colours), on SynthLib's defaults (synthlibDefs.h §7). A section or
+control not in use (the two effects not chosen, Anti-alias at 96 kHz) is SynthLib's grey, `RGB_PANEL_UNAVAILABLE`,
+where it was its own colour at 35%: dimmed now means Off. A choice of Off and On (Anti-alias, Stage) is a button that
+flips on the release that lands on it, lit in its section's colour when on and dimmed with light text when off.
+OUTPUT takes `RGB_SECTION_OUTPUT`; ENGINE is now PLUG-IN, in `RGB_SECTION_PLUGIN` and the shared order (Anti-alias,
+Maths, then Rate and Stage); EFFECT is gold.

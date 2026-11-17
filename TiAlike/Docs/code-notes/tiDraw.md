@@ -106,3 +106,10 @@ not grab the dial. As OneShot's (osDraw notes §10), added across the Alikes 202
 With Shift held, dragging a dial moves it a tenth as far for the same distance - the same on the Mac and Windows
 (SynthLib's panel views read the modifiers on every drag event). Rotary mode, where the dial follows the pointer's
 angle, is unchanged. Added across the Alikes 2026-11-14.
+
+## 19. Colours and Off/On buttons (2026-11-17)
+The panel follows `../../Docs/panel-layout.md` (Colours), on SynthLib's defaults (synthlibDefs.h §7). Grey means only
+a control that does nothing, so no section is grey: PLUG-IN and HARDWARE take `RGB_SECTION_PLUGIN`, OUTPUT
+`RGB_SECTION_OUTPUT`, the play sections `RGB_SECTION_PLAY`, the performance controllers `RGB_SECTION_CONTROL`. A choice
+of OFF and ON is a button that flips on the release that lands on it (as Nl3Alike's), lit in its section's colour when
+on and that colour dimmed (`synthlib_button_off_colour()`) with light text when off. CLIP is the same when not lit.

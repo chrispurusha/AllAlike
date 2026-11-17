@@ -111,3 +111,10 @@ The panel has pages as every Alike does, in their common order - OSC (PITCH, PLA
 envelope), GLOBAL (Anti-alias, Polarity, Voice Limit, Steal, Same Note) - one tab each under the waveform, the shown
 one lit, acting on the release. FILTER, ENV (the auxiliary envelope), LFO and MOD join as they are built. It was one
 page (SAMPLE) with every section on it, OneShot's layout, until 2026-11-16.
+
+## 23. Colours (2026-11-17)
+The panel follows `../../Docs/panel-layout.md` (Colours), on SynthLib's defaults (synthlibDefs.h §7). A control that
+does nothing in the current mode keeps the grey it had, now SynthLib's `RGB_PANEL_UNAVAILABLE`, and grey means only
+that: OUTPUT takes `RGB_SECTION_OUTPUT`, PLAY `RGB_SECTION_PLAY`, the plug-in settings (GLOBAL) `RGB_SECTION_PLUGIN`. An Off button is its section's colour dimmed
+(`synthlib_button_off_colour()`) with light text, where it was a light grey that read as unavailable. In a section
+table that mixes a shared colour with numbers, the numbers are named (`COLOUR_...`), so uncrustify aligns the table.

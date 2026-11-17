@@ -84,12 +84,11 @@
 #define MENU_MAX                (32)
 #define MENU_CELL_W             (96.0)
 #define MENU_ROWS_PER_COLUMN    (8)
-#define OPENING_RELEASE_SLOP    (4.0)     // how far the pointer may move and still be the opening click
+#define OPENING_RELEASE_SLOP    (4.0)                 // how far the pointer may move and still be the opening click
 #define MAX_FOLDER_FILES        (4096)
-#define INACTIVE_COLOUR         {0.42, 0.42, 0.44}
+#define INACTIVE_COLOUR         RGB_PANEL_UNAVAILABLE // ../Docs/panel-layout.md: grey means only this
 #define START_COLOUR            {0.95, 0.80, 0.25}
 #define PROTECT_COLOUR          {0.80, 0.55, 0.85}
-#define TOGGLE_OFF_COLOUR       {0.56, 0.56, 0.58}
 #define OUTSIDE_COLOUR          {0.07, 0.07, 0.08}   // notes §12: the parts of the view that do not play
 #define TAB_COLOUR_TEXT_OFF     {0.40, 0.40, 0.42}
 #define MUTE_ON_COLOUR          {0.95, 0.55, 0.25}
@@ -414,15 +413,19 @@ void os_draw_step_sample(int direction) {
 
 // ---- drawing ------------------------------------------------------------------------------------------------
 
-static void fitted_button(tRectangle r, const char * text, tRgb colour) {
+static void fitted_button_text(tRectangle r, const char * text, tRgb colour, tRgb textColour) {
     double h = r.size.h;
 
     while ((h > 7.0) && (get_text_width(text, h, eNoCache) > r.size.w)) {
         h -= 0.5;
     }
     draw_button(mainArea, r, "", colour);
-    set_rgb_colour((tRgb)RGB_BLACK);
+    set_rgb_colour(textColour);
     render_text(mainArea, (tRectangle){{r.coord.x + DRAW_BUTTON_MARGIN, r.coord.y + DRAW_BUTTON_MARGIN + ((r.size.h - h) / 2.0)}, {0.0, h}}, text);
+}
+
+static void fitted_button(tRectangle r, const char * text, tRgb colour) {
+    fitted_button_text(r, text, colour, (tRgb)RGB_BLACK);
 }
 
 // The text fitted to a width by cutting its end
@@ -924,9 +927,10 @@ void os_draw_frame(int pixelWidth, int pixelHeight) {
         }
 
         if (c->kind == eOsControlToggle) {
-            tRgb lit = held_colour(pc, (step_of(c) > 0) ? colour : (tRgb)TOGGLE_OFF_COLOUR);
+            bool on  = step_of(c) > 0;   // ../Docs/panel-layout.md: Off is its colour dimmed, never grey
+            tRgb lit = held_colour(pc, on ? colour : synthlib_button_off_colour(colour));
 
-            fitted_button((tRectangle){{pc->x, pc->dial.coord.y + ((DIAL_SIZE - BUTTON_H) / 2.0)}, {CONTROL_W - 6.0, BUTTON_H}}, text, lit);
+            fitted_button_text((tRectangle){{pc->x, pc->dial.coord.y + ((DIAL_SIZE - BUTTON_H) / 2.0)}, {CONTROL_W - 6.0, BUTTON_H}}, text, lit, on ? (tRgb)RGB_BLACK : (tRgb)RGB_PANEL_OFF_TEXT);
         } else if (c->kind == eOsControlChoice) {
             fitted_button((tRectangle){{pc->x, pc->dial.coord.y + ((DIAL_SIZE - BUTTON_H) / 2.0)}, {CONTROL_W - 6.0, BUTTON_H}}, text, colour);
         } else {

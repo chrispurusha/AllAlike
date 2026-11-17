@@ -21,6 +21,7 @@
 #include <time.h>
 #include <stdio.h>
 #include <string.h>
+#include <strings.h>
 #include <stdlib.h>
 
 #include "p2Draw.h"
@@ -82,7 +83,7 @@
 #define BUTTON_H                (12.0)
 #define PATCH_BUTTON_H          (14.0)
 #define PATCH_BUTTON_GAP        (6.0)
-#define LINK_ABOVE_TAB          (2)                // AMP
+#define PATCH_ABOVE_TAB         (2)                // AMP: the patch bar starts above it
 #define NAME_FIELD_SIZING       "WWWWWWWWWWWWWW"   // P2_SOUND_NAME_LENGTH of the widest capital
 #define MENU_BG                 {0.22, 0.22, 0.25}
 #define MENU_MAX                (32)
@@ -141,7 +142,7 @@ static bool                 gLinkBusy;
 static bool                 gBackupRunning;
 static int                  gBackupAsked, gBackupFound;
 static bool                 gPresetEdited;
-static tRectangle           gPrevRect, gNextRect, gLoadRect, gNameRect, gLinkRect;
+static tRectangle           gPrevRect, gNextRect, gLoadRect, gNameRect;
 
 // notes §1 (SynthLib buttonPress.h): lit while held, acts on the release
 static tRectangle draw_held_button(const tRectangle * rect, const char * text, tRgb colour) {
@@ -954,9 +955,18 @@ static bool step_press(double x, double y, tP2Edit * edit) {
 }
 
 // A button whose label is shrunk to fit it (a mod target's name is wider than its box)
-#define LABEL_MIN_H    (7.0)
+#define LABEL_MIN_H         (7.0)
 
-static void fitted_button(tRectangle r, const char * text, tRgb colour) {
+#define CLIP_COLOUR         {1.0, 0.15, 0.1}
+#define LINK_WARN_COLOUR    {0.85, 0.6, 0.15}
+
+// ../Docs/panel-layout.md: a choice of OFF and ON is a button that flips on the release, not a menu
+static bool is_toggle(const tP2Control * c) {
+    return (c->kind == eP2ControlChoice) && (c->steps == 1) && (c->names != NULL)
+           && (strcasecmp(c->names[0], "OFF") == 0) && (strcasecmp(c->names[1], "ON") == 0);
+}
+
+static void fitted_button_text(tRectangle r, const char * text, tRgb colour, tRgb textColour) {
     double h = r.size.h;
 
     while ((h > LABEL_MIN_H) && (get_text_width(text, h, eNoCache) > r.size.w)) {
@@ -964,8 +974,12 @@ static void fitted_button(tRectangle r, const char * text, tRgb colour) {
     }
     // where draw_button puts its own label: the box grows by its margin all round, the text starts a margin in
     draw_button(mainArea, r, "", colour);
-    set_rgb_colour((tRgb)RGB_BLACK);
+    set_rgb_colour(textColour);
     render_text(mainArea, (tRectangle){{r.coord.x + DRAW_BUTTON_MARGIN, r.coord.y + DRAW_BUTTON_MARGIN + ((r.size.h - h) / 2.0)}, {0.0, h}}, text);
+}
+
+static void fitted_button(tRectangle r, const char * text, tRgb colour) {
+    fitted_button_text(r, text, colour, (tRgb)RGB_BLACK);
 }
 
 static int32_t step_of(const tP2Control * c) {
@@ -1084,11 +1098,11 @@ void p2_draw_frame(int pixelWidth, int pixelHeight) {
     set_rgb_colour((tRgb){0.95, 0.95, 0.97});
     render_text(mainArea, (tRectangle){{MARGIN_X, TITLE_Y}, {0.0, 18.0}}, "Pulse2Alike");
     // the clip lamp just after the title, and nothing to its right may start before it ends
-    tRectangle clipRect = {{MARGIN_X + get_text_width("Pulse2Alike", 18.0, eNoCache) + 10.0, TITLE_Y + 1.0}, {38.0, 15.0}};
+    tRectangle clipRect = {{MARGIN_X + get_text_width("Pulse2Alike", 18.0, eNoCache) + 10.0, TITLE_Y + 8.5 - (PANEL_CLIP_H / 2.0)}, {PANEL_CLIP_W, PANEL_CLIP_H}};
     double     clipEnd  = clipRect.coord.x + clipRect.size.w + (3.0 * PATCH_BUTTON_GAP);
 
-    fitted_button(clipRect, "CLIP", gClip ? (tRgb){1.0, 0.15, 0.1}
-                                                                   : (tRgb){0.32, 0.32, 0.32});
+    fitted_button_text(clipRect, "CLIP", gClip ? (tRgb)CLIP_COLOUR : synthlib_button_off_colour((tRgb)CLIP_COLOUR),
+                       gClip ? (tRgb)RGB_BLACK : (tRgb)RGB_PANEL_OFF_TEXT);
     draw_tabs();
     layout();
     {
@@ -1096,13 +1110,7 @@ void p2_draw_frame(int pixelWidth, int pixelHeight) {
         const char * base = strrchr(gPatchPath, '/');
         double       x;
 
-        gLinkRect = (tRectangle){{
-                                     fmax(clipEnd, (gPageCount > LINK_ABOVE_TAB) ? gTabs[LINK_ABOVE_TAB].coord.x : MARGIN_X), TITLE_Y + 2.0
-                                 }, {
-                                     62.0, PATCH_BUTTON_H
-                                 }
-        };
-        x         = gLinkRect.coord.x + draw_button_bounds(gLinkRect).size.w + 3.0 * PATCH_BUTTON_GAP;
+        x         = fmax(clipEnd, (gPageCount > PATCH_ABOVE_TAB) ? gTabs[PATCH_ABOVE_TAB].coord.x : MARGIN_X);
         gPrevRect = (tRectangle){{
                                      x, TITLE_Y + 2.0
                                  }, {
@@ -1121,11 +1129,6 @@ void p2_draw_frame(int pixelWidth, int pixelHeight) {
                                      56.0, PATCH_BUTTON_H
                                  }
         };
-        // notes §8: lit while the instrument follows the sound
-        // notes §8: amber and "Link busy" while another instance has the instrument
-        draw_held_button(&gLinkRect, gLinkBusy ? "Link busy" : "Link HW",
-                         (p2_draw_value(kP2ParamHwLink) < 0.5) ? (tRgb)RGB_GREY_7 : (gLinkBusy ? (tRgb){0.85, 0.6, 0.15}
-                                                                                                                    : (tRgb)RGB_GREEN_ON));
         draw_held_button(&gPrevRect, "< Prev", (tRgb)RGB_GREY_7);
         draw_held_button(&gNextRect, "Next >", (tRgb)RGB_GREY_7);
         draw_held_button(&gLoadRect, "Load...", (tRgb)RGB_GREY_7);
@@ -1169,7 +1172,18 @@ void p2_draw_frame(int pixelWidth, int pixelHeight) {
         render_text(mainArea, (tRectangle){{pc->x, pc->dial.coord.y - 14.0}, {0.0, LABEL_H}}, c->label);
         value_text(c, text, sizeof(text));
 
-        if (c->kind == eP2ControlChoice) {
+        if (is_toggle(c)) {   // ../Docs/panel-layout.md: lit when on, its colour dimmed when off
+            bool on  = step_of(c) > 0;
+            tRgb lit = on ? colour : synthlib_button_off_colour(colour);
+
+            // notes §8: Link on while another instance has the instrument - amber, saying so
+            if (on && (c->paramId == kP2ParamHwLink) && gLinkBusy) {
+                lit = (tRgb)LINK_WARN_COLOUR;
+                snprintf(text, sizeof(text), "%s", "BUSY");
+            }
+            lit = synthlib_button_held(pc) ? synthlib_button_held_colour(lit) : lit;
+            fitted_button_text((tRectangle){{pc->x, pc->dial.coord.y + ((DIAL_SIZE - BUTTON_H) / 2.0)}, {CONTROL_W - 6.0, BUTTON_H}}, text, lit, on ? (tRgb)RGB_BLACK : (tRgb)RGB_PANEL_OFF_TEXT);
+        } else if (c->kind == eP2ControlChoice) {
             fitted_button((tRectangle){{pc->x, pc->dial.coord.y + ((DIAL_SIZE - BUTTON_H) / 2.0)}, {CONTROL_W - 6.0, BUTTON_H}}, text, colour);
         } else {
             if ((gUnityStep[c->paramId] > 0) && (step_of(c) == gUnityStep[c->paramId])) {   // notes §17
@@ -1251,11 +1265,6 @@ bool p2_draw_press(double x, double y, tP2Edit * edit, bool * grabbed) {
         name_edit_commit();
     }
 
-    if (within_rectangle((tCoord){x, y}, draw_button_bounds(gLinkRect))) {
-        synthlib_button_press(&gLinkRect);
-        return true;
-    }
-
     if (within_rectangle((tCoord){x, y}, draw_button_bounds(gPrevRect))) {
         synthlib_button_press(&gPrevRect);
         return true;
@@ -1286,6 +1295,11 @@ bool p2_draw_press(double x, double y, tP2Edit * edit, bool * grabbed) {
 
     if (pc == NULL) {
         return false;
+    }
+
+    if (is_toggle(pc->control)) {   // flips on the release
+        synthlib_button_press(pc);
+        return true;
     }
 
     if (pc->control->kind == eP2ControlChoice) {
@@ -1353,11 +1367,6 @@ void p2_draw_release(double x, double y, tP2Edit * edit) {
     const void * held = synthlib_button_release();
 
     if (held != NULL) {
-        if (synthlib_button_clicked(held, &gLinkRect, draw_button_bounds(gLinkRect), at)) {
-            edit->paramId    = kP2ParamHwLink;
-            edit->normalized = (p2_draw_value(kP2ParamHwLink) >= 0.5) ? 0.0 : 1.0;
-        }
-
         if (synthlib_button_clicked(held, &gPrevRect, draw_button_bounds(gPrevRect), at)) {
             step_patch(-1);
         }
@@ -1373,6 +1382,17 @@ void p2_draw_release(double x, double y, tP2Edit * edit) {
         for (uint32_t p = 0; p < gPageCount; p++) {
             if (synthlib_button_clicked(held, &gTabs[p], draw_button_bounds(gTabs[p]), at)) {
                 gPage = p;
+            }
+        }
+
+        // an Off/On button flips if the release lands on it
+        for (uint32_t i = 0; i < gPlacedCount; i++) {
+            const tPlaced * pc = &gPlaced[i];
+
+            if ((held == pc) && (hit(x, y) == pc)) {
+                edit->paramId                = pc->control->paramId;
+                edit->normalized             = (gValue[pc->control->paramId] >= 0.5) ? 0.0 : 1.0;
+                gValue[pc->control->paramId] = edit->normalized;
             }
         }
 
