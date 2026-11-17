@@ -1422,19 +1422,24 @@ static void voices_follow(tP2Plugin * p) {
     p->voicesSeen = voices;
 }
 
-// notes §57: the longest-free voice, else the oldest held
-static int poly_pick(const tP2Plugin * p, int voices, uint8_t note) {
+static void poly_note_off(tP2Plugin * p, int voices, uint8_t note, float velocity);
+
+// notes §57: Same Note Piano gives the key its own voice back; else the longest-free voice (Stack passes over the key's
+// own), else the oldest held
+static int poly_pick(const tP2Plugin * p, int voices, uint8_t note, bool piano) {
     int pick = -1;
 
-    for (int i = 0; i < voices; i++) {
-        if (p->poly[i].held && (p->poly[i].note == note)) {
+    for (int i = 0; (i < voices) && piano; i++) {
+        if (p->poly[i].note == note) {
             return i;
         }
     }
 
-    for (int free = 1; (free >= 0) && (pick < 0); free--) {
+    for (int pass = 0; (pass < 3) && (pick < 0); pass++) {
         for (int i = 0; i < voices; i++) {
-            if ((p->poly[i].held != (free != 0)) && ((pick < 0) || (p->poly[i].order < p->poly[pick].order))) {
+            bool usable = (pass == 2) ? p->poly[i].held : (!p->poly[i].held && ((pass == 1) || (p->poly[i].note != note)));
+
+            if (usable && ((pick < 0) || (p->poly[i].order < p->poly[pick].order))) {
                 pick = i;
             }
         }
@@ -1444,9 +1449,14 @@ static int poly_pick(const tP2Plugin * p, int voices, uint8_t note) {
 }
 
 static void poly_note_on(tP2Plugin * p, int voices, uint8_t note, float velocity) {
-    int            i  = poly_pick(p, voices, note);
-    tP2Plugin *    v  = poly_engine(p, i);
-    tP2PolyVoice * pv = &p->poly[i];
+    bool           piano = plain_int(p, kP2ParamSameNote) != 0;
+
+    if (!piano) {
+        poly_note_off(p, voices, note, p->releaseVelocity);   // notes §57: Stack lets the key's voice go on, released
+    }
+    int            i     = poly_pick(p, voices, note, piano);
+    tP2Plugin *    v     = poly_engine(p, i);
+    tP2PolyVoice * pv    = &p->poly[i];
 
     if (pv->held && (pv->note != note)) {
         release_note(v, (uint8_t)pv->note);
@@ -1925,7 +1935,7 @@ static void preset_change(tP2Plugin * p, int number) {
     }
 
     for (uint32_t id = 0; id < kP2ParamCount; id++) {
-        if (  (id == kP2ParamVoices) || (id == kP2ParamOversample) || (id == kP2ParamAnomalies) || (id == kP2ParamHiss) || (id == kP2ParamThump) || (id == kP2ParamHwLink)
+        if (  (id == kP2ParamVoices) || (id == kP2ParamSameNote) || (id == kP2ParamOversample) || (id == kP2ParamAnomalies) || (id == kP2ParamHiss) || (id == kP2ParamThump) || (id == kP2ParamHwLink)
            || (id == kP2ParamHwChannel) || (id == kP2ParamMaster) || (id == kP2ParamMasterTune) || (id == kP2ParamTranspose)
            || (id == kP2ParamControlX) || (id == kP2ParamControlXIn)
            || (id == kP2ParamProgram) || (id == kP2ParamBank) || ((id >= kP2ParamPitchBend) && (id <= kP2ParamSustain)) || (values[id] == p->param[id])) {
@@ -2338,7 +2348,7 @@ static void p2_panel_init(void) {
 
 // What a sound carries: everything but the plug-in's own settings and the program change's two
 static bool sound_param(uint32_t id) {
-    return (id != kP2ParamVoices) && (id != kP2ParamOversample) && (id != kP2ParamAnomalies) && (id != kP2ParamHiss) && (id != kP2ParamThump) && (id != kP2ParamHwLink)
+    return (id != kP2ParamVoices) && (id != kP2ParamSameNote) && (id != kP2ParamOversample) && (id != kP2ParamAnomalies) && (id != kP2ParamHiss) && (id != kP2ParamThump) && (id != kP2ParamHwLink)
            && (id != kP2ParamHwChannel) && (id != kP2ParamMaster) && (id != kP2ParamMasterTune) && (id != kP2ParamTranspose)
            && (id != kP2ParamControlX) && (id != kP2ParamControlXIn)
            && (id != kP2ParamProgram) && (id != kP2ParamBank) && ((id < kP2ParamPitchBend) || (id > kP2ParamSustain));

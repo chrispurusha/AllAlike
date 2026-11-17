@@ -23,7 +23,7 @@
 
 // notes §1: the panel's 0..127 is each dial's plain range, as on the instrument
 const tSynthLibParam     gTiParams[kTiParamCount] = {
-    {kTiParamVoiceLimit,                      "Voice Limit",             "Voices",            eSynthLibUnitGeneric,   1.0, TI_MAX_VOICES, 15.0 / (TI_MAX_VOICES - 1), TI_MAX_VOICES - 1, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kTiParamVoiceLimit,                      "Voices",                  "Voices",            eSynthLibUnitGeneric,   1.0, TI_MAX_VOICES, 15.0 / (TI_MAX_VOICES - 1), TI_MAX_VOICES - 1, SYNTHLIB_MIDI_NONE,                                                                             0},
     {kTiParamVolume,                          "Volume",                  "Volume",            eSynthLibUnitGeneric,   0.0,         127.0,              100.0 / 127.0,               127, SYNTHLIB_MIDI_NONE,                                                                             0},
     {kTiParamOscShape,                        "Osc Shape",               "Shape",             eSynthLibUnitGeneric,   0.0,         127.0,               64.0 / 127.0,               127, SYNTHLIB_MIDI_NONE,                                                                             0},
     {kTiParamPulseWidth,                      "Osc Pulse Width",         "PW",                eSynthLibUnitGeneric,   0.0,         127.0,                        0.0,               127, SYNTHLIB_MIDI_NONE,                                                                             0},
@@ -300,13 +300,17 @@ const tSynthLibParam     gTiParams[kTiParamCount] = {
     {kTiParamB6ArpSwing,                      "Arp Swing",               "Swing",             eSynthLibUnitGeneric,   0.0,         127.0,                   0.000000,               127, SYNTHLIB_MIDI_NONE,                                                                             0},
     {kTiParamB17ArpClock,                     "Arp Clock",               "Clock",             eSynthLibUnitIndexed,   0.0,          17.0,                   0.235294,                17, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
     {kTiParamAntiAlias,                       "Anti-alias",              "AA",                eSynthLibUnitIndexed,   0.0,           1.0,                        1.0,                 1, SYNTHLIB_MIDI_NONE,       SYNTHLIB_PARAM_LIST                                                    },
+    {kTiParamSameNote,                        "Same Note",               "Same",              eSynthLibUnitIndexed,   0.0,           1.0,                        0.0,                 1, SYNTHLIB_MIDI_NONE,       SYNTHLIB_PARAM_LIST                                                    },
 };
+
+#define COUNT(table)    (sizeof(table) / sizeof((table)[0]))   // ../Docs/panel-layout.md: never a count by hand
 
 static const char *const kFilters[]                     = {"LP", "HP", "BP", "BS", "A1", "A2", "A3", "A4"};
 static const char *const kFilters2[]                    = {"LP", "HP", "BP", "BS"};
 static const char *const kRoutings[]                    = {"SER4", "SER6", "PAR4", "SPLIT"};
 static const char *const kOffOn[]                       = {"OFF", "ON"};
 static const char *const kArithmetic[]                  = {"FLOAT", "FIXED"};
+static const char *const kSameNote[]                    = {"STACK", "PIANO"};
 static const char *const kModels[]                      = {"CLASSIC", "HYPER", "WAVE", "PWM", "GRAIN", "GRAIN+", "FORMANT", "FORM+"};
 static const char *const kUnison[]                      = {"OFF", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16"};
 static const char *const kSubShapes[]                   = {"SQUARE", "TRI"};
@@ -501,12 +505,15 @@ static const tTiControl  kAmp[]                         = {
     {kTiParamMaster, "Master", eTiControlDial, 127, 0.0, NULL},
 };
 static const tTiControl  kVoices[]                      = {
-    {kTiParamVoiceLimit, "Limit",      eTiControlDial,   TI_MAX_VOICES - 1, 1.0, NULL       },
+    {kTiParamVoiceLimit, "Voices",     eTiControlDial,   TI_MAX_VOICES - 1, 1.0, NULL       },   // ../Docs/panel-layout.md
+    {kTiParamSameNote,   "Same Note",  eTiControlChoice,                 1, 0.0, kSameNote  },
+    {kTiParamAntiAlias,  "Anti-alias", eTiControlChoice,                 1, 0.0, kOffOn     },
     {kTiParamArithmetic, "Maths",      eTiControlChoice,                 1, 0.0, kArithmetic},
-    {kTiParamHwLink,     "Link",       eTiControlChoice,                 1, 0.0, kOffOn     },
     {kTiParamDelayOn,    "Delay",      eTiControlChoice,                 1, 0.0, kOffOn     },
     {kTiParamReverbOn,   "Reverb",     eTiControlChoice,                 1, 0.0, kOffOn     },
-    {kTiParamAntiAlias,  "Anti-alias", eTiControlChoice,                 1, 0.0, kOffOn     },
+};
+static const tTiControl  kHardware[]                    = {
+    {kTiParamHwLink, "Link", eTiControlChoice, 1, 0.0, kOffOn},
 };
 
 static const tTiControl  kOsc2[]                        = {
@@ -692,94 +699,95 @@ static const tTiControl  kMod6[]                        = {
 
 // notes §2: Pulse2Alike's page names and section colours, a page only once something on it is built
 static const tTiSection  kOscillatorsPage[]             = {
-    {"OSC 1",       {0.30, 0.55, 0.85}, kOsc,          5},
-    {"OSC 2",       {0.30, 0.55, 0.85}, kOsc2,         8},
-    {"MIX",         {0.30, 0.55, 0.85}, kMix,          8},
-    {"OSC 3",       {0.30, 0.55, 0.85}, kOsc3,         4},
-    {"MODEL",       {0.30, 0.55, 0.85}, kModelsCtl,    2},
-    {"KEY AND MOD", {0.30, 0.55, 0.85}, kNewKeyAndMod, 6},
+    {"OSC 1",       {0.30, 0.55, 0.85}, kOsc,          COUNT(kOsc)         },
+    {"OSC 2",       {0.30, 0.55, 0.85}, kOsc2,         COUNT(kOsc2)        },
+    {"MIX",         {0.30, 0.55, 0.85}, kMix,          COUNT(kMix)         },
+    {"OSC 3",       {0.30, 0.55, 0.85}, kOsc3,         COUNT(kOsc3)        },
+    {"MODEL",       {0.30, 0.55, 0.85}, kModelsCtl,    COUNT(kModelsCtl)   },
+    {"KEY AND MOD", {0.30, 0.55, 0.85}, kNewKeyAndMod, COUNT(kNewKeyAndMod)},
 };
 static const tTiSection  kFilterPage[]                  = {
-    {"FILTER 1", {0.90, 0.55, 0.20}, kFilter,      3},
-    {"FILTER 2", {0.90, 0.55, 0.20}, kFilter2,     3},
-    {"ROUTING",  {0.90, 0.55, 0.20}, kRouting,     3},
-    {"MOD",      {0.90, 0.55, 0.20}, kFilterMod,   5},
-    {"ENVELOPE", {0.90, 0.55, 0.20}, kNewEnvelope, 3},
+    {"FILTER 1", {0.90, 0.55, 0.20}, kFilter,      COUNT(kFilter)     },
+    {"FILTER 2", {0.90, 0.55, 0.20}, kFilter2,     COUNT(kFilter2)    },
+    {"ROUTING",  {0.90, 0.55, 0.20}, kRouting,     COUNT(kRouting)    },
+    {"MOD",      {0.90, 0.55, 0.20}, kFilterMod,   COUNT(kFilterMod)  },
+    {"ENVELOPE", {0.90, 0.55, 0.20}, kNewEnvelope, COUNT(kNewEnvelope)},
 };
 static const tTiSection  kAmpPage[]                     = {
-    {"OUTPUT",   {0.65, 0.65, 0.65}, kAmp,          2},
-    {"VELOCITY", {0.65, 0.65, 0.65}, kNewVelocity, 10},
+    {"OUTPUT",   {0.65, 0.65, 0.65}, kAmp,         COUNT(kAmp)        },
+    {"VELOCITY", {0.65, 0.65, 0.65}, kNewVelocity, COUNT(kNewVelocity)},
 };
 static const tTiSection  kEnvelopesPage[]               = {
-    {"AMP ENV",    {0.85, 0.75, 0.25}, kAmpEnv,    5},
-    {"FILTER ENV", {0.85, 0.75, 0.25}, kFilterEnv, 5},
-    {"ENV 3",      {0.85, 0.75, 0.25}, kEnv3,      5},
-    {"ENV 4",      {0.85, 0.75, 0.25}, kEnv4,      5},
+    {"AMP ENV",    {0.85, 0.75, 0.25}, kAmpEnv,    COUNT(kAmpEnv)   },
+    {"FILTER ENV", {0.85, 0.75, 0.25}, kFilterEnv, COUNT(kFilterEnv)},
+    {"ENV 3",      {0.85, 0.75, 0.25}, kEnv3,      COUNT(kEnv3)     },
+    {"ENV 4",      {0.85, 0.75, 0.25}, kEnv4,      COUNT(kEnv4)     },
 };
 static const tTiSection  kLfoPage[]                     = {
-    {"LFO 1",      {0.45, 0.75, 0.45}, kLfo1,         13},
-    {"LFO 2",      {0.45, 0.75, 0.45}, kLfo2,         13},
-    {"LFO 3",      {0.45, 0.75, 0.45}, kLfo3,          8},
-    {"LFO ASSIGN", {0.45, 0.75, 0.45}, kNewLfoAssign,  4},
+    {"LFO 1",      {0.45, 0.75, 0.45}, kLfo1,         COUNT(kLfo1)        },
+    {"LFO 2",      {0.45, 0.75, 0.45}, kLfo2,         COUNT(kLfo2)        },
+    {"LFO 3",      {0.45, 0.75, 0.45}, kLfo3,         COUNT(kLfo3)        },
+    {"LFO ASSIGN", {0.45, 0.75, 0.45}, kNewLfoAssign, COUNT(kNewLfoAssign)},
 };
 static const tTiSection  kModPage[]                     = {
-    {"SLOT 1", {0.70, 0.45, 0.80}, kMod1, 7},
-    {"SLOT 2", {0.70, 0.45, 0.80}, kMod2, 7},
-    {"SLOT 3", {0.70, 0.45, 0.80}, kMod3, 7},
+    {"SLOT 1", {0.70, 0.45, 0.80}, kMod1, COUNT(kMod1)},
+    {"SLOT 2", {0.70, 0.45, 0.80}, kMod2, COUNT(kMod2)},
+    {"SLOT 3", {0.70, 0.45, 0.80}, kMod3, COUNT(kMod3)},
 };
 static const tTiSection  kModPage2[]                    = {
-    {"SLOT 4", {0.70, 0.45, 0.80}, kMod4, 7},
-    {"SLOT 5", {0.70, 0.45, 0.80}, kMod5, 7},
-    {"SLOT 6", {0.70, 0.45, 0.80}, kMod6, 7},
+    {"SLOT 4", {0.70, 0.45, 0.80}, kMod4, COUNT(kMod4)},
+    {"SLOT 5", {0.70, 0.45, 0.80}, kMod5, COUNT(kMod5)},
+    {"SLOT 6", {0.70, 0.45, 0.80}, kMod6, COUNT(kMod6)},
 };
 static const tTiSection  kGlobalPage[]                  = {
-    {"PLUG-IN", {0.65, 0.65, 0.65}, kVoices,     6},
-    {"PLAY",    {0.65, 0.65, 0.65}, kPlay,       4},
-    {"UNISON",  {0.65, 0.65, 0.65}, kUnisonCtl,  4},
-    {"CONTROL", {0.65, 0.65, 0.65}, kNewControl, 4},
+    {"PLUG-IN",  {0.65, 0.65, 0.65}, kVoices,     COUNT(kVoices)    },
+    {"HARDWARE", {0.65, 0.65, 0.65}, kHardware,   COUNT(kHardware)  },
+    {"PLAY",     {0.65, 0.65, 0.65}, kPlay,       COUNT(kPlay)      },
+    {"UNISON",   {0.65, 0.65, 0.65}, kUnisonCtl,  COUNT(kUnisonCtl) },
+    {"CONTROL",  {0.65, 0.65, 0.65}, kNewControl, COUNT(kNewControl)},
 };
 
 static const tTiSection  kArpPage[]                     = {
-    {"ARPEGGIATOR", {0.55, 0.75, 0.40}, kArpCtl,    4},
-    {"RHYTHM",      {0.55, 0.75, 0.40}, kArpRhythm, 3},
+    {"ARPEGGIATOR", {0.55, 0.75, 0.40}, kArpCtl,    COUNT(kArpCtl)   },
+    {"RHYTHM",      {0.55, 0.75, 0.40}, kArpRhythm, COUNT(kArpRhythm)},
 };
 
 static const tTiSection  kTablesPage[]                  = {
-    {"OSC 1 TABLE", {0.30, 0.55, 0.85}, kNewOsc1Table, 4},
-    {"OSC 2 TABLE", {0.30, 0.55, 0.85}, kNewOsc2Table, 4},
+    {"OSC 1 TABLE", {0.30, 0.55, 0.85}, kNewOsc1Table, COUNT(kNewOsc1Table)},
+    {"OSC 2 TABLE", {0.30, 0.55, 0.85}, kNewOsc2Table, COUNT(kNewOsc2Table)},
 };
 static const tTiSection  kDistortionPage[]              = {
-    {"DISTORTION", {0.85, 0.35, 0.30}, kNewDistortion, 7},
-    {"CHARACTER",  {0.85, 0.35, 0.30}, kNewCharacter,  3},
-    {"FILTERBANK", {0.85, 0.35, 0.30}, kNewFilterbank, 7},
+    {"DISTORTION", {0.85, 0.35, 0.30}, kNewDistortion, COUNT(kNewDistortion)},
+    {"CHARACTER",  {0.85, 0.35, 0.30}, kNewCharacter,  COUNT(kNewCharacter) },
+    {"FILTERBANK", {0.85, 0.35, 0.30}, kNewFilterbank, COUNT(kNewFilterbank)},
 };
 static const tTiSection  kModulationPage[]              = {
-    {"CHORUS", {0.35, 0.75, 0.75}, kNewChorus, 9},
-    {"PHASER", {0.35, 0.75, 0.75}, kNewPhaser, 7},
-    {"EQ",     {0.35, 0.75, 0.75}, kNewEq,     7},
+    {"CHORUS", {0.35, 0.75, 0.75}, kNewChorus, COUNT(kNewChorus)},
+    {"PHASER", {0.35, 0.75, 0.75}, kNewPhaser, COUNT(kNewPhaser)},
+    {"EQ",     {0.35, 0.75, 0.75}, kNewEq,     COUNT(kNewEq)    },
 };
 static const tTiSection  kDelayPage[]                   = {
-    {"DELAY",  {0.70, 0.60, 0.90}, kNewDelay,  9},
-    {"TAPE",   {0.70, 0.60, 0.90}, kNewTape,   5},
-    {"REVERB", {0.70, 0.60, 0.90}, kNewReverb, 9},
+    {"DELAY",  {0.70, 0.60, 0.90}, kNewDelay,  COUNT(kNewDelay) },
+    {"TAPE",   {0.70, 0.60, 0.90}, kNewTape,   COUNT(kNewTape)  },
+    {"REVERB", {0.70, 0.60, 0.90}, kNewReverb, COUNT(kNewReverb)},
 };
 const tTiTableNames      gTiTableNames[2]               = {
     {kTiParamOsc1Wave, kTiParamOsc1Model, kListWavetable},
     {kTiParamOsc2Wave, kTiParamOsc2Model, kListWavetable},
 };
 const tTiPage            gTiPages[]                     = {
-    {"OSC",     kOscillatorsPage, 6},
-    {"TABLES",  kTablesPage,      2},
-    {"FILTER",  kFilterPage,      5},
-    {"AMP",     kAmpPage,         2},
-    {"ENV",     kEnvelopesPage,   4},
-    {"LFO",     kLfoPage,         4},
-    {"MOD 1-3", kModPage,         3},
-    {"MOD 4-6", kModPage2,        3},
-    {"DRIVE",   kDistortionPage,  3},
-    {"MOD FX",  kModulationPage,  3},
-    {"EFFECTS", kDelayPage,       3},
-    {"ARP",     kArpPage,         2},
-    {"GLOBAL",  kGlobalPage,      4},
+    {"OSC",     kOscillatorsPage, COUNT(kOscillatorsPage)},
+    {"TABLES",  kTablesPage,      COUNT(kTablesPage)     },
+    {"FILTER",  kFilterPage,      COUNT(kFilterPage)     },
+    {"AMP",     kAmpPage,         COUNT(kAmpPage)        },
+    {"ENV",     kEnvelopesPage,   COUNT(kEnvelopesPage)  },
+    {"LFO",     kLfoPage,         COUNT(kLfoPage)        },
+    {"MOD 1-3", kModPage,         COUNT(kModPage)        },
+    {"MOD 4-6", kModPage2,        COUNT(kModPage2)       },
+    {"DRIVE",   kDistortionPage,  COUNT(kDistortionPage) },
+    {"MOD FX",  kModulationPage,  COUNT(kModulationPage) },
+    {"EFFECTS", kDelayPage,       COUNT(kDelayPage)      },
+    {"ARP",     kArpPage,         COUNT(kArpPage)        },
+    {"GLOBAL",  kGlobalPage,      COUNT(kGlobalPage)     },
 };
 const uint32_t           gTiPageCount                   = sizeof(gTiPages) / sizeof(gTiPages[0]);

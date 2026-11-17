@@ -70,3 +70,5 @@ Built, not yet checked against the instrument or in a host. Confirmed → delete
 - Shift-drag a dial: a tenth the movement, in each dial mode but Rotary
 - Filter Keytrack at 96 turns gold; double-click goes there
 - Aftertouch from a keyboard sending polyphonic pressure (11-16, p2Plugin notes §68): pressure routes respond (they ignored poly pressure)
+- Same Note (11-17, p2Plugin notes §57 Voices): Voices 4, pedal down, one key struck over and over - Piano one voice, Stack each strike rings on
+- GLOBAL page (11-17, ../Docs/panel-layout.md): PLUG-IN (Voices, Same Note, an empty place for Anti-alias, OvrSmp, Anomalies, Hiss, Thump), HARDWARE (Link, Channel), PERFORMANCE - all fit, clicks land on the right control

@@ -6,7 +6,7 @@ placeholder; the filter envelope, modulation and the rest come section by sectio
 envelope has finished its release.
 
 ## 2. The voice limit
-The instance's voice limit (design §1), 1 to 32. A note takes the voice already playing its key, else a free
+The instance's voice limit (design §1), 1 to 32. A note takes the voice already playing its key (Same Note Piano, §21), else a free
 voice, else the oldest. Lowering the limit releases the voices above it rather than cutting them.
 
 ## 3. The sound
@@ -131,3 +131,10 @@ The program's switch (ext byte 3, bit 5, beside the FM switches): Osc 1-3 go aro
 join its output at 0.771 of the level they would have through a fully open filter (-2.3 dB), so a closed filter
 leaves them untouched. Noise still goes through the filter. The ring products are sent with the noise; not
 measured - two squares at one pitch ring down to mostly DC, which a closed filter passes anyway.
+
+## 21. The same key again (Same Note)
+A plug-in setting, not part of a sound. Piano, the default and what the plug-in has always done, gives a key struck
+again the voice already on it - held, pedal-held or releasing - and restarts it as any new note (its oscillators from
+zero unless Osc Free, §8). Stack lets that voice go (unless held by a one-shot envelope) and takes a free voice, else
+the oldest, so each strike rings on; with a sustain pedal and a long release that piles up voices, which is what Piano
+is for. What the instrument itself does with a repeated key is not yet checked.

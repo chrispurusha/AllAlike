@@ -3,6 +3,7 @@
 One line per item.
 
 ## Next
+- Same Note: Stack / Piano (CT 2026-11-17, for the sustain pedal; as UltraAlike's, same name and help text): with Voices Poly, Piano cuts a note's own last hit when the same note comes again, other notes still overlap; default Stack (today's Poly)
 - Wave display: a view-only zoom on its own button - the display scaled to fill the view whatever Normalise is, the sound unchanged (Normalise itself BUILT 11-16 and the display follows it, osSample notes §7)
 - Level meter in the space right of Trim and Curve: peak hold as well as the running level
 - Pitch automation: a sounding note follows Tune/Fine (live resampler for that note; stretched notes cannot without a rebuild) - osPlugin notes §11

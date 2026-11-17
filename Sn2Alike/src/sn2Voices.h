@@ -124,6 +124,7 @@ typedef struct {
     tSn2LfoSound lfo[SN2_LFOS];
     double       lfoCutoff[SN2_LFOS];                           // semitones at full swing
     bool         legato;                                        // mono: a change of note does not restart the envelopes
+    bool         piano;                                         // notes §21: Same Note Piano
 } tSn2Sound;
 
 // One oscillator's sound from normalised parameters

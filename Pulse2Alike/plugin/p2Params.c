@@ -21,6 +21,8 @@
 
 #include "p2Params.h"
 
+#define COUNT(table)    (sizeof(table) / sizeof((table)[0]))   // ../Docs/panel-layout.md: never a count by hand
+
 static const char *const kNamesOsc1Shape[]        = {"PWM", "SAW", "TRI", "APW", "UNISON-M", "UNISON-P", "UNIAPW-M", "UNIAPW-P", "PARA-8", "PARA-4"};
 static const char *const kNamesOsc2Shape[]        = {"PWM", "SAW", "TRI", "X3-PWM", "X1-PWM"};
 static const char *const kNamesFilterType[]       = {"LP24", "LP12", "BP12", "HP12"};
@@ -69,6 +71,7 @@ static const char *const kNamesArpAccent[]        = {"OFF", "LFO1", "LFO1*MODW",
 static const char *const kNamesHiss[]             = {"OFF", "ON"};
 static const char *const kNamesHwLink[]           = {"OFF", "ON"};
 static const char *const kNamesThump[]            = {"OFF", "ON"};
+static const char *const kNamesSameNote[]         = {"STACK", "PIANO"};
 
 const tSynthLibParam     gP2Params[kP2ParamCount] = {
     {kP2ParamOsc1Shape,       "Osc 1 Shape",          "Shape",     eSynthLibUnitIndexed,     0.0,   9.0, 0.111111,   9, SYNTHLIB_MIDI_NONE,       SYNTHLIB_PARAM_LIST                                                    },
@@ -193,6 +196,7 @@ const tSynthLibParam     gP2Params[kP2ParamCount] = {
     {kP2ParamMasterTune,      "Master Tune",          "Tune",      eSynthLibUnitGeneric,   420.0, 460.0, 0.500000,  40, SYNTHLIB_MIDI_NONE,                                                                             0},
     {kP2ParamTranspose,       "Transpose",            "Transp",    eSynthLibUnitGeneric,   -24.0,  24.0, 0.500000,  48, SYNTHLIB_MIDI_NONE,                                                                             0},
     {kP2ParamVoices,          "Voices",               "Voices",    eSynthLibUnitGeneric,     1.0,  32.0, 0.000000,  31, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kP2ParamSameNote,        "Same Note",            "Same",      eSynthLibUnitIndexed,     0.0,   1.0, 1.000000,   1, SYNTHLIB_MIDI_NONE,       SYNTHLIB_PARAM_LIST                                                    },
     {kP2ParamControlX,        "Control X",            "Ctrl X",    eSynthLibUnitGeneric,     1.0, 119.0, 0.025424, 118, SYNTHLIB_MIDI_NONE,                                                                             0},
     {kP2ParamControlXIn,      "Control X Value",      "CtrlXIn",   eSynthLibUnitGeneric,     0.0, 127.0, 0.000000,   0, SYNTHLIB_MIDI_NONE,       SYNTHLIB_PARAM_HIDDEN | SYNTHLIB_PARAM_NO_SAVE                         },
     {kP2ParamThump,           "Thump",                "Thump",     eSynthLibUnitIndexed,     0.0,   1.0, 1.000000,   1, SYNTHLIB_MIDI_NONE,       SYNTHLIB_PARAM_LIST                                                    },
@@ -573,65 +577,70 @@ static const tP2Control kSection24[]     = {
     {kP2ParamTranspose,  "Transp", eP2ControlDial,  48, -24.0, NULL},
     {kP2ParamControlX,   "Ctrl X", eP2ControlDial, 118,   1.0, NULL},
 };
-static const tP2Control kSection25[]     = {
-    {kP2ParamOversample, "OvrSmp",    eP2ControlChoice,  2, 0.0, kNamesOversample},
+static const tP2Control kSection25[]     = {   // ../Docs/panel-layout.md
     {kP2ParamVoices,     "Voices",    eP2ControlDial,   31, 1.0, NULL            },
+    {kP2ParamSameNote,   "Same Note", eP2ControlChoice,  1, 0.0, kNamesSameNote  },
+    {                 0, NULL,        eP2ControlGap,     0, 0.0, NULL            },   // Anti-alias's place: Oversample does its job
+    {kP2ParamOversample, "OvrSmp",    eP2ControlChoice,  2, 0.0, kNamesOversample},
     {kP2ParamAnomalies,  "Anomalies", eP2ControlChoice,  1, 0.0, kNamesAnomalies },
     {kP2ParamHiss,       "Hiss",      eP2ControlChoice,  1, 0.0, kNamesHiss      },
     {kP2ParamThump,      "Thump",     eP2ControlChoice,  1, 0.0, kNamesThump     },
-    {kP2ParamHwLink,     "Link",      eP2ControlChoice,  1, 0.0, kNamesHwLink    },
-    {kP2ParamHwChannel,  "Channel",   eP2ControlDial,   15, 1.0, NULL            },
+};
+static const tP2Control kHardware[]      = {
+    {kP2ParamHwLink,    "Link",    eP2ControlChoice,  1, 0.0, kNamesHwLink},
+    {kP2ParamHwChannel, "Channel", eP2ControlDial,   15, 1.0, NULL        },
 };
 static const tP2Section kPage0Sections[] = {
-    {"OSC 1", {0.30, 0.55, 0.85}, kSection1, 6},
-    {"OSC 2", {0.30, 0.55, 0.85}, kSection2, 6},
-    {"OSC 3", {0.30, 0.55, 0.85}, kSection3, 6},
-    {"MIXER", {0.55, 0.55, 0.75}, kSection4, 2},
-    {"GLIDE", {0.55, 0.55, 0.75}, kSection5, 2},
+    {"OSC 1", {0.30, 0.55, 0.85}, kSection1, COUNT(kSection1)},
+    {"OSC 2", {0.30, 0.55, 0.85}, kSection2, COUNT(kSection2)},
+    {"OSC 3", {0.30, 0.55, 0.85}, kSection3, COUNT(kSection3)},
+    {"MIXER", {0.55, 0.55, 0.75}, kSection4, COUNT(kSection4)},
+    {"GLIDE", {0.55, 0.55, 0.75}, kSection5, COUNT(kSection5)},
 };
 static const tP2Section kPage1Sections[] = {
-    {"FILTER",     {0.90, 0.55, 0.20}, kSection6, 3},
-    {"MODULATION", {0.90, 0.55, 0.20}, kSection7, 3},
+    {"FILTER",     {0.90, 0.55, 0.20}, kSection6, COUNT(kSection6)},
+    {"MODULATION", {0.90, 0.55, 0.20}, kSection7, COUNT(kSection7)},
 };
 static const tP2Section kPage2Sections[] = {
-    {"AMP",    {0.85, 0.75, 0.25}, kSection8, 5},
-    {"MASTER", {0.65, 0.65, 0.65}, kSection9, 1},
+    {"AMP",    {0.85, 0.75, 0.25}, kSection8, COUNT(kSection8)},
+    {"MASTER", {0.65, 0.65, 0.65}, kSection9, COUNT(kSection9)},
 };
 static const tP2Section kPage3Sections[] = {
-    {"FILTER ENV", {0.90, 0.55, 0.20}, kSection10, 6},
-    {"AMP ENV",    {0.85, 0.75, 0.25}, kSection11, 6},
+    {"FILTER ENV", {0.90, 0.55, 0.20}, kSection10, COUNT(kSection10)},
+    {"AMP ENV",    {0.85, 0.75, 0.25}, kSection11, COUNT(kSection11)},
 };
 static const tP2Section kPage4Sections[] = {
-    {"LFO 1", {0.40, 0.75, 0.45}, kSection12, 3},
-    {"LFO 2", {0.40, 0.75, 0.45}, kSection13, 3},
+    {"LFO 1", {0.40, 0.75, 0.45}, kSection12, COUNT(kSection12)},
+    {"LFO 2", {0.40, 0.75, 0.45}, kSection13, COUNT(kSection13)},
 };
 static const tP2Section kPage5Sections[] = {
-    {"MOD 1", {0.70, 0.45, 0.75}, kSection14, 3},
-    {"MOD 2", {0.70, 0.45, 0.75}, kSection15, 3},
-    {"MOD 3", {0.70, 0.45, 0.75}, kSection16, 3},
-    {"MOD 4", {0.70, 0.45, 0.75}, kSection17, 3},
-    {"MOD 5", {0.70, 0.45, 0.75}, kSection18, 3},
-    {"MOD 6", {0.70, 0.45, 0.75}, kSection19, 3},
-    {"MOD 7", {0.70, 0.45, 0.75}, kSection20, 3},
-    {"MOD 8", {0.70, 0.45, 0.75}, kSection21, 3},
+    {"MOD 1", {0.70, 0.45, 0.75}, kSection14, COUNT(kSection14)},
+    {"MOD 2", {0.70, 0.45, 0.75}, kSection15, COUNT(kSection15)},
+    {"MOD 3", {0.70, 0.45, 0.75}, kSection16, COUNT(kSection16)},
+    {"MOD 4", {0.70, 0.45, 0.75}, kSection17, COUNT(kSection17)},
+    {"MOD 5", {0.70, 0.45, 0.75}, kSection18, COUNT(kSection18)},
+    {"MOD 6", {0.70, 0.45, 0.75}, kSection19, COUNT(kSection19)},
+    {"MOD 7", {0.70, 0.45, 0.75}, kSection20, COUNT(kSection20)},
+    {"MOD 8", {0.70, 0.45, 0.75}, kSection21, COUNT(kSection21)},
 };
 static const tP2Section kPage6Sections[] = {
-    {"ARPEGGIATOR", {0.65, 0.65, 0.65}, kSection22, 5},
-    {"TIMING",      {0.65, 0.65, 0.65}, kSection23, 5},
+    {"ARPEGGIATOR", {0.65, 0.65, 0.65}, kSection22, COUNT(kSection22)},
+    {"TIMING",      {0.65, 0.65, 0.65}, kSection23, COUNT(kSection23)},
 };
 static const tP2Section kPage7Sections[] = {
-    {"PERFORMANCE", {0.65, 0.65, 0.65}, kSection24, 7},
-    {"PLUG-IN",     {0.65, 0.65, 0.65}, kSection25, 7},
+    {"PLUG-IN",     {0.65, 0.65, 0.65}, kSection25, COUNT(kSection25)},
+    {"HARDWARE",    {0.65, 0.65, 0.65}, kHardware,  COUNT(kHardware) },
+    {"PERFORMANCE", {0.65, 0.65, 0.65}, kSection24, COUNT(kSection24)},
 };
 
 const tP2Page           gP2Pages[]       = {
-    {"OSC",    kPage0Sections, 5},
-    {"FILTER", kPage1Sections, 2},
-    {"AMP",    kPage2Sections, 2},
-    {"ENV",    kPage3Sections, 2},
-    {"LFO",    kPage4Sections, 2},
-    {"MOD",    kPage5Sections, 8},
-    {"ARP",    kPage6Sections, 2},
-    {"GLOBAL", kPage7Sections, 2},
+    {"OSC",    kPage0Sections, COUNT(kPage0Sections)},
+    {"FILTER", kPage1Sections, COUNT(kPage1Sections)},
+    {"AMP",    kPage2Sections, COUNT(kPage2Sections)},
+    {"ENV",    kPage3Sections, COUNT(kPage3Sections)},
+    {"LFO",    kPage4Sections, COUNT(kPage4Sections)},
+    {"MOD",    kPage5Sections, COUNT(kPage5Sections)},
+    {"ARP",    kPage6Sections, COUNT(kPage6Sections)},
+    {"GLOBAL", kPage7Sections, COUNT(kPage7Sections)},
 };
 const uint32_t          gP2PageCount     = sizeof(gP2Pages) / sizeof(gP2Pages[0]);

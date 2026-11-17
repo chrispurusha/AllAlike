@@ -305,10 +305,21 @@ void ti_voices_control(tTiVoices * v, tTiControlId id, double value) {
     }
 }
 
+// notes §34: Same Note Piano - a voice still on the key, not yet taken by this note (started before `since`)
+static tTiVoice * same_note_voice(tTiVoices * v, uint8_t note, uint64_t since) {
+    for (uint32_t i = 0; i < v->limit; i++) {
+        if (v->voice[i].active && (v->voice[i].note == note) && (v->voice[i].started <= since)) {
+            return &v->voice[i];
+        }
+    }
+
+    return NULL;
+}
+
 static tTiVoice * pick_voice(tTiVoices * v) {
     tTiVoice * pick = NULL;
 
-    // a free voice, else the oldest: a key struck again takes a new voice like any other note
+    // a free voice, else the oldest: with Same Note Stack a key struck again takes a new voice like any other note
     for (uint32_t i = 0; (i < v->limit) && (pick == NULL); i++) {
         if (!v->voice[i].active) {
             pick = &v->voice[i];
@@ -489,17 +500,32 @@ static void trigger_note(tTiVoices * v, uint8_t note, float velocity, bool retri
     double           spread = bytes[2] / 127.0;
     double           cents  = unison_cents(bytes[1]);
     double           phases = ((double)bytes[3] - 64.0) / 128.0;   // notes §13: of a cycle, every second voice
+    uint64_t         since  = v->clock;
 
     for (uint32_t u = 0; u < n; u++) {
         double     place = kStack[n - 1u][u];     // notes §13: -1..1 across the stack
-        tTiVoice * vc;
+        tTiVoice * vc    = NULL;
 
         if (mono) {
             vc = &v->voice[u % v->limit];
-        } else {
+        } else if (v->piano) {
+            vc = same_note_voice(v, note, since);
+        }
+
+        if (vc == NULL) {
             vc = pick_voice(v);
         }
         start_voice(v, vc, note, velocity, place * cents / 100.0, place * spread, place, (u & 1u) ? phases : 0.0, (u & 1u) != 0u, retrigger);
+    }
+
+    // notes §34: Piano lets go any voice left on the key from before
+    for (uint32_t i = 0; (i < v->limit) && !mono && v->piano; i++) {
+        tTiVoice * vc = &v->voice[i];
+
+        if (vc->active && vc->gate && (vc->note == note) && (vc->started <= since)) {
+            vc->gate = false;
+            gate_voice(vc, false);
+        }
     }
 }
 

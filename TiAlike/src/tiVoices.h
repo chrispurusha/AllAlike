@@ -141,6 +141,7 @@ typedef struct {
     bool            legatoNow;   // the note being started follows a held key (mono)
     bool            fixedPoint;  // notes §19: the arithmetic the instrument uses
     bool            antiAlias;   // tiOsc notes §9: off plays the instrument's own aliases
+    bool            piano;       // notes §34: Same Note Piano
     double          boostState[2];
     tTiEffects      effects;
     tTiSound        sound;       // as the voices play it: a Quantise-held byte keeps its old value (notes §5)

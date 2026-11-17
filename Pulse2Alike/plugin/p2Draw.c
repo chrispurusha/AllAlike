@@ -1001,6 +1001,9 @@ static void layout(void) {
         for (uint32_t i = 0; (i < section->count) && (gPlacedCount < MAX_PLACED); i++) {
             double cx = x + (i * CONTROL_W);
 
+            if (section->controls[i].kind == eP2ControlGap) {
+                continue;
+            }
             gPlaced[gPlacedCount++] = (tPlaced){
                 &section->controls[i], section,
                 {{
@@ -1013,7 +1016,7 @@ static void layout(void) {
             };
         }
 
-        x                                     += w + SECTION_GAP;
+        x += w + SECTION_GAP;
     }
 }
 

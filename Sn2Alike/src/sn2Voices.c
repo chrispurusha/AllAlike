@@ -273,6 +273,19 @@ static void mono_play(tSn2Voices * v, const tSn2Sound * sound, uint8_t note, flo
     set_pitch(vc, sound, v->rate);
 }
 
+// A key let go: the envelopes release, except a one-shot's (sn2Envelope notes §9)
+static void let_go(const tSn2Sound * sound, tSn2Voice * voice) {
+    voice->gate = false;
+
+    if (!sound->oneShot) {
+        sn2_env_gate(&voice->amp, false);
+
+        for (int e = 0; e < SN2_MOD_ENVS; e++) {
+            sn2_env_gate(&voice->env[e], false);
+        }
+    }
+}
+
 void sn2_voices_note_on(tSn2Voices * v, const tSn2Sound * sound, uint8_t note, float velocity) {
     tSn2Voice * pick   = NULL;
     bool        silent = true;
@@ -299,10 +312,14 @@ void sn2_voices_note_on(tSn2Voices * v, const tSn2Sound * sound, uint8_t note, f
     }
     v->heldCount             = 0;
 
-    // the same key again restarts its voice; else a free voice; else the oldest
-    for (uint32_t i = 0; (i < v->limit) && (pick == NULL); i++) {
+    // notes §21: Piano restarts the key's own voice, Stack lets it go and takes another; else a free voice; else the oldest
+    for (uint32_t i = 0; i < v->limit; i++) {
         if (v->voice[i].active && (v->voice[i].note == note)) {
-            pick = &v->voice[i];
+            if (sound->piano && (pick == NULL)) {
+                pick = &v->voice[i];
+            } else if (v->voice[i].gate) {
+                let_go(sound, &v->voice[i]);
+            }
         }
     }
 
@@ -360,8 +377,6 @@ void sn2_voices_note_off(tSn2Voices * v, const tSn2Sound * sound, uint8_t note) 
 }
 
 static void release_note(tSn2Voices * v, const tSn2Sound * sound, uint8_t note) {
-    bool letGo = !sound->oneShot;   // sn2Envelope notes §9
-
     if (sound->mono) {
         held_remove(v, note);
 
@@ -377,15 +392,7 @@ static void release_note(tSn2Voices * v, const tSn2Sound * sound, uint8_t note) 
 
     for (uint32_t i = 0; i < SN2_MAX_VOICES; i++) {
         if (v->voice[i].active && (v->voice[i].note == note)) {
-            v->voice[i].gate = false;
-
-            if (letGo) {
-                sn2_env_gate(&v->voice[i].amp, false);
-
-                for (int e = 0; e < SN2_MOD_ENVS; e++) {
-                    sn2_env_gate(&v->voice[i].env[e], false);
-                }
-            }
+            let_go(sound, &v->voice[i]);
         }
     }
 }

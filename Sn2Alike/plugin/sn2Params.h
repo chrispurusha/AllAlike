@@ -24,7 +24,7 @@
 #include "sn2Effects.h"
 #include "sn2Voices.h"
 
-// APPENDED TO, NEVER INSERTED INTO: the ids are what host projects save
+// The ids are what host projects save; few users yet, so a new one goes where it belongs (owner 2026-11-17)
 enum {
     kSn2ParamVoiceLimit = 0,
     kSn2ParamVolume,
@@ -164,6 +164,7 @@ enum {
     kSn2ParamPanDepth,
     kSn2ParamPanEffects,
     kSn2ParamAntiAlias,      // sn2Voices notes §17
+    kSn2ParamSameNote,       // sn2Voices notes §21: Stack or Piano
     kSn2ParamFm13,           // sn2Voices notes §18: Osc 1 frequency-modulates Osc 3, at the 1x3 level
     kSn2ParamFm23,           // Osc 2 does
     kSn2ParamFmNoise,        // the noise does, at the noise level

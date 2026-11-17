@@ -30,6 +30,7 @@ enum {
     kNl3ParamMaster,
     kNl3ParamArithmetic,
     kNl3ParamAliasing,
+    kNl3ParamSameNote,                          // voices notes §34: Stack or Piano
     kNl3ParamProgram,
     kNl3ParamBank,
     kNl3ParamPitchBend,

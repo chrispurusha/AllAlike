@@ -1,6 +1,7 @@
 # Sn2Alike todo
 
 ## First
+- Same Note (built 11-17, sn2Voices notes §21): find what the instrument does with a key struck again (one voice restarted, or a new voice beside the releasing one) and make that the default
 - Envelope Delay (Env 2 and Env 3, program bytes 193 and 187) is not built: the instrument delays the envelope's start (Env 2 Delay 0 acts at once, 64 arrives between 0.1 and 1.2 s, 112 not within 1.2 s - hardware 2026-11-08); the reference ignores it, so measure the law on the hardware (more values, longer notes, a pitch track that survives the jump)
 - LFO Delay Trigger (program bytes 169 and 179) is not read; find what it does (single or multi trigger of the delay?) on the hardware. And recheck the LFO Delay law itself there (it was measured on the reference, which ignores envelope delay)
 - Aliasing setting (optional), per instance as in Nl3Alike: Instrument or Clean (`../Docs/feature-status.md`, anti-aliasing); first find why more Soften aliases more (-84 dB at Soften 0, -66 at 64, A4)

@@ -88,8 +88,12 @@ After the effects, in nl3Effects.c. A share of 0.5 + (64 - Pan)/128 + 0.5 Depth/
 Glide Normal on the instrument: a key pressed while another is held glides (the reference does not; the instrument
 decides). Going back to the held key glides from the pitch the first glide had reached, not from the key let go; a
 new note after all keys are up glides from whatever pitch was last sounding - Normal against Auto, which glides only
-legato. So a glide starts from the pitch the voice had reached. In poly the instrument seems to glide each voice from
-that voice's own last pitch (hard to follow by ear); a voice that has never played starts from the last note.
+legato. So a glide starts from the pitch the voice had reached.
+In poly (Mono off) there is no glide from note to note, Legato on or off (instrument, by ear, 2026-11-17), although the
+manual describes each voice gliding from its own last note. The fixed-interval glide types are untouched in poly; not
+checked on the instrument. Poly Legato, with its parallel glide (manual p.108), is not implemented; as a stopgap, a
+poly note with Legato on glides (from that voice's own last pitch) while another key is held, and its envelopes still
+restart.
 
 ## 19. Arithmetic and the filter's level
 The Arithmetic parameter chooses, per instance, between the instrument's fixed-point arithmetic and floating point for
@@ -242,6 +246,10 @@ held) and releases to its end beside the new one. Restarting the old voice inste
 oscillators back to their starting phase mid-cycle, a tick at every repeated note of a program with a long release
 (1:4), which the instrument does not make (owner, 2026-11-16). A run of notes rendered through 1:4 now starts every
 note without a step. Which voice it takes is §28's order.
+Same Note Piano (a plug-in setting, not the instrument's; default Stack, which is the above) gives the key its newest
+sounding voice back instead - held, pedal-held or releasing - so a sustain pedal does not pile up a voice for every
+strike. Its envelopes restart from where they are and its oscillators run on, as in mono (§35), so there is no tick;
+another voice still left on the key from before is let go. No sounding voice on the key: §28's order as usual.
 
 ## 35. Mono: one voice, its oscillators running on
 Mono is one voice: every note goes to the same one, a key played again included, and so does the note a released

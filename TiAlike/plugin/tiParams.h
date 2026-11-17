@@ -300,6 +300,7 @@ enum {
     kTiParamB6ArpSwing,
     kTiParamB17ArpClock,
     kTiParamAntiAlias,           // tiOsc notes §9: Global, after the rest so no saved id moves
+    kTiParamSameNote,            // tiVoices notes §34: Global, Stack or Piano
     kTiParamCount
 };
 

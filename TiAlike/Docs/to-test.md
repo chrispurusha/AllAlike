@@ -40,3 +40,5 @@ Built but not yet checked by ear or in a host. Confirmed: delete the line. Faile
 - Shift-drag a dial: a tenth the movement, in each dial mode but Rotary
 - Fast wheel/bend/aftertouch moves (11-16, SynthLib synthlibCtlPoints.h): smooth, not stepping once a host block
 - Aftertouch from a keyboard sending polyphonic pressure (11-16, tiPlugin notes §17): pressure routes respond (they ignored poly pressure)
+- Same Note (11-17, tiVoices notes §34): Piano with the pedal down, one key struck over and over - its voices reused (unison too); Stack as before
+- GLOBAL page (11-17, ../Docs/panel-layout.md): PLUG-IN (Voices, Same Note, Anti-alias, Maths, Delay, Reverb), HARDWARE (Link), PLAY, UNISON, CONTROL - all fit; the Global help in the same order

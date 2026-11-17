@@ -230,7 +230,7 @@ static void start_glide(tNl3Voices * v, const tNl3Sound * sound, tNl3Voice * pic
     if (sound->glideTime > 0.0) {
         if (sound->glideType >= 2) {
             pick->glide = kFixed[(sound->glideType - 2) & 7];
-        } else if ((v->lastNote >= 0) && ((sound->glideType == 0) || held)) {
+        } else if ((sound->mono || (sound->legato && held)) && (v->lastNote >= 0) && ((sound->glideType == 0) || held)) {   // voices notes §12a
             pick->glide = from - (double)note;
         }
     }
@@ -359,9 +359,15 @@ void nl3_voices_note_on(tNl3Voices * v, const tNl3Sound * sound, uint8_t note, f
     }
     v->heldCount             = 0;
 
-    // voices notes §34: the same key again lets its sounding voice go on releasing and takes another
+    // voices notes §34: Piano takes over the key's newest sounding voice; Stack lets it go on releasing and takes another
+    for (uint32_t i = 0; (i < v->limit) && sound->piano; i++) {
+        if (v->voice[i].active && (v->voice[i].note == note) && ((pick == NULL) || (v->voice[i].started > pick->started))) {
+            pick = &v->voice[i];
+        }
+    }
+
     for (uint32_t i = 0; i < v->limit; i++) {
-        if (v->voice[i].active && v->voice[i].gate && (v->voice[i].note == note)) {
+        if (v->voice[i].active && v->voice[i].gate && (v->voice[i].note == note) && (&v->voice[i] != pick)) {
             v->voice[i].gate = false;
             nl3_env_gate(&v->voice[i].amp, false);
 
@@ -371,21 +377,22 @@ void nl3_voices_note_on(tNl3Voices * v, const tNl3Sound * sound, uint8_t note, f
         }
     }
 
-    pick                     = &v->voice[v->order[v->orderNext % v->limit]]; // voices notes §28
-    v->orderNext             = (v->orderNext + 1) % v->limit;
-
+    if (pick == NULL) {
+        pick         = &v->voice[v->order[v->orderNext % v->limit]];   // voices notes §28
+        v->orderNext = (v->orderNext + 1) % v->limit;
+    }
     bool wasSounding = pick->active;
 
-    pick->active             = true;
-    pick->gate               = true;
-    pick->velocity           = velocity;
+    pick->active    = true;
+    pick->gate      = true;
+    pick->velocity  = velocity;
 
     start_glide(v, sound, pick, note, false);
-    pick->note               = note;   // voices notes §12a: after the glide has read the note it was on
+    pick->note      = note;            // voices notes §12a: after the glide has read the note it was on
     set_pitch(pick, sound);
 
-    pick->started            = ++v->clock;
-    pick->noiseSeed          = pick->noiseSeed ? pick->noiseSeed : (uint32_t)((v->clock * 2654435761u) | 1u);
+    pick->started   = ++v->clock;
+    pick->noiseSeed = pick->noiseSeed ? pick->noiseSeed : (uint32_t)((v->clock * 2654435761u) | 1u);
     lfo_restart(pick, sound);
 
     for (int l = 0; (l < NL3_LFOS) && !wasSounding; l++) {

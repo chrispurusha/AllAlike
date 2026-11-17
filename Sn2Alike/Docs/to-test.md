@@ -11,8 +11,8 @@ Finished work not yet checked against the instrument.
 - Sustain pedal in a host; order against notes in one block
 - The LFOS page: Shape, Speed, Range, Delay, Fade, Offset, Trigger, Cutoff; routes to pitch and width come from programs, with no dials yet
 - LFO Key and Free in a chord: Free programs cannot be compared with the reference by time window, its phase depends on its run time
-- Link in a host: MIDI menu, Link HW button (green / amber No port / Link busy), Channel, SysEx ID; notes, bend, wheel, pedal; editing a dial while holding notes
-- GLOBAL page: Limit, Mode, Trigger, Effects, Delay, Reverb and Hardware all fit
+- Link in a host: MIDI menu, Link HW button (green / amber No port / Link busy), Channel, Device; notes, bend, wheel, pedal; editing a dial while holding notes
+- GLOBAL page (11-17, ../Docs/panel-layout.md): PLUG-IN (Voices, Same Note, Anti-alias), HARDWARE, PLAY (Mode, Trigger), EFFECTS, PAN all fit
 - Presets > Read from Hardware in a host: the Reading count, the confirm, and the instrument's data carrying on after it
 - Anti-alias On and Off on a bright high Saw and Square with Soften up, the Sort menu with Prev/Next, and a note held across a preset change (it stops, no clip lamp) (2026-11-12): in a host
 - Sustain Time and Sustain Rate on all three envelopes (new Time and Rate dials on the ENVELOPES page): drums with a short Time now die away
@@ -25,3 +25,4 @@ Finished work not yet checked against the instrument.
 - Shift-drag a dial: a tenth the movement, in each dial mode but Rotary
 - Filter Tracking at 127 turns gold; double-click goes there
 - Fast wheel/bend/aftertouch moves (11-16, SynthLib synthlibCtlPoints.h): smooth, not stepping once a host block
+- Same Note (11-17, sn2Voices notes §21): Piano with the sustain pedal down, one key struck over and over - one voice; Stack - each strike rings on beside the last

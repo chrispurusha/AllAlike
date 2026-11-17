@@ -384,7 +384,7 @@ static const tOsControl kTrim[]      = {
     DIAL(kOsParamDelay, "Delay"), DIAL(kOsParamStart, "Start"), DIAL(kOsParamEnd, "End"), TOGGLE(kOsParamSnap, "Snap"),
 };
 static const tOsControl kOutput[]    = {
-    DIAL(kOsParamVelocity, "Velocity"), DIAL(kOsParamPan, "Pan"), DIAL(kOsParamVolume, "Volume"), DIAL(kOsParamNormalise, "Normalise"),
+    DIAL(kOsParamNormalise, "Normalise"), DIAL(kOsParamVelocity, "Velocity"), DIAL(kOsParamPan, "Pan"), DIAL(kOsParamVolume, "Volume"),   // the signal's order
 };
 
 static const tOsControl kEnvelope[]  = {

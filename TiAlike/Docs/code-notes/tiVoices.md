@@ -320,3 +320,10 @@ instrument does; the fastest release keeps its shape (within 0.03 of the instrum
 In modes Up to Chord the keys go to the arpeggiator (tiArp notes) and not to the voices; it starts and stops notes,
 each at its own frame of the block, and the block is rendered in pieces between them. Arp>Matrix plays the keys as they
 are. Turning the arpeggiator off stops what it has sounding.
+
+## 34. The same key again (Same Note)
+An instance setting, not part of the Single. Stack, the default, is the reference's: a key struck again takes a new
+voice like any other note, and the old one sounds on until its key (or the pedal) lets it go. Piano gives the key back
+the voices already on it - held, pedal-held or releasing, one per unison voice - and starts the note on them as on a
+stolen voice (§9); any voice on the key that is left over is let go. With a sustain pedal and a long release, Stack
+piles up a voice for every strike; Piano keeps it to the unison count. Mono modes are untouched.

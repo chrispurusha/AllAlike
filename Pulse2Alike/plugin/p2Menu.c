@@ -271,6 +271,9 @@ static const char *const kHelpTexts[HELP_TOPICS]  = {
     "even with the oscillators silent, larger at higher Volume and with a fast amp attack (a slow attack turns "
     "it into a dip). Off leaves only the sound itself - for a sound that will be layered, or a mix whose low end "
     "the bump would crowd.\n\n"
+    "Same Note (with Voices above 1): Piano, the default, gives a key struck again its own voice back, as a piano's "
+    "damper does - the better choice with a sustain pedal, where repeated notes would otherwise pile up and use every "
+    "voice. Stack lets each strike ring on and takes another voice.\n\n"
     "Tune (420-460 Hz) and Transpose (+-24) shift every sound. A new instance starts at 440 and 0.\n\n"
     "None of these, nor Anomalies, is saved with a sound. Diagnostic log: touch /tmp/pulse2alike-log, reload "
     "the plug-in, read /tmp/pulse2alike.log.",

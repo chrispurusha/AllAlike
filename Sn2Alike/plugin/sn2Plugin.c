@@ -587,7 +587,7 @@ static bool sn2_param_text(const tSynthLibPluginDesc * desc, void * inst, uint32
 
 // What a sound carries: everything but the plug-in's own settings
 static bool sound_param(uint32_t id) {
-    return (id != kSn2ParamVoiceLimit) && (id != kSn2ParamAntiAlias) && (id != kSn2ParamMaster) && (id != kSn2ParamEffectsBypass) && (id != kSn2ParamSustainPedal)
+    return (id != kSn2ParamVoiceLimit) && (id != kSn2ParamAntiAlias) && (id != kSn2ParamSameNote) && (id != kSn2ParamMaster) && (id != kSn2ParamEffectsBypass) && (id != kSn2ParamSustainPedal)
            && (id != kSn2ParamHwLink) && (id != kSn2ParamHwChannel) && (id != kSn2ParamHwDevice) && (id != kSn2ParamProgram) && (id != kSn2ParamBank)
            && (id != kSn2ParamPitchBend) && (id != kSn2ParamModWheel);
 }

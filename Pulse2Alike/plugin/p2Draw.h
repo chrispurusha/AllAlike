@@ -27,7 +27,8 @@
 
 typedef enum {
     eP2ControlDial = 0,
-    eP2ControlChoice        // a button that steps through a list
+    eP2ControlChoice,       // a button that steps through a list
+    eP2ControlGap           // an empty place, where the other Alikes have a control this one does not (../Docs/panel-layout.md)
 } tP2ControlKind;
 
 typedef struct {

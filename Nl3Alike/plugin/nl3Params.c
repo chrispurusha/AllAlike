@@ -27,10 +27,11 @@
 
 // notes §1: the panel's 0..127 is each dial's plain range, as on the instrument; morph offsets -128..127
 const tSynthLibParam     gNl3Params[kNl3ParamCount] = {
-    {kNl3ParamVoiceLimit,                       "Voice Limit",                            "Voices",   eSynthLibUnitGeneric,    1.0, NL3_MAX_VOICES, 23.0 / (NL3_MAX_VOICES - 1), NL3_MAX_VOICES - 1, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamVoiceLimit,                       "Voices",                                 "Voices",   eSynthLibUnitGeneric,    1.0, NL3_MAX_VOICES, 23.0 / (NL3_MAX_VOICES - 1), NL3_MAX_VOICES - 1, SYNTHLIB_MIDI_NONE,                                                                             0},
     {kNl3ParamMaster,                           "Master Volume",                          "Master",   eSynthLibUnitGeneric,    0.0,          127.0,                         1.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
     {kNl3ParamArithmetic,                       "Arithmetic",                             "Maths",    eSynthLibUnitIndexed,    0.0,            1.0,                         0.0,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
     {kNl3ParamAliasing,                         "Anti-alias",                             "AA",       eSynthLibUnitIndexed,    0.0,            1.0,                         1.0,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kNl3ParamSameNote,                         "Same Note",                              "Same",     eSynthLibUnitIndexed,    0.0,            1.0,                         0.0,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
     {kNl3ParamProgram,                          "Program",                                "Program",  eSynthLibUnitGeneric,    0.0,          127.0,                         0.0,                127, SYNTHLIB_MIDI_NONE,       SYNTHLIB_PARAM_PROGRAM | SYNTHLIB_PARAM_HIDDEN | SYNTHLIB_PARAM_NO_SAVE},
     {kNl3ParamBank,                             "Bank Select",                            "Bank",     eSynthLibUnitGeneric,    0.0,          127.0,                         0.0,                127,                       32, SYNTHLIB_PARAM_HIDDEN | SYNTHLIB_PARAM_NO_SAVE                         },
     {kNl3ParamPitchBend,                        "Pitch Bend",                             "Bend",     eSynthLibUnitGeneric,    0.0,            1.0,                         0.5,                  0, SYNTHLIB_MIDI_PITCH_BEND, SYNTHLIB_PARAM_HIDDEN | SYNTHLIB_PARAM_NO_SAVE                         },
@@ -448,6 +449,7 @@ const uint32_t           gNl3FieldCount      = sizeof(gNl3Fields) / sizeof(gNl3F
 // notes §4: the names of each switch's positions
 static const char *const kChoiceArithmetic[] = {"FLOAT", "FIXED"};
 static const char *const kChoiceAliasing[]   = {"OFF", "ON"};
+static const char *const kChoiceSameNote[]   = {"STACK", "PIANO"};
 static const char *const kChoiceWave[]       = {"SAW", "PULSE", "TRI", "SINE", "NOISE", "DUAL SINE"};
 static const char *const kChoiceOffon[]      = {"OFF", "ON"};
 static const char *const kChoiceOscmod[]     = {"DM", "DIST", "FILT", "FM", "DFM", "RM"};
@@ -475,6 +477,9 @@ const char * const * nl3_param_choices(uint32_t id) {
 
         case kNl3ParamAliasing:
             return kChoiceAliasing;
+
+        case kNl3ParamSameNote:
+            return kChoiceSameNote;
 
         case kNl3ParamHwLink:
             return kChoiceOffon;
@@ -622,6 +627,7 @@ const char * const * nl3_param_choices(uint32_t id) {
 #define nl3_choices_ArpRange         kChoiceArprange
 #define nl3_choices_Arithmetic       kChoiceArithmetic
 #define nl3_choices_Aliasing         kChoiceAliasing
+#define nl3_choices_SameNote         kChoiceSameNote
 #define nl3_choices_HwLink           kChoiceOffon
 
 // ---- the panel - notes §2 ------------------------------------------------------------------------------------
@@ -888,9 +894,10 @@ static const tNl3Control kOutput[]              = {
     {kNl3ParamMaster, "Master", eTiControlDial, 127, 0.0, NULL},
 };
 static const tNl3Control kPlugin[]              = {
-    {kNl3ParamVoiceLimit, "Limit",      eTiControlDial,   NL3_MAX_VOICES - 1, 1.0, NULL                  },
-    {kNl3ParamArithmetic, "Maths",      eTiControlChoice,                  1, 0.0, nl3_choices_Arithmetic},
+    {kNl3ParamVoiceLimit, "Voices",     eTiControlDial,   NL3_MAX_VOICES - 1, 1.0, NULL                  },   // ../Docs/panel-layout.md
+    {kNl3ParamSameNote,   "Same Note",  eTiControlChoice,                  1, 0.0, nl3_choices_SameNote  },
     {kNl3ParamAliasing,   "Anti-alias", eTiControlChoice,                  1, 0.0, nl3_choices_Aliasing  },
+    {kNl3ParamArithmetic, "Maths",      eTiControlChoice,                  1, 0.0, nl3_choices_Arithmetic},
 };
 static const tNl3Control kHardware[]            = {
     {kNl3ParamHwLink,    "Link",    eTiControlChoice,   1, 0.0, nl3_choices_HwLink},
@@ -1108,6 +1115,7 @@ void nl3_sound_from_values(const double * v, tNl3Sound * s) {
     s->glideCurve = 1;
     s->mono       = on(v, kNl3ParamMono);
     s->legato     = on(v, kNl3ParamLegato);
+    s->piano      = on(v, kNl3ParamSameNote);
     s->bend       = (2.0 * v[kNl3ParamPitchBend]) - 1.0;
     s->wheel      = v[kNl3ParamModWheel];
     s->pedal      = on(v, kNl3ParamSustainPedal);

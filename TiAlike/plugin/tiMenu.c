@@ -314,15 +314,18 @@ static void action_help_global(int index) {
     (void)index;
     show_alert("Global Settings",
                "On the GLOBAL page, PLUG-IN:\n\n"
-               "Limit - the most voices the instance plays at once.\n\n"
-               "Maths - FLOAT, or FIXED for the instrument's own fixed-point arithmetic where it is built (the filter "
-               "so far). The two differ only far below the signal.\n\n"
-               "Link - follows the sound on a connected Virus TI (see The Virus TI).\n\n"
-               "Delay and Reverb - switch those effects off for this instance, to use the host's instead.\n\n"
+               "Voices - the most voices the instance plays at once.\n\n"
+               "Same Note - Stack (the default) lets each strike of a key ring on and takes another voice, as the instrument "
+               "does. Piano gives a key struck again its own voice back, as a piano's damper does - the better choice with a "
+               "sustain pedal, where repeated notes would otherwise pile up and use every voice.\n\n"
                "Anti-alias - On (the default) makes the oscillators band-limited: clean, with nothing folding back from "
                "above the top of the audio band. Off makes them as the instrument does, aliasing included - the "
                "classic oscillators, the sub, Osc 3, sync and the HyperSaw - for its grittier top end. Off costs more "
                "processing, most of all with a big HyperSaw.\n\n"
+               "Maths - FLOAT, or FIXED for the instrument's own fixed-point arithmetic where it is built (the filter "
+               "so far). The two differ only far below the signal.\n\n"
+               "Delay and Reverb - switch those effects off for this instance, to use the host's instead.\n\n"
+               "HARDWARE: Link - follows the sound on a connected Virus TI (see The Virus TI).\n\n"
                "PLAY, UNISON and CONTROL are the Single's own key mode, unison and controller settings.");
 }
 

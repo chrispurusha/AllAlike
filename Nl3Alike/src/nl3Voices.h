@@ -170,6 +170,7 @@ typedef struct {
     bool         unison;                                      // voices notes §26
     double       unisonStep;                                  // voices notes §26: the first read's delay word step a sample
     bool         legato;                                      // mono: a change of note does not restart the envelopes
+    bool         piano;                                       // voices notes §34: Same Note Piano
 } tNl3Sound;
 
 // One oscillator's sound from normalised parameters

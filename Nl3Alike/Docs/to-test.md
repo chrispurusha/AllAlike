@@ -42,3 +42,6 @@ Finished work not yet checked against the instrument or in a host.
 - Fast wheel/bend/aftertouch moves (11-16, SynthLib synthlibCtlPoints.h): smooth, not stepping once a host block
 - Osc Mod FM and DFM (11-16, osc notes §17): programs using them (DFM 185, FM 108) sound as on the instrument - DFM's tone the same up the keyboard, FM's brighter low down; the Mod Env sweeping OSCMOD on those
 - Glide (11-16, voices notes §12a): 1:16 Lean to lean (Mono, Legato, Auto) glides between overlapping notes - every glide had started from its own target note, so none moved
+- Glide in poly (11-17, voices notes §12a): Mono off, Legato off - no glide; Legato on - a note played while another is held glides (stopgap)
+- Same Note (11-17, voices notes §34): Piano with the sustain pedal down, one key struck over and over - one voice, no tick, no pile-up; Stack as before
+- GLOBAL page (11-17, ../Docs/panel-layout.md): PLUG-IN (Voices, Same Note, Anti-alias, Maths), HARDWARE (Link, Channel, Device) - all fit

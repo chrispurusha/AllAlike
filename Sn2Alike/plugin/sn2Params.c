@@ -25,7 +25,7 @@
 
 // notes §1: the panel's 0..127 is each dial's plain range, as on the instrument
 const tSynthLibParam     gSn2Params[kSn2ParamCount] = {
-    {kSn2ParamVoiceLimit,       "Voice Limit",             "Voices",   eSynthLibUnitGeneric,   1.0, SN2_MAX_VOICES, 15.0 / (SN2_MAX_VOICES - 1), SN2_MAX_VOICES - 1, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kSn2ParamVoiceLimit,       "Voices",                  "Voices",   eSynthLibUnitGeneric,   1.0, SN2_MAX_VOICES, 15.0 / (SN2_MAX_VOICES - 1), SN2_MAX_VOICES - 1, SYNTHLIB_MIDI_NONE,                                                                             0},
     {kSn2ParamVolume,           "Prog Level",              "Level",    eSynthLibUnitGeneric,   0.0,          127.0,               100.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
     {kSn2ParamOscShape,         "Osc Shape",               "Shape",    eSynthLibUnitIndexed,   0.0,            2.0,                         0.0,                  2, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
     {kSn2ParamPulseWidth,       "Osc Pulse Width",         "PW",       eSynthLibUnitGeneric,   0.0,          127.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
@@ -157,12 +157,13 @@ const tSynthLibParam     gSn2Params[kSn2ParamCount] = {
     {kSn2ParamLfo2Fade,         "LFO 2 Fade",              "Fade",     eSynthLibUnitIndexed,   0.0,            1.0,                         0.0,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
     {kSn2ParamHwLink,           "Link Hardware",           "Link",     eSynthLibUnitIndexed,   0.0,            1.0,                         0.0,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
     {kSn2ParamHwChannel,        "Hardware MIDI Channel",   "Channel",  eSynthLibUnitGeneric,   1.0,           16.0,                  6.0 / 15.0,                 15, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kSn2ParamHwDevice,         "Hardware SysEx ID",       "SysEx ID", eSynthLibUnitGeneric,   0.0,          127.0,                 6.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kSn2ParamHwDevice,         "Hardware Device ID",      "Device",   eSynthLibUnitGeneric,   0.0,          127.0,                 6.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
     {kSn2ParamPan,              "Pan",                     "Pan",      eSynthLibUnitGeneric,   0.0,          127.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
     {kSn2ParamPanSpeed,         "Pan Speed",               "Speed",    eSynthLibUnitGeneric,   0.0,          127.0,                34.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
     {kSn2ParamPanDepth,         "Pan Depth",               "Depth",    eSynthLibUnitGeneric,   0.0,          127.0,                         0.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
     {kSn2ParamPanEffects,       "Pan Effects",             "Effects",  eSynthLibUnitIndexed,   0.0,            1.0,                         1.0,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
     {kSn2ParamAntiAlias,        "Anti-alias",              "AA",       eSynthLibUnitIndexed,   0.0,            1.0,                         1.0,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kSn2ParamSameNote,         "Same Note",               "Same",     eSynthLibUnitIndexed,   0.0,            1.0,                         1.0,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
     {kSn2ParamFm13,             "FM 1x3",                  "FM 1x3",   eSynthLibUnitIndexed,   0.0,            1.0,                         0.0,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
     {kSn2ParamFm23,             "FM 2x3",                  "FM 2x3",   eSynthLibUnitIndexed,   0.0,            1.0,                         0.0,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
     {kSn2ParamFmNoise,          "FM Noise",                "FM Noise", eSynthLibUnitIndexed,   0.0,            1.0,                         0.0,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
@@ -201,6 +202,8 @@ const tSynthLibParam     gSn2Params[kSn2ParamCount] = {
     {kSn2ParamRing23Lfo2Level,  "2x3 LFO 2 Level",         "LFO 2",    eSynthLibUnitGeneric, -64.0,           63.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
     {kSn2ParamNoiseLfo2Level,   "Noise LFO 2 Level",       "LFO 2",    eSynthLibUnitGeneric, -64.0,           63.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
 };
+
+#define COUNT(table)    (sizeof(table) / sizeof((table)[0]))   // ../Docs/panel-layout.md: never a count by hand
 
 static const char *const kShapes[]          = {"SAW", "SQUARE", "DOUBLE"};
 static const char *const kFilters[]         = {"LPF", "BPF", "HPF", "Res LPF", "Res BPF", "Res HPF", "Notch", "LPF+LPF", "BPF+BPF", "HPF+HPF", "LPF+BPF", "BPF+HPF"};
@@ -264,11 +267,15 @@ static const tSn2Control kAmp[]             = {
 static const char *const kPolyModes[]       = {"Poly", "Mono"};
 static const char *const kEnvTriggers[]     = {"Retrigger", "Legato"};
 static const char *const kAntiAlias[]       = {"OFF", "ON"};
+static const char *const kSameNote[]        = {"STACK", "PIANO"};
 static const tSn2Control kVoices[]          = {
-    {kSn2ParamVoiceLimit, "Limit",      eTiControlDial,   SN2_MAX_VOICES - 1, 1.0, NULL        },
-    {kSn2ParamPolyMode,   "Mode",       eTiControlChoice,                  1, 0.0, kPolyModes  },
-    {kSn2ParamEnvTrigger, "Trigger",    eTiControlChoice,                  1, 0.0, kEnvTriggers},
-    {kSn2ParamAntiAlias,  "Anti-alias", eTiControlChoice,                  1, 0.0, kAntiAlias  },
+    {kSn2ParamVoiceLimit, "Voices",     eTiControlDial,   SN2_MAX_VOICES - 1, 1.0, NULL      },     // ../Docs/panel-layout.md
+    {kSn2ParamSameNote,   "Same Note",  eTiControlChoice,                  1, 0.0, kSameNote },
+    {kSn2ParamAntiAlias,  "Anti-alias", eTiControlChoice,                  1, 0.0, kAntiAlias},
+};
+static const tSn2Control kPlay[]            = {
+    {kSn2ParamPolyMode,   "Mode",    eTiControlChoice, 1, 0.0, kPolyModes  },
+    {kSn2ParamEnvTrigger, "Trigger", eTiControlChoice, 1, 0.0, kEnvTriggers},
 };
 static const tSn2Control kMixer[]           = {
     {kSn2ParamNoiseLevel,  "Noise",  eTiControlDial, 127, 0.0, NULL},
@@ -318,12 +325,12 @@ static const tSn2Control kEffectsMain[]     = {
     {kSn2ParamEffectsDry,   "Dry",   eTiControlDial,   127, 0.0, NULL   },
 };
 static const tSn2Section kEffectsPage[]     = {
-    {"CHORUS", {0.30, 0.70, 0.85}, kChorus,      5},
-    {"DELAY",  {0.85, 0.65, 0.30}, kDelay,       7},
-    {"REVERB", {0.55, 0.45, 0.85}, kReverb,      4},
-    {"DRIVE",  {0.90, 0.40, 0.30}, kDrive,       3},
-    {"EQ",     {0.50, 0.75, 0.40}, kEq,          2},
-    {"OUTPUT", {0.60, 0.60, 0.65}, kEffectsMain, 2},
+    {"CHORUS", {0.30, 0.70, 0.85}, kChorus,      COUNT(kChorus)     },
+    {"DELAY",  {0.85, 0.65, 0.30}, kDelay,       COUNT(kDelay)      },
+    {"REVERB", {0.55, 0.45, 0.85}, kReverb,      COUNT(kReverb)     },
+    {"DRIVE",  {0.90, 0.40, 0.30}, kDrive,       COUNT(kDrive)      },
+    {"EQ",     {0.50, 0.75, 0.40}, kEq,          COUNT(kEq)         },
+    {"OUTPUT", {0.60, 0.60, 0.65}, kEffectsMain, COUNT(kEffectsMain)},
 };
 static const char *const kFxBypass[]        = {"On", "Bypass"};
 static const tSn2Control kGlobalFx[]        = {
@@ -343,14 +350,14 @@ static const tSn2Control kGlide[]           = {
     {kSn2ParamOscTrigger, "Trigger", eTiControlChoice,   1, 0.0, kTriggers   },
 };
 static const tSn2Section kOscillatorsPage[] = {
-    {"OSC 1", {0.30, 0.55, 0.85}, kOsc1,   7},
-    {"MIXER", {0.60, 0.60, 0.65}, kMixer,  4},
-    {"OSC 2", {0.30, 0.70, 0.60}, kOsc2,   7},
-    {"GLIDE", {0.60, 0.60, 0.65}, kGlide,  5},
-    {"OSC 3", {0.85, 0.55, 0.30}, kOsc3,  10},
+    {"OSC 1", {0.30, 0.55, 0.85}, kOsc1,  COUNT(kOsc1) },
+    {"MIXER", {0.60, 0.60, 0.65}, kMixer, COUNT(kMixer)},
+    {"OSC 2", {0.30, 0.70, 0.60}, kOsc2,  COUNT(kOsc2) },
+    {"GLIDE", {0.60, 0.60, 0.65}, kGlide, COUNT(kGlide)},
+    {"OSC 3", {0.85, 0.55, 0.30}, kOsc3,  COUNT(kOsc3) },
 };
 static const tSn2Section kFilterPage[]      = {
-    {"FILTER", {0.90, 0.55, 0.20}, kFilter, 8},
+    {"FILTER", {0.90, 0.55, 0.20}, kFilter, COUNT(kFilter)},
 };
 static const tSn2Control kEnv2[]            = {
     {kSn2ParamEnv2Attack,      "Attack",  eTiControlDial, 127,   0.0, NULL},
@@ -373,12 +380,12 @@ static const tSn2Control kEnv3[]            = {
     {kSn2ParamEnv3Cutoff,      "Cutoff",  eTiControlDial, 127, -64.0, NULL},
 };
 static const tSn2Section kAmpPage[]         = {
-    {"OUTPUT", {0.65, 0.65, 0.65}, kAmp, 2},
+    {"OUTPUT", {0.65, 0.65, 0.65}, kAmp, COUNT(kAmp)},
 };
 static const tSn2Section kEnvelopesPage[]   = {
-    {"AMP ENV", {0.85, 0.75, 0.25}, kAmpEnv, 8},
-    {"ENV 2",   {0.90, 0.55, 0.20}, kEnv2,   8},
-    {"ENV 3",   {0.70, 0.45, 0.80}, kEnv3,   8},
+    {"AMP ENV", {0.85, 0.75, 0.25}, kAmpEnv, COUNT(kAmpEnv)},
+    {"ENV 2",   {0.90, 0.55, 0.20}, kEnv2,   COUNT(kEnv2)  },
+    {"ENV 3",   {0.70, 0.45, 0.80}, kEnv3,   COUNT(kEnv3)  },
 };
 static const char *const kLfoShapes[]       = {"Square", "Saw", "Triangle", "S+H"};
 static const char *const kLfoRanges[]       = {"x1", "x10", "x100"};
@@ -397,8 +404,8 @@ static const char *const kLfoFades[]        = {"In", "Out"};
 static const tSn2Control kLfo1[]            = LFO_CONTROLS(1);
 static const tSn2Control kLfo2[]            = LFO_CONTROLS(2);
 static const tSn2Section kLfoPage[]         = {
-    {"LFO 1", {0.80, 0.55, 0.85}, kLfo1, 8},
-    {"LFO 2", {0.55, 0.80, 0.85}, kLfo2, 8},
+    {"LFO 1", {0.80, 0.55, 0.85}, kLfo1, COUNT(kLfo1)},
+    {"LFO 2", {0.55, 0.80, 0.85}, kLfo2, COUNT(kLfo2)},
 };
 static const tSn2Control kBendWheel[]       = {
     {kSn2ParamPitchBend, "Bend",  eTiControlDial, 16383, -8192.0, NULL},
@@ -427,11 +434,11 @@ static const tSn2Control kWheelFilter[]     = {
     {kSn2ParamWheelResonance, "Res",    eTiControlDial, 127, -64.0, NULL},
 };
 static const tSn2Section kWheelPage[]       = {
-    {"BEND / WHEEL", {0.65, 0.65, 0.65}, kBendWheel,   2},
-    {"BEND RANGE",   {0.30, 0.55, 0.85}, kBendRange,   3},
-    {"WHEEL PITCH",  {0.30, 0.70, 0.60}, kWheelPitch,  3},
-    {"WHEEL LEVEL",  {0.85, 0.55, 0.30}, kWheelLevel,  6},
-    {"WHEEL FILTER", {0.90, 0.55, 0.20}, kWheelFilter, 2},
+    {"BEND / WHEEL", {0.65, 0.65, 0.65}, kBendWheel,   COUNT(kBendWheel)  },
+    {"BEND RANGE",   {0.30, 0.55, 0.85}, kBendRange,   COUNT(kBendRange)  },
+    {"WHEEL PITCH",  {0.30, 0.70, 0.60}, kWheelPitch,  COUNT(kWheelPitch) },
+    {"WHEEL LEVEL",  {0.85, 0.55, 0.30}, kWheelLevel,  COUNT(kWheelLevel) },
+    {"WHEEL FILTER", {0.90, 0.55, 0.20}, kWheelFilter, COUNT(kWheelFilter)},
 };
 static const tSn2Control kEnv2Level[]       = {
     {kSn2ParamOsc1Env2Level,   "Osc 1", eTiControlDial, 127, -64.0, NULL},
@@ -466,15 +473,15 @@ static const tSn2Control kLfo2Level[]       = {
     {kSn2ParamNoiseLfo2Level,  "Noise", eTiControlDial, 127, -64.0, NULL},
 };
 static const tSn2Section kLevelsPage[]      = {
-    {"Env 2 TO LEVEL", {0.90, 0.55, 0.20}, kEnv2Level, 6},
-    {"Env 3 TO LEVEL", {0.70, 0.45, 0.80}, kEnv3Level, 6},
-    {"LFO 1 TO LEVEL", {0.30, 0.70, 0.60}, kLfo1Level, 6},
-    {"LFO 2 TO LEVEL", {0.30, 0.55, 0.85}, kLfo2Level, 6},
+    {"Env 2 TO LEVEL", {0.90, 0.55, 0.20}, kEnv2Level, COUNT(kEnv2Level)},
+    {"Env 3 TO LEVEL", {0.70, 0.45, 0.80}, kEnv3Level, COUNT(kEnv3Level)},
+    {"LFO 1 TO LEVEL", {0.30, 0.70, 0.60}, kLfo1Level, COUNT(kLfo1Level)},
+    {"LFO 2 TO LEVEL", {0.30, 0.55, 0.85}, kLfo2Level, COUNT(kLfo2Level)},
 };
 static const tSn2Control kHardware[]        = {
-    {kSn2ParamHwLink,    "Link",     eTiControlChoice,   1, 0.0, kOffOn},
-    {kSn2ParamHwChannel, "Channel",  eTiControlDial,    15, 1.0, NULL  },
-    {kSn2ParamHwDevice,  "SysEx ID", eTiControlDial,   127, 0.0, NULL  },
+    {kSn2ParamHwLink,    "Link",    eTiControlChoice,   1, 0.0, kOffOn},
+    {kSn2ParamHwChannel, "Channel", eTiControlDial,    15, 1.0, NULL  },
+    {kSn2ParamHwDevice,  "Device",  eTiControlDial,   127, 0.0, NULL  },
 };
 static const tSn2Control kPan[]             = {
     {kSn2ParamPan,        "Pan",     eTiControlDial,   127, 0.0, NULL  },
@@ -483,22 +490,23 @@ static const tSn2Control kPan[]             = {
     {kSn2ParamPanEffects, "Effects", eTiControlChoice,   1, 0.0, kOffOn},
 };
 static const tSn2Section kGlobalPage[]      = {
-    {"PLUG-IN",  {0.65, 0.65, 0.65}, kVoices,   4},
-    {"EFFECTS",  {0.65, 0.65, 0.65}, kGlobalFx, 3},
-    {"HARDWARE", {0.65, 0.65, 0.65}, kHardware, 3},
-    {"PAN",      {0.65, 0.65, 0.65}, kPan,      4},
+    {"PLUG-IN",  {0.65, 0.65, 0.65}, kVoices,   COUNT(kVoices)  },
+    {"HARDWARE", {0.65, 0.65, 0.65}, kHardware, COUNT(kHardware)},
+    {"PLAY",     {0.65, 0.65, 0.65}, kPlay,     COUNT(kPlay)    },
+    {"EFFECTS",  {0.65, 0.65, 0.65}, kGlobalFx, COUNT(kGlobalFx)},
+    {"PAN",      {0.65, 0.65, 0.65}, kPan,      COUNT(kPan)     },
 };
 
 const tSn2Page           gSn2Pages[]        = {
-    {"OSC",     kOscillatorsPage, 5},
-    {"FILTER",  kFilterPage,      1},
-    {"AMP",     kAmpPage,         1},
-    {"ENV",     kEnvelopesPage,   3},
-    {"LFO",     kLfoPage,         2},
-    {"MOD",     kWheelPage,       5},
-    {"LEVELS",  kLevelsPage,      4},
-    {"EFFECTS", kEffectsPage,     6},
-    {"GLOBAL",  kGlobalPage,      4},
+    {"OSC",     kOscillatorsPage, COUNT(kOscillatorsPage)},
+    {"FILTER",  kFilterPage,      COUNT(kFilterPage)     },
+    {"AMP",     kAmpPage,         COUNT(kAmpPage)        },
+    {"ENV",     kEnvelopesPage,   COUNT(kEnvelopesPage)  },
+    {"LFO",     kLfoPage,         COUNT(kLfoPage)        },
+    {"MOD",     kWheelPage,       COUNT(kWheelPage)      },
+    {"LEVELS",  kLevelsPage,      COUNT(kLevelsPage)     },
+    {"EFFECTS", kEffectsPage,     COUNT(kEffectsPage)    },
+    {"GLOBAL",  kGlobalPage,      COUNT(kGlobalPage)     },
 };
 const uint32_t           gSn2PageCount      = sizeof(gSn2Pages) / sizeof(gSn2Pages[0]);
 
@@ -575,6 +583,7 @@ void sn2_controls_sound(const double * v, tSn2Sound * sound) {
     sound->bend           = (2.0 * v[kSn2ParamPitchBend]) - 1.0;
     sound->wheel          = v[kSn2ParamModWheel];
     sound->pedal          = v[kSn2ParamSustainPedal] >= 0.5;
+    sound->piano          = v[kSn2ParamSameNote] >= 0.5;
     sound->mono           = v[kSn2ParamPolyMode] > 0.5;
     sound->fm13           = v[kSn2ParamFm13] > 0.5;       // sn2Voices notes §18
     sound->oneShot        = v[kSn2ParamOneShot] > 0.5;    // sn2Envelope notes §9
