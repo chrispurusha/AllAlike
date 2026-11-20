@@ -8,11 +8,11 @@ Reproductions of synthesizers and their effects, and a sample player, as VST3 an
 | [Pulse2Alike](Pulse2Alike/) | A reproduction inspired by the Waldorf Pulse 2 | Beta |
 | [TiAlike](TiAlike/) | A reproduction inspired by the Access Virus TI's single-patch engine | Ready for beta |
 | [Sn2Alike](Sn2Alike/) | A reproduction inspired by the Novation Supernova II | Nearly ready for beta |
-| [Nl3Alike](Nl3Alike/) | A reproduction inspired by the Clavia Nord Lead 3 | Work in progress: most filter modes, envelopes, LFOs, morphs, Unison, vibrato, the voice placement, the mix and level laws and five waveforms measured; Osc Mod and filter distortion to come |
+| [Nl3Alike](Nl3Alike/) | A reproduction inspired by the Clavia Nord Lead 3 | Work in progress: FM and DFM are built; DM, Dist, filter FM/RM, other oscillator modes and filter distortion remain |
 | [UltraAlike](UltraAlike/) | A reproduction inspired by the E-mu Ultra samplers | Work in progress: plays Emulator X banks with the E5000's envelope and interpolation, measured; filters, LFOs and modulation to come |
 | [ModAlike](ModAlike/) | A Phaser, Chorus and Flanger as an effect, with stereo modes and Mix | Work in progress: plays, with its panel; not yet tried in a host |
 | [ProphAlike](ProphAlike/) | A placeholder instrument inspired by the Korg Prophecy | Work in progress: plug-in scaffold; engine to be measured |
-| [OneShot](OneShot/) | A one-sample player: one drum hit per instance, with an envelope | Work in progress: plays, browses its folder |
+| [OneShot](OneShot/) | A layered sample player: four samples per instance, with key ranges and per-layer processing | Work in progress: plays and browses its folder; host checks remain |
 
 What each one is missing, and what needs more work: [Docs/feature-status.md](Docs/feature-status.md).
 
@@ -34,6 +34,6 @@ Each plug-in builds and releases on its own, from its own folder. See
 Every plug-in carries AllAlike's own version, from the `VERSION` file here: a build (`./do-plugin`, `./do-plugins`,
 the Windows scripts) reads it unless a version is given. Change it there, once, for a new version.
 
-`./do-release` here builds all of them into one `.dmg`, `AllAlike-<version>.dmg`, then all of them for Windows into one `AllAlike-<version>-windows.zip` (an `x64` and an `arm64` folder of VST3s; `./do-release-windows` alone builds just that), tagged `V<version>`, with the same arguments.
+`./do-release` builds the seven included products into one `.dmg`, `AllAlike-<version>.dmg`, then the same seven for Windows into one `AllAlike-<version>-windows.zip` (an `x64` and an `arm64` folder of VST3s; `./do-release-windows` alone builds just that), tagged `V<version>`, with the same arguments. UltraAlike is currently excluded from the aggregate release scripts.
 
 GPLv3. See [LICENSE](LICENSE).

@@ -1,17 +1,23 @@
 # Feature status
 
 Where each plug-in stands: what is **missing**, what is **built but needs more work**, and what is **built but not
-yet checked** in a host or against the instrument. Updated 2026-11-16, later (Nl3Alike: Osc 1 Noise, Osc 2 Partial, the Osc Mix and Volume laws, Octave Shift, the Mod Env to LFO 1, the instrument's voice placement and free-running oscillators, Link by controllers - each measured on the instrument; across every Alike: resizable Audio Unit editors, host tempo in the Audio Unit, performance controllers reset on load). Before that 2026-11-16 (UltraAlike measured against an E5000 Ultra: its interpolation, amplifier envelope and output; the panel remapped to the E5000's controls; sustain pedal, pitch bend and mod wheel). Before that 2026-11-14 (Nl3Alike's modulation, envelopes, morphs, Unison, Pulse and most filter modes; panel buttons on release across the Alikes; Windows releases of all six; UltraAlike plays Emulator X bank presets). Before that 2026-11-12 (TiAlike user wavetables, delay modulation, Pan Spread; Pulse2Alike's unison, PARA-8 and thump refitted through the QU-24, P016-P029 heard; TiAlike's Bank A heard against the instrument, its 11-08 oscillator, portamento and LFO work; preset browsers by category).
+yet checked** in a host or against the instrument. Updated 2026-11-20. This overview covers all eight plug-ins; detailed
+per-product status is summarized below and the working lists remain in each product's `Docs/`.
 
 This is a summary for planning. The working lists stay in each plug-in's `Docs/todo.md` (one line per item) and
-`Docs/to-test.md`; the reasoning and measurements in `Docs/findings.md` and `Docs/code-notes/`. Work spanning the
+`Docs/to-test.md`; reasoning and measurements live in `Docs/findings.md` where present and in `Docs/code-notes/`. Work spanning the
 plug-ins is listed in `Docs/todo.md` beside this file. When an item here is done, change it there first, then here.
 
-| | Pulse2Alike | TiAlike | Sn2Alike | Nl3Alike |
-|---|---|---|---|---|
-| State | Beta: the whole instrument plays | Ready for beta (owner, 2026-11-14): the voice is nearly complete, effects partly | Nearly ready for beta (owner, 2026-11-14) | Work in progress: Saw, Pulse, Triangle, Sine, Osc 1 Noise, sync, most filter modes, envelopes, LFOs, morphs, Unison and vibrato measured; Osc Mod, Osc 2 Noise, Dual Sine and filter distortion to come |
-| Scope | One sound per instance, optional extra voices | One Single per instance, a voice limit, no Multi | One program per instance (to confirm), no performances yet | One Program per instance |
-| Hardware link | Built: follows the sound, backs up the instrument's sounds, stores one sound to a slot | Built: follows the sound; bank backup and restore built, not yet tried | Built: follows the sound, reads a backup | Built: knob changes as the instrument's controllers (a held note follows), anything else as the whole program (the next note takes it); reading its 1024 programs built, untried |
+| Plug-in | Current state | Scope |
+|---|---|---|
+| Pulse2Alike | Beta: the whole instrument plays; model still has open measurement work | One sound per instance, optional extra voices |
+| TiAlike | Ready for beta (owner, 2026-11-14): voice nearly complete, effects partly | One Single per instance, a voice limit, no Multi |
+| Sn2Alike | Nearly ready for beta (owner, 2026-11-14) | One program per instance (to confirm), no performances yet |
+| Nl3Alike | Work in progress: oscillators, FM/DFM, most filter modes, envelopes, LFOs, morphs, Unison and vibrato built; several oscillator modes, filter distortion and modulation routes remain | One Program per instance |
+| UltraAlike | Work in progress: measured against an E5000 Ultra; excluded from aggregate release scripts | One preset or loose sample per instance |
+| OneShot | Work in progress: four-layer sample player with per-layer processing; host checks remain | Four sample layers per instance, each with a key range |
+| ModAlike | Work in progress: Phaser, Chorus and Flanger effect; host checks remain | One effect per instance |
+| ProphAlike | Placeholder: plug-in scaffold; engine to be measured | Instrument placeholder |
 
 ## Across all of them
 
@@ -42,7 +48,7 @@ Missing everywhere, or built in one and wanted in the others:
   2026-11-16.
 - **Tempo is always the host's** (CT 2026-11-07), in every Alike, with no tempo setting: 120 BPM until the host gives
   one, then the last it gave, kept when it stops giving one (a stopped transport). A sound's own tempo or arp tempo is
-  kept with the sound but not used. Built in all four. Sync itself stays the sound's choice where the instrument has
+  kept with the sound but not used. Built in the four synth reproductions. Sync itself stays the sound's choice where the instrument has
   one: a delay or LFO with its clock off runs at its own manual time or rate (Sn2Alike's Delay Sync 0, TiAlike's Delay
   Clock Off), and only a clocked one follows the tempo.
 - **Master Tune** (per instance, held by the host, not in the sound, on GLOBAL): Pulse2Alike has it (A4 420-460 Hz);
@@ -229,8 +235,9 @@ Started 2026-11-14 from OneShot's skeleton (`aumu Ultr CPur`); a reproduction in
 
 ## OneShot
 
-Started 2026-11-09: a one-sample player, one sample per instance held in memory, meant for drum pads with ordinary
-effect plug-ins after it. Not a reproduction; it shares only SynthLib and the panel's look.
+Started 2026-11-09: a layered sample player for drum pads and other stacked sounds. Four samples per instance can
+play together or be split by key range; each layer has its own playback, envelope, filter and saturation settings.
+Not a hardware reproduction; it shares SynthLib and the panel's look.
 **Built:** WAV/AIFF loading; Prev/Next through the sample's folder with play-on-load; a band-limited windowed-sinc
 interpolator (images and aliases near -88 dB); AHR or ADSR envelope with curves (Attack fine in its first 5 ms);
 Start with snapping to zero crossings; tune, key tracking, velocity, pan and volume (smoothed); One Shot / Gate,
