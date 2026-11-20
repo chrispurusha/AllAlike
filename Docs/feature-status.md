@@ -246,3 +246,10 @@ reported (31 samples below 88.2 kHz, none above); Engine Rate (96 kHz or the hos
 output Stage, Anti-alias at the host rate; the panel, in the Alikes' look; `auval` passes and `tools/do-matest` checks
 levels, movement, stereo, Mid/Side, Mix and latency. **Missing**: dial values in their units; a click-free effect
 switch. **Built, not yet checked**: everything in a real host - see `ModAlike/Docs/to-test.md`.
+
+
+## ProphAlike
+
+A placeholder instrument inspired by the Korg Prophecy. The SynthLib plug-in and panel are scaffolding; the sound
+engine, patch handling and hardware controls are not validated against the instrument. See
+`ProphAlike/Docs/design.md` and `ProphAlike/Docs/to-test.md`.

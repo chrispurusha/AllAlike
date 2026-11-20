@@ -35,6 +35,7 @@ PRODUCTS=(
     "Nl3Alike|A reproduction inspired by the Clavia Nord Lead 3. Work in progress: the filter is the instrument's, the rest a placeholder."
     "OneShot|A one-sample player for drum pads: AHR/ADSR envelope with curves, start with zero-crossing snap. Work in progress."
     "ModAlike|A Phaser, Chorus and Flanger as an effect, with stereo modes and Mix. Work in progress."
+    "ProphAlike|A placeholder instrument inspired by the Korg Prophecy. Work in progress."
 )
 
 WORK=$(mktemp -d)

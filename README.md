@@ -11,6 +11,7 @@ Reproductions of synthesizers and their effects, and a sample player, as VST3 an
 | [Nl3Alike](Nl3Alike/) | A reproduction inspired by the Clavia Nord Lead 3 | Work in progress: most filter modes, envelopes, LFOs, morphs, Unison, vibrato, the voice placement, the mix and level laws and five waveforms measured; Osc Mod and filter distortion to come |
 | [UltraAlike](UltraAlike/) | A reproduction inspired by the E-mu Ultra samplers | Work in progress: plays Emulator X banks with the E5000's envelope and interpolation, measured; filters, LFOs and modulation to come |
 | [ModAlike](ModAlike/) | A Phaser, Chorus and Flanger as an effect, with stereo modes and Mix | Work in progress: plays, with its panel; not yet tried in a host |
+| [ProphAlike](ProphAlike/) | A placeholder instrument inspired by the Korg Prophecy | Work in progress: plug-in scaffold; engine to be measured |
 | [OneShot](OneShot/) | A one-sample player: one drum hit per instance, with an envelope | Work in progress: plays, browses its folder |
 
 What each one is missing, and what needs more work: [Docs/feature-status.md](Docs/feature-status.md).
