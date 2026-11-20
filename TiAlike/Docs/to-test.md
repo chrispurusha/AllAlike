@@ -44,3 +44,5 @@ Built but not yet checked by ear or in a host. Confirmed: delete the line. Faile
 - GLOBAL page (11-17, ../Docs/panel-layout.md): PLUG-IN (Voices, Same Note, Anti-alias, Maths, Delay, Reverb), HARDWARE (Link), PLAY, UNISON, CONTROL - all fit; the Global help in the same order
 - Panel colours (11-17, ../Docs/panel-layout.md Colours): no grey sections; OFF/ON settings are buttons that flip on release, dimmed when off; CLIP and Link HW dimmed when off - all readable
 - Wavetable Prev/Next (11-17, tiDraw notes §16): light while held, step on the release, nothing when released off the button; grey when not live
+- Reverb Feedback 1 and 2 and Reverb Color in the loop (2026-11-20, tiEffects notes §9b): a Single with Feedback up, against the hardware - repeats at the pre-delay's period, Feedback 2 sounding at once, Color darkening or thinning each repeat
+- Distortion Quality (2026-11-20, §2a): Rate Reducer smoother and Bit Reducer cleaner as Quality falls, against the hardware

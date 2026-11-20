@@ -22,6 +22,19 @@ Nearly every curve is a shaper with no memory, then a delay of 26 samples, then 
 - The Overdrives are the Wide curve between filters: a first-order low cut and a two-pole top in front, then a level, ramped in over the first 48 steps of Intensity, then one pole after it, 350 Hz or 550 Hz, except Curry. The pole shapes the buzz at high drive, so it cannot sit ahead of the curve, though at Intensity 0 the response is the same. Measured against a saw: a near-sine leaves a fit with almost nothing to hold it. Mint comes out at twice the level of the others: it measured 5-7 dB low at every Intensity and every input level, Intensity 0 included, and at twice it is within about 1 dB, 2.6 at most (2026-11-12).
 - The Rate Reducers pass no DC: a hold landing on the same point of each cycle gives silence, not a constant.
 
+## 2a. Quality
+Quality acts on the Rate Reducer and the Bit Reducer only, as a share q = Quality / 128 (127 is a full 1).
+
+- **Rate Reducer**: each new held value is reached by a straight glide, over (1 - q)^2 of the hold - the whole hold at
+  0 (a straight line from one value to the next), none at 127 (the plain hold). Measured from the waveform at
+  Intensity 64 and 80: 1.0, 0.77, 0.56, 0.39, 0.25, 0.14, 0.06 and 0.02 of the hold at Quality 0-112, every one within
+  0.01-0.07 of the law.
+- **Bit Reducer**: a crossfade from the input (Quality 0) to the rounded signal (127). The reference's output at any
+  Quality is that blend of its own two ends to within -41 to -53 dB, the share rising faster than q: 1.0947 q +
+  1.0389 q^2 - 1.1529 q^3, scaled to reach 1 at Quality 120 and held there (within 0.003 at Quality 4-112).
+
+Against reference renders, a sine at Intensity 32, 64 and 96 and Quality 0-127: octave bands within about 1 dB.
+
 ## 3. Phaser
 Stages n is 2n first-order allpass sections, so n notches once mixed with the dry signal; Mix is an equal-power crossfade, all wet at full. The corner is 393 Hz at Frequency 48 and 2.3 times higher every 16 steps. Feedback goes as the 1.5th power of its amount. The LFO swings the corner, up to 1.7 octaves each way. Spread is approximate: 5 times across the chain at full and none up to 96, which fits the two ends but not the middle.
 
@@ -79,7 +92,23 @@ Measure long times with a held note: the reference stops processing about 0.4 s 
 later never comes out and looks like a limit that is not there (2026-11-12).
 
 ## 9. Reverb
-A tank of tapped delays and allpasses in one ring of 16382 words, run at half the sample rate, each Type its own list of read offsets. These lists are the one table here: their entries must sum exactly for the read points to keep their places, so scaling them does not work. Two values drive it: one from Time, scaled by the room, and one from Damping; the other coefficients follow them with simple limits. Send follows Delay's law; Predelay is §9a. Color is a one-pole tilt on the way in, low pass one way and high pass the other. The tank's slow modulation and the Feedback modes are not built.
+A tank of tapped delays and allpasses in one ring of 16382 words, run at half the sample rate, each Type its own list of read offsets. These lists are the one table here: their entries must sum exactly for the read points to keep their places, so scaling them does not work. Two values drive it: one from Time, scaled by the room, and one from Damping; the other coefficients follow them with simple limits. Send follows Delay's law; Predelay is §9a. Color and the Feedback modes are §9b. The tank's slow modulation is not built.
+
+## 9b. Reverb Color and the Feedback modes
+The pre-delay is a loop, at the tank's half rate, with Color inside it. Color is Delay Colour's filter and law (§25a):
+a bilinear one-pole, low pass below 64, high pass above, nothing at 64, its corner worked out at the tank's rate. With
+d the pre-delay's output and k the feedback:
+
+- **Reverb** and **Feedback 1**: the tank takes Color(d); the line takes the input minus k x Color(d).
+- **Feedback 2**: v = Color(input minus k x d) goes both into the line and into the tank, so the first pass reaches the
+  tank with no pre-delay.
+
+k is Feedback / 128 in the two Feedback modes and 0 in Reverb, so Feedback 1 at Feedback 0 is plain Reverb. The minus
+matters: every other repeat comes back inverted, and with a long tail overlapping the next repeat the sum is 4-5 dB
+quieter than with the repeats in step. Against reference renders (2026-11-20): each repeat k down to within 0.1 dB at
+Feedback 16-127; the level with Feedback within about 1 dB at Time 32-127, Damping 0 and 127; each repeat's colouring
+within about 1 dB at Colour 16-127 in octave bands, 3 dB at Colour 0. Plain Reverb's spectrum moved closer too (mean
+error at Colour 127 from 2.9 to 1.8 dB); a dip at 400-800 Hz that does not depend on Color is the tank's.
 
 ## 9a. Reverb Predelay and Clock
 Predelay is 5.461 ms a step (256 samples at 46.875 kHz), up to 502 ms at 92. Reverb Clock replaces the dial with a

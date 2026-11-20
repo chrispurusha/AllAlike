@@ -414,11 +414,18 @@ static double overdrive_filter(tTiEffects * e, int ch, const tBiquadCoeffs * top
     return gain * (y - s[2]);
 }
 
+// notes §2a: the Bit Reducer's share of the reduced signal against Quality, 0..1
+static double dist_quality_share(double q) {
+    return fmin(1.0, ((1.0947 * q) + (1.0389 * q * q) - (1.1529 * q * q * q)) / 0.9894);
+}
+
 // notes §2: the shaper, a delay and a high-pass
 static void shaped(tTiEffects * e, int ch, uint8_t curve, double intensity, double mix, const uint8_t * c, float * io, uint32_t frames) {
     tDistShape         d;
     double             a       = 1.0 - exp(-2.0 * M_PI * DIST_HIGH_PASS / e->rate);
     bool               direct  = dist_direct(curve, intensity);
+    double             quality = (c[73] >= 127) ? 1.0 : (c[73] / 128.0);   // notes §2a
+    double             share   = dist_quality_share(quality);
 
     const tOverdrive * od      = ((curve >= 20) && (curve <= 24)) ? &kOverdrive[curve - 20] : NULL;
     tBiquadCoeffs      top     = {0};
@@ -465,12 +472,23 @@ static void shaped(tTiEffects * e, int ch, uint8_t curve, double intensity, doub
         if ((curve == 9) || (curve == 18)) {
             e->distHeld[ch] += 1.0;
 
+            double held = e->distState[ch];
+
+            if (curve == 18) {   // notes §2a: Quality glides to each new value, over a share of the hold
+                double glide = (1.0 - quality) * (1.0 - quality) * d.hold * e->rate / 48000.0;
+
+                held             = (e->distRamp[ch] < glide) ? (e->distFrom[ch] + ((e->distState[ch] - e->distFrom[ch]) * (e->distRamp[ch] / glide))) : e->distState[ch];
+                e->distRamp[ch] += 1.0;
+            }
+
             if (e->distHeld[ch] >= (d.hold * e->rate / 48000.0)) {
                 e->distHeld[ch] -= d.hold * e->rate / 48000.0;
+                e->distFrom[ch]  = held;
+                e->distRamp[ch]  = 0.0;
                 e->distState[ch] = x;
             }
-            e->distHigh[ch] += a * (e->distState[ch] - e->distHigh[ch]);
-            y                = e->distState[ch] - e->distHigh[ch];
+            e->distHigh[ch] += a * (held - e->distHigh[ch]);
+            y                = held - e->distHigh[ch];
         } else {
             double in = x;
 
@@ -481,6 +499,7 @@ static void shaped(tTiEffects * e, int ch, uint8_t curve, double intensity, doub
             in = (od != NULL) ? overdrive_filter(e, ch, &top, lowCut, od->gain, in) : in;
 
             y  = after * dist_shape(&d, in);
+            y  = (curve == 19) ? (in + (share * (y - in))) : y;   // notes §2a: Quality fades the Bit Reducer in
 
             if (postPole > 0.0) {
                 e->driveState[ch][3] += postPole * (y - e->driveState[ch][3]);
@@ -1200,12 +1219,16 @@ static double line_read(const float * line, uint32_t size, uint32_t at, double b
 }
 
 // notes §25a: Colour's corner, on the third-octave points the filters use: low pass below 64, high pass above
-static double delay_color_q(const tTiEffects * e, uint8_t color) {
+static double color_q(uint8_t color, double rate) {
     double x = 2.0 * ((0.75 * color / 128.0) - 0.375);
     double p = (31.0 * ((color < 64) ? (x + 1.0) : x)) + DELAY_COLOR_OFFSET;
-    double t = tan(M_PI * fmin(19.7 * pow(2.0, p / 3.0), 0.49 * e->rate) / e->rate);
+    double t = tan(M_PI * fmin(19.7 * pow(2.0, p / 3.0), 0.49 * rate) / rate);
 
     return t / (1.0 + t);
+}
+
+static double delay_color_q(const tTiEffects * e, uint8_t color) {
+    return color_q(color, e->rate);
 }
 
 // notes §25a: Colour on what goes into the line, so each repeat is coloured again - a bilinear one-pole
@@ -1666,7 +1689,18 @@ static double verb_predelay(const tTiEffects * e, const uint8_t * c) {
     return t;
 }
 
-// notes §9: half rate in the tank, Color on the way in, Predelay ahead of it
+// notes §9b: Color, a bilinear one-pole as the delay's (§25a): a low pass below 64, a high pass above
+static double verb_color(tTiEffects * e, uint8_t color, double q, double x) {
+    double last = e->verbTone[0];
+    double y    = (color < 64) ? ((q * (x + last)) + ((1.0 - (2.0 * q)) * e->verbTone[1]))
+                               : ((color > 64) ? (((1.0 - q) * (x - last)) + ((1.0 - (2.0 * q)) * e->verbTone[1])) : x);
+
+    e->verbTone[0] = x;
+    e->verbTone[1] = y;
+    return y;
+}
+
+// notes §9: half rate in the tank, the pre-delay and Color looped ahead of it (§9b)
 static void reverb(tTiEffects * e, const uint8_t * c, float * left, float * right, uint32_t frames) {
     if (!e->reverbAllowed || (c[1] == 0) || (c[2] == 0)) {
         return;
@@ -1676,58 +1710,61 @@ static void reverb(tTiEffects * e, const uint8_t * c, float * left, float * righ
     double   preS   = verb_predelay(e, c);
     double   wet    = VERB_LEVEL * delay_wet(send);
     double   dry    = (send <= 96.0) ? 1.0 : ((127.0 - send) / 31.0);
-    uint32_t stride = (e->rate > 50000.0) ? 4u : 2u;   // notes §10
+    uint32_t stride = (e->rate > 50000.0) ? 4u : 2u;      // notes §10
     double   pre    = fmin(fmax(preS * e->rate / stride, 1.0), TI_REVERB_PRE - 2.0);
+    double   loop   = (c[1] >= 2) ? (c[9] / 128.0) : 0.0; // notes §9b
     double   target[12];
 
     if (e->verbRoom != room + 1) {
         verb_room(e, room);
     }
     verb_coefficients(c, target + 5);
-    double   color  = ((double)c[6] - 64.0) / 63.0;
 
     target[0] = wet;
     target[1] = dry;
     target[2] = pre;
-    target[3] = (color >= 0.0) ? 1.0 : (1.0 - exp(-2.0 * M_PI * 16000.0 * pow(2.0, 7.3 * color) / e->rate));
-    target[4] = (color <= 0.0) ? 0.0 : (1.0 - exp(-2.0 * M_PI * 4000.0 * pow(2.0, 8.0 * (color - 1.0)) / e->rate));
+    target[3] = color_q(c[6], e->rate / stride);   // notes §9b: Delay Colour's law, in the loop at the tank's rate
+    target[4] = 0.0;
 
     for (uint32_t f = 0; f < frames; f++) {
         glide_all(e->verbNow, target, 12, &e->verbGliding, e->rate);   // notes §25
-        wet             = e->verbNow[0];
-        dry             = e->verbNow[1];
-        double         lp = e->verbNow[3];
-        double         hp = e->verbNow[4];
-        const double * k  = e->verbNow + 5;
-        double         x  = 0.5 * ((double)left[f] + (double)right[f]);
+        wet         = e->verbNow[0];
+        dry         = e->verbNow[1];
+        double         q = e->verbNow[3];
+        const double * k = e->verbNow + 5;
+        double         x = 0.5 * ((double)left[f] + (double)right[f]);
 
-        // the one-pole tilt Color sets
-        e->verbTone[0] += lp * (x - e->verbTone[0]);
-        x               = e->verbTone[0];
-        e->verbTone[2] += hp * (x - e->verbTone[2]);
-        x              -= e->verbTone[2];
-
-        e->verbSum     += x;
+        e->verbSum += x;
         e->verbHalf++;
 
         if (e->verbHalf >= stride) {
-            double in = e->verbSum / stride;
+            double in      = e->verbSum / stride;
 
-            e->verbHalf              = 0u;
-            e->verbSum               = 0.0;
-            e->verbPre[e->verbPreAt] = (float)in;
-            in                       = line_read(e->verbPre, TI_REVERB_PRE, e->verbPreAt, e->verbNow[2]);
-            e->verbPreAt             = (e->verbPreAt + 1u) % TI_REVERB_PRE;
-            e->verbMid[0]            = e->verbLast[0];
-            e->verbMid[1]            = e->verbLast[1];
+            e->verbHalf   = 0u;
+            e->verbSum    = 0.0;
+            double delayed = line_read(e->verbPre, TI_REVERB_PRE, e->verbPreAt, e->verbNow[2]);
+
+            // notes §9b: the Feedback modes recirculate the pre-delay, negatively, through Color
+            if (c[1] == 3) {
+                in                       = verb_color(e, c[6], q, in - (loop * delayed));
+                e->verbPre[e->verbPreAt] = (float)in;
+            } else {
+                double colored = verb_color(e, c[6], q, delayed);
+
+                e->verbPre[e->verbPreAt] = (float)(in - (loop * colored));
+                in                       = colored;
+            }
+            e->verbPreAt  = (e->verbPreAt + 1u) % TI_REVERB_PRE;
+            e->verbMid[0] = e->verbLast[0];
+            e->verbMid[1] = e->verbLast[1];
             verb_tank(e, k, in, &e->verbLast[0], &e->verbLast[1]);
         }
         double along = (double)(e->verbHalf + 1u) / stride;
         double l     = e->verbMid[0] + (along * (e->verbLast[0] - e->verbMid[0]));
         double r     = e->verbMid[1] + (along * (e->verbLast[1] - e->verbMid[1]));
 
-        left[f]         = (float)((dry * left[f]) + (wet * l));
-        right[f]        = (float)((dry * right[f]) + (wet * r));
+        left[f]  = (float)((dry * left[f]) + (wet * l));
+        right[f] = (float)((dry * right[f]) + (wet * r));
     }
 }
 
@@ -1745,6 +1782,8 @@ static void forget_when_off(tTiEffects * e, const uint8_t * a, const uint8_t * b
         memset(e->distLast, 0, sizeof(e->distLast));
         memset(e->distHigh, 0, sizeof(e->distHigh));
         memset(e->distHeld, 0, sizeof(e->distHeld));
+        memset(e->distFrom, 0, sizeof(e->distFrom));
+        memset(e->distRamp, 0, sizeof(e->distRamp));
         memset(e->driveState, 0, sizeof(e->driveState));
         memset(e->treble, 0, sizeof(e->treble));
         memset(e->highCut, 0, sizeof(e->highCut));

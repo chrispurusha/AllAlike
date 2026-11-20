@@ -59,6 +59,7 @@ typedef struct {
     double    distLast[2];
     double    distHigh[2];
     double    distHeld[2];
+    double    distFrom[2], distRamp[2];   // tiEffects notes §2a: Quality's glide between held values
     double    treble[2];
     double    highCut[2][2];
     double    driveState[2][4];

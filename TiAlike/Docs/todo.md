@@ -28,6 +28,9 @@ One line per item. Measurements and reasoning go in `findings.md`, design in `de
 - Phaser: Spread between 0 and 96, the LFO's depth and shape, and matrix routes to it
 - Chorus: the other types, and Feedback checked. 
 - Filter Bank: VariSlope in-between Shapes, Vowel at high resonance, Vowel and shifter Stereo Phase
+- Programmable arpeggiator (CT, 2026-11-20): the user pattern plays from page D but cannot be edited - a step grid on the ARP page (each step on/off, length, velocity; pattern length), written back into page D so it is stored with the Single
+- Atomizer (CT, 2026-11-20): not built and not yet scoped. The instrument lists it as a sound category beside Arpeggiator and Bass, and as a parameter group after the Vocoder's - find its parameters, where they live in a Single, and what it does to the audio
+- Effect placement (CT, 2026-11-20): check each effect sits where the instrument has it, per voice or on the summed voices, and in its order. Now: Saturation per voice; Filter Bank, Distortion, Patch Volume, Character, Phaser, Chorus, EQ, Delay, Reverb on the sum (tiEffects.c ti_effects_render). Distortion and the Filter Bank are the likeliest to be per voice on the instrument - read the voice loop and the effect program
 - Effects, in order: Chorus (11% with mix on), Character types (13%), Filterbank (12%), and last of all Delay and Reverb
 - Distortion (2026-11-12 survey, one oscillator, Intensity 32/96 at two input levels): Mint and Rectifier fixed; still out - Bit Reducer's cut-off depends on the signal (a quiet saw sounds on the instrument and not here, a quiet sine the other way round); Saffron and Onion: on a quiet input ours rises above the instrument by exactly its level ramp over the first 48 steps (the instrument has none there), while saturated at high Intensity ours is 6.4 and 2.5 dB low - the instrument keeps its small-signal gain and saturates higher, which the shared Wide shape cannot do; Treble Booster, High Cut and Tone
 - Ring at the same pitch: level right, spectrum still out on saws and pulses
@@ -108,10 +111,12 @@ One line per item. Measurements and reasoning go in `findings.md`, design in `de
 - Clocked LFOs: their phase against the host timeline is unchecked
 - Saturation Rate Reducer at full drive, and Bit Reducer above drive 96, are still out
 - Hardware: the USB link could go direct through libusb, bypassing the maker's driver
+- Delay top-end roll-off (2026-11-20, static saw, wet against dry): the reference's echo falls -0.7 dB at 6.4-9 kHz, -1.8 at 9-12.8k, -3.6 at 12.8-16k, -6.2 at 16-20k (about a two-pole low pass near 13.5 kHz at 48 kHz); ours is flat. Find whether it acts once or on every repeat (Feedback 111), and at 44.1 kHz. Send law, Feedback and Ping Pong levels match within 0.5 dB
+- Delay timing: the reference's echo comes 68 samples (1.4 ms at 48 kHz) sooner after the dry than ours at Delay Time 60 - likely its dry path running 1.4 ms late (see "the reference answers a note 1-1.5 ms after its sample"), to confirm at a second time
 - Delay: Tape Free against Tape Doppler (built alike, a change of time gliding over 0.2 s - how each moves when Time changes is not measured), Pattern timing at other tempos, order against the EQ. Chorus types Vintage, Hyper, Air, Vibrato, Rotary
-- Reverb: top octave 4-6 dB hot, tank modulation, Feedback 1 and 2 modes
+- Reverb: top octave 4-6 dB hot, tank modulation; plain Reverb at Time 0 decays slower than the reference's (8.8 dB over its tail)
 - Analog filter modes: a high-frequency floor in the reference, 20 dB higher at 44.1 kHz than at 48, not in ours
-- Panel: controls with no effect yet: Reverb Feedback, Quality, Tone (wavetable Sync, Formant, Detune and Smooth act since 11-02, on the models that use them)
+- Panel: controls with no effect yet: Distortion Tone, on Mint, Saffron, Onion and Pepper only (wavetable Sync, Formant, Detune and Smooth act since 11-02, on the models that use them)
 - Panel: not offered: vocoder and input follower, soft knobs
 - Delay Clock: tempo law built but unverified on our side; the times wander at 60, 120 and 200 BPM, possibly with sample rate; sequencer patterns, whose right channel runs at the exact tempo
 - Wave and wavetable images above their top partial (a stored cycle's mirror images, near -65 dB)
