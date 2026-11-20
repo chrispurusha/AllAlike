@@ -342,6 +342,7 @@ static tTiVoice * pick_voice(tTiVoices * v) {
 #define FREE_LFO_PHASE    (0.5)   // notes §20
 
 static void lfo_shape(const tTiVoices * v, const tTiSound * s, int l, const double * mod, tTiLfoShape * out);
+static double wrap1(double p);
 
 // notes §12a: Env Mode takes precedence over Mono, so such an LFO runs per voice and restarts with each note
 static bool lfo_is_mono(const tTiSound * s, int l) {
@@ -436,8 +437,8 @@ static void start_voice(tTiVoices * v, tTiVoice * vc, uint8_t note, float veloci
         vc->highPass[1] = 0.0;
         // notes §7: Init Phase places Osc 2 against Osc 1; at 0 the oscillators run free of each other
         vc->phase[0]    = (init > 0.0) ? 0.0 : ((vc->random * 0.5) + 0.5);
-        vc->phase[1]    = (init > 0.0) ? (init / 128.0) : fmod((vc->random * 0.381966) + 0.7, 1.0);
-        vc->phase[2]    = (init > 0.0) ? 0.0 : fmod((vc->random * 0.236068) + 0.2, 1.0);
+        vc->phase[1]    = (init > 0.0) ? (init / 128.0) : wrap1((vc->random * 0.381966) + 0.7);
+        vc->phase[2]    = (init > 0.0) ? 0.0 : wrap1((vc->random * 0.236068) + 0.2);   // random runs -1..1: fmod would leave it negative
         vc->subPhase    = 0.0;
         vc->twin[0][0]  = vc->twin[0][1] = vc->phase[0];
         vc->twin[1][0]  = vc->twin[1][1] = vc->phase[1];
@@ -672,8 +673,6 @@ static void smooth_toward(tTiSmooth * s, double target, double rate, bool instan
         s->step   = (target - s->current) / s->left;
     }
 }
-
-static double wrap1(double p);
 
 // notes §29: k for each stream, in semitones from the note: Formant from 64; the Formant models (6, 7) hold it at a
 // fixed pitch, middle C at 64; the Complex ones (5, 7) spread the streams by Sync, 3/8 of a semitone a step

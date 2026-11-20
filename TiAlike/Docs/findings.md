@@ -362,3 +362,12 @@ carries no ring; ours sent both through Filter 1 and kept the ring. Fixed (tiVoi
   modulation. Trap: a short note cannot measure long times - the reference stops processing about 0.4 s after its
   voices end, which first looked like a 350 ms ceiling on both.
 
+
+## 2026-11-20 Onset tick with Anti-alias on
+- CT heard an occasional tick at note start on A126 with Anti-alias on, gone with it off or with an attack. Cause: Osc 3's
+  free-running start phase was `fmod(random x 0.236068 + 0.2, 1)` with `random` in -1..1, so about 1 note in 13
+  started at a small negative phase, which `fmod` keeps negative. The band-limited saw's edge correction assumes 0..1
+  and gave one sample of about -236 (clipped to full scale); the Anti-alias Off box oscillator happens to tolerate it.
+  Start phases now go through `wrap1()`. Over 30 offline onsets (Punch off) the worst sample-to-sample jump fell from
+  8.2x the steady state to 2.0x, the same as Anti-alias Off. A126 also has Punch at 64, a deliberate click at the start
+  of every note, in both modes.
