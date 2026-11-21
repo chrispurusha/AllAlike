@@ -21,3 +21,4 @@ Built but not yet checked in a host or against the instrument. Confirmed: delete
 - Page tabs (11-16, uaDraw notes §22): OSC / AMP / GLOBAL under the waveform switch on release; each page shows its sections (AMP: Output and both envelope rows; GLOBAL: Anti-alias, Polarity, Voices, Steal, Same Note)
 - Fast wheel/bend/aftertouch moves (11-16, SynthLib synthlibCtlPoints.h): smooth, not stepping once a host block
 - Panel colours (11-17, ../Docs/panel-layout.md Colours): Off buttons dimmed in their section's colour, not grey; OUTPUT sage, PLAY rose; greyed controls still read as unavailable
+- `.E4B` banks (2026-11-21): load several from the library and play them; on the E5000, the same preset side by side - pitch especially: a sample plays at its recorded rate plus any retuning in its pitch word (SynthLib emuBank §8), and some one-step (1.6 cent) retunings may be rounding

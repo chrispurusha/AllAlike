@@ -139,7 +139,7 @@ void ua_bank_voices_note_on(tUaBankVoices * v, const tEmuPreset * preset, const 
         }
         tUaBankVoice *   voice = take_voice(v, play, note);
         int              root  = play->loose ? play->rootKey : zone->rootNote;
-        double           semis = (play->nonTranspose ? 0.0 : (double)note - root) + play->tune;
+        double           semis = (play->nonTranspose ? 0.0 : (double)note - root) + play->tune + (play->loose ? 0.0 : zone->tune);   // an E4B zone's own tuning
         double           step  = (zone->sample->rate / v->hostRate) * pow(2.0, semis / 12.0);
         double           was   = voice->active ? voice->env.gain : 0.0;
 

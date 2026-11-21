@@ -35,8 +35,8 @@
 #define GLIDE_CURVE              (0.41)
 #define GLIDE_LANDING            (2.5)
 #define ENV_TO_CUTOFF            (2.2146)
-#define DRIVE_IN                 (0.5) // voices notes §8
-#define FILTER_IN                (0.5)
+#define FILTER_IN                (0.25) // filter notes §9: the mix into the filter, a quarter of full scale until measured
+#define FILTER_OUT               (4.0)
 #define LFO_FADE_HOLD            (0.0125)
 #define LFO_FADE_FALL            (5.7)
 #define SUB_BLOCK                (32u) // notes §4
@@ -57,6 +57,10 @@ void proph_voices_init(tProphVoices * v) {
 #define FM_SAW            (0.82)   // a saw modulates 0.82 as hard, against the square the depth is measured with
 
 static double gCleanFir[PROPH_CLEAN_TAPS];   // a windowed sinc, built once - the same for every instance
+
+void proph_voices_set_fixed(tProphVoices * v, bool fixedPoint) {
+    v->fixedPoint = fixedPoint;
+}
 
 void proph_voices_set_clean(tProphVoices * v, bool clean) {
     if (gCleanFir[PROPH_CLEAN_TAPS / 2] == 0.0) {
@@ -85,7 +89,7 @@ void proph_voices_set_limit(tProphVoices * v, uint32_t limit) {
     // notes §2: voices above a lowered limit are released, not cut
     for (uint32_t i = limit; i < PROPH_MAX_VOICES; i++) {
         v->voice[i].gate = false;
-        proph_env_gate(&v->voice[i].amp, false);
+        proph_eg_gate(&v->voice[i].amp, &v->ampShape, false);
     }
 }
 
@@ -169,16 +173,16 @@ static void lfo_advance(tProphVoices * v, tProphVoice * vc, const tProphSound * 
 
     for (int l = 0; l < PROPH_LFOS; l++) {
         const tProphLfoSound * lfo   = &sound->lfo[l];
-        double               phase = lfo->keyed ? vc->lfoPhase[l] : v->lfoFree[l];
-        double               next  = phase + (lfo->hz * seconds);
-        double               fade  = lfo_fade(lfo, vc->lfoAge);
+        double                 phase = lfo->keyed ? vc->lfoPhase[l] : v->lfoFree[l];
+        double                 next  = phase + (lfo->hz * seconds);
+        double                 fade  = lfo_fade(lfo, vc->lfoAge);
 
         if (next >= 1.0) {
             next          -= floor(next);
             vc->lfoHeld[l] = next_random(&vc->noiseSeed);
         }
         vc->lfoPhase[l] = next;
-        double               value = (lfo_wave(lfo->shape, next, vc->lfoHeld[l]) + lfo->offset) * fade;   // notes §15: the offset fades in too
+        double                 value = (lfo_wave(lfo->shape, next, vc->lfoHeld[l]) + lfo->offset) * fade; // notes §15: the offset fades in too
 
         vc->lfoValue[l] = value;
 
@@ -242,8 +246,8 @@ static void held_remove(tProphVoices * v, uint8_t note) {
 // voices notes §13: the one voice moves to a note; the envelopes restart unless it is legato over a held note
 static void mono_play(tProphVoices * v, const tProphSound * sound, uint8_t note, float velocity) {
     tProphVoice * vc      = &v->voice[0];
-    bool        over    = vc->active && vc->gate;
-    bool        restart = !over || !sound->legato;
+    bool          over    = vc->active && vc->gate;
+    bool          restart = !over || !sound->legato;
 
     vc->active = true;
     vc->gate   = true;
@@ -260,7 +264,7 @@ static void mono_play(tProphVoices * v, const tProphSound * sound, uint8_t note,
         vc->started   = ++v->clock;
         vc->noiseSeed = vc->noiseSeed ? vc->noiseSeed : (uint32_t)((v->clock * 2654435761u) | 1u);
         lfo_restart(vc, sound);
-        proph_env_gate(&vc->amp, true);
+        proph_eg_gate(&vc->amp, &v->ampShape, true);
 
         for (int e = 0; e < PROPH_MOD_ENVS; e++) {
             proph_env_gate(&vc->env[e], true);
@@ -278,7 +282,7 @@ static void let_go(const tProphSound * sound, tProphVoice * voice) {
     voice->gate = false;
 
     if (!sound->oneShot) {
-        proph_env_gate(&voice->amp, false);
+        proph_eg_gate(&voice->amp, NULL, false);
 
         for (int e = 0; e < PROPH_MOD_ENVS; e++) {
             proph_env_gate(&voice->env[e], false);
@@ -288,7 +292,7 @@ static void let_go(const tProphSound * sound, tProphVoice * voice) {
 
 void proph_voices_note_on(tProphVoices * v, const tProphSound * sound, uint8_t note, float velocity) {
     tProphVoice * pick   = NULL;
-    bool        silent = true;
+    bool          silent = true;
 
     v->pedalled[note & 0x7F] = false;
 
@@ -354,7 +358,7 @@ void proph_voices_note_on(tProphVoices * v, const tProphSound * sound, uint8_t n
     pick->started   = ++v->clock;
     pick->noiseSeed = pick->noiseSeed ? pick->noiseSeed : (uint32_t)((v->clock * 2654435761u) | 1u);
     lfo_restart(pick, sound);
-    proph_env_gate(&pick->amp, true);
+    proph_eg_gate(&pick->amp, &v->ampShape, true);
 
     for (int e = 0; e < PROPH_MOD_ENVS; e++) {
         proph_env_gate(&pick->env[e], true);
@@ -404,7 +408,7 @@ void proph_voices_all_off(tProphVoices * v) {
     for (uint32_t i = 0; i < PROPH_MAX_VOICES; i++) {
         v->voice[i].active = false;
         v->voice[i].gate   = false;
-        v->voice[i].amp    = (tProphEnv){
+        v->voice[i].amp    = (tProphEg){
             0
         };
         proph_filter_reset(&v->voice[i].filter);
@@ -486,19 +490,18 @@ static double velocity_level(double velocity, double amount) {
     return 1.0 - (((64.0 - amount) / 64.0) * curve);
 }
 
-static void render_sub_block(tProphVoices * v, const tProphSound * sound, double cutoff, double res, const tProphEnvShape * amp, const tProphEnvShape * mods,
+static void render_sub_block(tProphVoices * v, const tProphSound * sound, double cutoff, double res, const tProphEgShape * amp, const tProphEnvShape * mods,
                              float * out, uint32_t frames, double gain) {
-    double drive  = proph_filter_drive_word(sound->overdrive);
     double corner = fmin(1.0, 2.0 * M_PI * NOISE_CORNER_HZ * pow(2.0, sound->noiseSoften / 15.0) / v->rate);
 
     for (uint32_t i = 0; i < PROPH_MAX_VOICES; i++) {
-        tProphVoice *      vc                       = &v->voice[i];
+        tProphVoice * vc                         = &v->voice[i];
 
         if (!vc->active) {
             continue;
         }
-        double           lfoCut;
-        double           width[PROPH_OSCS];
+        double        lfoCut;
+        double        width[PROPH_OSCS];
 
         lfo_advance(v, vc, sound, (double)frames / v->rate, &lfoCut, width);
 
@@ -506,23 +509,22 @@ static void render_sub_block(tProphVoices * v, const tProphSound * sound, double
             advance_glide(vc, sound, (double)frames / v->rate);
         }
         set_pitch(vc, sound, v->rate);
-        double           stretch[PROPH_OSCS];
-        double           level                    = velocity_level(vc->velocity, sound->ampVelocity);
-        tProphFilterCoeffs coeffs;
+        double        stretch[PROPH_OSCS];
+        double        level                      = velocity_level(vc->velocity, sound->ampVelocity);
 
         // voices notes §9
-        double           moved                    = (((double)vc->note - 60.0) * sound->tracking) + (sound->wheel * sound->wheelCutoff * ENV_TO_CUTOFF) + lfoCut;
+        double        moved                      = (((double)vc->note - 60.0) * sound->tracking) + (sound->wheel * sound->wheelCutoff * ENV_TO_CUTOFF) + lfoCut;
 
         for (int e = 0; e < PROPH_MOD_ENVS; e++) {
             moved += vc->env[e].level * sound->env[e].amount * ENV_TO_CUTOFF * velocity_level(vc->velocity, sound->env[e].velocity);
         }
 
-        proph_filter_coeffs(sound->filterType, sound->filterSlope, cutoff + moved, fmin(127.0, fmax(0.0, res + (sound->wheel * sound->wheelResonance))), sound->normalise, &coeffs);
+        proph_filter_set(&vc->filter, &vc->filterSet, sound->filterType, cutoff + moved, fmin(99.0, fmax(0.0, res + (sound->wheel * sound->wheelResonance))));   // filter notes §2
 
         // notes §19: each mixer level moved by the wheel, Env 2, Env 3 and the LFOs
-        const double     source[PROPH_LEVEL_ROUTES] = {sound->wheel, vc->env[0].level * velocity_level(vc->velocity, sound->env[0].velocity), vc->env[1].level * velocity_level(vc->velocity, sound->env[1].velocity), LFO_TO_LEVEL * vc->lfoValue[0], LFO_TO_LEVEL * vc->lfoValue[1]};
-        const double     base[PROPH_LEVEL_SLOTS]    = {sound->osc[0].level, sound->osc[1].level, sound->osc[2].level, sound->ring13, sound->ring23, sound->noiseLevel};
-        double           slot[PROPH_LEVEL_SLOTS];
+        const double  source[PROPH_LEVEL_ROUTES] = {sound->wheel, vc->env[0].level * velocity_level(vc->velocity, sound->env[0].velocity), vc->env[1].level * velocity_level(vc->velocity, sound->env[1].velocity), LFO_TO_LEVEL * vc->lfoValue[0], LFO_TO_LEVEL * vc->lfoValue[1]};
+        const double  base[PROPH_LEVEL_SLOTS]    = {sound->osc[0].level, sound->osc[1].level, sound->osc[2].level, sound->ring13, sound->ring23, sound->noiseLevel};
+        double        slot[PROPH_LEVEL_SLOTS];
 
         for (int s = 0; s < PROPH_LEVEL_SLOTS; s++) {
             slot[s] = base[s];
@@ -534,22 +536,22 @@ static void render_sub_block(tProphVoices * v, const tProphSound * sound, double
             slot[s] = fmin(1.0, fmax(0.0, slot[s]));
         }
 
-        double           oscLevel[PROPH_OSCS];
+        double        oscLevel[PROPH_OSCS];
 
         for (int o = 0; o < PROPH_OSCS; o++) {
             stretch[o]  = proph_osc_stretch(vc->increment[o], sound->osc[o].soften);
             oscLevel[o] = slot[o];
         }
 
-        double           ring13                   = slot[3];
-        double           ring23                   = slot[4];
-        double           noiseLevel               = slot[5];
+        double        ring13                     = slot[3];
+        double        ring23                     = slot[4];
+        double        noiseLevel                 = slot[5];
 
         // notes §18: FM depth from each slot's level, squared; a slot set to FM is not heard as ring or noise
-        double           fmD13                    = sound->fm13 ? (FM_DEPTH * pow(ring13 * 128.0, 2.0)) : 0.0;
-        double           fmD23                    = sound->fm23 ? (FM_DEPTH * pow(ring23 * 128.0, 2.0)) : 0.0;
-        double           fmDN                     = sound->fmNoise ? (FM_DEPTH * pow(noiseLevel * 128.0, 2.0)) : 0.0;
-        bool             fm                       = (fmD13 != 0.0) || (fmD23 != 0.0) || (fmDN != 0.0);
+        double        fmD13                      = sound->fm13 ? (FM_DEPTH * pow(ring13 * 128.0, 2.0)) : 0.0;
+        double        fmD23                      = sound->fm23 ? (FM_DEPTH * pow(ring23 * 128.0, 2.0)) : 0.0;
+        double        fmDN                       = sound->fmNoise ? (FM_DEPTH * pow(noiseLevel * 128.0, 2.0)) : 0.0;
+        bool          fm                         = (fmD13 != 0.0) || (fmD23 != 0.0) || (fmDN != 0.0);
 
         fmD13 *= (sound->osc[0].shape == eTiOscSquare) ? 1.0 : FM_SAW;
         fmD23 *= (sound->osc[1].shape == eTiOscSquare) ? 1.0 : FM_SAW;
@@ -567,9 +569,9 @@ static void render_sub_block(tProphVoices * v, const tProphSound * sound, double
             for (int o = 0; o < PROPH_OSCS; o++) {
                 const tProphOscSound * os  = &sound->osc[o];
 
-                double               wid = fmin(2.0, fmax(0.0, width[o]));
+                double                 wid = fmin(2.0, fmax(0.0, width[o]));
 
-                bool                 fm3 = fm && (o == 2);   // notes §18: Osc 3 is the one modulated
+                bool                   fm3 = fm && (o == 2); // notes §18: Osc 3 is the one modulated
 
                 if (v->clean) {   // notes §17: the same law at four times the rate, then the low-pass back down
                     double * h  = vc->cleanHist[o];
@@ -583,9 +585,9 @@ static void render_sub_block(tProphVoices * v, const tProphSound * sound, double
 
                             sub = fmin(fmax(sub * (1.0 + (fmD13 * vc->cleanHist[0][at]) + (fmD23 * vc->cleanHist[1][at]) + (fmDN * noiseNow)), -1.0), 1.0);
                         }
-                        vc->phase[o]                         += sub / CLEAN_FACTOR;
-                        vc->phase[o]                         -= (vc->phase[o] >= 1.0) ? 2.0 : 0.0;
-                        vc->phase[o]                         += (vc->phase[o] < -1.0) ? 2.0 : 0.0; // a step through zero runs backwards
+                        vc->phase[o]                           += sub / CLEAN_FACTOR;
+                        vc->phase[o]                           -= (vc->phase[o] >= 1.0) ? 2.0 : 0.0;
+                        vc->phase[o]                           += (vc->phase[o] < -1.0) ? 2.0 : 0.0; // a step through zero runs backwards
                     }
 
                     double   y  = 0.0;
@@ -624,12 +626,12 @@ static void render_sub_block(tProphVoices * v, const tProphSound * sound, double
             mix        += RING_GAIN * wave[2] * ((sound->fm13 ? 0.0 : (wave[0] * ring13)) + (sound->fm23 ? 0.0 : (wave[1] * ring23)));
             mix        += sound->fmNoise ? 0.0 : (noiseNow * noiseLevel);
 
-            double y      = proph_filter_process(&vc->filter, &coeffs, proph_filter_drive(mix * DRIVE_IN, drive) * FILTER_IN * coeffs.gain) + (around * BYPASS_GAIN);
+            double y      = (FILTER_OUT * proph_filter_process(&vc->filter, &vc->filterSet, mix * FILTER_IN, v->fixedPoint)) + (around * BYPASS_GAIN);
 
-            out[f]     += (float)(y * proph_env_next(&vc->amp, amp) * level * gain);
+            out[f]     += (float)(y * proph_eg_next(&vc->amp, amp) * level * gain);
         }
 
-        if (proph_env_idle(&vc->amp)) {
+        if (proph_eg_idle(&vc->amp)) {
             vc->active = false;
             vc->gate   = false;
         }
@@ -649,9 +651,8 @@ void proph_voices_render(tProphVoices * v, const tProphSound * sound, float * ou
 
     smooth_toward(&v->cutoff, sound->cutoff, v->rate);
     smooth_toward(&v->resonance, sound->resonance, v->rate);
-    tProphEnvShape amp;
-
-    proph_env_shape(sound->ampAttack, sound->ampDecay, sound->ampSustain, sound->ampRelease, sound->oneShot ? -1.0 : sound->ampSustainTime, sound->ampSustainRate, true, v->rate, &amp);
+    proph_eg_shape(sound->ampStart, sound->ampAttack, sound->ampAttackLevel, sound->ampDecay, sound->ampBreak, sound->ampSlope, sound->ampSustain,
+                   sound->ampRelease, v->rate, &v->ampShape);   // envelope notes §10
     tProphEnvShape mods[PROPH_MOD_ENVS];
 
     for (int e = 0; e < PROPH_MOD_ENVS; e++) {
@@ -666,7 +667,7 @@ void proph_voices_render(tProphVoices * v, const tProphSound * sound, float * ou
         double   cutoff = smooth_advance(&v->cutoff, n);
         double   res    = smooth_advance(&v->resonance, n);
 
-        render_sub_block(v, sound, cutoff, res, &amp, mods, out + done, n, gain);
+        render_sub_block(v, sound, cutoff, res, &v->ampShape, mods, out + done, n, gain);
 
         for (int l = 0; l < PROPH_LFOS; l++) {
             v->lfoFree[l] += sound->lfo[l].hz * ((double)n / v->rate);

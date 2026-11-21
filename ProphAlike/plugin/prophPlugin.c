@@ -51,7 +51,7 @@
 #endif
 
 // THESE MAY NEVER CHANGE: a saved project finds the plug-in by them.
-static const uint8_t gProcessorUid[16] = {0x88, 0x5B, 0xB1, 0xF5, 0x0A, 0x59, 0x44, 0x6F, 0x9B, 0xFB, 0xA4, 0x2B, 0x9D, 0x02, 0xBB, 0xB4};
+static const uint8_t gProcessorUid[16]  = {0x88, 0x5B, 0xB1, 0xF5, 0x0A, 0x59, 0x44, 0x6F, 0x9B, 0xFB, 0xA4, 0x2B, 0x9D, 0x02, 0xBB, 0xB4};
 static const uint8_t gControllerUid[16] = {0x1B, 0xA4, 0x4D, 0x94, 0xB8, 0x7D, 0x49, 0x39, 0xB0, 0xBB, 0x6F, 0x69, 0x51, 0x7B, 0xE9, 0x7E};
 
 // THESE MUST MATCH do-plugin - the bundle identifier especially
@@ -62,14 +62,14 @@ static const uint8_t gControllerUid[16] = {0x1B, 0xA4, 0x4D, 0x94, 0xB8, 0x7D, 0
 #define PROPH_AU_BUNDLE_ID       "com.chrispurusha.prophalike.au"
 
 // notes §2: a block's notes, played at their own sample when the block renders
-#define MAX_EVENTS             (256)
+#define MAX_EVENTS               (256)
 
-#define DEFAULT_TEMPO          (120.0) // notes §13: until the host gives one
-#define CLIP_HOLD_S            (1.5)
-#define HOST_CEILING           (0.97675f)
-#define OUTPUT_HEADROOM        (0.5f)  // notes §16: 6 dB under the instrument's level, after its ceiling
-#define HOST_CHUNK             (256u)
-#define ENGINE_FRAMES          (4096u) // notes §12: HOST_CHUNK at a host rate down to 2.5 kHz
+#define DEFAULT_TEMPO            (120.0) // notes §13: until the host gives one
+#define CLIP_HOLD_S              (1.5)
+#define HOST_CEILING             (0.97675f)
+#define OUTPUT_HEADROOM          (0.5f)  // notes §16: 6 dB under the instrument's level, after its ceiling
+#define HOST_CHUNK               (256u)
+#define ENGINE_FRAMES            (4096u) // notes §12: HOST_CHUNK at a host rate down to 2.5 kHz
 
 typedef struct {
     uint32_t offset;
@@ -79,15 +79,15 @@ typedef struct {
 } tProphEvent;
 
 typedef struct {
-    tProphVoices         voices;
+    tProphVoices       voices;
     tSynthLibResampler resampler;  // notes §12
     tSynthLibResampler resamplerR;
-    tProphEffects        effects;
+    tProphEffects      effects;
     double             hostRate;
     double             tempo;
     float              engine[ENGINE_FRAMES];
     float              engineL[ENGINE_FRAMES], engineR[ENGINE_FRAMES];
-    tProphEvent          events[MAX_EVENTS];
+    tProphEvent        events[MAX_EVENTS];
     uint32_t           eventCount;
     double             values[kProphParamCount]; // normalized
     // notes §5: the sound, beyond its parameters - main thread, and the host's state calls
@@ -95,8 +95,8 @@ typedef struct {
     bool               haveBase;
     uint8_t            base[PROPH_SINGLE_LENGTH]; // the Single it came from, whose bytes a save keeps
     char               patchPath[1024];
-    int                patchIndex;              // its place in that file
-    int                preset;                  // 1..PROPH_PRESETS, 0 none
+    int                patchIndex;                // its place in that file
+    int                preset;                    // 1..PROPH_PRESETS, 0 none
     double             presetsChecked;
     tSynthLibSwapFade  fade;
     _Atomic bool       clipped;     // the audio thread saw the ceiling; the panel holds the lamp
@@ -137,13 +137,16 @@ static void * proph_create(const tSynthLibPluginDesc * desc) {
     snprintf(t->soundName, sizeof(t->soundName), "Init");
     proph_voices_init(&t->voices);
     proph_voices_set_clean(&t->voices, t->values[kProphParamAntiAlias] >= 0.5);   // voices notes §17: On unless the host says otherwise
+    proph_voices_set_fixed(&t->voices, t->values[kProphParamArithmetic] >= 0.5);
     proph_effects_reset(&t->effects);
     t->hostRate    = 48000.0;
     t->tempo       = DEFAULT_TEMPO;
     synthlib_resample_init(&t->resampler, PROPH_ENGINE_HZ, t->hostRate);
     synthlib_resample_init(&t->resamplerR, PROPH_ENGINE_HZ, t->hostRate);
     proph_voices_set_limit(&t->voices, voice_limit(t));
+#ifndef SYNTHLIB_NO_EDITOR
     proph_prefs_init();
+#endif
     synthlib_log_line("created - ProphAlike %s", PROPH_VERSION_STRING);
     return t;
 }
@@ -161,7 +164,7 @@ static void proph_destroy(void * inst) {
 
 static size_t proph_get_state(void * inst, void * out, size_t len) {
     tProphPlugin * t = (tProphPlugin *)inst;
-    uint8_t *    o = (uint8_t *)out;
+    uint8_t *      o = (uint8_t *)out;
 
     if ((out == NULL) || (len < STATE_LENGTH)) {
         return STATE_LENGTH;
@@ -183,26 +186,26 @@ static size_t proph_get_state(void * inst, void * out, size_t len) {
 }
 
 static void proph_set_state(void * inst, const void * data, size_t len) {
-    tProphPlugin *    t = (tProphPlugin *)inst;
+    tProphPlugin *  t = (tProphPlugin *)inst;
     const uint8_t * d = (const uint8_t *)data;
 
     if ((data == NULL) || (len < STATE_LENGTH) || (memcmp(d, STATE_MAGIC, 4) != 0)) {
         return;
     }
     atomic_store(&t->startPreset, false);   // a project's sound, not A001
-    d                                   += 4;
+    d                                     += 4;
     memcpy(t->soundName, d, PROPH_SINGLE_NAME_LENGTH + 1);
     t->soundName[PROPH_SINGLE_NAME_LENGTH] = '\0';
-    d                                   += PROPH_SINGLE_NAME_LENGTH + 1;
-    t->haveBase                          = (*d++ != 0);
+    d                                     += PROPH_SINGLE_NAME_LENGTH + 1;
+    t->haveBase                            = (*d++ != 0);
     memcpy(t->base, d, PROPH_SINGLE_LENGTH);
-    d                                   += PROPH_SINGLE_LENGTH;
+    d                                     += PROPH_SINGLE_LENGTH;
     memcpy(t->patchPath, d, 1024);
-    t->patchPath[1023]                   = '\0';
-    d                                   += 1024;
-    t->patchIndex                        = (d[0] << 8) | d[1];
-    t->preset                            = (d[2] << 8) | d[3];
-    t->preset                            = ((t->preset >= 1) && (t->preset <= PROPH_PRESETS)) ? t->preset : 0;
+    t->patchPath[1023]                     = '\0';
+    d                                     += 1024;
+    t->patchIndex                          = (d[0] << 8) | d[1];
+    t->preset                              = (d[2] << 8) | d[3];
+    t->preset                              = ((t->preset >= 1) && (t->preset <= PROPH_PRESETS)) ? t->preset : 0;
 }
 
 // notes §12: voices at their own rate, converted to the host's
@@ -285,8 +288,8 @@ static tProphSound make_sound(const tProphPlugin * t) {
             OSC_SOUND(t->values, kProphParamOsc2Shape, kProphParamOsc2Width,  kProphParamOsc2Soften, kProphParamOsc2Level, kProphParamOsc2Octave, kProphParamOsc2Semitone, kProphParamOsc2Fine),
             OSC_SOUND(t->values, kProphParamOsc3Shape, kProphParamOsc3Width,  kProphParamOsc3Soften, kProphParamOsc3Level, kProphParamOsc3Octave, kProphParamOsc3Semitone, kProphParamOsc3Fine),
         },
-        .cutoff         = t->values[kProphParamCutoff] * 127.0,
-        .resonance      = t->values[kProphParamResonance] * 127.0,
+        .cutoff         = t->values[kProphParamCutoff] * 99.0,
+        .resonance      = t->values[kProphParamResonance] * 99.0,
         .tracking       = t->values[kProphParamFilterTrack],
         .overdrive      = t->values[kProphParamFilterDrive] * 127.0,
         .normalise      = t->values[kProphParamFilterQ] * 127.0,
@@ -296,12 +299,16 @@ static tProphSound make_sound(const tProphPlugin * t) {
         .glideCurve     = (int)lround(t->values[kProphParamGlideCurve]),
         .glideType      = (int)lround(t->values[kProphParamGlideType] * 9.0),
         .ampVelocity    = t->values[kProphParamAmpVelocity] * 127.0,
-        .filterType     = (uint32_t)lround(t->values[kProphParamFilterType] * 11.0),
+        .filterType     = (uint32_t)lround(t->values[kProphParamFilterType] * 4.0),
         .filterSlope    = (uint32_t)lround(t->values[kProphParamFilterSlope] * 2.0),
-        .ampAttack      = t->values[kProphParamAmpAttack] * 127.0,
-        .ampDecay       = t->values[kProphParamAmpDecay] * 127.0,
-        .ampSustain     = t->values[kProphParamAmpSustain] * 127.0,
-        .ampRelease     = t->values[kProphParamAmpRelease] * 127.0,
+        .ampAttack      = t->values[kProphParamAmpAttack] * 99.0,
+        .ampDecay       = t->values[kProphParamAmpDecay] * 99.0,
+        .ampSustain     = t->values[kProphParamAmpSustain] * 99.0,
+        .ampRelease     = t->values[kProphParamAmpRelease] * 99.0,
+        .ampStart       = t->values[kProphParamAmpStart] * 99.0,
+        .ampAttackLevel = t->values[kProphParamAmpAttackLevel] * 99.0,
+        .ampBreak       = t->values[kProphParamAmpBreak] * 99.0,
+        .ampSlope       = t->values[kProphParamAmpSlope] * 99.0,
         .ampSustainTime = t->values[kProphParamAmpSustainTime] * 127.0,
         .ampSustainRate = t->values[kProphParamAmpSustainRate] * 127.0,
         .noiseLevel     = t->values[kProphParamNoiseLevel] * 127.0 / 128.0,
@@ -371,13 +378,13 @@ static void take_program_change(tProphPlugin * t) {
 }
 
 static void proph_process(void * inst, const float *const * in, uint32_t numIn, float ** out, uint32_t numOut,
-                        uint32_t frames, const tSynthLibTransport * transport) {
+                          uint32_t frames, const tSynthLibTransport * transport) {
     tProphPlugin * t      = (tProphPlugin *)inst;
 
     take_start_preset(t);
     take_program_change(t);
-    double       gain   = proph_volume_gain(t->values[kProphParamVolume]);
-    double       master = t->values[kProphParamMaster];
+    double         gain   = proph_volume_gain(t->values[kProphParamVolume]);
+    double         master = t->values[kProphParamMaster];
     tProphSound    sound  = make_sound(t);
 
     (void)in;
@@ -478,6 +485,8 @@ static void proph_set_param(void * inst, uint32_t id, double normalized) {
         }
     } else if (id == kProphParamAntiAlias) {
         proph_voices_set_clean(&t->voices, normalized >= 0.5);   // voices notes §17
+    } else if (id == kProphParamArithmetic) {
+        proph_voices_set_fixed(&t->voices, normalized >= 0.5);   // filter notes §8
     } else if (id == kProphParamVoiceLimit) {
         proph_voices_set_limit(&t->voices, voice_limit(t));
     }
@@ -587,7 +596,7 @@ static bool proph_param_text(const tSynthLibPluginDesc * desc, void * inst, uint
 
 // What a sound carries: everything but the plug-in's own settings
 static bool sound_param(uint32_t id) {
-    return (id != kProphParamVoiceLimit) && (id != kProphParamAntiAlias) && (id != kProphParamSameNote) && (id != kProphParamMaster) && (id != kProphParamEffectsBypass) && (id != kProphParamSustainPedal)
+    return (id != kProphParamVoiceLimit) && (id != kProphParamAntiAlias) && (id != kProphParamArithmetic) && (id != kProphParamSameNote) && (id != kProphParamMaster) && (id != kProphParamEffectsBypass) && (id != kProphParamSustainPedal)
            && (id != kProphParamHwLink) && (id != kProphParamHwChannel) && (id != kProphParamHwDevice) && (id != kProphParamProgram) && (id != kProphParamBank)
            && (id != kProphParamPitchBend) && (id != kProphParamModWheel);
 }
@@ -601,7 +610,7 @@ static void current_values(void * user, double values[kProphParamCount]) {
 // The sound as it is now, as a Single: the host's values over the Single it came from
 static void current_single(void * user, uint8_t single[PROPH_SINGLE_LENGTH]) {
     tProphPlugin * t = (tProphPlugin *)user;
-    double       values[kProphParamCount];
+    double         values[kProphParamCount];
 
     current_values(user, values);
     proph_patch_to_single(values, t->haveBase ? t->base : NULL, t->soundName, single);
@@ -610,7 +619,7 @@ static void current_single(void * user, uint8_t single[PROPH_SINGLE_LENGTH]) {
 // notes §6: every parameter the sound carries, through the host, so the change is one the host sees
 static void proph_load_single(void * user, const uint8_t * single, const char * path, int index, int preset) {
     tProphPlugin * t = (tProphPlugin *)user;
-    double       values[kProphParamCount];
+    double         values[kProphParamCount];
 
     // the instance's own values, not the host's: asking the host takes a lock on VST3, and a program
     // change runs this on the audio thread
@@ -638,7 +647,7 @@ static void proph_load_single(void * user, const uint8_t * single, const char * 
 
 static bool proph_save_patch(void * user, const char * path) {
     tProphPlugin * t = (tProphPlugin *)user;
-    uint8_t      single[PROPH_SINGLE_LENGTH];
+    uint8_t        single[PROPH_SINGLE_LENGTH];
 
     current_single(user, single);
 
@@ -665,7 +674,7 @@ static void proph_load_faded(void * user, const uint8_t * single, const char * p
 
 static bool proph_store_preset(void * user, int number) {
     tProphPlugin * t = (tProphPlugin *)user;
-    uint8_t      single[PROPH_SINGLE_LENGTH];
+    uint8_t        single[PROPH_SINGLE_LENGTH];
 
     current_single(user, single);
 
@@ -730,6 +739,8 @@ static bool preset_edited(tProphPlugin * t, void * user) {
 
 #define LINK_MIN_SECONDS    (0.5)    // notes §14: a whole sound, at most this often
 #define LINK_EXT_SECONDS    (0.2)    // the extension after the main message
+
+#ifndef SYNTHLIB_NO_EDITOR   // an editor-less build (the MPC) leaves out the panel and the instrument link
 
 static double now_seconds(void) {
     struct timespec ts;
@@ -833,9 +844,9 @@ static bool bd_preset(void * user, int number) {
 
 static const tSynthLibBackdoor gBackdoor = {
     .params = gProphParams,     .count  = kProphParamCount,
-    .get    = bd_get,         .set    = bd_set,        .text  = bd_text,
+    .get    = bd_get,           .set    = bd_set,          .text  = bd_text,
     .name   = proph_sound_name, .rename = proph_rename,
-    .preset = bd_preset,      .save   = proph_save_patch,.init  = proph_init_patch,
+    .preset = bd_preset,        .save   = proph_save_patch,.init  = proph_init_patch,
 };
 
 static void proph_panel_sync(void * user) {
@@ -850,7 +861,7 @@ static void proph_panel_sync(void * user) {
     proph_draw_set_clip(now_seconds() < t->clipUntil);
     hardware_link(t, user);
     proph_draw_read_tick();
-    int          id = proph_hardware_identified(); // hardware notes §4
+    int            id = proph_hardware_identified(); // hardware notes §4
 
     if (id >= 0) {
         proph_set_param(user, kProphParamHwDevice, (double)id / 127.0);
@@ -879,7 +890,7 @@ static void proph_panel_frame(void * user, int pixelWidth, int pixelHeight) {
 
 static bool proph_panel_press(void * user, double x, double y) {
     tProphEdit edit;
-    bool     grabbed = false;
+    bool       grabbed = false;
 
     (void)proph_draw_press(x, y, &edit, &grabbed);
 
@@ -952,6 +963,7 @@ static void * proph_create_view(const tSynthLibPluginDesc * desc, void * inst, d
     (void)desc;
     return synthlib_panel_view_create(&gPanel, inst, width, height);
 }
+#endif // SYNTHLIB_NO_EDITOR
 
 static const tSynthLibBus        gOutputs[1] = {{"Out", 2, false, true}};
 
@@ -965,7 +977,7 @@ static const tSynthLibPluginDesc gDescriptor = {
     .isInstrument       = true,
     .vst3SubCategory    = "Instrument|Synth",
     .outputs            = gOutputs,
-    .numOutputs         =                                          1,
+    .numOutputs         =                                            1,
     .wantsMidiIn        = true,
 
     .vst3ProcessorUid   = gProcessorUid,
@@ -999,7 +1011,9 @@ static const tSynthLibPluginDesc gDescriptor = {
         .paramText      = proph_param_text,
         .getState       = proph_get_state,
         .setState       = proph_set_state,
+#ifndef SYNTHLIB_NO_EDITOR
         .createView     = proph_create_view,
+#endif
     }
 };
 

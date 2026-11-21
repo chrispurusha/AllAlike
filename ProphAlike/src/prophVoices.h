@@ -37,28 +37,29 @@
 
 // notes §6: how the two filters are put together
 typedef struct {
-    bool       active;
+    bool            active;
 
-    double     cleanHist[PROPH_OSCS][PROPH_CLEAN_TAPS];   // notes §17: each oscillator at four times the rate
-    uint32_t   cleanAt;
-    bool       gate;
-    uint8_t    note;
-    float      velocity;
-    double     phase[PROPH_OSCS];
-    double     increment[PROPH_OSCS];
-    tProphEnv    amp;       // the amplifier envelope
-    double     glide;     // notes §12: semitones from the note
-    double     glideRate; // semitones a second, for a straight glide
-    uint32_t   noiseSeed;
-    double     noiseLow, noiseLast;
-    tProphEnv    env[PROPH_MOD_ENVS];
-    tProphFilter filter;
-    double     lfoPhase[PROPH_LFOS]; // 0..1
-    double     lfoHeld[PROPH_LFOS];  // sample and hold
-    double     lfoValue[PROPH_LFOS]; // this sub-block's, for the level routes
-    double     lfoAge;             // seconds since the note began
-    double     lfoSemis[PROPH_OSCS];
-    uint64_t   started;            // for stealing the oldest
+    double          cleanHist[PROPH_OSCS][PROPH_CLEAN_TAPS]; // notes §17: each oscillator at four times the rate
+    uint32_t        cleanAt;
+    bool            gate;
+    uint8_t         note;
+    float           velocity;
+    double          phase[PROPH_OSCS];
+    double          increment[PROPH_OSCS];
+    tProphEg        amp;       // envelope notes §10: the amp EG
+    double          glide;     // notes §12: semitones from the note
+    double          glideRate; // semitones a second, for a straight glide
+    uint32_t        noiseSeed;
+    double          noiseLow, noiseLast;
+    tProphEnv       env[PROPH_MOD_ENVS];
+    tProphFilter    filter;
+    tProphFilterSet filterSet;            // filter notes §2: what the panel asks of it
+    double          lfoPhase[PROPH_LFOS]; // 0..1
+    double          lfoHeld[PROPH_LFOS];  // sample and hold
+    double          lfoValue[PROPH_LFOS]; // this sub-block's, for the level routes
+    double          lfoAge;               // seconds since the note began
+    double          lfoSemis[PROPH_OSCS];
+    uint64_t        started;              // for stealing the oldest
 } tProphVoice;
 
 #define PROPH_LFOS    (2)
@@ -76,14 +77,14 @@ typedef struct {
 // One oscillator, in the panel's units
 typedef struct {
     tProphOscShape shape;
-    double       octaves, semitones, cents;
-    double       width;              // 0..2, 1 square
-    double       soften;             // 0..127
-    double       level;              // 0..1
-    double       bendRange;          // semitones at full bend, negative inverts the wheel
-    double       wheelPitch;         // semitones at full wheel
-    double       lfoPitch[PROPH_LFOS]; // semitones at full swing
-    double       lfoWidth[PROPH_LFOS]; // in width units
+    double         octaves, semitones, cents;
+    double         width;                // 0..2, 1 square
+    double         soften;               // 0..127
+    double         level;                // 0..1
+    double         bendRange;            // semitones at full bend, negative inverts the wheel
+    double         wheelPitch;           // semitones at full wheel
+    double         lfoPitch[PROPH_LFOS]; // semitones at full swing
+    double         lfoWidth[PROPH_LFOS]; // in width units
 } tProphOscSound;
 
 // Env 2 or 3, in the panel's units
@@ -95,41 +96,42 @@ typedef struct {
 // The sound as the voices play it, in the panel's units (notes §3)
 typedef struct {
     tProphOscSound osc[PROPH_OSCS];
-    double       cutoff;                                        // 0..127
-    double       resonance;                                     // 0..127
-    double       tracking;                                      // 0..1
-    double       overdrive;                                     // 0..127
-    double       normalise;                                     // 0..127, Q Normalise
-    bool         oscsFree;                                      // Ensemble: phases run on between notes
-    double       glideTime;                                     // 0..127
-    int          glideStyle;                                    // 0 Portamento, 1 Glissando
-    int          glideCurve;                                    // 0 Linear, 1 Exponential
-    int          glideType;                                     // 0 Normal, 1 Auto, then the fixed intervals
-    double       ampVelocity;                                   // 0..127, 64 none
-    uint32_t     filterType, filterSlope;
-    double       ampAttack, ampDecay, ampSustain, ampRelease;   // 0..127 (envelope notes)
-    double       ampSustainTime, ampSustainRate;                // 0..127 (envelope notes §8)
+    double         cutoff;                                            // 0..127
+    double         resonance;                                         // 0..127
+    double         tracking;                                          // 0..1
+    double         overdrive;                                         // 0..127
+    double         normalise;                                         // 0..127, Q Normalise
+    bool           oscsFree;                                          // Ensemble: phases run on between notes
+    double         glideTime;                                         // 0..127
+    int            glideStyle;                                        // 0 Portamento, 1 Glissando
+    int            glideCurve;                                        // 0 Linear, 1 Exponential
+    int            glideType;                                         // 0 Normal, 1 Auto, then the fixed intervals
+    double         ampVelocity;                                       // 0..127, 64 none
+    uint32_t       filterType, filterSlope;
+    double         ampAttack, ampDecay, ampSustain, ampRelease;       // 0..127 (envelope notes)
+    double         ampSustainTime, ampSustainRate;                    // 0..127 (envelope notes §8)
+    double         ampStart, ampAttackLevel, ampBreak, ampSlope;      // 0..99, envelope notes §10 (with ampAttack, ampDecay, ampSustain, ampRelease)
     tProphModEnv   env[PROPH_MOD_ENVS];
-    double       noiseLevel, noiseSoften;                       // 0..1, 0..127
-    double       ring13, ring23;                                // 0..1
-    bool         fm13, fm23, fmNoise;                           // notes §18: each turns its level into FM depth on Osc 3
-    double       bend;                                          // -1..1
-    double       wheel;                                         // 0..1
-    double       wheelCutoff, wheelResonance;                   // -64..63
-    bool         mono;                                          // one voice, last note priority
-    bool         pedal;                                         // the sustain pedal is down
-    double       levelRoute[PROPH_LEVEL_SLOTS][PROPH_LEVEL_ROUTES]; // notes §19: full level per unit of Wheel, Env 2, Env 3, LFO 1, LFO 2
-    bool         oscsAround;                                    // voices notes §20: the oscillators skip the filter
-    bool         oneShot;                                       // envelope notes §9: the key's release is ignored
+    double         noiseLevel, noiseSoften;                           // 0..1, 0..127
+    double         ring13, ring23;                                    // 0..1
+    bool           fm13, fm23, fmNoise;                               // notes §18: each turns its level into FM depth on Osc 3
+    double         bend;                                              // -1..1
+    double         wheel;                                             // 0..1
+    double         wheelCutoff, wheelResonance;                       // -64..63
+    bool           mono;                                              // one voice, last note priority
+    bool           pedal;                                             // the sustain pedal is down
+    double         levelRoute[PROPH_LEVEL_SLOTS][PROPH_LEVEL_ROUTES]; // notes §19: full level per unit of Wheel, Env 2, Env 3, LFO 1, LFO 2
+    bool           oscsAround;                                        // voices notes §20: the oscillators skip the filter
+    bool           oneShot;                                           // envelope notes §9: the key's release is ignored
     tProphLfoSound lfo[PROPH_LFOS];
-    double       lfoCutoff[PROPH_LFOS];                           // semitones at full swing
-    bool         legato;                                        // mono: a change of note does not restart the envelopes
-    bool         piano;                                         // notes §21: Same Note Piano
+    double         lfoCutoff[PROPH_LFOS];                             // semitones at full swing
+    bool           legato;                                            // mono: a change of note does not restart the envelopes
+    bool           piano;                                             // notes §21: Same Note Piano
 } tProphSound;
 
 // One oscillator's sound from normalised parameters
 #define OSC_SOUND(values, shape_, width_, soften_, level_, octave_, semitone_, fine_)                   { \
-       .shape     = (tProphOscShape)lround((values)[shape_] * 2.0),                                         \
+       .shape     = (tProphOscShape)lround((values)[shape_] * 2.0),                                       \
        .octaves   = ((values)[octave_] * 4.0) - 2.0,                                                      \
        .semitones = ((values)[semitone_] * 24.0) - 12.0,                                                  \
        .cents     = ((values)[fine_] * 127.0) - 64.0,                                                     \
@@ -158,20 +160,22 @@ typedef struct {
 } tProphSmooth;
 
 typedef struct {
-    tProphVoice  voice[PROPH_MAX_VOICES];
-    tProphSmooth cutoff, resonance;
-    uint32_t   limit;         // 1..PROPH_MAX_VOICES (design §1: the instance's voice limit)
-    double     rate;
-    uint64_t   clock;
-    int        lastNote;      // notes §12: -1 before the first
-    uint8_t    heldNote[128]; // mono: the keys down, oldest first
-    float      heldVelocity[128];
-    uint32_t   heldCount;
-    bool       pedal;             // as the last block saw it
-    double     lfoFree[PROPH_LFOS]; // the phase of a free running LFO
-    bool       pedalled[128];     // keys up while the pedal held them
-    double     edge[PROPH_EDGE_POINTS];
-    bool       clean;             // notes §17: Anti-alias - the oscillators at four times the rate, filtered back
+    tProphVoice   voice[PROPH_MAX_VOICES];
+    tProphSmooth  cutoff, resonance;
+    uint32_t      limit;      // 1..PROPH_MAX_VOICES (design §1: the instance's voice limit)
+    double        rate;
+    uint64_t      clock;
+    int           lastNote;      // notes §12: -1 before the first
+    uint8_t       heldNote[128]; // mono: the keys down, oldest first
+    float         heldVelocity[128];
+    uint32_t      heldCount;
+    bool          pedal;               // as the last block saw it
+    double        lfoFree[PROPH_LFOS]; // the phase of a free running LFO
+    bool          pedalled[128];       // keys up while the pedal held them
+    double        edge[PROPH_EDGE_POINTS];
+    bool          clean;               // notes §17: Anti-alias - the oscillators at four times the rate, filtered back
+    bool          fixedPoint;          // filter notes §8: the instrument's arithmetic
+    tProphEgShape ampShape;            // envelope notes §10: this block's, for the keys
 } tProphVoices;
 
 // voices notes §14: from the normalised Volume
@@ -184,6 +188,7 @@ static inline double proph_volume_gain(double normalized) {
 void proph_voices_init(tProphVoices * v);
 void proph_voices_set_limit(tProphVoices * v, uint32_t limit);
 void proph_voices_set_clean(tProphVoices * v, bool clean);   // notes §17: Anti-alias
+void proph_voices_set_fixed(tProphVoices * v, bool fixedPoint);
 void proph_voices_note_on(tProphVoices * v, const tProphSound * sound, uint8_t note, float velocity);
 void proph_voices_note_off(tProphVoices * v, const tProphSound * sound, uint8_t note);
 void proph_voices_all_off(tProphVoices * v);

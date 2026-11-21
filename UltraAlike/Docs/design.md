@@ -50,6 +50,13 @@ Built: SynthLib's `emuBank.c` reads an Emulator X bank (from G2Alike's Sampler r
 presets in place of a sample (`code-notes/uaPlugin.md` §12, `uaBankVoice.md`). Next, each voice's own settings from
 the bank: tuning, level, pan, then its envelopes - compared with Emulator X3, then the E5000.
 
+EOS `.E4B` banks too (2026-11-21): the same reader opens them (SynthLib `Docs/code-notes/emuBank.c.md` §8) - presets,
+voices, zones, the samples held inside the bank (mono and stereo), loops, the amp envelope, and each zone's tuning
+(its voice's transpose, coarse and fine tune plus its own, applied when a note starts). `tools/uaBankTest.c` plays a
+preset's notes through the bank voices, checks every pitch step against the zone's root and tuning, and writes a WAV.
+Still read from the bank but not yet played: each voice's level and pan, the filter, the other envelopes, LFOs and
+cords.
+
 ## Numbering (owner, 2026-11-16)
 
 EOS counts presets and samples from zero (P000, S000): wherever UltraAlike shows a preset's or sample's number, it

@@ -46,20 +46,50 @@ typedef struct {
 
 typedef struct {
     tProphEnvStage stage;
-    double       level;    // 0..1, the amplifier's gain
-    double       held;     // the sustain level the sustain stage started from
-    double       gap;      // notes §8: decay distance still to close before the hold starts
-    double       left;     // samples of hold to go, once it has started
-    bool         holding;
+    double         level;  // 0..1, the amplifier's gain
+    double         held;   // the sustain level the sustain stage started from
+    double         gap;    // notes §8: decay distance still to close before the hold starts
+    double         left;   // samples of hold to go, once it has started
+    bool           holding;
 } tProphEnv;
 
 // The panel's 0..127 for Attack, Decay, Sustain, Release, Sustain Time and Rate; squared: the amplifier's Sustain (notes §3)
 void proph_env_shape(double attack, double decay, double sustain, double release, double sustainTime, double sustainRate, bool squared, double sampleRate, tProphEnvShape * shape);
-void proph_env_gate(tProphEnv * env, bool on);                      // on: attack from where it is; off: release
+void proph_env_gate(tProphEnv * env, bool on);                        // on: attack from where it is; off: release
 double proph_env_next(tProphEnv * env, const tProphEnvShape * shape); // one sample on
 
 static inline bool proph_env_idle(const tProphEnv * env) {
     return env->stage == eTiEnvIdle;
+}
+
+// envelope notes §10: the instrument's amp EG - Start, Attack to its level, Decay to the Break Point, Slope to Sustain,
+// Release - straight segments; levels 0..1, times in samples (an approximate law until measured)
+typedef enum {
+    eProphEgIdle = 0,
+    eProphEgAttack,
+    eProphEgDecay,
+    eProphEgSlope,
+    eProphEgSustain,
+    eProphEgRelease
+} tProphEgStage;
+
+typedef struct {
+    double start, attackLevel, breakPoint, sustain;
+    double attack, decay, slope, release;   // samples
+} tProphEgShape;
+
+typedef struct {
+    tProphEgStage stage;
+    double        level, from, at;   // at: samples into the segment
+} tProphEg;
+
+// the panel's 0..99 for each control
+void proph_eg_shape(double start, double attack, double attackLevel, double decay, double breakPoint, double slope, double sustain, double release, double sampleRate, tProphEgShape * shape);
+void proph_eg_gate(tProphEg * eg, const tProphEgShape * shape, bool on);
+double proph_eg_next(tProphEg * eg, const tProphEgShape * shape);
+
+static inline bool proph_eg_idle(const tProphEg * eg) {
+    return eg->stage == eProphEgIdle;
 }
 
 #endif // __TI_ENVELOPE_H__

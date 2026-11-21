@@ -194,3 +194,88 @@ double proph_env_next(tProphEnv * env, const tProphEnvShape * shape) {
     }
     return env->level;
 }
+
+// ---- the instrument's amp EG - notes §10 ------------------------------------------------------------------------
+
+#define EG_SHORTEST_S      (0.002) // notes §10: Time 0, and a decade every 25 steps - approximate, not yet measured
+#define EG_STEPS_DECADE    (25.0)
+
+static double eg_samples(double time, double sampleRate) {
+    return EG_SHORTEST_S * pow(10.0, time / EG_STEPS_DECADE) * sampleRate;
+}
+
+void proph_eg_shape(double start, double attack, double attackLevel, double decay, double breakPoint, double slope, double sustain,
+                    double release, double sampleRate, tProphEgShape * shape) {
+    shape->start       = start / 99.0;
+    shape->attackLevel = attackLevel / 99.0;
+    shape->breakPoint  = breakPoint / 99.0;
+    shape->sustain     = sustain / 99.0;
+    shape->attack      = eg_samples(attack, sampleRate);
+    shape->decay       = eg_samples(decay, sampleRate);
+    shape->slope       = eg_samples(slope, sampleRate);
+    shape->release     = eg_samples(release, sampleRate);
+}
+
+static void eg_enter(tProphEg * eg, tProphEgStage stage) {
+    eg->stage = stage;
+    eg->from  = eg->level;
+    eg->at    = 0.0;
+}
+
+void proph_eg_gate(tProphEg * eg, const tProphEgShape * shape, bool on) {
+    if (on) {
+        eg->level = shape->start;
+        eg_enter(eg, eProphEgAttack);
+    } else if (eg->stage != eProphEgIdle) {
+        eg_enter(eg, eProphEgRelease);
+    }
+}
+
+// one segment: from where it began to its end level over its time; true when it has arrived
+static bool eg_segment(tProphEg * eg, double to, double samples) {
+    eg->at   += 1.0;
+    eg->level = (eg->at >= samples) ? to : (eg->from + ((to - eg->from) * (eg->at / samples)));
+    return eg->at >= samples;
+}
+
+double proph_eg_next(tProphEg * eg, const tProphEgShape * shape) {
+    switch (eg->stage) {
+        case eProphEgAttack:
+
+            if (eg_segment(eg, shape->attackLevel, shape->attack)) {
+                eg_enter(eg, eProphEgDecay);
+            }
+            break;
+
+        case eProphEgDecay:
+
+            if (eg_segment(eg, shape->breakPoint, shape->decay)) {
+                eg_enter(eg, eProphEgSlope);
+            }
+            break;
+
+        case eProphEgSlope:
+
+            if (eg_segment(eg, shape->sustain, shape->slope)) {
+                eg_enter(eg, eProphEgSustain);
+            }
+            break;
+
+        case eProphEgSustain:
+            eg->level = shape->sustain;
+            break;
+
+        case eProphEgRelease:
+
+            if (eg_segment(eg, 0.0, shape->release)) {
+                eg->stage = eProphEgIdle;
+            }
+            break;
+
+        default:
+            eg->level = 0.0;
+            break;
+    }
+    return eg->level;
+}
+

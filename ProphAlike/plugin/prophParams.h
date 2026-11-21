@@ -202,11 +202,16 @@ enum {
     kProphParamRing13Lfo2Level,
     kProphParamRing23Lfo2Level,
     kProphParamNoiseLfo2Level,
+    kProphParamArithmetic,     // filter notes §8: the instrument's fixed point or floating point
+    kProphParamAmpStart,       // envelope notes §10: the amp EG's levels and segments
+    kProphParamAmpAttackLevel,
+    kProphParamAmpBreak,
+    kProphParamAmpSlope,
     kProphParamCount
 };
 
 extern const tSynthLibParam gProphParams[kProphParamCount];
-extern const tProphPage       gProphPages[];
+extern const tProphPage     gProphPages[];
 extern const uint32_t       gProphPageCount;
 
 // The effects as the engine takes them, from normalised parameters
