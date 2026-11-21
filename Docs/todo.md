@@ -28,6 +28,20 @@ Work that spans the plug-ins. One line per item; each product's own list is in i
 
 - Double-click to default BUILT 11-14 in every Alike panel; keyboard tracking's 1:1 marked and the double-click target in Pulse2Alike and Sn2Alike (TiAlike has no fixed point)
 
+## AllAlike and SynthEdit
+- Converge (CT, 2026-11-20): every Alike learns its instrument's parameters exactly - program layout, CCs, switch
+  positions, ranges and laws (Nl3Alike's fields, CC and switch tables; TiAlike's pages; Pulse2Alike's and Sn2Alike's
+  dumps). SynthEdit edits and librarian-manages instruments from `layouts/*.txt`; feed it from the same descriptions
+  (a layout per instrument generated from, or shared with, the Alike), so one parameter map serves both the editor
+  and the reproduction
+
+## Akai MPC and Force (parked 11-21: TiAlike and Pulse2Alike load and play on the owner's MPC Live)
+- `tools/do-mpc <Product>` builds, `tools/mpc-install` installs; SynthLib `plugin/synthlibPluginVst2.c` is the wrapper
+- Presets: offer each product's presets as VST2 programs (the MPC lists and selects them), shipped in the folder's `Content/`; and a way to load a sound file (.syx) on the machine
+- Screen: generate `Plugin Skins` (TUI.json pages, Q-Links.json) from each panel table, in place of the MPC's generic parameter list
+- CPU, measured on the Live (11-21): TiAlike 12% idle, about +4.5% per note; Pulse2Alike 20% idle with nothing playing. Profile: per-sample pow/exp/tan/tanh and coefficient updates. Fix in the MPC build only: control-rate coefficients and envelope shapes, cheaper per-sample saturation, Pulse2Alike skipping silence
+- Old-style community plug-ins on the Live are in /sdcard/VST2 Plugins (internal card, not shared in computer mode) and registered in MPC.settings pluginList-arm; ours need neither
+
 ## New plug-ins
 
 - ModAlike: started 2026-11-13 - its own list is ModAlike/Docs/todo.md

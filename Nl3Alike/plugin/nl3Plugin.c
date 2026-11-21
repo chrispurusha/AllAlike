@@ -532,8 +532,8 @@ static void nl3_param_points(void * inst, uint32_t id, const tSynthLibParamPoint
 // notes §19: a keyboard sending polyphonic pressure (0xA0) reaches the plug-in as an event, never as the channel pressure
 // parameter - the instrument has one pressure, so each key's pressure stands for it, at its own frame
 static void nl3_poly_pressure(void * inst, uint8_t channel, uint8_t note, float pressure, uint32_t sampleOffset) {
-    tNl3Plugin *        t     = (tNl3Plugin *)inst;
-    tSynthLibParamPoint point = {sampleOffset, (double)pressure};
+    tNl3Plugin *        t        = (tNl3Plugin *)inst;
+    tSynthLibParamPoint point    = {sampleOffset, (double)pressure};
 
     bool                sounding = false;
 
@@ -748,6 +748,24 @@ static const struct {
     {kNl3ParamOsc2SyncTune,  116}, {kNl3ParamOsc1NoiseSeed, 117}, {kNl3ParamOsc2NoiseSeed, 118}, {kNl3ParamOsc1FmAmount, 119},
 };
 
+// notes §14: the switches the instrument takes as a controller - the position sent in the middle of its share of 0-127
+// (measured: each position's middle value sent, the slot read back, the position stored)
+static const struct {
+    uint32_t id;
+    uint8_t  cc, positions;
+} kLinkSwitches[]    = {
+    {kNl3ParamOsc1Waveform,  30,  6}, {kNl3ParamOsc2Waveform, 31, 6}, {kNl3ParamOscModType,  105,  6}, {kNl3ParamLfo1Waveform, 20,  6},
+    {kNl3ParamLfo1Dest,      21, 12}, {kNl3ParamLfo2Waveform, 85, 6}, {kNl3ParamLfo2Dest,     24, 12}, {kNl3ParamMEnvDest,     28, 12},
+    {kNl3ParamFilterSlope,   58,  3}, {kNl3ParamLfo1EnvKbs,   82, 3}, {kNl3ParamLfo2EnvKbs,   87,  3}, {kNl3ParamGlideMode,    65,  3},
+    {kNl3ParamVibratoSource, 56,  3}, {kNl3ParamMonoPriority, 94, 3}, {kNl3ParamOctaveShift,  17,  5},
+};
+
+#define LINK_FILTER_TYPE_CC    (44)   // notes §14: one switch over the single modes (0-5) and the multi modes (6-11)
+
+static uint8_t link_position_value(long position, int positions) {
+    return (uint8_t)(((2 * position) + 1) * 64 / positions);
+}
+
 static long link_plain(uint32_t id, double normalized) {
     const tSynthLibParam * p = &gNl3Params[id];
 
@@ -764,9 +782,27 @@ static int link_controller(uint32_t id) {
     return -1;
 }
 
-// notes §14: what changed since the last send, as controllers - false (nothing sent) when any of it has none
+static int link_switch(uint32_t id) {
+    for (size_t k = 0; k < sizeof(kLinkSwitches) / sizeof(kLinkSwitches[0]); k++) {
+        if (kLinkSwitches[k].id == id) {
+            return (int)k;
+        }
+    }
+
+    return -1;
+}
+
+static void link_send_cc(uint8_t channel, int cc, uint8_t value) {
+    nl3_hardware_short(nl3_hw_port(), (uint8_t)(0xB0 | channel), (uint8_t)cc, (uint8_t)(value & 0x7F));
+    synthlib_log_line("Link: CC %d = %d on channel %d", cc, value, channel + 1);
+}
+
+// notes §14: what changed since the last send, as controllers (knobs, switches, the filter type) - false (nothing
+// sent) when any of it has none
 static bool link_by_controllers(tNl3Plugin * t, const double * values, uint8_t channel) {
     for (int pass = 0; pass < 2; pass++) {
+        bool filterSent = false;
+
         for (uint32_t k = 0; k < gNl3FieldCount; k++) {
             uint32_t id = gNl3Fields[k].paramId;
             long     v  = link_plain(id, values[id]);
@@ -775,13 +811,26 @@ static bool link_by_controllers(tNl3Plugin * t, const double * values, uint8_t c
                 continue;
             }
             int      cc = link_controller(id);
+            int      sw = link_switch(id);
 
-            if (cc < 0) {
+            if ((id == kNl3ParamFilterType) || (id == kNl3ParamFilterMode) || (id == kNl3ParamFilter2Type)) {
+                if ((pass == 1) && !filterSent) {
+                    long position = link_plain(kNl3ParamFilterMode, values[kNl3ParamFilterMode]) ? (6 + link_plain(kNl3ParamFilter2Type, values[kNl3ParamFilter2Type]))
+                                                                                                   : link_plain(kNl3ParamFilterType, values[kNl3ParamFilterType]);
+
+                    link_send_cc(channel, LINK_FILTER_TYPE_CC, link_position_value(position, 12));
+                    filterSent = true;
+                }
+                continue;
+            }
+
+            if ((cc < 0) && (sw < 0)) {
                 return false;
             }
 
             if (pass == 1) {
-                nl3_hardware_short(nl3_hw_port(), (uint8_t)(0xB0 | channel), (uint8_t)cc, (uint8_t)(v & 0x7F));
+                link_send_cc(channel, (cc >= 0) ? cc : kLinkSwitches[sw].cc,
+                             (cc >= 0) ? (uint8_t)v : link_position_value(v - (long)gNl3Params[id].plainMin, kLinkSwitches[sw].positions));
             }
         }
     }

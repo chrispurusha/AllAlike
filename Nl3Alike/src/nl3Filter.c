@@ -23,6 +23,7 @@
 
 #define CUTOFF_WORD_AT_0    (969.0 / NL3_Q23)   // notes §4
 #define CUTOFF_WORD_OPEN    (0.8125)            // notes §4: the dial's top
+#define WARP_TOP            (1.4137)            // notes §4: tan(1.4137) = 6.3, about the open word's g of 6.5
 #define G_PER_WORD          (8.0)
 #define NORM_STEPS          (8.0)               // notes §5
 #define NORM_LAST           (640)
@@ -41,13 +42,16 @@ tNl3FilterMode nl3_filter_mode(uint32_t type, uint32_t slope) {
             return (slope == 0) ? eNl3FilterHp6 : ((slope == 2) ? eNl3FilterHp24 : eNl3FilterHp12);
 
         case 2:
-            return (slope == 2) ? eNl3FilterBp24 : eNl3FilterBp12;
+            return (slope == 2) ? eNl3FilterBp24 : ((slope == 0) ? eNl3FilterBp6 : eNl3FilterBp12);   // notes §19
 
         case 3:
             return eNl3FilterBr;   // one form at either slope (notes §14)
 
         case 4:
             return eNl3FilterClassic;   // notes §13: one form at either slope
+
+        case 5:
+            return eNl3FilterDistLp;    // notes §17: one form at every slope
 
         default:
             return (slope == 0) ? eNl3FilterLp6 : ((slope == 2) ? eNl3FilterLp24 : eNl3FilterLp12);
@@ -71,6 +75,13 @@ static double norm(double s) {
     return lo + ((norm_table(i + 1) - lo) * (pos - i));
 }
 
+// notes §4, §18: the cutoff word, with Osc Mod FILT's offset added every sample and the sum folded at zero
+static double cutoff_word(double cutoff, double offset) {
+    double w = fmin(CUTOFF_WORD_OPEN, CUTOFF_WORD_AT_0 * pow(2.0, cutoff / 12.0));   // notes §4: modulation goes on past the dial's top
+
+    return (offset != 0.0) ? fabs(w + offset) : w;
+}
+
 #define CLASSIC_Q1           (0.8949)        // notes §13: the first stage's damping - the ladder's other pole pair at full resonance
 #define CLASSIC_Q_FLOOR      (1.0 / 256.0)   // notes §13: the pole pairs stop moving apart from here
 #define CLASSIC_G_TOP        (0.76038)       // notes §13: neither stage's frequency goes higher
@@ -78,8 +89,8 @@ static double norm(double s) {
 
 // notes §13: a four-pole ladder as two stages - its two pole pairs, apart by the feedback that makes the resonant
 // pair's damping d^4
-static void classic_coeffs(double cutoff, double resonance, tNl3FilterCoeffs * c) {
-    double w  = (cutoff >= 127.0) ? CUTOFF_WORD_OPEN : fmin(CUTOFF_WORD_OPEN, CUTOFF_WORD_AT_0 * pow(2.0, cutoff / 12.0));
+static void classic_coeffs(double cutoff, double resonance, double offset, tNl3FilterCoeffs * c) {
+    double w  = cutoff_word(cutoff, offset);
     double gw = BP_WARP_SCALE * G_PER_WORD * w;
     double g0 = (gw < (M_PI / 2.0) - 1e-6) ? (tan(gw) / 2.0) : 1e9;   // notes §13: the stages are held to their top after the pairs part
     double d  = (resonance >= 127.0) ? 0.0 : (1.0 - (fmax(0.0, resonance) / 128.0));
@@ -105,24 +116,25 @@ static void classic_coeffs(double cutoff, double resonance, tNl3FilterCoeffs * c
     c->gainw = nl3_word(c->gain);
 }
 
-void nl3_filter_coeffs(tNl3FilterMode mode, double cutoff, double resonance, tNl3FilterCoeffs * c) {
+void nl3_filter_coeffs(tNl3FilterMode mode, double cutoff, double resonance, double offset, tNl3FilterCoeffs * c) {
     if (mode == eNl3FilterClassic) {
-        classic_coeffs(cutoff, resonance, c);
+        classic_coeffs(cutoff, resonance, offset, c);
         return;
     }
     bool   steep  = (mode == eNl3FilterLp24) || (mode == eNl3FilterHp24) || (mode == eNl3FilterBp24);
-    double w      = (cutoff >= 127.0) ? CUTOFF_WORD_OPEN : fmin(CUTOFF_WORD_OPEN, CUTOFF_WORD_AT_0 * pow(2.0, cutoff / 12.0));
+    double w      = cutoff_word(cutoff, offset);
     double d      = (resonance >= 127.0) ? 0.0 : (1.0 - (fmax(0.0, resonance) / 128.0));
     double d2     = d * d;
     double q      = steep ? fmax(d2, Q_FLOOR_24) : (d2 * d2);                   // notes §6
-    bool   band   = (mode == eNl3FilterBp12) || (mode == eNl3FilterBp24);
+    bool   band   = (mode == eNl3FilterBp12) || (mode == eNl3FilterBp24) || (mode == eNl3FilterBp6);
     bool   reject = (mode == eNl3FilterBr);
     bool   warp   = band || reject || (mode == eNl3FilterLp6) || (mode == eNl3FilterHp6); // notes §9, §11, §12, §14
 
     q        = reject ? fmax(d2, Q_FLOOR_BR) : q;                                         // notes §14
+    q        = (mode == eNl3FilterBp6) ? d2 : q;                                          // notes §19: d^2, no floor
     double g      = G_PER_WORD * w;
 
-    g        = (warp && (cutoff < 127.0)) ? tan(BP_WARP_SCALE * g) : g;          // notes §9, §11: prewarped
+    g        = warp ? tan(fmin(BP_WARP_SCALE * g, WARP_TOP)) : g;                // notes §4: held short of tan's pole, near the open word    // notes §9, §11: prewarped
     double n      = norm(1.0 + (2.0 * q * g) + (g * g));
     double take   = steep ? GAIN_TAKE_24 : (band ? GAIN_TAKE_BP : GAIN_TAKE_12); // notes §8-10
 
@@ -138,18 +150,18 @@ void nl3_filter_coeffs(tNl3FilterMode mode, double cutoff, double resonance, tNl
 }
 
 // notes §15: one filter of a multi mode - prewarped, q = d², N or N² as the leg takes it
-static void multi_one(double cutoff, double d2, double * f, double * k, double * n, double * n2) {
-    double w = (cutoff >= 127.0) ? CUTOFF_WORD_OPEN : fmin(CUTOFF_WORD_OPEN, CUTOFF_WORD_AT_0 * pow(2.0, cutoff / 12.0));
+static void multi_one(double cutoff, double offset, double d2, double * f, double * k, double * n, double * n2) {
+    double w = cutoff_word(cutoff, offset);
     double g = G_PER_WORD * w;
 
-    g   = (cutoff < 127.0) ? tan(BP_WARP_SCALE * g) : g;
+    g   = tan(fmin(BP_WARP_SCALE * g, WARP_TOP));   // notes §4: held short of tan's pole
     *n  = norm(1.0 + (2.0 * d2 * g) + (g * g));
     *f  = fmin(WORD_TOP, g * *n);
     *k  = fmin(WORD_TOP, d2 * *n);
     *n2 = fmin(WORD_TOP, *n * *n);
 }
 
-void nl3_filter_coeffs_multi(tNl3FilterMode mode, double cutoff, double cutoff2, double resonance, tNl3FilterCoeffs * c) {
+void nl3_filter_coeffs_multi(tNl3FilterMode mode, double cutoff, double cutoff2, double resonance, double offset, tNl3FilterCoeffs * c) {
     double d  = (resonance >= 127.0) ? 0.0 : (1.0 - (fmax(0.0, resonance) / 128.0));
     double d2 = d * d;
     double n, n2;
@@ -159,7 +171,7 @@ void nl3_filter_coeffs_multi(tNl3FilterMode mode, double cutoff, double cutoff2,
     if ((mode == eNl3FilterPeak) || (mode == eNl3FilterNotch)) {                                             // notes §16: Freq 2 sets the width, resonance the feedback
         double q = (cutoff2 >= 127.0) ? 1.0 : ((fmax(0.0, cutoff2) / 128.0) * (fmax(0.0, cutoff2) / 128.0)); // 127 counts as 128
 
-        multi_one(cutoff, q, &c->f, &c->k, &n, &n2);
+        multi_one(cutoff, offset, q, &c->f, &c->k, &n, &n2);
         c->fb    = ((resonance >= 127.0) ? 127.0 : fmax(0.0, resonance)) / 128.0;
         c->fw    = nl3_word(c->f);
         c->kw    = nl3_word(c->k);
@@ -168,9 +180,11 @@ void nl3_filter_coeffs_multi(tNl3FilterMode mode, double cutoff, double cutoff2,
         c->gain  = 1.0;
         return;
     }
-    multi_one(cutoff, d2, &c->f, &c->k, &n, &n2);
+    multi_one(cutoff, offset, d2, &c->f, &c->k, &n, &n2);
     c->n2    = n2;
-    multi_one(cutoff2, d2, &c->f2, &c->k2, &n, &c->n22);
+    c->n1    = n;   // notes §20
+    multi_one(cutoff2, offset, d2, &c->f2, &c->k2, &n, &c->n22);
+    c->n21   = n;
     c->gain  = fmin(WORD_TOP, 1.0 - (GAIN_TAKE_BP * (1.0 - d2)));
     c->fw    = nl3_word(c->f);
     c->kw    = nl3_word(c->k);
@@ -420,6 +434,39 @@ static double lphp_par(tNl3Filter * f, const tNl3FilterCoeffs * c, double x) {
     return limit(((8.0 * b) + low) / 4.0);
 }
 
+// notes §20: the other three multi modes, in floating point
+static double multi_par_series(tNl3Filter * f, const tNl3FilterCoeffs * c, double x) {
+    double b, cur, prev, out1;
+
+    if (c->mode == eNl3FilterHpLpSer) {   // highpass into lowpass; the gain at the end
+        b = (c->n2 * limit(x / 8.0)) / 2.0;
+        (void)stage(&f->low[0], &f->band[0], c->f, c->k, &b);
+        b = smooth(&f->in[1], &f->mean[1], b / 4.0);
+        (void)stage(&f->low[1], &f->band[1], c->f2, c->k2, &b);
+        return limit((limit(2.0 * f->low[1]) * c->gain * 16.0) / 4.0);
+    }
+    double in = limit(x * c->gain);
+
+    if (c->mode == eNl3FilterLpBpPar) {   // lowpass beside band pass
+        b    = smooth(&f->in[0], &f->mean[0], in / 4.0);
+        (void)stage(&f->low[0], &f->band[0], c->f, c->k, &b);
+        out1 = limit(8.0 * f->low[0]);
+    } else {                              // band pass beside band pass
+        cur      = c->n1 * limit(in / 4.0);
+        prev     = f->in[0];
+        f->in[0] = limit(cur);
+        b        = (cur + prev) / 2.0;
+        (void)stage(&f->low[0], &f->band[0], c->f, c->k, &b);
+        out1     = limit(4.0 * f->band[0]);
+    }
+    cur      = c->n21 * limit(in / 4.0);
+    prev     = f->in[1];
+    f->in[1] = limit(cur);
+    b        = (cur + prev) / 2.0;
+    (void)stage(&f->low[1], &f->band[1], c->f2, c->k2, &b);
+    return limit(((4.0 * f->band[1]) + out1) / 4.0);
+}
+
 // notes §16: the peak and notch modes in floating point
 static double allpass3(tNl3Filter * f, const tNl3FilterCoeffs * c, double x, bool notch) {
     double pre  = limit(1.0 + ((notch ? -0.75 : -0.85) * c->fb));
@@ -523,6 +570,17 @@ static double hp6(tNl3Filter * f, const tNl3FilterCoeffs * c, double x) {
     return limit(4.0 * limit(b) * c->gain);
 }
 
+// notes §17: Dist LP's distortion on the stage's output s (a word): a hard clip of s driven by d^3, then y - c y^3,
+// then a gain that keeps the level, and the output's quarter
+static double dist_lp(double s, double d) {
+    double drive = fmax(d * d * d, 1.0 / 64.0);
+    double cubic = (64.0 * fmin(d * d * d, 1.0 / 64.0)) / 3.0;
+    double y     = limit(64.0 * drive * s);
+    double gain  = ((1.0 - d) * (1.0 - d)) + ((45.0 / 128.0) * ((2.0 * d) - (d * d)));
+
+    return (gain * (y - (cubic * y * y * y))) / 4.0;
+}
+
 double nl3_filter_process(tNl3Filter * f, const tNl3FilterCoeffs * c, double x) {
     double b;
 
@@ -557,6 +615,11 @@ double nl3_filter_process(tNl3Filter * f, const tNl3FilterCoeffs * c, double x) 
 
         case eNl3FilterLpHpPar:
             return lphp_par(f, c, x);
+
+        case eNl3FilterLpBpPar:
+        case eNl3FilterHpLpSer:
+        case eNl3FilterBpBpPar:
+            return multi_par_series(f, c, x);   // notes §20
 
         case eNl3FilterClassic:
             return classic(f, c, x);
@@ -593,6 +656,27 @@ double nl3_filter_process(tNl3Filter * f, const tNl3FilterCoeffs * c, double x) 
             (void)stage(&f->low[0], &f->band[0], c->f, c->k, &b);
             return out_float(f->band[0], c->gain);
         }
+
+        case eNl3FilterBp6:     // notes §19: N x high a sample late, less the last two lows
+        {
+            double u    = (x + f->in[0]) / 16.0;
+            double b0   = f->band[0];
+            double low  = limit(f->low[0] + (c->f * b0));
+            double damp = (c->k * b0) + ((1.0 - c->k) * (1.0 - c->f) * b0 * b0 * b0);
+            double high = u - (2.0 * low) - (2.0 * damp);
+            double out  = limit((f->held - low - f->low[0]) / 2.0);
+
+            f->in[0]   = x;
+            f->band[0] = limit(b0 + (2.0 * c->f * high));
+            f->held    = limit(c->n2 * high);
+            f->low[0]  = low;
+            return limit((16.0 * out * c->gain) / 4.0);
+        }
+
+        case eNl3FilterDistLp:   // notes §17: the input at 1/8, the stage's output up 3 before the distortion
+            b = smooth(&f->in[0], &f->mean[0], x / 8.0);
+            (void)stage(&f->low[0], &f->band[0], c->f, c->k, &b);
+            return dist_lp(limit(8.0 * limit(2.0 * f->low[0]) * c->gain), c->dist);
 
         case eNl3FilterLp12:
         default:
@@ -777,6 +861,22 @@ tNl3Word nl3_filter_process_fixed(tNl3Filter * f, const tNl3FilterCoeffs * c, tN
             return out_fixed(nl3_acc(f->bandW[0]), c->gainw);
         }
 
+        case eNl3FilterLpBpPar:   // notes §20: in floating point for now
+        case eNl3FilterHpLpSer:
+        case eNl3FilterBpBpPar:
+        case eNl3FilterBp6:       // notes §19: in floating point for now
+            return nl3_word(nl3_filter_process(f, c, nl3_word_value(x)));
+
+        case eNl3FilterDistLp:     // notes §17: the stage in the instrument's arithmetic, the distortion as in floating point
+        {
+            tNl3Acc o;
+
+            b = smooth_fixed(&f->inW[0], &f->meanW[0], nl3_acc(x) >> 3);
+            (void)stage_fixed(&f->lowW[0], &f->bandW[0], c->fw, c->kw, &b, NULL);
+            o = nl3_asl(nl3_round(nl3_mul(nl3_move(nl3_asl(nl3_acc(f->lowW[0]), 1)), c->gainw)), 3);
+            return nl3_word(dist_lp(nl3_word_value(nl3_move(o)), c->dist));
+        }
+
         case eNl3FilterLp12:
         default:
             b = smooth_fixed(&f->inW[0], &f->meanW[0], nl3_acc(x) >> 5);
@@ -795,3 +895,23 @@ void nl3_noise_coeffs(double shape, double * f, double * k) {
     *f = G_PER_WORD * w * n;
     *k = n;
 }
+
+// osc notes §20: Osc 2 Noise's filter - the cutoff word pi/16 of the oscillator's increment, the damping from Shape
+// (resonance), the normalisation read straight from the table
+void nl3_noise2_coeffs(double increment, double shape, double * f, double * k, double * n) {
+    double w = (M_PI / 16.0) * fmin(nl3_word_value(NL3_WORD_MAX), fmax(0.0, increment));
+    double d = 1.0234375 - fmin(nl3_word_value(NL3_WORD_MAX), fmax(0.0, shape));
+    double q = d * d;
+    int    i = (int)fmin((double)NORM_LAST, floor(((4.0 * w * w) + (q * w)) * 128.0));
+
+    *n = norm_table(i);
+    *f = G_PER_WORD * w * *n;
+    *k = q * *n;
+}
+
+// notes §4: the knob's value as the cutoff the modulation adds to - its top is a fixed word, the one the law reaches at
+// about 153.4 (so a morph or envelope past 127 goes on rising, as on the instrument, rather than jumping open)
+double nl3_filter_knob(double knob) {
+    return (knob >= 127.0) ? (12.0 * log2(CUTOFF_WORD_OPEN / CUTOFF_WORD_AT_0)) : knob;
+}
+

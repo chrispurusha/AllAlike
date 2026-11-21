@@ -251,6 +251,8 @@ static bool path_time(const char * path, struct timespec * t) {
 #if defined (_WIN32)
     t->tv_sec  = st.st_mtime;
     t->tv_nsec = 0;
+#elif defined (__linux__)
+    *t = st.st_mtim;   // the MPC build
 #else
     *t = st.st_mtimespec;
 #endif

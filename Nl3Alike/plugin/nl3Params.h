@@ -238,6 +238,19 @@ enum {
     kNl3ParamMorphKbd_FiltFrequency2,
     kNl3ParamMorphKbd_FiltResonance,
     kNl3ParamMorphKbd_OutputLevel,
+    kNl3ParamChordCount,   // voices notes §47: the stored chord, from the program
+    kNl3ParamChordNote0,
+    kNl3ParamChordNote1,
+    kNl3ParamChordNote2,
+    kNl3ParamChordNote3,
+    kNl3ParamChordNote4,
+    kNl3ParamChordNote5,
+    kNl3ParamChordNote6,
+    kNl3ParamChordNote7,
+    kNl3ParamChordNote8,
+    kNl3ParamChordNote9,
+    kNl3ParamChordNote10,
+    kNl3ParamChordNote11,
     kNl3ParamPressure,                          // channel pressure, the aftertouch morph's source (voices notes §25)
     kNl3ParamCount
 };

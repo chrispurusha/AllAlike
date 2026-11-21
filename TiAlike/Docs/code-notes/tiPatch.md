@@ -45,6 +45,11 @@ each addressed to its own bank and program, as the instrument's banks are. Missi
 Read again whenever the file's modification time changes, so a store from another instance shows; a store re-reads
 first so it never drops another instance's.
 
+## 5a. The presets on the MPC
+The MPC build reads its presets from `Content/Presets.syx` inside its own plug-in folder, found from where the
+library was loaded (`dladdr`; the library is in `<folder>/VST/`), since the machine has no home folder of ours.
+`do-mpc` puts a bank there when asked (plugin notes §18); without one the presets are Init.
+
 ## 6. Importing
 From a file, its Singles from A001 in file order; from a folder, every `.syx` and `.mid` in name order, one after the
 other - so a folder of four bank files (A, B, C, D) lands as banks A-D. Past the 23rd bank (2944 Singles) the rest are ignored; short of it the

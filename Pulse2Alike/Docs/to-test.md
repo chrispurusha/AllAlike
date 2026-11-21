@@ -73,3 +73,4 @@ Built, not yet checked against the instrument or in a host. Confirmed → delete
 - Same Note (11-17, p2Plugin notes §57 Voices): Voices 4, pedal down, one key struck over and over - Piano one voice, Stack each strike rings on
 - GLOBAL page (11-17, ../Docs/panel-layout.md): PLUG-IN (Voices, Same Note, an empty place for Anti-alias, OvrSmp, Anomalies, Hiss, Thump), HARDWARE (Link, Channel), PERFORMANCE - all fit, clicks land on the right control
 - Panel colours (11-17, ../Docs/panel-layout.md Colours): no grey sections; OFF/ON settings are buttons that flip on release, dimmed when off; CLIP dimmed when off; no Link HW in the title row (11-17) - Link on the GLOBAL page only, amber BUSY while another instance has the instrument - all readable
+- MPC build (2026-11-21): `tools/mpc-install Pulse2Alike <address or drive>` from AllAlike, load it under External Plugins on the MPC Live or Force, play, save and reload a project

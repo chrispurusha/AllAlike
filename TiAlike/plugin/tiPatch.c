@@ -16,6 +16,10 @@
  */
 // Notes: Docs/code-notes/tiPatch.md - "// notes §k" refers there.
 
+#if defined (__linux__)
+#define _GNU_SOURCE   // dladdr, for the MPC build (notes §5a)
+#include <dlfcn.h>
+#endif
 #include <dirent.h>
 #include <math.h>
 #include <stdio.h>
@@ -673,12 +677,35 @@ void ti_preset_label(int number, char * out, size_t len) {
     snprintf(out, len, "%c%03d", 'A' + ((number - 1) / TI_BANK_SIZE), ((number - 1) % TI_BANK_SIZE) + 1);
 }
 
+#if defined (__linux__)
+// notes §5a: on the MPC, Content/Presets.syx in the plug-in's own folder - the library is in <folder>/VST/
+const char * ti_presets_path(void) {
+    static char path[1024];
+    Dl_info     info;
+
+    if ((dladdr((void *)ti_presets_path, &info) == 0) || (info.dli_fname == NULL)) {
+        return "";
+    }
+    snprintf(path, sizeof(path), "%s", info.dli_fname);
+
+    for (int up = 0; up < 2; up++) {
+        char * slash = strrchr(path, '/');
+
+        if (slash != NULL) {
+            *slash = '\0';
+        }
+    }
+    strncat(path, "/Content/" PRESETS_FILE, sizeof(path) - strlen(path) - 1);
+    return path;
+}
+#else
 const char * ti_presets_path(void) {
     static char path[1024];
 
     snprintf(path, sizeof(path), "%s/%s/%s", getenv("HOME") ? getenv("HOME") : "", PRESETS_FOLDER, PRESETS_FILE);
     return path;
 }
+#endif
 
 // slots past what was found are Init, and each is addressed to its own place
 static void fill_and_address(uint8_t singles[TI_PRESETS][TI_SINGLE_LENGTH], int found) {

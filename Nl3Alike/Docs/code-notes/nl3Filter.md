@@ -128,3 +128,54 @@ all-pass chain, 4×; type 5 the chain plus the scaled input, 2× - the dry and p
 notches. Coefficients, measured over the grid: F from Filter 1 Freq, prewarped (§9); the damping from Filter 2 Freq,
 q = (Freq2/128)², 127 counting as 128 - so Freq 2 sets how wide the peaks or notches are; and R = Resonance/128.
 F within 23 of 2²³, k within 8, R exact; exact on noise as §3, floating point within 3·10⁻³.
+
+## 17. Dist LP
+The 12 dB lowpass driven four times harder, then a clip, with one form at every slope. The input goes in at 1/8 in
+place of 1/32 (after the same two-sample average); the stage is §2 unchanged; its output, 2 x low times the gain,
+goes up 3 (not 5) into the distortion, which ends with the output's quarter like the other modes. With d = Distortion
+/ 128 (127 counting as 1):
+
+- y = the output times 64 x max(d^3, 1/64), clipped to +-1;
+- y - c y^3, with c = 64 min(d^3, 1/64) / 3 - nothing at 0, a third from Distortion 32 up;
+- times (1 - d)^2 + (45/128)(2d - d^2), which holds the level as the drive rises.
+
+So at Distortion 0 it is the plain 12 dB lowpass (four times the stage level, the same output); up to 32 a soft cubic
+on the unchanged level; above it the drive rises with the cube and the sound clips. The distortion follows the
+filter rather than sitting in a feedback loop, whatever the manual's wording. Nothing modulates Distortion.
+Checked against the instrument's arithmetic sample for sample (2026-11-20, a saw, Freq 80, Resonance 40): at
+Distortion 32 the output is 0.179 of the stage's, at 127 every sample matches the formula exactly. In fixed point
+the stage is the instrument's own arithmetic and the distortion is computed as here.
+
+## 18. Osc Mod FILT
+Osc 2 frequency-modulates the cutoff, linearly and at audio rate: Osc 2's raw output times d^3 / 2 (d = Osc Mod
+Amount / 128, 127 as 1, the Mod Env's steps added) is added to the cutoff word w of §4, the sum folded at zero -
+w' = |w + offset| - and the coefficients of §5 worked out again from it every sample, for both cutoffs of a multi mode
+alike. The offset is Osc 2's sample before, as the instrument computes the next sample's coefficients from it. The
+audio itself passes Osc Mod untouched. Against renders of the instrument's arithmetic (2026-11-20, sines, Osc 2 a
+fifth up, Freq 60, Resonance 60, Amount 48, 64 and 96): half-octave bands within about 1 dB. With Osc 2 at Osc 1's own
+pitch the result hangs on the two free-running phases, so it cannot be compared there.
+
+## 19. Band pass at the 6 dB slope
+Its own form, not the 12 dB band pass with a gentler slope. The damping is d^2 with no floor (the 12 dB band pass
+takes d^4); the coefficients are the band pass's (prewarped, N not N^2). Per sample, with the stage's pieces of §2:
+u = (x + x') / 16; low = low' + F band'; damping D = k band' + (1 - k)(1 - F) band'^3; high H = u - 2 low - 2D;
+band = band' + 2F H; and the output is N H from the sample before, less this low and the last, halved - times the
+gain, up 4 and down 2 as the other modes. Against renders of the instrument's arithmetic (2026-11-20, a saw at A4,
+Freq 60 Res 0 and 64, Freq 100 Res 110): harmonics 1-16 within about 1 dB. It played as the 12 dB band pass before,
+which is far steeper (harmonic 2 26 dB down where this is 15) - 1:15 Open Air sounded more closed than the
+instrument. In fixed point it runs in floating point for now.
+
+## 20. Multi modes, Filter 2 types 0, 2 and 3
+Built alike to type 1 (§15): both filters prewarped, q = d^2, the band pass's gain; the filter on the first cutoff and
+the one on the second side by side or in series.
+
+- **Type 0, lowpass beside band pass**: the input times the gain; the lowpass as §15's (averaged twice, at 1/4) on
+  cutoff 1; the band pass on cutoff 2 taking N x the input / 4, averaged once; out (8 x low + 4 x band) / 4.
+- **Type 2, highpass into lowpass**: the highpass on cutoff 1 takes N^2 x the input / 16; its high leg, averaged twice
+  and quartered, feeds the lowpass on cutoff 2; out 8 x gain x low.
+- **Type 3, band pass beside band pass**: the input times the gain into a band pass on each cutoff as type 0's band
+  pass; out (4 x band 1 + 4 x band 2) / 4.
+
+Against renders of the instrument's arithmetic (2026-11-20, a saw at A4, cutoffs 60 and 90, Resonance 40): harmonics
+1-16 within about 1 dB for all three. They played as the single filter before - 157 of the 1010 programs use them.
+In fixed point they run in floating point for now.

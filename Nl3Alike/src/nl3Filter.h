@@ -40,6 +40,11 @@ typedef enum {
     eNl3FilterLpHpPar,     // notes §15: a multi mode - lowpass 12 on cutoff 1 beside highpass 12 on cutoff 2
     eNl3FilterPeak,        // notes §16: multi type 4, three all-pass stages with feedback
     eNl3FilterNotch,       // notes §16: multi type 5, the same plus the dry input
+    eNl3FilterDistLp,      // notes §17: Dist LP - the 12 dB lowpass driven harder, then a clip
+    eNl3FilterBp6,         // notes §19: band pass at the 6 dB slope - its own routine, damping d^2
+    eNl3FilterLpBpPar,     // notes §20: multi type 0 - lowpass on cutoff 1 beside band pass on cutoff 2
+    eNl3FilterHpLpSer,     // notes §20: multi type 2 - highpass on cutoff 1 into lowpass on cutoff 2
+    eNl3FilterBpBpPar,     // notes §20: multi type 3 - band pass on each cutoff, side by side
     eNl3FilterModes
 } tNl3FilterMode;
 
@@ -52,23 +57,28 @@ typedef struct {
     double         f, k, n2, gain;
     tNl3Word       fw, kw, n2w, gainw;
     double         f2, k2, n22;            // notes §15: the multi modes' second filter
+    double         n1, n21;                // notes §20: N for each filter of a multi mode
     tNl3Word       fw2, kw2, n2w2;
     double         fb;                     // notes §16: the peak and notch modes' feedback, from the resonance
+    double         dist;                   // notes §17: Dist LP's Distortion, 0..1 (Distortion / 128, 127 as 1)
     tNl3Word       fbw;
 } tNl3FilterCoeffs;
 
 // notes §2: two stages of state, in both arithmetics
 typedef struct {
     double   low[3], band[3], in[2], mean[2], back;   // notes §16: three stages and the fed-back output
+    double   held;                                    // notes §19: Bp6's N x high, a sample late
     tNl3Word lowW[3], bandW[3], inW[2], meanW[2], backW;
 } tNl3Filter;
 
-tNl3FilterMode nl3_filter_mode(uint32_t type, uint32_t slope);   // type 0-5 LP HP BP BR Classic Dist, slope 0-2: 6 12 24 dB
+tNl3FilterMode nl3_filter_mode(uint32_t type, uint32_t slope);                                                     // type 0-5 LP HP BP BR Classic Dist, slope 0-2: 6 12 24 dB
 // cutoff on the panel's 0..127, plus modulation in semitones; resonance 0..127
-void nl3_filter_coeffs(tNl3FilterMode mode, double cutoff, double resonance, tNl3FilterCoeffs * c);
-void nl3_noise_coeffs(double shape, double * f, double * k);   // osc notes §15: the Noise waveform's filter, Shape 0..127
+double nl3_filter_knob(double knob);                                                                               // notes §4: a Freq knob as the cutoff modulation adds to
+void nl3_filter_coeffs(tNl3FilterMode mode, double cutoff, double resonance, double offset, tNl3FilterCoeffs * c); // offset: Osc Mod FILT's, in cutoff-word units (notes §18)
+void nl3_noise_coeffs(double shape, double * f, double * k);                                                       // osc notes §15: the Noise waveform's filter, Shape 0..127
+void nl3_noise2_coeffs(double increment, double shape, double * f, double * k, double * n);                        // osc notes §20: Osc 2 Noise's filter
 // notes §15: a multi mode's two filters, on cutoff and cutoff2
-void nl3_filter_coeffs_multi(tNl3FilterMode mode, double cutoff, double cutoff2, double resonance, tNl3FilterCoeffs * c);
+void nl3_filter_coeffs_multi(tNl3FilterMode mode, double cutoff, double cutoff2, double resonance, double offset, tNl3FilterCoeffs * c);
 void nl3_filter_reset(tNl3Filter * f);
 // x and the result on the instrument's full scale
 double nl3_filter_process(tNl3Filter * f, const tNl3FilterCoeffs * c, double x);

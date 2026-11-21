@@ -1,0 +1,25 @@
+#!/bin/zsh
+# do-mpc - TiAlike for the Akai MPC and Force (plugin notes §18): ../tools/do-mpc with TiAlike's own settings,
+# 8 voices by default rather than 16.
+#
+#   ./do-mpc            no presets: the machine starts on Init
+#   ./do-mpc E          FOR TESTING ON YOUR OWN MPC: bank E of your own presets file
+#                       (~/Library/Application Support/TiAlike/Presets.syx) as the plug-in's 128 programs.
+#                       Never for a release: the sounds are yours, not the project's.
+set -e
+HERE=${0:A:h}
+BANK=${1:u}
+if [[ -n $BANK ]]; then
+    [[ $BANK == [A-W] ]] || { echo "usage: ./do-mpc [bank letter A-W]" >&2; exit 2; }
+    FILE="$HOME/Library/Application Support/TiAlike/Presets.syx"
+    SINGLE=524   # tiPatch.h TI_SINGLE_LENGTH: the presets file is the singles end to end
+    [[ -f $FILE ]] || { echo "error: no presets file at $FILE" >&2; exit 1; }
+    INDEX=$(( $(printf '%d' "'$BANK") - 65 ))
+    export MPC_CONTENT=$HERE/build/mpc-content
+    rm -rf $MPC_CONTENT
+    mkdir -p $MPC_CONTENT
+    dd if="$FILE" of=$MPC_CONTENT/Presets.syx bs=$SINGLE skip=$(( INDEX * 128 )) count=128 2>/dev/null
+    [[ $(stat -f %z $MPC_CONTENT/Presets.syx) -eq $(( SINGLE * 128 )) ]] || { echo "error: bank $BANK is not all in $FILE" >&2; exit 1; }
+    echo "==> bank $BANK of your presets as the MPC's programs"
+fi
+exec $HERE/../tools/do-mpc TiAlike -DTI_DEFAULT_VOICES=8

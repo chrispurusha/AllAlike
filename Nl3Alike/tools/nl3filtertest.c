@@ -18,7 +18,7 @@ int main(int argc, char ** argv) {
     static double    h[POINTS];
     bool             fixed = (argc > 5) && (atoi(argv[5]) != 0);
 
-    nl3_filter_coeffs(nl3_filter_mode((uint32_t)atoi(argv[1]), (uint32_t)atoi(argv[2])), atof(argv[3]), atof(argv[4]), &c);
+    nl3_filter_coeffs(nl3_filter_mode((uint32_t)atoi(argv[1]), (uint32_t)atoi(argv[2])), nl3_filter_knob(atof(argv[3])), atof(argv[4]), 0.0, &c);
     nl3_filter_reset(&f);
 
     for (int i = 0; i < POINTS; i++) {

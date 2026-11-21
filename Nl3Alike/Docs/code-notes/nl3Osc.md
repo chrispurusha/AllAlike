@@ -159,9 +159,96 @@ Partial) played Osc 2 39 semitones down instead of in unison. Fine Tune adds its
 ## 17. Osc Mod FM and DFM
 Measured on the instrument's own arithmetic (2026-11-16, both oscillators sine, the multiply traced at Amount 16, 32,
 64 and 127): Osc Mod's depth is the square of its Amount over 128 - 1/64, 1/16, 1/4 - and 127 counts as 1. With FM,
-Osc 1's increment gains 4 x depth x Osc 2's last output, a fixed deviation whatever the note, so the spectrum changes
-across the keyboard; with DFM it gains 16 x depth x the change in Osc 2's output between its last two samples - phase
+Osc 1's increment gains 4 x depth x Osc 2's last Osc Mod signal - half its output, +out / 2, the word Osc 2 hands Osc
+Mod (2026-11-20: first built on the whole output, twice too deep; plain sines with DFM 64 at A4 now match the
+instrument's arithmetic within about 1 dB on ten lines, where they were 5-50 dB apart), a fixed deviation whatever the note, so the spectrum changes
+across the keyboard; with DFM it gains 16 x depth x the change in that signal between its last two samples - phase
 modulation, the index the same at every pitch, as the instrument's manual describes. Increments are in the units the
 phase uses (2.0 a cycle). The Mod Env's OSCMOD destination adds its Amount steps to Osc Mod's before the square. Not
-yet: DM, DIST, FILT and RM; LFO to OSCMOD; Osc 2's output taken before or after its level (taken raw here); a check
+yet (DM, DIST and RM are §18, FILT filter notes §18): LFO to OSCMOD; Osc 2's output taken before or after its level (taken raw here); a check
 of the result against the instrument's sound.
+
+## 18. Osc Mod DM, DIST and RM
+Each takes the two oscillators after Osc Mix, at the instrument's level (its mix gains carry 2/3, which Nl3Alike's
+levels leave out, so the parts go in scaled by 2/3 and come out scaled back), and gives the filter one signal. With A
+the Amount (Mod Env steps added) and d = A / 128, 127 counting as 1:
+
+- **DIST**: y = the mix times 64 x drive, clipped to +-1, then 0.75 (y - c y^3). drive = d^3, held at 1/64 or more;
+  c = (A / 32)^3 / 3 below 32, then 1/3. So at low Amounts the curve is nearly straight at three quarters of the
+  level, and from 32 up the drive rises with the cube of the knob.
+- **RM**: Osc 1's part times 2/3 (1 - d^2), plus twice Osc 1's part times Osc 2's raw output times 2/3 (2d - d^2),
+  plus Osc 2's part unchanged - Osc Mix's two gains again, fading Osc 1 into its product with Osc 2.
+- **DM**: a hidden sine at Osc 1's increment times 2^((A - 64) / 12), a semitone a step with unison at 64, following
+  the keyboard as Osc 1 does. It is raised to 0..1, (1 + sine) / 2, multiplied with the mix, the product times 8 is
+  clipped to +-1 and halved. The hidden sine's phase is free-running.
+
+Against the instrument's arithmetic (2026-11-20, both oscillators sine, A4, Amount 64, levels against the same sound
+with Osc Mod at 0): DIST's harmonics within 1 dB to h9; RM's two lines within 0.3 dB; DM within 1-3 dB on its strong
+lines (the weak ones hang on the hidden sine's phase against Osc 1). Built in floating point in both arithmetics.
+
+## 19. Dual Sine and Dual Sine FM
+Two sines per oscillator, A and B, each made at half size from its phase (2.0 a cycle, read through a triangle). The
+Sync switch selects Dual Sine FM instead, as the instrument's manual has it. s is the Shape word in Dual Sine and the
+FM Amount word in Dual Sine FM (Shape / 128 or Amount / 128), applied squared.
+
+- **Dual Sine**: the output is (A + s^2 B) / 2. Osc 1's B is an octave above A; Osc 2's A and B have their own pitches.
+- **Dual Sine FM**: B runs 1:1 with A on Osc 1, at its own pitch on Osc 2, and modulates A's phase; the output is A / 2.
+  Osc 1 modulates by B's last change, 32 s^2 (B[n-2] - B[n-1]); Osc 2 by B's last value, s^2 B[n-1].
+- **Osc 2's pitches** come from Carrier and Modulator, not Coarse and Fine: A is floor(11 Carrier / 128) - 1 semitones
+  from the note (-1 to +9), or with Partial on the partial floor(10 Carrier / 128) of the note (index 0 is 1/2, then
+  1 to 9 - 1:11 IonoSPHERE's Carrier 122 is 9 times the note, which first played +9 semitones); B is floor((119 Modulator - 2432) / 128) semitones from the note, or with Partial on the Partial
+  ratio of §16 read from Modulator. B's increment stops at the top of the word (about 67.8 semitones up).
+- **Phases on a new note**: Osc 1's Dual Sine FM starts A at 0.5 and B at -59/128; Osc 2 starts both at 69/128, or in
+  FM A at 69/128 and B at -54/128. Osc 1's plain Dual Sine runs on.
+
+Measured on the instrument's arithmetic (2026-11-20): every Carrier and Modulator value read off the pitch words,
+Partial included (all within the laws above); against renders of it at A4, plain Dual Sine's lines within about
+1.5 dB; Dual Sine FM's spectra have the right shape but the sidebands differ by 1-3 dB (Osc 1, ours stronger) and
+about 4 dB (Osc 2, ours weaker) - to settle sample for sample. The Osc Mod FM's modulator from a Dual Sine Osc 2 is
+the instrument's (2026-11-20): -(A + 3 s^2 B) / 4 in plain Dual Sine and -A / 4 in Dual Sine FM, where a plain
+waveform hands its output over as +out / 2 - in our units -(A/2 + 3 s^2 B/2) and -A/2 against +out. Osc Mod's FM and
+DFM reach Osc 1's sine A alone; sine B keeps the plain increment.
+
+## 20. Osc 2 Noise
+The same generator as Osc 1's Noise (§15) through a resonant two-pole state-variable filter of its own, as the
+instrument's manual describes - but in three fixed modes, not a sweep. Fine (the program's Noise Type) picks the mode
+in thirds: 0-42 low pass, 43-85 band pass, 86-127 high pass. Coarse gives way to the Noise Frequency: the cutoff is
+Osc 2's pitch with Noise Frequency - 64 semitones in place of Coarse, so 64 is the note's own pitch, it follows the
+keyboard (and Osc 2's Keyboard Track switch) and Fine Tune does nothing. Shape is the resonance.
+
+- **The stage**: the main filter's (filter notes §2) without the cubic term: low = low' + F band',
+  high = u - low - k band', band = band' + 4F high.
+- **The coefficients**: cutoff word w = pi/16 x Osc 2's increment (so g = 8w = pi f / 44.1 kHz at Osc 2's pitch);
+  damping q = (1.0234375 - s)^2 with s = Shape / 128; N from the 1/sqrt(1 + i/8) table with i = (4w^2 + q w) x 128, no
+  straight line between entries; F = 8wN, k = qN.
+- **Input**: each sample of the generator times 1 - 0.85 s, over 512. Low pass takes it plus the last one; band pass
+  the same times N; high pass N^2 times the sample alone.
+- **Output**: low pass 64 x (low + the last low), band pass 64 x band, high pass 256 x high, each held to a word.
+
+Against renders of the instrument's arithmetic (2026-11-20, A4, Noise Frequency 100): third-octave spectra within
+about 0.5 dB in all three modes at Shape 64, level against a plain sine within 0.1 dB; at Shape 127 the resonant peak
+and skirts within 1-3 dB and the level 1.6 dB high. Built in floating point in both arithmetics.
+
+## 21. Osc 2 Keyboard Track off
+Osc 2 plays from MIDI note 64 instead of the key played, with no Octave Shift and no glide: in semitones Coarse is
+then the MIDI note itself (64 is E4, 70 is 70), and Partial plays no part. In Noise the cutoff is the Noise Frequency
+as a MIDI note; in Dual Sine A takes Coarse's note and B Modulator's, Carrier playing no part. Read off the
+instrument's pitch words (2026-11-20) at notes 48, 69 and 84, with and without Octave Shift, Coarse 64 and 70,
+Carrier 0-127 and Modulator 0-127 in Dual Sine, Partial on and off. Fine Tune, bend and modulation are taken to apply
+as with tracking on - not yet checked. It was read from the program but not acted on before: 1:1 TD Style Lead's
+Osc 2 (its DFM modulator, fixed at C3) followed the keys, so its timbre did not sweep through the glide as on the
+instrument.
+
+## 13a. Shape modulation in sync mode
+With Sync on, Shape is the sync pitch (§13), so whatever modulates Shape - the LFOs, the Mod Env - moves the sync
+pitch, in Sync Detune steps (half a semitone each), held to 0-127. It moved only the pulse width word before, which a
+synced oscillator does not use: 1:1 TD Style Lead's LFO 1 to Shape 1 (raised by its velocity morph) did nothing.
+Found by blame against the instrument's arithmetic (2026-11-20): score 7.5 -> 2.3.
+
+## 22. Synched noise
+Noise with Sync on (either oscillator): the same stretch of noise restarted every cycle, so it sounds at the note's
+pitch with a fixed "body". Four sub-steps a sample, each moving a phase on by a quarter of the oscillator's increment;
+the noise generator (§15) steps every eighth sub-step, and whenever the phase wraps - once a cycle - it restarts at a
+seed: the Sync Noise Timbre value's top four bits (value & 0x78, as a word), so 16 different waveforms, stepped as the
+manual says. The four sub-samples are averaged, and the output is the last output and the last average, halved.
+Found by blame on 1:18 Albatross (2026-11-20; it played as filtered noise before): score 36.3 -> 2.2.

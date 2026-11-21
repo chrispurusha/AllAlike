@@ -1,0 +1,66 @@
+#!/bin/zsh
+#
+# mpc-install - puts an AllAlike MPC build (<Product>/do-mpc) on an Akai MPC or Force.
+#
+#   tools/mpc-install TiAlike 192.168.1.50 list      what is installed, on which drive (check first)
+#   tools/mpc-install TiAlike 192.168.1.50           install or replace it over the network, then offer a restart
+#   tools/mpc-install TiAlike 192.168.1.50 info      the machine, its CPU and drives
+#   tools/mpc-install TiAlike 192.168.1.50 doctor    why it will not connect
+#   tools/mpc-install TiAlike /Volumes/STICK         copy it onto a USB stick or SD card mounted on this Mac
+#
+# Over the network it uses the MPC SDK's tools/mpc_remote.py, which needs the MPC on the network with DEVELOPER
+# MODE on (Preferences > Info: tap the version 3 times, the serial number twice, the firmware version once - that
+# starts its SSH server) and External Plugin Support enabled. It writes only inside "VST2 Plugins" on the drive it
+# asks you to pick. $MPC_ADDRESS can stand in for the address; $MPC_SDK points at the SDK.
+set -e
+HERE=${0:A:h}
+ROOT=${HERE:h}
+SDK=${MPC_SDK:-$ROOT/../mpc-plugin-builder-sdk}
+SDK=${SDK:A}
+
+PRODUCT=$1
+TARGET=${2:-$MPC_ADDRESS}
+COMMAND=${3:-update}
+[[ -n $PRODUCT && -n $TARGET ]] || { sed -n '3,14p' $0 | sed 's/^# \{0,1\}//'; exit 2; }
+
+BUILD=$ROOT/$PRODUCT/build/mpc
+FOLDER=$(print -l $BUILD/*" - VST - "*(N/) | head -1)
+
+if [[ $COMMAND == update || $TARGET == /* ]]; then
+    [[ -n $FOLDER && -f $FOLDER/plugin.json ]] || { echo "error: no MPC build of $PRODUCT - run $PRODUCT/do-mpc first" >&2; exit 1; }
+fi
+
+# A drive mounted on this Mac: list what is there, then copy beside it
+if [[ $TARGET == /* ]]; then
+    [[ -d $TARGET ]] || { echo "error: $TARGET is not mounted" >&2; exit 1; }
+    DEST="$TARGET/VST2 Plugins"
+    echo "==> already in $DEST:"
+    ls -1 "$DEST" 2>/dev/null | sed 's/^/    /' || echo "    (no VST2 Plugins folder yet)"
+    mkdir -p "$DEST"
+    NAME=${FOLDER:t}
+    rm -rf "$DEST/$NAME"
+    rsync -a --exclude .DS_Store "$FOLDER/" "$DEST/$NAME/"
+    echo "==> copied $NAME to $DEST - eject the drive, put it in the MPC and look under External Plugins"
+    exit 0
+fi
+
+[[ -f $SDK/tools/mpc_remote.py ]] || { echo "error: MPC SDK not found at $SDK (set MPC_SDK)" >&2; exit 1; }
+
+case $COMMAND in
+    update)
+        python3 $SDK/tools/mpc_remote.py $TARGET list || true   # what is there already, and on which drive
+        python3 $SDK/tools/mpc_remote.py $TARGET update "$FOLDER"
+        echo "==> the MPC lists new plug-ins after it rescans; to restart its app now (unsaved work is lost):"
+        echo "    tools/mpc-install $PRODUCT $TARGET restart"
+        ;;
+    list|info|drives|doctor|restart)
+        python3 $SDK/tools/mpc_remote.py $TARGET $COMMAND
+        ;;
+    remove)
+        python3 $SDK/tools/mpc_remote.py $TARGET remove "${FOLDER:t}"
+        ;;
+    *)
+        echo "error: unknown command $COMMAND (list, info, drives, doctor, restart, remove; none = install)" >&2
+        exit 2
+        ;;
+esac

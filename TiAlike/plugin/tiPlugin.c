@@ -149,7 +149,9 @@ static void * ti_create(const tSynthLibPluginDesc * desc) {
     ti_voices_init(&t->voices, 48000.0);
     t->hostRate    = 48000.0;
     ti_voices_set_limit(&t->voices, voice_limit(t));
+#ifndef SYNTHLIB_NO_EDITOR
     ti_prefs_init();
+#endif
     synthlib_log_line("created - TiAlike %s", TIA_VERSION_STRING);
     return t;
 }
@@ -303,6 +305,7 @@ static void ti_set_state(void * inst, const void * data, size_t len) {
     }
     take_tables(t, d + STATE_LENGTH, len - STATE_LENGTH);
     atomic_store(&t->startPreset, false);   // a project's sound, not A001
+    atomic_store(&t->wantPreset, 0);        // notes §10: nor a program change still waiting for its fade
     d                                  += 4;
     memcpy(t->soundName, d, TI_SINGLE_NAME_LENGTH + 1);
     t->soundName[TI_SINGLE_NAME_LENGTH] = '\0';
@@ -690,8 +693,8 @@ static void ti_param_points(void * inst, uint32_t id, const tSynthLibParamPoint 
 // notes §17: a keyboard sending polyphonic pressure (0xA0) reaches the plug-in as an event, never as the channel pressure
 // parameter - the voice takes one pressure, so each key's pressure stands for it, at its own frame
 static void ti_poly_pressure(void * inst, uint8_t channel, uint8_t note, float pressure, uint32_t sampleOffset) {
-    tTiPlugin *         t     = (tTiPlugin *)inst;
-    tSynthLibParamPoint point = {sampleOffset, (double)pressure};
+    tTiPlugin *         t        = (tTiPlugin *)inst;
+    tSynthLibParamPoint point    = {sampleOffset, (double)pressure};
     bool                sounding = false;
 
     (void)channel;
@@ -715,7 +718,6 @@ static bool ti_param_text(const tSynthLibPluginDesc * desc, void * inst, uint32_
     static const char *const routes[]  = {"Serial 4", "Serial 6", "Parallel 4", "Split"};
 
     (void)desc;
-    (void)inst;
 
     if (id >= kTiParamCount) {
         return false;
@@ -730,6 +732,11 @@ static bool ti_param_text(const tSynthLibPluginDesc * desc, void * inst, uint32_
         snprintf(out, len, "%s", routes[(step < 0) ? 0 : ((step > 3) ? 3 : step)]);
     } else if (id == kTiParamFilterLink) {
         snprintf(out, len, "%s", (step != 0) ? "On" : "Off");
+    } else if (id == kTiParamProgram) {   // notes §10: the stored sound the program change would load
+        tTiPlugin * t    = (tTiPlugin *)inst;
+        int         bank = (t != NULL) ? ((int)lround(t->values[kTiParamBank] * 127.0) % (TI_PRESETS / TI_BANK_SIZE)) : 0;
+
+        snprintf(out, len, "%s", ti_presets_name((bank * TI_BANK_SIZE) + (int)step + 1));
     } else {
         snprintf(out, len, "%ld", lround(gTiParams[id].plainMin) + step);
     }
@@ -899,6 +906,7 @@ static bool preset_edited(tTiPlugin * t, void * user) {
     return strcmp(name, t->soundName) != 0;
 }
 
+#ifndef SYNTHLIB_NO_EDITOR   // notes §18: the MPC build has no editor and no instrument link
 #define CLIP_HOLD_S    (1.5)
 
 static double now_seconds(void) {
@@ -1107,6 +1115,7 @@ static void * ti_create_view(const tSynthLibPluginDesc * desc, void * inst, doub
     (void)desc;
     return synthlib_panel_view_create(&gPanel, inst, width, height);
 }
+#endif // SYNTHLIB_NO_EDITOR
 
 static const tSynthLibBus        gOutputs[1] = {{"Out", 2, false, true}};
 
@@ -1140,21 +1149,23 @@ static const tSynthLibPluginDesc gDescriptor = {
     .editorAspect       = TI_CANVAS_W / TI_CANVAS_H,
 
     .cb                 = {
-        .create      = ti_create,
-        .destroy     = ti_destroy,
-        .prepare     = ti_prepare,
-        .setActive   = ti_set_active,
-        .process     = ti_process,
-        .noteOn      = ti_note_on,
-        .noteOff     = ti_note_off,
+        .create       = ti_create,
+        .destroy      = ti_destroy,
+        .prepare      = ti_prepare,
+        .setActive    = ti_set_active,
+        .process      = ti_process,
+        .noteOn       = ti_note_on,
+        .noteOff      = ti_note_off,
         .polyPressure = ti_poly_pressure,
-        .setParam    = ti_set_param,
-        .paramPoints = ti_param_points,
-        .getParam    = ti_get_param,
-        .paramText   = ti_param_text,
-        .getState    = ti_get_state,
-        .setState    = ti_set_state,
-        .createView  = ti_create_view,
+        .setParam     = ti_set_param,
+        .paramPoints  = ti_param_points,
+        .getParam     = ti_get_param,
+        .paramText    = ti_param_text,
+        .getState     = ti_get_state,
+        .setState     = ti_set_state,
+#ifndef SYNTHLIB_NO_EDITOR
+        .createView   = ti_create_view,
+#endif
     }
 };
 

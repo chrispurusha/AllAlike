@@ -678,3 +678,11 @@ pressure parameter IMidiMapping maps, so aftertouch did nothing from such a keyb
 so each key's pressure is taken as it (a block's value, as every parameter here).
 Only a key actually sounding is taken, as G2Alike does: in Mono a key still held underneath would otherwise fight the
 one being played.
+
+## 69. The MPC build (2026-11-21)
+`do-mpc` builds Pulse2Alike for the Akai MPC and Force through `../tools/do-mpc` and SynthLib's VST2 wrapper,
+with `P2_NO_EDITOR` (the offline renderer's switch: no panel, no instrument link, no preferences) and
+`p2HardwareWin.c`, the stand-in with no MIDI. Oversampling defaults to 1x there (`P2_DEFAULT_OVERSAMPLE`): the
+Live and Force are 32-bit Cortex-A17s, and the DCO at 2x was expected to cost far more than Akai's guide of about
+15% of one core for a whole instrument. The setting can still be raised on the machine. The side-chain input
+(EXT IN, §65) is an aux bus, which the MPC build does not offer.

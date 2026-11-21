@@ -47,3 +47,14 @@ Finished work not yet checked against the instrument or in a host.
 - GLOBAL page (11-17, ../Docs/panel-layout.md): PLUG-IN (Voices, Same Note, Anti-alias, Maths), HARDWARE (Link, Channel, Device) - all fit
 - Panel colours (11-17, ../Docs/panel-layout.md Colours): Off buttons (Link, Mono, Legato...) dimmed in their section's colour with light text, not grey; CLIP the same when not lit; PLUG-IN/HARDWARE steel blue, OUTPUT sage, PLAY page rose, MOD / MIX blue-teal - all readable
 - Link (11-17): on with no MIDI output chosen, the GLOBAL Link button is amber and reads NO PORT
+- Osc Mod DM, DIST and RM (2026-11-20, osc notes §18): programs using them against the instrument - DIST's drive across the knob, DM's semitone steps, RM fading in
+- Dual Sine and Dual Sine FM (2026-11-20, osc notes §19): 1:1, 1:11, 1:14 and 1:22 against the instrument; Osc 2's Carrier/Modulator pitches and Partial by ear
+- Osc 2 Noise (2026-11-20, osc notes §20): 1:20 Hard Wind against the instrument (level especially); Fine's three filter modes, Coarse sweeping the cutoff, Shape the resonance
+- LFO Env mode (2026-11-20, voices notes §37): 1:15 Open Air against the instrument - the filter rising once and staying open, not repeating
+- Dist LP (2026-11-20, filter notes §17): 1:8 and 1:14 against the instrument - the distortion rising with the Dist knob, Freq still sweeping it
+- Glide (2026-11-20, voices notes §12): 1:1 and 1:9 played legato against the instrument - speed across the Rate knob, wide intervals taking longer
+- Osc Bypass and Osc 2 Keyboard Track off (2026-11-20, voices notes §38, osc notes §21): 1:22 FMorgan2 and 1:1 TD Style Lead against the instrument
+- Osc Mod FILT (2026-11-20, filter notes §18): programs using it (51) against the instrument, with high resonance
+- Cutoff modulation past the knob's top (2026-11-20, filter notes §4): 1:8's mod wheel sweep against the instrument; LFO/Mod Env to Filter 2 and Osc Mod (voices notes §39)
+- Nl3Alike Chord Memory (1:35 Tonewheel, 1:63 FifthPad): the chord plays and lets go as one key
+- Nl3Alike LFO 2 to Pan and Resonance, wheel morphs on a Dual Sine Osc 2 (1:28 DXexpress with the wheel moving)

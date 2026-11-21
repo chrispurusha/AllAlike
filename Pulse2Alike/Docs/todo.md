@@ -87,3 +87,4 @@ One line per item. Measurements and reasoning go in `findings.md`, design in `de
 - Four one-pole stages with LP24 at the end (per-stage poles): worse than the free-mix fit, implausible stage ratios, no HP notch (findings, first linear filter fit)
 - Fitting an engine constant to one take of a patch with detuned oscillators: their slow beat moves a band by up to 10 dB take to take (P006's LEVEL2 depth of 3, reverted)
 - Drive structures already rejected against the level sweep - p2Drive notes §4
+- MPC build (`do-mpc`, plugin notes §69): measure on the MPC Live and Force (CPU meter at 1x and 2x oversampling, 1 and 4 voices), then set the defaults; MPC screen skins from the panel tables

@@ -2,7 +2,7 @@
 
 ## First
 - Priority (CT 2026-11-14): programs 2-4 (String Pad, Happy ending, Ethereality) - Unison done; multi types 1, 4, 5 and the Sine's Shape done (filter notes §15-16, osc notes §12) - vibrato BUILT 11-14 (voices notes §31; source 1 = aftertouch, 2 = wheel); what reaches the second cutoff (Filter 2 Env, key track, LFO to Filter 2) measured, then the Sine's Shape (program 4); vibrato later
-- Modulation (CT 2026-11-14: first): LFO 2 to Resonance and Pan, Invert on the positive-only destinations, LFO to Osc Mod once Osc Mod exists (pitch, filter, Shape, Osc Mix and Amp done, voices notes §21-22); Smooth Random and Special waves; keyed start phase; Env (single cycle) and Mono modes
+- Modulation (CT 2026-11-14: first): LFO 2 to Resonance and Pan, Invert on the positive-only destinations, LFO to Osc Mod once Osc Mod exists (pitch, filter, Shape, Osc Mix and Amp done, voices notes §21-22); Smooth Random and Special waves; keyed start phase; Mono mode (Env single cycle BUILT 11-20, voices notes §37)
 - Modulation: what the Mod Env's Amount 127 does to pitch (the offset reads zero); its other destinations are built bar OSCMOD and FILT 2 (below)
 - Morph: aftertouch BUILT 11-14 (channel pressure, the wheel's law assumed - measure it); the Control Pedal as a source; whether a morphed knob is clamped to its range before or after the groups add
 - Check the switch names against the instrument (stored value = panel position is measured; the names follow the
@@ -14,19 +14,38 @@
 - Filter: how modulation reaches the cutoff word (envelope amount, key track, velocity), measured
 - Filter: check against the instrument on the rig (QU-24 9/10) - responses and self-oscillation level
 - Fixed point beyond the filter, per the Arithmetic parameter
-- Oscillators: sync BUILT 11-14 (osc notes §13, saw measured; check pulse, triangle and sine against the instrument); Osc 1 Noise BUILT 11-16 (osc notes §15, matches the instrument); Osc 2 Noise (Noise Type/Frequency), Noise 3's colour (noiseSoften never set), Dual Sine, Shape on the other waves
+- Oscillators: sync BUILT 11-14 (osc notes §13, saw measured; check pulse, triangle and sine against the instrument); Osc 1 Noise BUILT 11-16 (osc notes §15, matches the instrument); Osc 2 Noise BUILT 11-20 (§20; synced Osc 2 Noise, routine not read), Noise 3's colour (noiseSoften never set), Dual Sine, Shape on the other waves
 - Pulse width modulation (osc notes §11): the LFO and modulation-envelope depth on the width word is a placeholder
 - Pitch (osc notes §8): fractions of a semitone - their resolution; whether the tuning word follows Master Tune
 - Master Tune per instance (GLOBAL): ±6 semitones and ±100 cents, as the instrument's, scaling the tuning word
 - Unison (voices notes §26) built; still to match: the 6-tap kernel's correction term, the reads' start on a new note, and whether Unison off really bypasses the ring (no fixed fractional delay)
 - Remove Q Normalise (Sn2Alike's; does nothing now); replace the Dist dial's placeholder saturator with the
   Distortion the instrument has (Flt Dist, and the Distorted LP modes)
-- Osc Bypass (a switch, per program): sends an oscillator around the filter, added after it; the filter takes that
-  second input already (both arithmetics). Build it with the oscillators
-- The MIDI link: knobs go as CCs BUILT 11-16 (plugin notes §14); switches and choices still go whole and reach only the next note - send those as CCs too once their CC values are measured (scaled, not the knob value)
+- The MIDI link: knobs (11-16) and switches and Filter Type (11-20) go as CCs (plugin notes §14) - check by ear on the instrument that a sounding note follows a switch change
 - Panel: the pages for the Nord Lead 3's sections
 - `Docs/code-notes/` came across from Sn2Alike with the code: rewrite each as its file changes
 - Octave Shift with Filter Keyboard Track on: check the track follows the shifted note (voices notes §33, assumed)
+- Rank against the reference (11-21; the blame tool now averages wheel 0/64/127 and scores envelope and waveform too; lower is closer): 1:43 Icisematta 31 (the arpeggio), 1:46 Arp 29 (arpeggio timing), 1:35 Tonewheel 13 (chord voices at free phases; envelope 4-7 dB off), 1:20/1:23 Hard Wind 12, 1:32 TB Bass 12, 1:29 Angeles 10, 1:40 VoiceSound 11, 1:28 DXexpress 5, 1:37 IonoSPHERE 6.5, 1:5 Mod Wheel Sweep 5.7 (14 at wheel 0, under 2 at 64 and 127)
+- Owner A/B 11-21: Dist LP darker - FIXED by the filter's input scale (voices notes §19; 1:8 within 0.4-0.7 dB of the hardware). Still open: 1:17/1:18 multi mode (+3-6 dB brighter above 1-4 kHz on the hardware; the instrument runs $1228/$1262 there), 1:14 (5 dB off over harmonics: its Dual Sine/DFM), 1:26 maybe missing modulation, 1:21 very slightly different
+- Chord Memory: odd counts (14 programs) not understood; chords in Mono not done (voices notes §47)
+- Blame round 3 (11-21): morphs follow the knob's field (voices notes §45, 1:28 36.7 -> 8.8), Mod Env AR plain on one-way destinations (§41, 1:28 -> 5.3), LFO 2 to Resonance and Pan (§46), Chord Memory (§47, 1:35 25 -> 13.4)
+- Blame round 2 (11-20): synched noise (osc notes §22, 1:18 36.3 -> 2.2), Noise3 (voices notes §44), envelope Invert (§43), multi types 0, 2, 3 (filter notes §20, 1:17 21.8 -> 1.6), Dual Sine FM depth confirmed right (non-harmonic test within 1 dB). 1:8 is right bar Dist LP (score 0.1 with it off)
+- Blame (11-20, private tool against the instrument's arithmetic; score = octave-band shape + level): 1:15 11.5 -> 2.7 (LFO Invert, slope-0 band pass), 1:1 7.5 -> 1.8 (Shape modulation as the sync pitch), 1:14 21.5 -> 4.3 (Mod Env AR, LFO Env mode one-way, Osc Mod FM/DFM half depth), 1:11 -> 4.1 (Dual Sine FM depth left), 1:9 6.5 is mostly two same-pitch saws' free phases. Next: 1:8 (blame with Dist LP off: the tap is unreliable with distortion), 1:14 and 1:11's remaining Dual Sine FM depth, Mod Env and Filter Env Invert
+- Owner A/B 11-20, bank 1 (what each uses that is not built):
+  - Dual Sine BUILT 11-20 (osc notes §19) - recheck 1:1 TD Style Lead, 1:11 IonoSPHERE, 1:14 ElecGit, 1:22 FMorgan2; Dual Sine FM's depth still 1-4 dB apart from the instrument's arithmetic - trace the phase words sample for sample
+  - Dist LP BUILT 11-20 (filter notes §17) - recheck 1:8 Distorted Lead and 1:14 ElecGit
+  - 1:8 Distorted Lead (CT 11-20): mod wheel tracking not quite right - its wheel morphs Freq 1 by +98 from 39; the instrument's cutoff rises straight on past knob 127 where ours jumped fully open: FIXED 11-20 (filter notes §4), recheck
+  - 1:11 IonoSPHERE (CT 11-20, later): DFM not right (or ours sounds like the hardware's DM) - type is read right (bit 380). Osc Mod FM/DFM into Dual Sine oscillators is far from the instrument's arithmetic: both Dual Sine FM, DFM 64 at A4 - ours has much more top; DFM 40 with Osc 2 Carrier 28 - the instrument shows no modulation at all, ours some. Modulator sign/weights and sine B's plain increment fixed 11-20 (osc notes §19) changed nothing there: trace the DFM routine ($7EF) and Osc 1's $A88 sample for sample. FILT now takes a Dual Sine Osc 2's Osc Mod signal, not its output - check
+  - 1:11 IonoSPHERE (CT 11-20): Osc 2 out of tune, ours about an octave off - Carrier with Partial is a partial ratio (9x the note here, ours played +9 semitones), FIXED 11-20 (osc notes §19); recheck
+  - 1:9 Early lead (CT 11-20): glide missing - Glide Mode 2 = Auto (legato only) confirmed on the instrument; the glide is now the instrument's constant rate (voices notes §12, BUILT 11-20) where ours was a near-instant fixed time: recheck legato
+  - Osc 2 Noise BUILT 11-20 (osc notes §20) - 1:20 Hard Wind is noise now but quiet (-53 dB): recheck its level against the instrument
+  - Osc Bypass BUILT 11-20 (voices notes §38) - recheck 1:22 FMorgan2
+  - 1:1 TD Style Lead (CT 11-20, after glide): still glides less than the hardware - its Osc 2 has Keyboard Track off (fixed at C3, the DFM modulator), which was not built; BUILT 11-20 (osc notes §21): recheck
+  - 1:1 TD Style Lead (CT 11-20, after Dual Sine): sounds as if ours is missing some modulation - it has Mod Env to Osc Mod (DFM, Amount 11) on a Dual Sine FM Osc 2, and vibrato: check both
+  - 1:1 closer than 11-16 but "the hardware has some extra filtering" (LP 12, Freq 85, Res 0) - after Dual Sine, compare the top octaves
+  - 1:9 Early lead close, the hardware's attack softer (Amp Attack 27, Filter Env Attack 38, Classic filter): check the attack laws
+  - 1:15 Open Air (CT 11-20, after Env mode): still sounds as if our filter is more closed - band pass at slope 0 is its own routine, BUILT 11-20 (filter notes §19), was playing as the much steeper 12 dB band pass: recheck; and LFO Invert on one-way destinations flips the wave (voices notes §40) - blame score 11.5 -> 2.7. Check Mod Env and Filter Env Invert the same way
+  - 1:15 Open Air: LFO 2 in Env mode (one cycle, then held) BUILT 11-20 (voices notes §37) - CT heard ours sweeping like a repeating saw; recheck, and the instrument's cycle about 8% shorter than ours at Rate 27
 - Owner A/B 11-16, bank 1 against the instrument:
   - 1:2 String Pad: louder on the instrument (unison?); 1:3 Happy ending explained by the Osc Mix law, FIXED 11-16 - recheck both
   - 1:7 Self Mod Filter: louder in Nl3Alike
@@ -35,5 +54,5 @@
   - 1:18 Albatross: zipper/tick in Nl3Alike
   - 1:19 ChimeOrch: louder on the instrument
   - 1:21 SawLead: detuning FIXED 11-16 (Osc 2 Partial, osc notes §16) - recheck the ticking; 5-7 dB quiet against the other programs (Classic filter, Distortion 100?)
-- Osc Mod: FM and DFM BUILT 11-16 (osc notes §17, the firmware's arithmetic; Mod Env OSCMOD reaches them - 129 of its 164 programs); still DM, DIST (21 Mod Env programs), FILT, RM, LFO to OSCMOD, and a check against the instrument's sound; Mod Env FILT 2 (13) does nothing yet
+- Osc Mod: FM and DFM BUILT 11-16 (osc notes §17), DM, DIST and RM BUILT 11-20 (§18); FILT BUILT 11-20 (filter notes §18); LFO to OSCMOD and Mod Env/LFO to FILT 2 BUILT 11-20 (voices notes §39); still fixed-point forms of §18 and a check against the hardware
 - Poly Legato (manual p.108): a chord played over a held one takes over the old voices without restarting the envelopes, and with Glide each glides in parallel to its new note, plus the rules for a chord with more or fewer notes - replaces the stopgap in voices notes §12a (poly + Legato glides each voice from its own last pitch while a key is held; envelopes restart)

@@ -21,30 +21,25 @@
 
 #include "nl3Voices.h"
 
-#define SMOOTH_S                 (2048.0 / 46875.0) // notes §5
-#define VELOCITY_FLOOR           (0.0157)
-#define VELOCITY_RANGE           (0.98)
-#define RING_GAIN                (2.0)
-#define NOISE_LCG_MUL            (0x0B2D9Du)   // osc notes §15
-#define NOISE_LCG_ADD            (0x361963u)
-#define NOISE_DIFFERENCE         (0.85)
-#define NOISE_FLOOR              (0.04)
-#define NOISE_CORNER_HZ          (20.0)
-#define NOISE_DIFFERENCE_FROM    (120.0)
-#define GLIDE_AT_64              (0.183) // voices notes §12
-#define GLIDE_DOUBLING           (11.2)
-#define GLIDE_CURVE              (0.41)
-#define GLIDE_LANDING            (2.5)
-#define ENV_TO_CUTOFF            (2.2146)
-#define DRIVE_IN                 (0.5)  // voices notes §8
-#define FILTER_IN                (0.5)
-#define TRACK_PIVOT              (36.0) // voices notes §9: Keyboard Track pivots on C2
-#define FILTER_OUT               (4.0)  // voices notes §19: the filter leaves a quarter of what it is given
-#define LFO_FADE_HOLD            (0.0125)
-#define LFO_FADE_FALL            (5.7)
-#define SUB_BLOCK                (32u)   // notes §4
-#define UNISON_SPAN              (244.0) // voices notes §26: delay samples across the word
-#define UNISON_SECOND            (0.7)   // voices notes §26: the second read's step against the first's
+#define SMOOTH_S          (2048.0 / 46875.0)        // notes §5
+#define VELOCITY_FLOOR    (0.0157)
+#define VELOCITY_RANGE    (0.98)
+#define RING_GAIN         (2.0)
+#define MIX_SCALE         (2.0 / 3.0)          // osc notes §18: Osc Mix's gains on the instrument carry 2/3
+#define OSC_MOD_SOURCE    (0.5)                // osc notes §17: Osc 2 hands Osc Mod half its output
+#define NOISE3_GAIN       (0.355)              // voices notes §44: 6.1 dB under a saw, as the instrument's
+#define NOISE_LCG_MUL     (0x0B2D9Du)          // osc notes §15
+#define NOISE_LCG_ADD     (0x361963u)
+#define ENV_TO_CUTOFF     (2.2146)
+#define DRIVE_IN          (0.5)         // voices notes §8
+#define FILTER_IN         (4.0 / 3.0)   // voices notes §19: with DRIVE_IN, the mix reaches the filter at 2/3, as the instrument's
+#define TRACK_PIVOT       (36.0)        // voices notes §9: Keyboard Track pivots on C2
+#define FILTER_OUT        (1.5)         // voices notes §19: the filter leaves a quarter of what it is given; 4 x (1/4) / (2/3)
+#define LFO_FADE_HOLD     (0.0125)
+#define LFO_FADE_FALL     (5.7)
+#define SUB_BLOCK         (32u)          // notes §4
+#define UNISON_SPAN       (244.0)        // voices notes §26: delay samples across the word
+#define UNISON_SECOND     (0.7)          // voices notes §26: the second read's step against the first's
 
 static void rank_voices(tNl3Voices * v);
 
@@ -91,14 +86,29 @@ void nl3_voices_set_limit(tNl3Voices * v, uint32_t limit) {
 
 // osc notes §8: the oscillator's pitch in notes
 static double osc_pitch(const tNl3OscSound * o, double note, double bend, double wheel, double moved) {
+    note = o->fixedPitch ? 64.0 : note;   // osc notes §21: no key, no Octave Shift, no glide
     double semitones = note - 60.0 + (12.0 * o->octaves) + o->semitones + (o->cents / 100.0) + (bend * o->bendRange) + (wheel * o->wheelPitch) + moved;
 
     return 60.0 + semitones;
 }
 
-// voices notes §12: seconds from one pitch to the next, whatever the interval
-static double glide_seconds(double time) {
-    return GLIDE_AT_64 * pow(2.0, (time - 64.0) / GLIDE_DOUBLING);
+// voices notes §12: the glide's speed in semitones a second, Rate 1-127, measured on the instrument's arithmetic (no
+// closed form found yet - see the notes)
+static const double kGlideRate[127] = {
+    578.9, 578.9, 571.5, 559.2, 549.5, 534.9, 522.5, 503.3, 485.1, 470.6, 466.5, 464.6, 458.5, 442.2, 424.7, 404.1,
+    387.3, 375.7, 368.4, 358.7, 352.4, 343.4, 331.6, 322.6, 314.4, 305.5, 301.3, 293.0, 283.7, 275.5, 264.8, 256.3,
+    251.0, 243.7, 236.2, 228.6, 220.2, 214.7, 209.9, 204.5, 197.8, 192.0, 184.9, 178.9, 174.2, 169.6, 164.5, 160.1,
+    155.0, 149.8, 145.4, 140.9, 136.5, 132.6, 128.7, 125.0, 121.2, 117.5, 114.3, 111.1, 107.9, 104.6, 101.5,  98.2,
+    95.4,   92.6,  89.9,  87.3,  84.8,  82.2,  79.7,  77.3,  75.1,  72.8,  70.7,  68.6,  66.6,  64.5,  63.0,  61.5, 59.9, 58.1,
+    56.1,   53.9,  52.2,  50.4,  49.0,  47.6,  46.2,  44.8,  43.2,  41.6,  40.4,  39.1,  37.8,  36.6,  35.3,  34.0, 32.8, 31.6,
+    30.3,   29.1,  27.9,  26.8,  25.7,  24.6,  23.4,  22.3,  21.2,  20.2,  19.0,  17.9,  16.8,  15.7,  14.7,  13.7, 12.6, 11.5,
+    10.5,    9.4,   8.3,   7.3,   6.2,   5.2,   4.0,   2.9, 1.9
+};
+
+static double glide_rate(double rate) {
+    long r = lround(fmin(127.0, fmax(1.0, rate)));
+
+    return kGlideRate[r - 1];
 }
 
 static double glide_heard(const tNl3Voice * vc, const tNl3Sound * sound) {
@@ -163,10 +173,141 @@ static double lfo_fade(const tNl3LfoSound * lfo, double age) {
     return (lfo->delay > 0.0) ? fmin(1.0, age / lfo->delay) : 1.0;
 }
 
+// osc notes §19: a sine at half size, from a phase of 2.0 a cycle in -1..1, as the instrument's Dual Sine reads it
+static double dual_half_sine(double p) {
+    return 0.5 * sin(0.5 * M_PI * ((2.0 * fabs(p)) - 1.0));
+}
+
+static double dual_wrap(double p) {
+    return p - (2.0 * floor((p + 1.0) / 2.0));
+}
+
+// osc notes §19: where a Dual Sine starts on a new note - Osc 1's plain Dual Sine runs on
+static void dual_restart(tNl3Voice * vc, const tNl3Sound * sound) {
+    for (int o = 0; o < 2; o++) {
+        const tNl3OscSound * os = &sound->osc[o];
+
+        if (!os->dualSine || ((o == 0) && !os->dualFm)) {
+            continue;
+        }
+        vc->phase[o]       = (o == 0) ? 0.5 : (69.0 / 128.0);
+        vc->dualPhase[o]   = (o == 0) ? (-59.0 / 128.0) : (os->dualFm ? (-54.0 / 128.0) : (69.0 / 128.0));
+        vc->dualHist[o][0] = ((o == 0) && os->dualFm) ? dual_half_sine(vc->dualPhase[o]) : 0.0;
+        vc->dualHist[o][1] = vc->dualHist[o][0];
+    }
+}
+
+// osc notes §19: one sample of a Dual Sine; s is the Shape (or FM Amount) word, applied squared
+static double dual_sine(tNl3Voice * vc, int o, const tNl3OscSound * os, double incA, double incBase, double s) {
+    double level = s * s;
+    double incB  = fmin(0.999, os->dualRatio * incBase);   // Osc Mod's FM reaches sine A alone
+    double a, b;
+
+    vc->dualPhase[o]   = dual_wrap(vc->dualPhase[o] + incB);
+
+    if (!os->dualFm) {
+        double hA, hB;
+
+        vc->phase[o]   = dual_wrap(vc->phase[o] + incA);
+        hA             = dual_half_sine(vc->phase[o]);
+        hB             = dual_half_sine(vc->dualPhase[o]);
+        vc->dualMod[o] = -(hA + (3.0 * level * hB));   // the instrument hands Osc Mod B three times as strong, inverted
+        return hA + (level * hB);
+    }
+
+    if (o == 0) {   // Osc 1: by B's last change, 32 s^2 (B[n-2] - B[n-1])
+        vc->phase[o] = dual_wrap(vc->phase[o] + incA + (32.0 * level * (vc->dualHist[o][1] - vc->dualHist[o][0])));
+    } else {        // Osc 2: by B's last value
+        vc->phase[o] = dual_wrap(vc->phase[o] + incA + (level * vc->dualHist[o][0]));
+    }
+    a                  = dual_half_sine(vc->phase[o]);
+    b                  = dual_half_sine(vc->dualPhase[o]);
+    vc->dualHist[o][1] = vc->dualHist[o][0];
+    vc->dualHist[o][0] = b;
+    vc->dualMod[o]     = -a;   // inverted, as the instrument hands it to Osc Mod
+    return a;
+}
+
+// osc notes §18: Osc Mod's DIST, RM and DM, set up once a sub-block from the (modulated) Amount
+typedef struct {
+    int    type;
+    double d;                     // Amount / 128, 127 as 1
+    double drive, cubic;          // DIST
+    double dmIncrement;           // DM: the hidden sine's increment
+} tNl3OscMod;
+
+static void osc_mod_setup(int type, double amount, double osc1Increment, tNl3OscMod * m) {
+    double a = fmin(127.0, fmax(0.0, amount));
+
+    m->type        = type;
+    m->d           = (a >= 127.0) ? 1.0 : (a / 128.0);
+    m->drive       = fmax(1.0 / 64.0, m->d * m->d * m->d);
+    m->cubic       = (a < 32.0) ? (pow(a / 32.0, 3.0) / 3.0) : (1.0 / 3.0);
+    m->dmIncrement = osc1Increment * exp2((round(a) - 64.0) / 12.0);   // a semitone a step, unison at 64
+}
+
+static double osc_mod_clip(double x) {
+    return fmin(1.0, fmax(-1.0, x));
+}
+
+// osc notes §18: what the oscillators give the filter: Osc 1's and Osc 2's parts after the mix, and Osc 2 raw
+static double osc_mod_mix(tNl3Voice * vc, const tNl3OscMod * m, double part1, double part2, double osc2) {
+    switch (m->type) {
+        case 0:     // DM: the mix times a hidden sine raised to 0..1, clipped
+        {
+            double p = vc->dmPhase + m->dmIncrement;
+            double t;
+
+            p          -= 2.0 * floor((p + 1.0) / 2.0);    // a cycle is 2.0, kept in -1..1
+            vc->dmPhase = p;
+            t           = (2.0 * fabs(p)) - 1.0;
+            return 0.5 * osc_mod_clip(8.0 * (part1 + part2) * 0.5 * (1.0 + sin(0.5 * M_PI * t)));
+        }
+        case 1:     // DIST: a hard clip into a cubic soft clip
+        {
+            double y = osc_mod_clip(64.0 * m->drive * (part1 + part2));
+
+            return 0.75 * (y - (m->cubic * y * y * y));
+        }
+        case 5:     // RM: from Osc 1 towards Osc 1 times Osc 2, with Osc Mix's two gains
+            return part2 + ((2.0 / 3.0) * (1.0 - (m->d * m->d)) * part1) + ((4.0 / 3.0) * ((2.0 * m->d) - (m->d * m->d)) * part1 * osc2);
+
+        default:
+            return part1 + part2;
+    }
+}
+
+// voices notes §41: the Mod Env as the both-ways destinations (pitch, Osc Mix) take it - in AR mode measured from the
+// top, so the destination is as set while the key is held and bent below it on the way up and down
+static double mod_env_out(const tNl3Voice * vc, const tNl3Sound * sound) {
+    return vc->env[1].level - ((sound->env[1].sustain >= 127.0) ? 1.0 : 0.0);
+}
+
+// voices notes §43: an envelope at a one-way destination (filter, Shape, Osc Mod) - Invert flips its shape, still one
+// way: Amount x (1 - level), in AD and AR alike
+static double env_one_way(const tNl3Voice * vc, const tNl3Sound * sound, int e) {
+    if (sound->env[e].invert) {
+        return 1.0 - vc->env[e].level;
+    }
+    return vc->env[e].level;   // voices notes §41: AR holds at the top on the one-way destinations
+}
+
+// voices notes §43: at a both-ways destination (pitch, Osc Mix) Invert is a sign
+static double env_both_ways(const tNl3Voice * vc, const tNl3Sound * sound) {
+    return (sound->env[1].invert ? -1.0 : 1.0) * mod_env_out(vc, sound);
+}
+
+// filter notes §15-16, §20: Filter 2's type in multi mode
+static const tNl3FilterMode kMultiModes[6] = {eNl3FilterLpBpPar, eNl3FilterLpHpPar, eNl3FilterHpLpSer, eNl3FilterBpBpPar, eNl3FilterPeak, eNl3FilterNotch};
+
 // voices notes §15: every LFO moved on by one sub-block, and what it does to this voice
 static void lfo_advance(tNl3Voice * vc, const tNl3Sound * sound, double seconds, double * cutoff, double width[NL3_OSCS],
-                        double * mix, double * ampGain) {
+                        double * mix, double * ampGain, double * cutoff2, double * oscMod, double * res, double * pan) {
+    *res     = 0.0;
+    *pan     = 0.0;
     *cutoff  = 0.0;
+    *cutoff2 = 0.0;
+    *oscMod  = 0.0;
     *mix     = 0.0;
     *ampGain = 1.0;
 
@@ -181,31 +322,43 @@ static void lfo_advance(tNl3Voice * vc, const tNl3Sound * sound, double seconds,
         double               next  = phase + (lfo->hz * seconds);
         double               fade  = lfo_fade(lfo, vc->lfoAge);
 
-        if (next >= 1.0) {
+        if ((next >= 1.0) && lfo->single) {
+            next = nextafter(1.0, 0.0);   // voices notes §37: Env mode holds the end of its one cycle
+        } else if (next >= 1.0) {
             next          -= floor(next);
             vc->lfoHeld[l] = next_random(&vc->noiseSeed);
         }
         vc->lfoPhase[l] = next;
         double               value = (lfo_wave(lfo->shape, next, vc->lfoHeld[l]) * fade) + lfo->offset;
-        double               up    = 0.5 * (value + fade);    // voices notes §22: 0 at the wave's bottom, the fade at its top
+        double               up    = 0.5 * (value + fade);     // voices notes §22: 0 at the wave's bottom, the fade at its top
+        double               both  = lfo->single ? up : value; // voices notes §42: in Env mode the both-ways destinations go one way too, ending at 0
+
+        up              = lfo->invert ? (fade - up) : up;      // voices notes §40: Invert flips the one-way destinations' wave, still one way
         double               down  = fade - up;
 
         tNl3LfoTargets       t     = {
-            sound->lfoCutoff[l], sound->lfoMix[l], sound->lfoAmp[l], {sound->osc[0].lfoPitch[l], sound->osc[1].lfoPitch[l]},
-            {sound->osc[0].lfoWidth[l],sound->osc[1].lfoWidth[l]}
+            sound->lfoCutoff[l], sound->lfoMix[l], sound->lfoAmp[l],     {sound->osc[0].lfoPitch[l], sound->osc[1].lfoPitch[l]},
+            {sound->osc[0].lfoWidth[l],sound->osc[1].lfoWidth[l]}, sound->lfoCutoff2[l], sound->lfoOscMod[l], sound->lfoRes[l], sound->lfoPan[l]
         };
 
         if ((l == 0) && (sound->modEnvLfo1 != 0.0)) {   // voices notes §24: the Mod Env adds to LFO 1's Amount
-            double amount = fmin(127.0, fmax(0.0, lfo->amount + (vc->env[1].level * sound->modEnvLfo1)));
+            double amount = fmin(127.0, fmax(0.0, lfo->amount + (env_one_way(vc, sound, 1) * sound->modEnvLfo1)));
 
             nl3_lfo_targets(l, lfo->to, amount, lfo->invert, &t);
         }
         *cutoff        += up * t.cutoff;
-        *mix           += value * t.mix;
+        *oscMod        += up * t.oscMod;  // voices notes §39: up from the Amount, as Filter and Shape
+        *res           += up * t.res;     // voices notes §46: one way, as Filter
+        *pan           += both * t.pan;   // both ways
+
+        if (!((lfo->to == 5) && sound->filter2Env)) {   // voices notes §39: with Filter 2 Env on, Filter 2 already follows
+            *cutoff2 += up * t.cutoff2;
+        }
+        *mix           += both * t.mix;
         *ampGain       *= 1.0 - (down * t.amp);
 
         for (int o = 0; o < NL3_OSCS; o++) {
-            vc->lfoSemis[o] += value * t.pitch[o];
+            vc->lfoSemis[o] += both * t.pitch[o];
             width[o]        += up * t.width[o];
         }
     }
@@ -234,17 +387,14 @@ static void start_glide(tNl3Voices * v, const tNl3Sound * sound, tNl3Voice * pic
             pick->glide = from - (double)note;
         }
     }
-    pick->glideRate = fabs(pick->glide) / glide_seconds(sound->glideTime);
+    pick->glideRate = glide_rate(sound->glideTime);   // voices notes §12: a constant rate, whatever the interval
     v->lastNote     = note;
 }
 
 static void advance_glide(tNl3Voice * vc, const tNl3Sound * sound, double seconds) {
+    (void)sound;
     double size = fabs(vc->glide);
-    double move = vc->glideRate * seconds;
-
-    if (sound->glideCurve == 1) {
-        move = (size + GLIDE_LANDING) * seconds / (GLIDE_CURVE * glide_seconds(sound->glideTime));
-    }
+    double move = vc->glideRate * seconds;   // voices notes §12: a straight line in semitones
     vc->glide = (move >= size) ? 0.0 : ((vc->glide > 0.0) ? (vc->glide - move) : (vc->glide + move));
 }
 
@@ -269,6 +419,7 @@ static void mono_play(tNl3Voices * v, const tNl3Sound * sound, uint8_t note, flo
     vc->gate   = true;
     start_glide(v, sound, vc, note, over);   // voices notes §12a: from the note it was on, so before taking the new one
     vc->note   = note;
+    vc->key    = note;
 
     if (restart) {
         vc->velocity  = velocity;
@@ -281,6 +432,7 @@ static void mono_play(tNl3Voices * v, const tNl3Sound * sound, uint8_t note, flo
             vc->delayWord[1] = (vc->noiseSeed * 3266489917u) & 0xFFFFFFu;
         }
         lfo_restart(vc, sound);
+        dual_restart(vc, sound);   // osc notes §19
         nl3_env_gate(&vc->amp, true);
 
         for (int e = 0; e < NL3_MOD_ENVS; e++) {
@@ -344,9 +496,9 @@ static void rank_voices(tNl3Voices * v) {
     v->orderNext = 0;
 }
 
-void nl3_voices_note_on(tNl3Voices * v, const tNl3Sound * sound, uint8_t note, float velocity) {
-    tNl3Voice * pick = NULL;
+static void start_voice(tNl3Voices * v, const tNl3Sound * sound, uint8_t key, uint8_t note, float velocity);
 
+void nl3_voices_note_on(tNl3Voices * v, const tNl3Sound * sound, uint8_t note, float velocity) {
     v->pedalled[note & 0x7F] = false;
 
     if (sound->mono) {
@@ -359,15 +511,32 @@ void nl3_voices_note_on(tNl3Voices * v, const tNl3Sound * sound, uint8_t note, f
     }
     v->heldCount             = 0;
 
+    if (sound->chordNotes == 0) {
+        start_voice(v, sound, note, note, velocity);
+        return;
+    }
+
+    for (uint32_t k = 0; k < sound->chordNotes; k++) {   // voices notes §47: one voice per chord note
+        int n = note + sound->chord[k];
+
+        if (n <= 127) {
+            start_voice(v, sound, note, (uint8_t)n, velocity);
+        }
+    }
+}
+
+static void start_voice(tNl3Voices * v, const tNl3Sound * sound, uint8_t key, uint8_t note, float velocity) {
+    tNl3Voice * pick = NULL;
+
     // voices notes §34: Piano takes over the key's newest sounding voice; Stack lets it go on releasing and takes another
     for (uint32_t i = 0; (i < v->limit) && sound->piano; i++) {
-        if (v->voice[i].active && (v->voice[i].note == note) && ((pick == NULL) || (v->voice[i].started > pick->started))) {
+        if (v->voice[i].active && (v->voice[i].key == key) && (v->voice[i].note == note) && ((pick == NULL) || (v->voice[i].started > pick->started))) {
             pick = &v->voice[i];
         }
     }
 
     for (uint32_t i = 0; i < v->limit; i++) {
-        if (v->voice[i].active && v->voice[i].gate && (v->voice[i].note == note) && (&v->voice[i] != pick)) {
+        if (v->voice[i].active && v->voice[i].gate && (v->voice[i].key == key) && (v->voice[i].note == note) && (&v->voice[i] != pick)) {
             v->voice[i].gate = false;
             nl3_env_gate(&v->voice[i].amp, false);
 
@@ -389,8 +558,10 @@ void nl3_voices_note_on(tNl3Voices * v, const tNl3Sound * sound, uint8_t note, f
 
     start_glide(v, sound, pick, note, false);
     pick->note      = note;            // voices notes §12a: after the glide has read the note it was on
+    pick->key       = key;
     set_pitch(pick, sound);
 
+    dual_restart(pick, sound);   // osc notes §19
     pick->started   = ++v->clock;
     pick->noiseSeed = pick->noiseSeed ? pick->noiseSeed : (uint32_t)((v->clock * 2654435761u) | 1u);
     lfo_restart(pick, sound);
@@ -440,7 +611,7 @@ static void release_note(tNl3Voices * v, const tNl3Sound * sound, uint8_t note) 
     }
 
     for (uint32_t i = 0; i < NL3_MAX_VOICES; i++) {
-        if (v->voice[i].active && (v->voice[i].note == note)) {
+        if (v->voice[i].active && (v->voice[i].key == note)) {   // voices notes §47: every note of the key's chord
             v->voice[i].gate = false;
             nl3_env_gate(&v->voice[i].amp, false);
 
@@ -494,43 +665,19 @@ static double smooth_advance(tNl3Smooth * s, uint32_t frames) {
     return s->current;
 }
 
-// voices notes §11: white noise in -1..1
-static double next_white(tNl3Voice * vc) {
-    uint32_t x = vc->noiseSeed;
-
-    x            ^= x << 13;
-    x            ^= x >> 17;
-    x            ^= x << 5;
-    vc->noiseSeed = x;
-    return ((double)x / 2147483648.0) - 1.0;
-}
-
-// voices notes §11: the low-passed noise's level, measured at these Softens and joined
-static double noise_gain(double soften) {
-    static const double kSoften[] = {0.0, 32.0, 64.0, 96.0, 112.0, 120.0};
-    static const double kGain[]   = {1.2, 1.075, 0.95, 0.75, 0.54, 0.54};
-
-    for (int k = 1; k < 6; k++) {
-        if (soften <= kSoften[k]) {
-            return kGain[k - 1] + ((kGain[k] - kGain[k - 1]) * (soften - kSoften[k - 1]) / (kSoften[k] - kSoften[k - 1]));
-        }
-    }
-
-    return kGain[5];
-}
-
 // voices notes §11
-static double next_noise(tNl3Voice * vc, double soften, double corner) {
-    double white = next_white(vc);
+// voices notes §44: Noise3 - the noise generator's words, each averaged with the one before, at the instrument's level
+static double noise3(tNl3Voice * vc) {
+    uint32_t s = vc->noiseWord[2] ? vc->noiseWord[2] : (((vc->noiseSeed * 2246822519u) | 1u) & 0xFFFFFFu);
+    double   x;
+    double   out;
 
-    if (soften >= NOISE_DIFFERENCE_FROM) {
-        double out = white - vc->noiseLast;
-
-        vc->noiseLast = white;
-        return (out * NOISE_DIFFERENCE) + (white * NOISE_FLOOR);
-    }
-    vc->noiseLow += corner * (white - vc->noiseLow);
-    return vc->noiseLow * noise_gain(soften);
+    s                = ((s * NOISE_LCG_MUL) + NOISE_LCG_ADD) & 0xFFFFFFu;
+    vc->noiseWord[2] = s;
+    x                = nl3_word_value((tNl3Word)((int32_t)(s << 8) >> 8));
+    out              = 0.5 * (x + vc->noiseLast);
+    vc->noiseLast    = x;
+    return NOISE3_GAIN * out;
 }
 
 // voices notes §8: Overdrive 0..127 as the drive word, and the saturator on the filter's input
@@ -632,6 +779,57 @@ static double osc_noise(tNl3Voice * vc, int o, double shape) {
     return y;
 }
 
+// osc notes §20: Osc 2 Noise - the generator through a resonant state-variable filter at the oscillator's pitch
+static double osc2_noise(tNl3Voice * vc, const tNl3OscSound * os, double increment, double shape) {
+    double   f, k, n;
+    uint32_t s    = vc->noiseWord[1] ? vc->noiseWord[1] : (((vc->noiseSeed * 2654435761u) ^ 2u) & 0xFFFFFFu);
+
+    nl3_noise2_coeffs(increment, shape, &f, &k, &n);
+    s                = ((s * NOISE_LCG_MUL) + NOISE_LCG_ADD) & 0xFFFFFFu;
+    vc->noiseWord[1] = s;
+    double   x    = nl3_word_value((tNl3Word)((int32_t)(s << 8) >> 8)) * (1.0 - (0.85 * shape)) / 512.0;
+    double   u    = (os->noise2 == 3) ? (n * n * x) : (((os->noise2 == 2) ? n : 1.0) * (x + vc->noise2Last));
+    double   low  = vc->noise2Low + (f * vc->noise2Band);
+    double   high = u - low - (k * vc->noise2Band);
+    double   out  = (os->noise2 == 1) ? (64.0 * (low + vc->noise2Low)) : ((os->noise2 == 2) ? 0.0 : (256.0 * high));
+
+    vc->noise2Last   = x;
+    vc->noise2Low    = low;
+    vc->noise2Band  += 4.0 * f * high;
+
+    if (os->noise2 == 2) {
+        out = 64.0 * vc->noise2Band;
+    }
+    return fmin(1.0, fmax(-1.0, out));
+}
+
+// osc notes §22: synched noise - four sub-steps a sample, each moving a phase on a quarter of the increment; the
+// generator steps every eight sub-steps and restarts at the seed whenever the phase wraps (once a cycle); the four
+// sub-samples averaged, then halved with the last output
+static double sync_noise(tNl3Voice * vc, int o, const tNl3OscSound * os, double increment) {
+    double sum = 0.0;
+
+    for (int k = 0; k < 4; k++) {
+        bool wrapped;
+
+        vc->snPhase[o] += 0.25 * increment;
+        wrapped         = vc->snPhase[o] >= 1.0;
+        vc->snPhase[o] -= wrapped ? 2.0 : 0.0;
+        vc->snCount[o]  = wrapped ? 0u : ((vc->snCount[o] + 1u) & 7u);
+
+        if (vc->snCount[o] == 0u) {
+            vc->snState[o] = wrapped ? os->syncSeed : (((vc->snState[o] * NOISE_LCG_MUL) + NOISE_LCG_ADD) & 0xFFFFFFu);
+        }
+        sum            += nl3_word_value((tNl3Word)((int32_t)(vc->snState[o] << 8) >> 8));
+    }
+
+    double out = 0.5 * (vc->snOut[o] + vc->snAvg[o]);
+
+    vc->snAvg[o] = 0.25 * sum;
+    vc->snOut[o] = out;
+    return out;
+}
+
 // voices notes §26-27: how far a read's delay moves from 128 samples, from its word - a ramp, wrapping
 static double unison_offset(uint32_t word) {
     int32_t signedWord = (int32_t)(word << 8) >> 8;
@@ -642,16 +840,15 @@ static double unison_offset(uint32_t word) {
 static void render_sub_block(tNl3Voices * v, const tNl3Sound * sound, double cutoff, double res, const tNl3EnvShape * amp, const tNl3EnvShape * mods,
                              float * out, float * outRight, uint32_t frames, double gain) {
     double driveW = drive_word(sound->overdrive);
-    double corner = fmin(1.0, 2.0 * M_PI * NOISE_CORNER_HZ * pow(2.0, sound->noiseSoften / 15.0) / v->rate);
 
     for (uint32_t i = 0; i < NL3_MAX_VOICES; i++) {
-        tNl3Voice *          vc       = &v->voice[i];
+        tNl3Voice *          vc         = &v->voice[i];
 
         if (!vc->active) {
             continue;
         }
         // voices notes §25: the voice's own sound when a morph moves it, with its own envelope laws
-        const tNl3Sound *    vs       = v->voiceMorphed[i] ? &v->voiceSound[i] : sound;
+        const tNl3Sound *    vs         = v->voiceMorphed[i] ? &v->voiceSound[i] : sound;
         tNl3EnvShape         voiceAmp, voiceMods[NL3_MOD_ENVS];
 
         if (vs != sound) {
@@ -662,27 +859,31 @@ static void render_sub_block(tNl3Voices * v, const tNl3Sound * sound, double cut
                 voiceMods[e].repeat = vs->env[e].repeat;
             }
         }
-        const tNl3EnvShape * vAmp     = (vs != sound) ? &voiceAmp : amp;
-        const tNl3EnvShape * vMods    = (vs != sound) ? voiceMods : mods;
-        double               lfoCut, lfoMix, lfoAmp;
+        const tNl3EnvShape * vAmp       = (vs != sound) ? &voiceAmp : amp;
+        const tNl3EnvShape * vMods      = (vs != sound) ? voiceMods : mods;
+        double               lfoCut, lfoMix, lfoAmp, lfoCut2, lfoOscMod, lfoRes, lfoPan;
         double               width[NL3_OSCS];
 
-        lfo_advance(vc, vs, (double)frames / v->rate, &lfoCut, width, &lfoMix, &lfoAmp);
+        lfo_advance(vc, vs, (double)frames / v->rate, &lfoCut, width, &lfoMix, &lfoAmp, &lfoCut2, &lfoOscMod, &lfoRes, &lfoPan);
 
         for (int o = 0; (o < 2) && (vs->vibratoSemis != 0.0); o++) {
             vc->lfoSemis[o] += sin(2.0 * M_PI * v->vibratoPhase) * vs->vibratoSemis;   // voices notes §31
         }
 
         // voices notes §24: the Mod envelope (Env 3) where it is at the start of the sub-block
-        double               modEnv   = vc->env[1].level;
+        double               modEnv     = env_one_way(vc, vs, 1);  // voices notes §41, §43: at the one-way destinations
+        double               modEnvBoth = env_both_ways(vc, vs);   // and at pitch and Osc Mix
 
-        lfoMix += modEnv * vs->modEnvMix;
+        lfoMix += modEnvBoth * vs->modEnvMix;
         // osc notes §17: Osc Mod's depth, the square of its Amount (127 as 128), the Mod Env adding steps first
-        double               fmAmount = fmin(127.0, fmax(0.0, vs->oscModAmount + (modEnv * vs->modEnvOscMod)));
-        double               fmDepth  = ((vs->oscModType == 3) || (vs->oscModType == 4)) ? ((fmAmount >= 127.0) ? 1.0 : ((fmAmount / 128.0) * (fmAmount / 128.0))) : 0.0;
+        double               fmAmount   = fmin(127.0, fmax(0.0, vs->oscModAmount + (modEnv * vs->modEnvOscMod) + lfoOscMod));  // voices notes §39: the LFOs too
+        double               fmDepth    = ((vs->oscModType == 3) || (vs->oscModType == 4)) ? ((fmAmount >= 127.0) ? 1.0 : ((fmAmount / 128.0) * (fmAmount / 128.0))) : 0.0;
+        tNl3OscMod           oscMod;
+
+        osc_mod_setup(vs->oscModType, fmAmount, vc->increment[0], &oscMod);   // osc notes §18
 
         for (int o = 0; o < NL3_OSCS; o++) {
-            vc->lfoSemis[o] += modEnv * vs->modEnvPitch[o];
+            vc->lfoSemis[o] += modEnvBoth * vs->modEnvPitch[o];
             width[o]        += modEnv * vs->modEnvWidth[o];
         }
 
@@ -691,34 +892,44 @@ static void render_sub_block(tNl3Voices * v, const tNl3Sound * sound, double cut
         }
         set_pitch(vc, vs);
         double               stretch[NL3_OSCS];
-        double               level    = velocity_level(vc->velocity, vs->ampVelocity);
+        double               level      = velocity_level(vc->velocity, vs->ampVelocity);
         tNl3FilterCoeffs     coeffs;
 
         // voices notes §9
-        double               moved    = (((double)vc->note + vs->keyShift - TRACK_PIVOT) * vs->tracking) + (vs->wheel * vs->wheelCutoff * ENV_TO_CUTOFF) + lfoCut;
+        double               moved      = (((double)vc->note + vs->keyShift - TRACK_PIVOT) * vs->tracking) + (vs->wheel * vs->wheelCutoff * ENV_TO_CUTOFF) + lfoCut;
 
         for (int e = 0; e < NL3_MOD_ENVS; e++) {
-            moved += vc->env[e].level * vs->env[e].amount * ((vs->env[e].velocity > 64.0) ? (vc->velocity * 127.0 / 128.0) : 1.0);   // voices notes §23
+            moved += env_one_way(vc, vs, e) * vs->env[e].amount * ((vs->env[e].velocity > 64.0) ? (vc->velocity * 127.0 / 128.0) : 1.0);   // voices notes §23, §41
         }
 
         // voices notes §32: a morph's offsets on the panel's values; the wheel itself steps (plugin notes §18)
-        double               cutTo    = vs->cutoff - sound->cutoff;
-        double               resTo    = vs->resonance - sound->resonance;
-        double               levelTo  = (sound->level > 0.0) ? (nl3_volume_gain(vs->level) / nl3_volume_gain(sound->level)) : 1.0;
+        double               cutTo      = vs->cutoff - sound->cutoff;
+        double               resTo      = vs->resonance - sound->resonance;
+        double               levelTo    = (sound->level > 0.0) ? (nl3_volume_gain(vs->level) / nl3_volume_gain(sound->level)) : 1.0;
 
         vc->morphCut   = cutTo;
         vc->morphRes   = resTo;
         vc->morphLevel = levelTo;
         level         *= vc->morphLevel;
-        double               voiceRes = fmin(127.0, fmax(0.0, res + vc->morphRes + (vs->wheel * vs->wheelResonance)));
+        double               voiceRes   = fmin(127.0, fmax(0.0, res + vc->morphRes + (vs->wheel * vs->wheelResonance) + lfoRes)); // voices notes §46
 
-        if (vs->filterMulti && ((vs->filter2Type == 1) || (vs->filter2Type == 4) || (vs->filter2Type == 5))) {   // filter notes §15-16
-            double         tracked = ((double)vc->note + vs->keyShift - TRACK_PIVOT) * vs->tracking;
-            tNl3FilterMode multi   = (vs->filter2Type == 1) ? eNl3FilterLpHpPar : ((vs->filter2Type == 4) ? eNl3FilterPeak : eNl3FilterNotch);
+        bool                 multiOn    = vs->filterMulti && (vs->filter2Type <= 5);                                              // filter notes §15-16, §20
+        tNl3FilterMode       fmode      = multiOn ? kMultiModes[vs->filter2Type]
+                                                 : nl3_filter_mode(vs->filterType, vs->filterSlope);
+        double               cut1       = nl3_filter_knob(cutoff) + vc->morphCut + moved;  // filter notes §4
+        double               cut2       = nl3_filter_knob(vs->cutoff2) + (vs->filter2Env ? moved : (((double)vc->note + vs->keyShift - TRACK_PIVOT) * vs->tracking));
 
-            nl3_filter_coeffs_multi(multi, cutoff + vc->morphCut + moved, vs->cutoff2 + (vs->filter2Env ? moved : tracked), voiceRes, &coeffs);
+        // voices notes §39: what the LFOs and Mod Env send to Filter 2 alone (with Filter 2 Env on, "both" is in moved already)
+        cut2          += lfoCut2 + ((vs->filter2Env && (vs->env[1].amount != 0.0)) ? 0.0 : (modEnv * vs->modEnvCutoff2));
+        // filter notes §18: Osc Mod FILT, Osc 2 times d^3 / 2 onto the cutoff word, every sample
+        double               filtD      = (vs->oscModType == 2) ? ((fmAmount >= 127.0) ? 1.0 : (fmAmount / 128.0)) : 0.0;
+        double               filtDepth  = 0.5 * filtD * filtD * filtD;
+
+        if (multiOn) {
+            nl3_filter_coeffs_multi(fmode, cut1, cut2, voiceRes, 0.0, &coeffs);
         } else {
-            nl3_filter_coeffs(nl3_filter_mode(vs->filterType, vs->filterSlope), cutoff + vc->morphCut + moved, voiceRes, &coeffs);
+            nl3_filter_coeffs(fmode, cut1, voiceRes, 0.0, &coeffs);
+            coeffs.dist = vs->filterDist;   // filter notes §17
         }
         double               oscLevel[NL3_OSCS];
         tNl3Word             incrementWord[NL3_OSCS];
@@ -728,8 +939,11 @@ static void render_sub_block(tNl3Voices * v, const tNl3Sound * sound, double cut
 
         for (int o = 0; o < NL3_OSCS; o++) {
             incrementWord[o] = nl3_pitch_increment_fixed(vc->pitch[o]);
-            syncWord[o]      = vs->osc[o].sync ? nl3_pitch_increment_fixed(vc->pitch[o] + (vs->osc[o].syncTune / 2.0)) : incrementWord[o];   // osc notes §13
-            syncInc[o]       = vs->osc[o].sync ? (vc->increment[o] * pow(2.0, vs->osc[o].syncTune / 24.0)) : vc->increment[o];
+            // osc notes §13a: in sync mode Shape is the sync pitch, so what modulates Shape moves it, in knob steps
+            double tune = fmin(127.0, fmax(0.0, vs->osc[o].syncTune + ((width[o] - vs->osc[o].width) * 128.0)));
+
+            syncWord[o]      = vs->osc[o].sync ? nl3_pitch_increment_fixed(vc->pitch[o] + (tune / 2.0)) : incrementWord[o]; // osc notes §13
+            syncInc[o]       = vs->osc[o].sync ? (vc->increment[o] * pow(2.0, tune / 24.0)) : vc->increment[o];
             stretch[o]       = nl3_osc_stretch(vc->increment[o], vs->osc[o].soften);
             oscLevel[o]      = fmin(1.0, fmax(0.0, vs->osc[o].level + (vs->wheel * vs->osc[o].wheelLevel)));
         }
@@ -757,13 +971,19 @@ static void render_sub_block(tNl3Voices * v, const tNl3Sound * sound, double cut
 
                 // osc notes §17: Osc Mod FM adds Osc 2's last output to Osc 1's increment, DFM its last change
                 if ((o == 0) && (fmDepth > 0.0)) {
-                    double add = (vs->oscModType == 3) ? (4.0 * fmDepth * vc->fmLast[0]) : (16.0 * fmDepth * (vc->fmLast[1] - vc->fmLast[0]));
+                    double add = OSC_MOD_SOURCE * ((vs->oscModType == 3) ? (4.0 * fmDepth * vc->fmLast[0]) : (16.0 * fmDepth * (vc->fmLast[1] - vc->fmLast[0])));
 
                     inc += add;
                     incW = nl3_word(fmax(-0.999, fmin(0.999, nl3_word_value(incW) + add)));
                 }
 
-                if (os->noise) {                       // osc notes §15
+                if (os->syncNoise) {                   // osc notes §22
+                    wave[o] = sync_noise(vc, o, os, vc->increment[o]);
+                } else if (os->noise2) {               // osc notes §20
+                    wave[o] = osc2_noise(vc, os, inc, fmin(nl3_word_value(NL3_WORD_MAX), fmax(0.0, width[o])));
+                } else if (os->dualSine) {             // osc notes §19
+                    wave[o] = dual_sine(vc, o, os, inc, syncInc[o], fmin(nl3_word_value(NL3_WORD_MAX), fmax(0.0, width[o])));
+                } else if (os->noise) {                // osc notes §15
                     wave[o] = osc_noise(vc, o, fmin(127.0, fmax(0.0, width[o] * 128.0)));
                 } else if (os->shape == eNl3OscSine) { // osc notes §10, §12
                     double shape = fmin(nl3_word_value(NL3_WORD_MAX), fmax(0.0, width[o]));
@@ -821,16 +1041,45 @@ static void render_sub_block(tNl3Voices * v, const tNl3Sound * sound, double cut
                     wave[o]         = fade * vc->syncLast[o];
                     vc->syncLast[o] = now;
                 }
-                mix += wave[o] * oscLevel[o];
+
+                if (o >= 2) {
+                    mix += wave[o] * oscLevel[o];
+                }
             }
 
-            mix                 += RING_GAIN * wave[2] * ((wave[0] * vs->ring13) + (wave[1] * vs->ring23));
-            vc->fmLast[1]        = vc->fmLast[0];   // osc notes §17
-            vc->fmLast[0]        = wave[1];
-            mix                 += next_noise(vc, vs->noiseSoften, corner) * noiseMix;
+            // voices notes §38: with Osc Bypass, Osc 2 goes round the filter - or with Noise3 both oscillators, the
+            // noise alone going through
+            bool   aside = vs->oscBypass && (vs->noiseLevel <= 0.0);
+            double oscs  = osc_mod_mix(vc, &oscMod, MIX_SCALE * wave[0] * oscLevel[0], aside ? 0.0 : (MIX_SCALE * wave[1] * oscLevel[1]), wave[1]) / MIX_SCALE; // osc notes §18: at the instrument's mix level
+            double noise = noise3(vc) * noiseMix;                                                                                                               // voices notes §44
+            double round = 0.0;
 
+            if (aside) {
+                round = wave[1] * oscLevel[1];
+            } else if (vs->oscBypass) {
+                round = mix + oscs;
+                mix   = 0.0;
+                oscs  = 0.0;
+            }
+            mix                 += oscs + noise;
+            mix                 += RING_GAIN * wave[2] * ((wave[0] * vs->ring13) + (wave[1] * vs->ring23));
+            vc->fmLast[1]        = vc->fmLast[0];                                  // osc notes §17
+            vc->fmLast[0]        = vs->osc[1].dualSine ? vc->dualMod[1] : wave[1]; // osc notes §19: a Dual Sine hands Osc Mod its own signal
+
+            if (filtDepth > 0.0) {   // filter notes §18: from Osc 2's last sample, as the instrument's next coefficients take it
+                double offset = filtDepth * vc->fmLast[1];
+
+                if (multiOn) {
+                    nl3_filter_coeffs_multi(fmode, cut1, cut2, voiceRes, offset, &coeffs);
+                } else {
+                    nl3_filter_coeffs(fmode, cut1, voiceRes, offset, &coeffs);
+                    coeffs.dist = vs->filterDist;
+                }
+            }
             double x   = drive(mix * DRIVE_IN, driveW) * FILTER_IN;
             double y   = FILTER_OUT * (v->fixedPoint ? nl3_word_value(nl3_filter_process_fixed(&vc->filter, &coeffs, nl3_word(x))) : nl3_filter_process(&vc->filter, &coeffs, x));
+
+            y                   += FILTER_OUT * (round * DRIVE_IN * FILTER_IN) / 4.0; // voices notes §38: added to the filter's output at a quarter
 
             double dry = y * nl3_env_next(&vc->amp, vAmp) * level * gain * lfoAmp;
 
@@ -850,6 +1099,9 @@ static void render_sub_block(tNl3Voices * v, const tNl3Sound * sound, double cut
                 vc->delayWord[1] = (vc->delayWord[1] + (uint32_t)lround(vs->unisonStep * UNISON_SECOND)) & 0xFFFFFFu;
             }
             vc->ringAt           = (vc->ringAt + 1u) & 255u;
+
+            left                *= 1.0 + lfoPan; // voices notes §46: LFO 2's pan, linear
+            right               *= 1.0 - lfoPan;
 
             if (outRight != NULL) {
                 out[f]      += (float)left;

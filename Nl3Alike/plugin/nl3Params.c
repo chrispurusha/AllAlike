@@ -240,6 +240,19 @@ const tSynthLibParam     gNl3Params[kNl3ParamCount] = {
     {kNl3ParamMorphKbd_FiltFrequency2,          "Keyboard Morph Filt Frequency2",         "Freq 2",   eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
     {kNl3ParamMorphKbd_FiltResonance,           "Keyboard Morph Filt Resonance",          "Res",      eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
     {kNl3ParamMorphKbd_OutputLevel,             "Keyboard Morph Output Level",            "Level",    eSynthLibUnitGeneric, -128.0,          127.0,                    0.501961,                255, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamChordCount,                       "Chord Count",                            "Count",    eSynthLibUnitGeneric,    0.0,           31.0,                    0.000000,                 31, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamChordNote0,                       "Chord Note 1 ",                          "Note",     eSynthLibUnitGeneric,    0.0,          127.0,                    0.000000,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamChordNote1,                       "Chord Note 2 ",                          "Note",     eSynthLibUnitGeneric,    0.0,          127.0,                    0.000000,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamChordNote2,                       "Chord Note 3 ",                          "Note",     eSynthLibUnitGeneric,    0.0,          127.0,                    0.000000,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamChordNote3,                       "Chord Note 4 ",                          "Note",     eSynthLibUnitGeneric,    0.0,          127.0,                    0.000000,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamChordNote4,                       "Chord Note 5 ",                          "Note",     eSynthLibUnitGeneric,    0.0,          127.0,                    0.000000,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamChordNote5,                       "Chord Note 6 ",                          "Note",     eSynthLibUnitGeneric,    0.0,          127.0,                    0.000000,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamChordNote6,                       "Chord Note 7 ",                          "Note",     eSynthLibUnitGeneric,    0.0,          127.0,                    0.000000,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamChordNote7,                       "Chord Note 8 ",                          "Note",     eSynthLibUnitGeneric,    0.0,          127.0,                    0.000000,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamChordNote8,                       "Chord Note 9 ",                          "Note",     eSynthLibUnitGeneric,    0.0,          127.0,                    0.000000,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamChordNote9,                       "Chord Note 10",                          "Note",     eSynthLibUnitGeneric,    0.0,          127.0,                    0.000000,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamChordNote10,                      "Chord Note 11",                          "Note",     eSynthLibUnitGeneric,    0.0,          127.0,                    0.000000,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamChordNote11,                      "Chord Note 12",                          "Note",     eSynthLibUnitGeneric,    0.0,          127.0,                    0.000000,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
     {kNl3ParamPressure,                         "Channel Pressure",                       "Press",    eSynthLibUnitGeneric,    0.0,            1.0,                         0.0,                  0, SYNTHLIB_MIDI_AFTERTOUCH, SYNTHLIB_PARAM_HIDDEN | SYNTHLIB_PARAM_NO_SAVE                         },
 };
 
@@ -444,6 +457,19 @@ const tNl3Field          gNl3Fields[] = {
     {kNl3ParamMorphKbd_FiltFrequency2,          1286, 8, true },
     {kNl3ParamMorphKbd_FiltResonance,           1294, 8, true },
     {kNl3ParamMorphKbd_OutputLevel,             1302, 8, true },
+    {kNl3ParamChordCount,                       1310, 5, false},   // voices notes §47
+    {kNl3ParamChordNote0,                       1315, 7, false},
+    {kNl3ParamChordNote1,                       1323, 7, false},
+    {kNl3ParamChordNote2,                       1331, 7, false},
+    {kNl3ParamChordNote3,                       1339, 7, false},
+    {kNl3ParamChordNote4,                       1347, 7, false},
+    {kNl3ParamChordNote5,                       1355, 7, false},
+    {kNl3ParamChordNote6,                       1363, 7, false},
+    {kNl3ParamChordNote7,                       1371, 7, false},
+    {kNl3ParamChordNote8,                       1379, 7, false},
+    {kNl3ParamChordNote9,                       1387, 7, false},
+    {kNl3ParamChordNote10,                      1395, 7, false},
+    {kNl3ParamChordNote11,                      1403, 7, false},
 };
 const uint32_t           gNl3FieldCount      = sizeof(gNl3Fields) / sizeof(gNl3Fields[0]);
 
@@ -1017,69 +1043,141 @@ void nl3_sound_from_values(const double * v, tNl3Sound * s) {
     s->osc[1].semitones = osc2_coarse_semitones(plain(v, kNl3ParamOsc2Coarse), on(v, kNl3ParamOsc2Partial));   // osc notes §16
     s->osc[1].cents     = (plain(v, kNl3ParamOsc2Fine) - 64.0) * 50.0 / 64.0;
     s->osc[1].level     = noise3 ? 0.0 : mix;
-    s->osc[2].width     = 0.0;
-    s->noiseLevel       = noise3 ? mix : 0.0;
-    s->mixX             = mixX;
-    s->oscModType       = choice(v, kNl3ParamOscModType);   // osc notes §17
-    s->oscModAmount     = plain(v, kNl3ParamOscModAmount);
+
+    // osc notes §19: Dual Sine; Sync selects Dual Sine FM, whose modulator level is the FM Amount, not Shape
+    for (int o = 0; o < 2; o++) {
+        int wave = choice(v, (o == 0) ? kNl3ParamOsc1Waveform : kNl3ParamOsc2Waveform);
+
+        if (wave == 5) {
+            s->osc[o].dualSine = true;
+            s->osc[o].dualFm   = s->osc[o].sync;
+            s->osc[o].sync     = false;
+            s->osc[o].shape    = eNl3OscSine;
+
+            if (s->osc[o].dualFm) {
+                s->osc[o].width = nl3_word_value(nl3_pulse_width_word(plain(v, (o == 0) ? kNl3ParamOsc1FmAmount : kNl3ParamOsc2FmAmount)));
+            }
+        }
+    }
+
+    // osc notes §20: Osc 2 Noise - Fine picks the filter in thirds, Coarse gives way to the Noise Frequency
+    if (choice(v, kNl3ParamOsc2Waveform) == 4) {
+        s->osc[1].noise2    = 1 + (int)(plain(v, kNl3ParamOsc2NoiseType) * 3.0 / 128.0);
+        s->osc[1].semitones = plain(v, kNl3ParamOsc2NoiseFreq) - 64.0;
+        s->osc[1].cents     = 0.0;
+    }
+
+    // osc notes §22: Noise with Sync is synched noise - its own waveform, Sync Noise Timbre choosing the restart
+    for (int o = 0; o < 2; o++) {
+        bool noiseWave = choice(v, (o == 0) ? kNl3ParamOsc1Waveform : kNl3ParamOsc2Waveform) == 4;
+
+        if (noiseWave && s->osc[o].sync) {
+            s->osc[o].syncNoise = true;
+            s->osc[o].sync      = false;
+            s->osc[o].noise     = false;
+            s->osc[o].noise2    = 0;
+            s->osc[o].syncSeed  = ((uint32_t)lround(plain(v, (o == 0) ? kNl3ParamOsc1NoiseSeed : kNl3ParamOsc2NoiseSeed)) & 0x78u) << 16;
+            s->osc[o].semitones = (o == 1) ? s->osc[o].semitones : 0.0;
+        }
+    }
+
+    // osc notes §21: Keyboard Track off - Osc 2 from MIDI note 64: Coarse is the note itself, Partial plays no part, and
+    // in Dual Sine A takes Coarse's note and B Modulator's, Carrier playing no part
+    if (on(v, kNl3ParamOsc2Kbt)) {
+        s->osc[1].fixedPitch = true;
+
+        if (!s->osc[1].noise2) {
+            s->osc[1].semitones = plain(v, kNl3ParamOsc2Coarse) - 64.0;
+        }
+    }
+
+    if (s->osc[0].dualSine) {
+        s->osc[0].dualRatio = s->osc[0].dualFm ? 1.0 : 2.0;   // an octave up, or 1:1 in FM
+    }
+
+    if (s->osc[1].dualSine) {   // Coarse and Fine give way to the Carrier and Modulator pitches, from the note
+        double c       = fmin(127.0, fmax(0.0, plain(v, kNl3ParamOsc2Carrier)));
+        long   step    = on(v, kNl3ParamOsc2Partial) ? (long)floor((10.0 * c) / 128.0) : (long)floor((11.0 * c) / 128.0);
+        double carrier = on(v, kNl3ParamOsc2Partial) ? (12.0 * log2((step == 0) ? 0.5 : (double)step)) : (double)(step - 1);   // partials 1/2, 1..9, or -1..+9 semitones
+        long   m       = lround(plain(v, kNl3ParamOsc2Modulator));
+        double b       = on(v, kNl3ParamOsc2Partial) ? osc2_partial_ratio(m) : exp2(floor(((119.0 * (double)m) - 2432.0) / 128.0) / 12.0);
+
+        s->osc[1].semitones = carrier;
+        s->osc[1].cents     = 0.0;
+        s->osc[1].dualRatio = b / exp2(carrier / 12.0);
+
+        if (s->osc[1].fixedPitch) {   // osc notes §21
+            s->osc[1].semitones = plain(v, kNl3ParamOsc2Coarse) - 64.0;
+            s->osc[1].dualRatio = exp2((plain(v, kNl3ParamOsc2Modulator) - plain(v, kNl3ParamOsc2Coarse)) / 12.0);
+        }
+    }
+    s->osc[2].width   = 0.0;
+    s->noiseLevel     = noise3 ? mix : 0.0;
+    s->oscBypass      = on(v, kNl3ParamFilterBypass);   // voices notes §38
+    s->mixX           = mixX;
+    s->oscModType     = choice(v, kNl3ParamOscModType); // osc notes §17
+    s->oscModAmount   = plain(v, kNl3ParamOscModAmount);
 
     for (int o = 0; o < NL3_OSCS; o++) {
         s->osc[o].bendRange = BEND_SEMIS;
     }
 
-    s->cutoff           = plain(v, kNl3ParamCutoff);
-    s->resonance        = plain(v, kNl3ParamResonance);
-    s->level            = v[kNl3ParamLevel];
-    s->keyShift         = 12.0 * (choice(v, kNl3ParamOctaveShift) - 2); // voices notes §33
-    s->tracking         = on(v, kNl3ParamFilterTrack) ? 1.0 : 0.0;
-    s->filterType       = (uint32_t)choice(v, kNl3ParamFilterType);     // LP HP BP BR Classic Dist (filter notes)
-    s->filterSlope      = (uint32_t)slope;                              // 6, 12, 24 dB
-    s->filterMulti      = choice(v, kNl3ParamFilterMode) == 1;
-    s->filter2Type      = (uint32_t)choice(v, kNl3ParamFilter2Type);
-    s->cutoff2          = plain(v, kNl3ParamCutoff2);
-    s->filter2Env       = on(v, kNl3ParamFilter2Env);
+    s->cutoff         = plain(v, kNl3ParamCutoff);
+    s->resonance      = plain(v, kNl3ParamResonance);
+    s->level          = v[kNl3ParamLevel];
+    s->keyShift       = 12.0 * (choice(v, kNl3ParamOctaveShift) - 2);                                             // voices notes §33
+    s->tracking       = on(v, kNl3ParamFilterTrack) ? 1.0 : 0.0;
+    s->filterType     = (uint32_t)choice(v, kNl3ParamFilterType);                                                 // LP HP BP BR Classic Dist (filter notes)
+    s->filterDist     = (plain(v, kNl3ParamFilterDist) >= 127.0) ? 1.0 : (plain(v, kNl3ParamFilterDist) / 128.0); // filter notes §17
+    s->filterSlope    = (uint32_t)slope;                                                                          // 6, 12, 24 dB
+    s->filterMulti    = choice(v, kNl3ParamFilterMode) == 1;
+    s->filter2Type    = (uint32_t)choice(v, kNl3ParamFilter2Type);
+    s->cutoff2        = plain(v, kNl3ParamCutoff2);
+    s->filter2Env     = on(v, kNl3ParamFilter2Env);
 
-    s->ampAttack        = plain(v, kNl3ParamAmpAttack);
-    s->ampDecay         = plain(v, kNl3ParamAmpDecay);
-    s->ampSustain       = plain(v, kNl3ParamAmpSustain);
-    s->ampRelease       = plain(v, kNl3ParamAmpRelease);
-    s->ampVelocity      = 64.0;
-    s->ampExponential   = on(v, kNl3ParamAmpExpAttack);
-    s->unison           = on(v, kNl3ParamUnison);   // voices notes §26
+    s->ampAttack      = plain(v, kNl3ParamAmpAttack);
+    s->ampDecay       = plain(v, kNl3ParamAmpDecay);
+    s->ampSustain     = plain(v, kNl3ParamAmpSustain);
+    s->ampRelease     = plain(v, kNl3ParamAmpRelease);
+    s->ampVelocity    = 64.0;
+    s->ampExponential = on(v, kNl3ParamAmpExpAttack);
+    s->unison         = on(v, kNl3ParamUnison);     // voices notes §26
     {
         double k = plain(v, kNl3ParamUnisonDetune);
 
         s->unisonStep = (k * k / 8.0) - (0.08 * k) + 7.45;
     }
 
-    s->env[0]           = (tNl3ModEnv){
+    s->env[0]         = (tNl3ModEnv){
         .attack   = plain(v, kNl3ParamFEnvAttack), .decay = plain(v, kNl3ParamFEnvDecay),
         .sustain  = plain(v, kNl3ParamFEnvSustain), .release = plain(v, kNl3ParamFEnvRelease),
         .velocity = on(v, kNl3ParamFEnvVelocity) ? 127.0 : 64.0, .exponential = on(v, kNl3ParamFEnvExpAttack),
-        .amount   = (on(v, kNl3ParamFEnvInvert) ? -1.0 : 1.0) * plain(v, kNl3ParamFEnvAmount) * ENV_CUTOFF_SCALE,
+        .amount   = plain(v, kNl3ParamFEnvAmount) * ENV_CUTOFF_SCALE, .invert = on(v, kNl3ParamFEnvInvert),   // voices notes §43
     };
     int  dest     = choice(v, kNl3ParamMEnvDest);
     bool modEnvAr = choice(v, kNl3ParamMEnvRelease) == 1;   // 1: AR
 
-    s->env[1]           = (tNl3ModEnv){
+    s->env[1]         = (tNl3ModEnv){
         // envelope notes §6: AD falls to nothing held or not (Repeat starting it again while held); AR holds at the top
         .attack  = plain(v, kNl3ParamMEnvAttack), .decay = plain(v, kNl3ParamMEnvDecay), .sustain = modEnvAr ? 127.0 : 0.0,
         .release = plain(v, kNl3ParamMEnvDecay), .velocity = 64.0, .exponential = on(v, kNl3ParamMEnvExpAttack),
         .repeat  = !modEnvAr && on(v, kNl3ParamMEnvRepeat),
-        .amount  = ((dest == 3) || (dest == 5)) ? ((on(v, kNl3ParamMEnvInvert) ? -1.0 : 1.0) * plain(v, kNl3ParamMEnvAmount) * ENV_CUTOFF_SCALE) : 0.0,
+        .amount  = ((dest == 3) || (dest == 5)) ? (plain(v, kNl3ParamMEnvAmount) * ENV_CUTOFF_SCALE) : 0.0, .invert = on(v, kNl3ParamMEnvInvert),
     };
     {
-        // voices notes §24: pitch cubic in the Amount as the LFOs', Shape and Osc Mix a step a step
-        double amount = plain(v, kNl3ParamMEnvAmount), sign = on(v, kNl3ParamMEnvInvert) ? -1.0 : 1.0;
+        // voices notes §24: pitch cubic in the Amount as the LFOs', Shape and Osc Mix a step a step; Invert is
+        // env_both_ways()'s (voices notes §43) - a sign here as well cancelled it
+        double amount = plain(v, kNl3ParamMEnvAmount);
         double cube = (amount >= 127.0) ? 128.0 : amount;
 
-        s->modEnvPitch[0] = ((dest == 0) || (dest == 2)) ? (sign * cube * cube * cube / LFO_PITCH_CUBE) : 0.0;
-        s->modEnvPitch[1] = ((dest == 1) || (dest == 2)) ? (sign * cube * cube * cube / LFO_PITCH_CUBE) : 0.0;
-        s->modEnvWidth[0] = ((dest == 6) || (dest == 8)) ? (sign * amount / 128.0) : 0.0;
-        s->modEnvWidth[1] = ((dest == 7) || (dest == 8)) ? (sign * amount / 128.0) : 0.0;
-        s->modEnvMix      = (dest == 10) ? (sign * amount / 127.0) : 0.0;
-        s->modEnvLfo1     = (dest == 11) ? (sign * amount) : 0.0;
-        s->modEnvOscMod   = (dest == 9) ? (sign * amount) : 0.0;   // osc notes §17
+        s->modEnvPitch[0] = ((dest == 0) || (dest == 2)) ? (cube * cube * cube / LFO_PITCH_CUBE) : 0.0;
+        s->modEnvPitch[1] = ((dest == 1) || (dest == 2)) ? (cube * cube * cube / LFO_PITCH_CUBE) : 0.0;
+        s->modEnvWidth[0] = ((dest == 6) || (dest == 8)) ? (amount / 128.0) : 0.0;
+        s->modEnvWidth[1] = ((dest == 7) || (dest == 8)) ? (amount / 128.0) : 0.0;
+        s->modEnvMix      = (dest == 10) ? (amount / 127.0) : 0.0;
+        s->modEnvLfo1     = (dest == 11) ? amount : 0.0;
+        s->modEnvOscMod   = (dest == 9) ? amount : 0.0;                                       // osc notes §17
+        s->modEnvCutoff2  = ((dest == 4) || (dest == 5)) ? (amount * ENV_CUTOFF_SCALE) : 0.0; // voices notes §39
     }
 
     for (int l = 0; l < NL3_LFOS; l++) {
@@ -1089,7 +1187,8 @@ void nl3_sound_from_values(const double * v, tNl3Sound * s) {
         s->lfo[l]             = (tNl3LfoSound){
             .shape  = kLfoShape[choice(v, kNl3ParamLfo1Waveform + at) % 6],
             .hz     = lfo_hz(plain(v, kNl3ParamLfo1Rate + at)),
-            .keyed  = choice(v, kNl3ParamLfo1EnvKbs + at) == 2,
+            .keyed  = choice(v, kNl3ParamLfo1EnvKbs + at) >= 1,   // 1 Env, 2 KB Sync: both restart on a key
+            .single = choice(v, kNl3ParamLfo1EnvKbs + at) == 1,   // voices notes §37
             .to     = choice(v, kNl3ParamLfo1Dest + at),
             .amount = plain(v, kNl3ParamLfo1Amount + at),
             .invert = on(v, kNl3ParamLfo1Invert + at),
@@ -1098,6 +1197,10 @@ void nl3_sound_from_values(const double * v, tNl3Sound * s) {
         s->lfoCutoff[l]       = t.cutoff;
         s->lfoMix[l]          = t.mix;
         s->lfoAmp[l]          = t.amp;
+        s->lfoCutoff2[l]      = t.cutoff2; // voices notes §39
+        s->lfoOscMod[l]       = t.oscMod;
+        s->lfoRes[l]          = t.res;     // voices notes §46
+        s->lfoPan[l]          = t.pan;
         s->osc[0].lfoPitch[l] = t.pitch[0];
         s->osc[1].lfoPitch[l] = t.pitch[1];
         s->osc[0].lfoWidth[l] = t.width[0];
@@ -1114,8 +1217,17 @@ void nl3_sound_from_values(const double * v, tNl3Sound * s) {
     }
     s->glideTime  = (choice(v, kNl3ParamGlideMode) == 0) ? 0.0 : plain(v, kNl3ParamGlideRate);
     s->glideType  = (choice(v, kNl3ParamGlideMode) == 2) ? 1 : 0;
-    s->glideCurve = 1;
     s->mono       = on(v, kNl3ParamMono);
+    s->chordNotes = 0;   // voices notes §47: the count is twice the notes
+
+    if (on(v, kNl3ParamChordMemory)) {
+        s->chordNotes = (uint32_t)plain(v, kNl3ParamChordCount) / 2;
+        s->chordNotes = (s->chordNotes > NL3_CHORD_NOTES) ? NL3_CHORD_NOTES : s->chordNotes;
+
+        for (uint32_t k = 0; k < s->chordNotes; k++) {
+            s->chord[k] = (uint8_t)plain(v, kNl3ParamChordNote0 + k);
+        }
+    }
     s->legato     = on(v, kNl3ParamLegato);
     s->piano      = on(v, kNl3ParamSameNote);
     s->bend       = (2.0 * v[kNl3ParamPitchBend]) - 1.0;
@@ -1143,6 +1255,38 @@ static const uint32_t kMorphTargets[26] = {
 };
 
 // voices notes §25: range x source in knob steps, the groups adding, each knob held to its own range
+// voices notes §45: what a Shape morph moves - the Shape knob edits another field in some modes: the sync pitch with
+// Sync on, the FM Amount in Dual Sine FM, the timbre in synched noise
+static uint32_t morph_shape_target(const double * v, uint32_t id) {
+    int o    = (id == kNl3ParamOsc1Shape) ? 0 : ((id == kNl3ParamOsc2Shape) ? 1 : -1);
+
+    // voices notes §45: Osc 2's Coarse and Fine edit the Carrier and Modulator in Dual Sine (Coarse stays Coarse with
+    // Keyboard Track off), the Noise Frequency and Type in Noise
+    if ((id == kNl3ParamOsc2Coarse) || (id == kNl3ParamOsc2Fine)) {
+        int  wave   = choice(v, kNl3ParamOsc2Waveform);
+        bool coarse = (id == kNl3ParamOsc2Coarse);
+
+        if (wave == 5) {
+            return coarse ? (on(v, kNl3ParamOsc2Kbt) ? id : kNl3ParamOsc2Carrier) : kNl3ParamOsc2Modulator;
+        }
+        return (wave == 4) ? (coarse ? kNl3ParamOsc2NoiseFreq : kNl3ParamOsc2NoiseType) : id;
+    }
+
+    if ((o < 0) || !on(v, (o == 0) ? kNl3ParamOsc1Sync : kNl3ParamOsc2Sync)) {
+        return id;
+    }
+    int wave = choice(v, (o == 0) ? kNl3ParamOsc1Waveform : kNl3ParamOsc2Waveform);
+
+    if (wave == 5) {
+        return (o == 0) ? kNl3ParamOsc1FmAmount : kNl3ParamOsc2FmAmount;
+    }
+
+    if (wave == 4) {
+        return (o == 0) ? kNl3ParamOsc1NoiseSeed : kNl3ParamOsc2NoiseSeed;
+    }
+    return (o == 0) ? kNl3ParamOsc1SyncTune : kNl3ParamOsc2SyncTune;
+}
+
 bool nl3_morph_values(const double * v, float velocity, int note, double * out) {
     static const uint32_t kGroups[4] = {kNl3ParamMorphWheel_Lfo1Rate, kNl3ParamMorphTouch_Lfo1Rate, kNl3ParamMorphVelocity_Lfo1Rate, kNl3ParamMorphKbd_Lfo1Rate};
     double                wheel      = v[kNl3ParamModWheel];
@@ -1161,7 +1305,7 @@ bool nl3_morph_values(const double * v, float velocity, int note, double * out) 
             double range = plain(v, kGroups[g] + (uint32_t)k) - 128.0;
 
             if ((range != 0.0) && (source[g] != 0.0)) {
-                uint32_t id    = kMorphTargets[k];
+                uint32_t id    = morph_shape_target(v, kMorphTargets[k]);
                 double   steps = gNl3Params[id].stepCount;
 
                 out[id] = fmin(1.0, fmax(0.0, out[id] + (range * source[g] / steps)));

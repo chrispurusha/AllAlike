@@ -42,6 +42,7 @@ With Link on, the editor's frame compares the sound with what the instrument was
 
 ## 10. Program changes
 A program change selects a stored sound: Bank Select picks the bank, as on the instrument. If that sound is already loaded nothing happens, so edits survive a sequencer resending the same program. Otherwise the output fades down (`synthlibSwapFade`) and the sound changes at the top of the next block once it is silent, because a host may deliver the change on the audio thread. Loads from the panel use the same fade, and the effects are emptied behind it (§12).
+A project's state cancels a change still waiting for its fade, or the stored sound would land on top of the project (found by the MPC SDK's host simulator, 2026-11-21).
 
 ## 11. A new instance
 A new instance plays A001, whichever comes first of its first audio block and its editor's first frame, so a panel opened before audio runs shows the sound it will play. A project's state cancels this, and with no presets stored it stays on Init.
@@ -87,3 +88,21 @@ pressure parameter IMidiMapping maps, so aftertouch did nothing from such a keyb
 the channel's, at its own frame, through the controller points (§16).
 Only a key actually sounding is taken, as G2Alike does: in Mono a key still held underneath would otherwise fight the
 one being played.
+
+## 18. The MPC build (2026-11-21)
+`do-mpc` builds TiAlike for the Akai MPC and Force through AllAlike's `tools/do-mpc` and SynthLib's VST2 wrapper
+(`synthlibPluginVst2.c`). Those
+machines show no plug-in window - their screen is laid out from JSON skins - and have no MIDI port to the instrument,
+so the build defines `SYNTHLIB_NO_EDITOR`, which leaves out everything from the panel's clip hold to
+`ti_create_view()` (the panel, the instrument link, the backdoor) and the descriptor's `createView`. It compiles
+`tiHardwareWin.c`, the stand-in with no MIDI, in place of `tiHardware.c`.
+The MPC build defaults to 8 voices (`TI_DEFAULT_VOICES`), not 16: the MPC Live and Force are 32-bit Cortex-A17s, and Akai's
+guide asks for a whole instrument under about 15% of one core. `do-mpc` ends by running the SDK's host simulator and
+validator on the result.
+`tools/mpc-install TiAlike <address or mounted drive>` (AllAlike) puts the build on the machine: over the network through the SDK's
+`mpc_remote.py` (developer mode on), or by copying onto a USB stick or SD card; either way it first lists what is already
+in `VST2 Plugins`.
+`./do-mpc E` (any bank letter) puts that bank of the owner's own presets file into the MPC folder as `Content/Presets.syx`,
+for testing on the owner's MPC only: the MPC build reads its presets from there (tiPatch notes §5a) and SynthLib's wrapper
+lists them as the plug-in's programs, named through the Program parameter's text (§10). Without a letter there are no
+presets. No other build takes presets from anywhere but the user's own file, and a bank is never committed or released.

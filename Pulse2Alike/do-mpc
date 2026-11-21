@@ -1,0 +1,4 @@
+#!/bin/zsh
+# do-mpc - Pulse2Alike for the Akai MPC and Force (plugin notes §69): ../tools/do-mpc with Pulse2Alike's own
+# settings - the offline renderer's no-editor switch, and 1x oversampling by default.
+exec ${0:A:h}/../tools/do-mpc Pulse2Alike -DP2_NO_EDITOR -DP2_DEFAULT_OVERSAMPLE=0 "$@"

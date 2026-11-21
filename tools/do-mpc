@@ -1,0 +1,115 @@
+#!/bin/zsh
+#
+# do-mpc - builds an AllAlike plug-in for the Akai MPC and Force: a folder to copy into "VST2 Plugins" on the
+# machine's drive (tools/mpc-install does that).
+#
+#   tools/do-mpc <Product> [extra compiler flags]       normally run as <Product>/do-mpc, which adds its own flags
+#
+# Builds arm32 (MPC X/Live/Live II/One, Force) and arm64 (Live III, XL) through SynthLib's VST2 wrapper, plus a
+# native build the SDK's host simulator runs; then the simulator's tests and the SDK's validator.
+# Result: <Product>/build/mpc/<Vendor> - VST - <Product>/.
+#
+# THE SOURCES AND DEFINES ARE THE PRODUCT'S do-plugin's, read from it as tools/do-windows-plugin does, less the
+# editor (*Draw.c, *Menu.c, *Prefs.c) and with *HardwareWin.c, the stand-in with no MIDI, for *Hardware.c. The
+# product's own source decides what else an editor-less build leaves out.
+#
+# $MPC_CONTENT, a folder, is copied to the plug-in's Content/ - files for the machine, never committed.
+#
+# Needs the MPC plug-in SDK ($MPC_SDK, default ../mpc-plugin-builder-sdk beside AllAlike) for its description of
+# the VST2 interface, its zig and its checks. See SynthLib's Docs/build.md, "The Akai MPC and Force".
+set -e
+HERE=${0:A:h}
+ROOT=${HERE:h}
+PRODUCT=$1
+shift || true
+EXTRA=("$@")
+[[ -n $PRODUCT && -f $ROOT/$PRODUCT/do-plugin ]] || { echo "usage: tools/do-mpc <Product> [flags]" >&2; exit 2; }
+SL=${SYNTHLIB_DIR:-$ROOT/../SynthLib}
+SL=${SL:A}
+SDK=${MPC_SDK:-$ROOT/../mpc-plugin-builder-sdk}
+SDK=${SDK:A}
+[[ -f $SDK/framework/mpc_vst2_abi.h ]] || { echo "error: MPC SDK not found at $SDK (set MPC_SDK)" >&2; exit 1; }
+ZIG=${ZIG:-$(print -l $SDK/.sdk-tools/zigenv/lib/python*/site-packages/ziglang/zig(N) | head -1)}
+[[ -x $ZIG ]] || { echo "error: no zig - run the SDK's tools/build.py on one of its examples once, or set ZIG" >&2; exit 1; }
+
+# The product's name, version, SOURCES and DEFS, with HERE and SL where its do-plugin expects them
+DIR=$ROOT/$PRODUCT
+(
+HERE=$DIR
+eval "$(sed -n '/^PLUGIN_NAME=/,/^AU_VERSION=/p; /^SOURCES=(/,/^)/p; /^DEFS=/p' $DIR/do-plugin)"
+SOURCES=(${SOURCES:#*Draw.c})
+SOURCES=(${SOURCES:#*Menu.c})
+SOURCES=(${SOURCES:#*Prefs.c})
+SOURCES=(${SOURCES:#*Hardware.c})
+SOURCES+=($DIR/plugin/*HardwareWin.c(N))
+SOURCES+=($SL/plugin/synthlibPluginVst2.c $SL/plugin/synthlibPluginState.c $SL/plugin/synthlibPluginRegistry.c
+          $SL/plugin/synthlibLog.c $SL/plugin/synthlibSwapFade.c $SL/audio/synthlibResample.c)
+SLUG=${(L)PLUGIN_NAME}
+VERSION=${${DEFS[(r)-DSYNTHLIB_VERSION_STRING=*]#*=\"}%\"}
+
+FLAGS=(-std=gnu11 -O2 -fPIC -shared -fvisibility=hidden -ffunction-sections -fdata-sections -Wall -Wno-unused-function
+       -DSYNTHLIB_NO_EDITOR=1 -DSYNTHLIB_PLUGIN_BUILD=1 $DEFS $EXTRA
+       -I$DIR/src -I$DIR/plugin -I$SL/src -I$SL/audio -I$SL/plugin -I$SL/ThirdParty/glfw/include -I$SDK/framework)
+LINUX=(-Wl,--gc-sections -Wl,-s -Wl,--version-script=$SDK/tools/exports.map -Wl,-z,defs -lm -lpthread)
+
+BUILD=$DIR/build/mpc
+rm -rf $BUILD
+mkdir -p $BUILD/native $BUILD/VST
+
+echo "==> $PLUGIN_NAME $VERSION: native (for host_sim)"
+clang $FLAGS -dynamiclib -o $BUILD/native/$SLUG.dylib $SOURCES
+
+# Name, vendor and id as the binary reports them, which plugin.json and the folder name must match
+H=$SDK/.sdk-tools/host_sim
+[[ -x $H ]] || { echo "error: no host_sim at $H - run the SDK's tools/build.py on one of its examples once" >&2; exit 1; }
+$H $BUILD/native/$SLUG.dylib dump > $BUILD/params.json 2>/dev/null
+read_field() { python3 -c "import json,sys; print(json.load(open(sys.argv[1]))[sys.argv[2]])" $BUILD/params.json $1 }
+NAME=$(read_field name)
+VENDOR=$(read_field vendor)
+UID4=$(read_field uid)
+KIND=$( [[ $(read_field isInstrument) == True ]] && echo instrument || echo effect )
+INPUTS=$(read_field numInputs)
+OUTPUTS=$(read_field numOutputs)
+
+echo "==> arm32"
+$ZIG cc -target arm-linux-gnueabihf.2.31 -mcpu=cortex_a17 $FLAGS -o $BUILD/VST/$SLUG-arm32.so $SOURCES $LINUX
+echo "==> arm64"
+$ZIG cc -target aarch64-linux-gnu.2.31 -mcpu=cortex_a55 $FLAGS -o $BUILD/VST/$SLUG-arm64.so $SOURCES $LINUX
+
+OUT="$BUILD/$VENDOR - VST - $NAME"
+mkdir -p "$OUT"
+mv $BUILD/VST "$OUT/VST"
+cat > "$OUT/plugin.json" <<EOF
+{
+  "name": "$NAME",
+  "manufacturer": "$VENDOR",
+  "version": "$VERSION",
+  "format": "vst2",
+  "kind": "$KIND",
+  "uid": "$UID4",
+  "numInputs": $INPUTS,
+  "numOutputs": $OUTPUTS,
+  "category": "$( [[ $KIND == instrument ]] && echo Synth || echo Effect )",
+  "file32": "VST/$SLUG-arm32.so",
+  "file64": "VST/$SLUG-arm64.so",
+  "license": "GPL-3.0-or-later"
+}
+EOF
+if [[ -n $MPC_CONTENT && -d $MPC_CONTENT ]]; then   # a product's files for the machine (TiAlike: a bank of presets)
+    mkdir -p "$OUT/Content"
+    cp -R "$MPC_CONTENT"/. "$OUT/Content/"
+    echo "==> Content: $(ls $MPC_CONTENT | tr '\n' ' ')"
+fi
+cat > "$OUT/version.xml" <<EOF
+<?xml version="1.0" encoding="utf-8"?>
+<plugincontent version="1.0">
+    <version>${VERSION%%-*}.0</version>
+    <uiversion>0.1.0.0</uiversion>
+</plugincontent>
+EOF
+
+echo "==> host_sim and the SDK's validator"
+$H $BUILD/native/$SLUG.dylib test --seconds 3 --notes 48,55,60,64 2>&1 | grep -E "FAIL|Result|timing:"
+python3 $SDK/tools/validate.py "$OUT" --params $BUILD/params.json | tail -1
+echo "==> $OUT"
+)

@@ -55,7 +55,7 @@ The level does not follow velocity: the Init Single's velocity to volume is 0, a
 velocity 1 and 127. The patch's own velocity amounts come with the modulation.
 
 ## 8. Level and pitch
-The oscillators run free: no note sets them back to a starting phase, in poly or mono (measured 2026-11-16: two sines a fine step apart, note after note - each note starts at a different point of their beat, 0.06 to 0.97 of full level; set back, every note would start in phase). An earlier version set them back at every note, a rule carried over from another instrument's Percussive mode that the Nord Lead 3 does not have; it ticked wherever a sounding voice was restarted. Each voice's oscillators start from phases of their own. The oscillator mix reaches the Overdrive saturator at a half, fitted from its gain at four settings, and the saturator's output reaches the filter at a half again, which sets where level-dependent damping starts. The saturator is Sn2Alike's placeholder, made exactly linear at Filter Distortion 0 (it kept 1.6% of its curve there, which put a third harmonic at -63 dB on a pure sine): the Nord Lead 3's path is clean until its distortion is used. The filter's output is scaled so a wide-open Saw at Level 127 and Volume 127 matches the reference.
+The oscillators run free: no note sets them back to a starting phase, in poly or mono (measured 2026-11-16: two sines a fine step apart, note after note - each note starts at a different point of their beat, 0.06 to 0.97 of full level; set back, every note would start in phase). An earlier version set them back at every note, a rule carried over from another instrument's Percussive mode that the Nord Lead 3 does not have; it ticked wherever a sounding voice was restarted. Each voice's oscillators start from phases of their own. The oscillator mix reaches the Overdrive saturator at a half and the filter at 2/3 in all (§19). The saturator is Sn2Alike's placeholder, made exactly linear at Filter Distortion 0 (it kept 1.6% of its curve there, which put a third harmonic at -63 dB on a pure sine): the Nord Lead 3's path is clean until its distortion is used. The filter's output is scaled so a wide-open Saw at Level 127 and Volume 127 matches the reference.
 
 ## 9. Tracking
 Keyboard Track is a switch. On, a voice's cutoff moves one semitone per note from C2 (note 36), so the Cutoff dial sets
@@ -69,7 +69,15 @@ Env Velocity 64 ignores velocity. Above it the level blends towards a curve of 0
 At Soften 127 noise is the difference of successive white samples, rising 6 dB an octave, over a floor 27 dB down; lower, one pole of low pass whose corner doubles every 15 steps. The two have not been joined: the change at Soften 120 is a guess. Ring is twice the product of Osc 3 and Osc 1 or 2, whatever their levels.
 
 ## 12. Glide
-A note starts away from its pitch and arrives in a time set by Glide Time alone, whatever the interval: 0.183 s at 64, doubling every 11.2 steps. Normal starts from the last note played, Auto likewise but only over a held note, and the fixed types start that many semitones away on every note. Linear is a straight line in pitch. Exponential closes a gap at (gap + 2.5) / 0.41T semitones a second, so it lands in a finite time. Glissando is the same path rounded to semitones. Time 0 is no glide. It applies to all voices.
+A constant rate, as the instrument's manual says: a straight line in semitones, so a wider interval takes longer.
+Rate 0 is no glide; Rate 1 is about 580 semitones a second, 32 about 255, 64 about 98, 96 about 36 and 127 about 1.9 -
+measured on the instrument's arithmetic at all 127 settings (2026-11-20: a legato C3 to C6, every write of Osc 1's
+pitch word logged; the pitch moves in equal steps about every 4.3 ms, alternating single and double), smoothed by at
+most 3% and held as a table, since no closed form fits both ends (low down it falls about a third every 16 steps; the
+top 15 settings fall in a straight line towards zero). Glide Mode: 0 Off, 1 On, 2 Auto - Auto glides only over a held
+key, checked on the instrument (1:9 Early lead, Mode 2: detached notes jump, legato ones glide 12 semitones in 60 ms
+at Rate 32). Normal starts from the last note played; the fixed types start that many semitones away. It applies to
+all voices. Replaces the first version's fixed time (0.183 s at 64, an exponential approach), from the Sn2Alike skeleton.
 
 ## 13. Mono
 Polyphony 1 in a program. One voice and a list of the keys down, last note priority: a released key returns to the newest still held. Measured: value 34 of the trigger byte, and 35-37, restart the envelope on each change including the return; 32, 33 and 38 do not. Glide Auto counts a key still held on the one voice.
@@ -98,9 +106,14 @@ restart.
 ## 19. Arithmetic and the filter's level
 The Arithmetic parameter chooses, per instance, between the instrument's fixed-point arithmetic and floating point for
 the stages built both ways (so far the filter, `nl3Filter.md` §3). It is an instance setting, not part of a sound.
-The filter leaves a quarter of its input at DC on every mode, as the instrument's does, so the voice scales its output
-by 4 to keep the level it had. Where the oscillators stand on the instrument's full scale is not measured yet; the
-filter's non-linear damping depends on it.
+The filter leaves a quarter of its input at DC on every mode, as the instrument's does. The oscillator mix reaches the
+filter at 2/3 of itself (DRIVE_IN x FILTER_IN): traced in the reference (2026-11-21), the filter's input for a
+full-level saw at Init peaks at 1/3, and the ratio to ours was the same for saw and square (x2.68 when ours took the
+mix at 1/4) and held across Osc Mix 0, 64 and 127 (x2.60-2.67) - a scale, not a shape. The output is scaled by
+1.5 = 4 x (1/4) / (2/3), so the level heard is unchanged; what changes is how hard the level-dependent parts work: the
+Dist LP shaper (filter notes §17), and the stages' non-linear damping. Until then ours drove Dist LP about 8 dB
+softer than the instrument, so 1:8, 1:14, 1:17 and 1:18 were darker (owner, 2026-11-21, confirmed by captures: at
+Distortion 50 and 97 the instrument sounded as ours did 18 and 13 settings higher, at 32 and 127 the same).
 
 ## 20. Anti-alias
 The Anti-alias switch, per instance like Arithmetic, On by default (owner, 2026-11-12): On uses the longer correction
@@ -266,3 +279,93 @@ and a sine a fifth up on Osc 2, Osc Mix swept under a held note, each oscillator
 and Mod Env modulation of Osc Mix move x before the gains are formed; Osc Mix Noise 3 gives the second gain to the
 noise in place of Osc 2. The first version crossfaded straight, which left programs balancing both oscillators up
 to 3.5 dB quiet against the instrument (owner, 2026-11-16).
+
+## 37. LFO Env mode
+Env/KB Sync 1 is Env, 2 KB Sync (the manual: Shift + Waveform once for single-cycle, twice for keyboard sync). Both
+restart the LFO on a key; Env then runs one cycle and holds where the cycle ends, as an envelope. Seen on the
+instrument's arithmetic with 1:15 Open Air (LFO 2, Saw, inverted, Amount 41, to Filter 1, 2026-11-20): Filter 1's
+cutoff rises steadily in semitones from the note, about 10.5 a second, then stays put from about 3.8 s - where ours
+looped, dropping back each cycle. Ours takes 4.2 s for the same rise (Rate 27, 0.237 Hz), about 8% longer: the rate
+law at Rate 27, or where Env mode's cycle starts, is still to check.
+
+## 38. Osc Bypass
+Osc 2 goes round the filter and is added to its output; with Noise3 on, the noise goes through the filter alone and
+both oscillators go round it (the manual's rule). Osc Mod then works on Osc 1 alone when Osc 2 is bypassed, as the
+instrument's code leaves Osc 2 out of what it hands Osc Mod. What goes round is added at a quarter of the filter's
+word, after the filter's own output (filter notes §3) - checked against the instrument's arithmetic (2026-11-20):
+a sine on Osc 2 with Bypass on and the filter closed comes out at the level of the same sine through the open filter
+with Bypass off, on both (0.0 dB).
+
+## 39. LFO and Mod Env to Filter 2 and Osc Mod
+Destination 4 is Filter 2's cutoff and 5 both cutoffs, for the LFOs and the Mod Env alike, by the same law as Filter
+1 (Amount knob steps at the top, rising from 0 - the private measurements of the LFO's square at each destination);
+with Filter 2 Env on, Filter 2 already follows Filter 1's modulation, so "both" is not added twice. Destination 9,
+Osc Mod, adds up to the LFO's Amount in steps to the Osc Mod Amount, before its square (osc notes §17-18), as the Mod
+Env's OSCMOD does. Filter 2 counts only in the multi modes. Not yet compared with the instrument's sound.
+
+## 40. LFO Invert
+On the one-way destinations (Filter, Shape, Osc Mod - up from where the knob is - and Amp, down), Invert flips the
+wave and keeps it one way: the modulation still runs from 0 to the Amount, the wave upside down. On the both-ways
+ones (pitch, Osc Mix) flipping and negating are the same. Found by blame on 1:15 Open Air (2026-11-20; LFO 2, an
+inverted Saw in Env mode, Amount 41, to Filter 1): on the instrument the cutoff rises from the knob to about +39 and
+holds; Invert as a negative amount had it start 41 semitones below the knob instead - the filter far more closed and
+9-13 dB quiet against the instrument's arithmetic. With the wave flipped the blame score fell from 11.5 to 2.7. Mod Env
+Invert is still a negative amount - to check the same way.
+
+## 41. Mod Env AR measured from the top
+In AR mode the Mod Env reaches the both-ways destinations (pitch, Osc Mix) as Amount x (level - 1): nothing while the key is held at the top,
+the destination bent below on the way up and again on release. Seen on the instrument's arithmetic with 1:14 ElecGit
+(2026-11-20; Mod Env AR, Attack 33, Amount 63, to Osc 1's pitch): Osc 1 starts about 13 semitones under the note,
+reaches it as the attack ends, holds in tune, and falls away on release; in AD mode the same settings rise 14
+semitones over the note and decay back. Ours held +15 semitones for the whole note. Blame score 19.2 -> 14.3.
+On the one-way destinations (filter, Shape, Osc Mod) AR is the plain level - up to the Amount, held there while the
+key is down, back to nothing on release: seen with the Mod Env on the filter (Amount 64, 2026-11-20), the cutoff
+rising to knob + 64, holding, and falling after the key. Applying the pitch rule there first had AR do nothing.
+
+## 42. LFO Env mode on the both-ways destinations
+In Env mode the LFO runs its one cycle one way at every destination: on pitch and Osc Mix the wave's one-way form
+(0 at its bottom, the Amount at its top), Invert taking the sign, so a saw runs from the Amount to 0 and ends in tune
+(Invert: from minus the Amount up to 0). Free-running it swings both ways, +-Amount, as before. Seen on 1:14's LFO 1
+(Saw, Env, Amount 26, both oscillators' pitch, 2026-11-20): 1.07 semitones to 0 in 45 ms, then in tune - with and
+without Invert, of opposite sign - where ours swung +-1.07 and held at the far end. Blame score 14.3 -> 7.1.
+
+## 43. Envelope Invert
+The Filter Env's and Mod Env's Invert work as the LFO's (§40): on a one-way destination (filter, Shape, Osc Mod, LFO 1
+Amount) the shape is flipped and still one way - Amount x (1 - level) - and on pitch and Osc Mix it is a sign. Seen on
+the instrument's arithmetic (2026-11-20, Filter Env and Mod Env to the filter, Amount 64, decay 60, sustain 0): the
+cutoff starts near the knob and rises to knob + 64, where Invert as a negative amount had it dip below and come back.
+
+From round 2 until 2026-11-21 Invert was applied twice on the both-ways destinations - as a sign in the Mod Env's
+pitch and Osc Mix amounts (nl3Params.c) and again in `env_both_ways()` - so the two cancelled and Invert did
+nothing there. On the reference, Mod Env (Amount 96, Decay 60) to Osc 2 pitch starts 33.7 semitones above and
+settles; inverted, 33.5 below and rises to the same pitch. 1:25 MilkyWay (inverted Mod Env on Osc 2 pitch), which
+the owner heard with one tone out of tune: blame 11.8 -> 4.9.
+
+## 44. Noise3
+The noise that takes Osc 2's place in the mix: the generator's words (osc notes §15), each averaged with the one before
+- nearly white, 2 dB down at 6-9 kHz and 4 dB at 9-13 kHz - 6.1 dB under a saw at the same Osc Mix. Measured against
+the instrument's arithmetic (2026-11-20): half-octave bands within about 0.5 dB, the level matched. The first version
+was a low-passed placeholder from the Sn2Alike skeleton, 15 dB quiet. Blame on 1:17 Icisematta: 21.8 -> 8.7 (then 1.6
+with the multi modes, filter notes §20).
+
+## 45. What a morph moves when the knob edits another field
+A morph adds to the knob, and on the instrument some knobs edit a different field depending on the mode, so the morph
+follows the knob. Osc Shape: the sync pitch with Sync on, the FM Amount in Dual Sine FM, the timbre in synched noise.
+Osc 2 Coarse and Fine: Carrier and Modulator in Dual Sine (Coarse stays Coarse with Keyboard Track off), Noise
+Frequency and Type in Noise. 1:28 DXexpress, whose wheel morphs Osc 2 Coarse on a Dual Sine Osc 2, went from 36.7 to
+8.8 on the blame score (2026-11-21) once the morph reached the Carrier instead of a Coarse nothing reads.
+
+## 46. LFO 2 to Resonance and Pan
+LFO 2's destinations 10 and 11. Resonance takes the LFO one way, like the filter destinations, adding Amount steps to
+the Resonance knob. Pan is both ways and linear: left x (1 + p), right x (1 - p), p = Amount/128 x the LFO. At Amount
+32 and 64, with the LFO held at its top, the two sides measured +1.9/-2.5 dB and +3.5/-6.0 dB about the centre,
+which is (1 +- p) to a tenth of a dB, and at 127 the far side went silent (2026-11-21).
+
+## 47. Chord Memory
+With Chord Memory on, a key starts one voice per stored chord note. The program holds a count (twice the number of
+notes) and then one byte per note, the interval above the key in the byte's top 7 bits: 1:35 Tonewheel holds 0 and
+24, an octave; 1:63 FifthPad 0, 7, 14. Every voice of a key carries it as `key`, so letting the key go releases the
+whole chord and another key landing on one of its pitches is a voice of its own. The intervals arrive as hidden
+parameters (Chord Count, Chord Note 1-12) loaded with the program. Odd counts (14 of the 194 programs using a chord)
+are not understood: on the reference 3 played nothing and 5 played only the second note; here they round down.
+Chords in Mono mode are not done. 1:35's blame score went from 25 to 13.4.

@@ -105,6 +105,7 @@ One line per item. Measurements and reasoning go in `findings.md`, design in `de
 - A Virus TI over USB (design §6): the instrument follows the instance's sound, a Single read back from it, and the instrument as a second reference through the audio interface
 
 ## Infrastructure
+- MPC build (`do-mpc`, plugin notes §18): measure on the MPC Live and Force (CPU meter at 1, 4, 8 voices), then set the voice default; generate MPC screen skins and Q-Link pages from the panel tables; ship presets as MPC programs
 - A sidechain (audio) input into the voice, as the instrument's external input: send test signals straight into the filters and saturation, and play external audio through the Single
 - The panel (`tiDraw.c`) is Pulse2Alike's `p2Draw.c` without the link, backup and arp steps - a SynthLib candidate; the patch bar and presets are now copies too
 - Calculate rather than tabulate: tiWaves.c and tiWavetables.c ship only if no formula can be found
