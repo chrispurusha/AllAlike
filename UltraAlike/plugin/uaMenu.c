@@ -121,7 +121,7 @@ static void action_panel_help(int index) {
     show_alert("The Panel",
                "One E-mu Emulator X bank preset, or one sample, per instance; Low and High limit the keys it plays. Play "
                "sounds it at its root key.\n\n"
-               "Load... opens a bank (an EOS .E4B, or an Emulator X .exb inside its folder beside SamplePool) or a WAV or AIFF file. With a bank, < Prev and "
+               "Load... opens a bank (an EOS .E4B, an SFZ instrument, or an Emulator X .exb inside its folder beside SamplePool) or a WAV or AIFF file. With a bank, < Prev and "
                "Next > step through its presets; with a sample, through the other samples in its folder. Each plays as it loads "
                "(Controls > Play on Load).\n\n"
                "A bank preset plays every zone its keys and velocities reach, at each sample's own tuning, its loops held, through "

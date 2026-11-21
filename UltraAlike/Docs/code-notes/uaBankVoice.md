@@ -60,3 +60,17 @@ every voice. Three GLOBAL settings bound it:
 A voice past its attack whose level is under -100 dB is let go, pedal or not: a pedalled tail that has died away
 stops costing anything. Before this a note took a free slot, else the oldest outright, and nothing below the limit
 of 64 ever ended while the pedal was down.
+
+## 12. A zone's own level, pan and one-shot
+Each zone carries a level in dB, a pan and a one-shot flag (SynthLib `emuBank.c` notes §8-§9): the level and pan are
+applied per voice, constant power with the centre at unity, inside the layer's own pan and gain; a one-shot zone's
+voice ignores the note off and plays to its sample's end (an SFZ `loop_mode=one_shot`). An E4B's level and pan are
+its voice's plus its zone's - read, not yet compared with the E5000.
+
+## 13. Release zones
+A zone marked `release` (an SFZ's `trigger=release`) sounds when its key is let go, not when it is struck: the
+percussion libraries' "& note off" instruments hold the sound of a hand lifting off the skin on the same keys as the
+hits. Note-on starts only the struck zones and remembers the key's velocity; after the note off, the release zones of
+that key start, chosen by the velocity it was struck with (as SFZ does), and play to their end whatever the key does
+next. Only a layer that played the note releases it, so a muted layer or one out of range stays silent. The sustain
+pedal does not delay them: the hand leaves the skin when the key does.

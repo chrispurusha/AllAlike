@@ -80,7 +80,19 @@ int main(int argc, char ** argv) {
     uint32_t          gate   = (argc > 7) ? (uint32_t)(atof(argv[7]) * RATE) : frames;
     uint32_t          second = (argc > 10) ? (uint32_t)(atof(argv[10]) * RATE) : frames;
 
+    // NL3_REPEAT=<seconds>: the note again every so often, let go at 0.8 of the period - each note at the free-running
+    // oscillators' own phases, as notes played one after another meet them
+    uint32_t          period = (getenv("NL3_REPEAT") != NULL) ? (uint32_t)(atof(getenv("NL3_REPEAT")) * RATE) : 0u;
+
     for (uint32_t f = 0; f < frames; f += BLOCK) {
+        if ((period > 0u) && (f > 0u) && ((f % period) < BLOCK)) {
+            nl3_voices_note_on(&voices, &sound, (uint8_t)atoi(argv[4]), (argc > 6) ? (float)(atof(argv[6]) / 127.0) : 1.0f);
+        }
+
+        if ((period > 0u) && (((f + period / 5u) % period) < BLOCK)) {
+            nl3_voices_note_off(&voices, &sound, (uint8_t)atoi(argv[4]));
+        }
+
         // arguments 9 and 10: a second note and when it starts
         if ((argc > 10) && (f <= second) && (second < f + BLOCK)) {
             nl3_voices_note_on(&voices, &sound, (uint8_t)atoi(argv[9]), 1.0f);
@@ -92,7 +104,7 @@ int main(int argc, char ** argv) {
         nl3_voices_render(&voices, &sound, out + f, right + f, BLOCK, nl3_volume_gain(values[kNl3ParamLevel]));
     }
 
-    FILE *            w      = fopen(argv[3], "wb");
+    FILE * w = fopen(argv[3], "wb");
 
     fwrite("RIFF", 1, 4, w);
     put32(w, 36 + (frames * 8));

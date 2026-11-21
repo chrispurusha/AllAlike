@@ -9,7 +9,9 @@
 - Whether it stays public here (owner); the skeleton is OneShot's, renamed
 - Add to do-plugins and do-release when it is more than a renamed OneShot
 - Bank playback BUILT 11-14 (Emulator X `.exb` via SynthLib emuBank, zones by key and velocity, root, loops): the amplifier envelope BUILT 11-14 (uaBankVoice notes §3, straight segments - check their shape against X3); next each voice's tuning, level, pan, the filter and auxiliary envelopes
-- `.E4B` banks BUILT 11-21 (SynthLib emuBank §8): next each voice's level, pan and filter from the bank, then the rest of the voice
+- `.E4B` banks BUILT 11-21 (SynthLib emuBank §8), zone level and pan played: next each voice's filter from the bank, then the rest of the voice
+- SFZ instruments BUILT 11-21 (emuBank §9), `ampeg_*` envelopes as E5000 rates (uaEosEnv §13), Prev/Next past a bank's end into the folder tree (uaPlugin §20): `trigger=release` (uaBankVoice §13); next `ampeg_hold`, `offset`, `pitch_keytrack`, `seq_length` round robins
+- Kontakt instruments (.nki, owner 11-21 "if possible"): the owner's 7,215 are pre-Kontakt-5 - 92% the 2-4 generation (compressed binary), 8% the 1 generation (zlib XML), WAVs beside them, no monoliths. Waiting on whether UltraAlike may name the format publicly
 - G2Alike's Sampler onto SynthLib's emuBank, its own copy removed
 - Interpolation BUILT 11-16 (uaEmuInterp, Anti-alias Off): matches the E5000 to 0.1-0.4 dB passband; kernels 5-6 images 5-9 dB too loud - refit them
 - Anti-alias Off exact at any host rate: render bank voices at 44.1 kHz and resample to the host, so products fold where the instrument folds them

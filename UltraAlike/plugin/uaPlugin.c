@@ -20,6 +20,9 @@
 #include <pthread.h>
 #include <stdatomic.h>
 #include <stdio.h>
+#include <strings.h>
+#include <sys/stat.h>
+#include <dirent.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -665,6 +668,10 @@ static void play(tUaPlugin * t, const tUaSample *const * sample, const tUaProgra
         if (!e->on) {
             ua_voices_note_off(&l->voices, &p[i], e->note);
             ua_bank_voices_note_off(&l->bankVoices, e->note, p[i].pedal);
+
+            if (program[i] != NULL) {   // uaBankVoice notes §13
+                ua_bank_voices_release_zones(&l->bankVoices, &program[i]->zones, program[i]->env, &program[i]->envRef, &p[i], e->note);
+            }
         } else if (muted(l) || !in_range(l, e->note)) {
             continue;
         } else if (program[i] != NULL) {   // notes §12, §16
@@ -835,6 +842,10 @@ static void ua_process(void * inst, const float *const * in, uint32_t numIn, flo
 
         for (int i = 0; (t->auditionLeft == 0) && (i < UA_LAYERS); i++) {
             ua_bank_voices_note_off(&t->layer[i].bankVoices, t->auditionKey, false);
+
+            if (program[i] != NULL) {
+                ua_bank_voices_release_zones(&t->layer[i].bankVoices, &program[i]->zones, program[i]->env, &program[i]->envRef, &p[i], t->auditionKey);
+            }
         }
     }
 
@@ -992,6 +1003,133 @@ static bool host_load(void * user, int layer, const char * path, char * error, s
     return ok;
 }
 
+// ---- the neighbouring bank in the folder tree - notes §20 ----------------------------------------------------------
+
+#define TREE_ENTRIES    (4096)    // a folder's entries looked at
+#define TREE_FOLDERS    (20000)   // folders looked into in one step, so a step never sweeps a whole drive
+
+typedef struct {
+    char * name;
+    bool   folder;
+} tTreeEntry;
+
+static int tree_compare(const void * a, const void * b) {
+    return strcasecmp(((const tTreeEntry *)a)->name, ((const tTreeEntry *)b)->name);
+}
+
+// a folder's banks and subfolders, by name; hidden ones and a bank's SamplePool passed over
+static int tree_list(const char * folder, tTreeEntry * out) {
+    DIR *           dir   = opendir(folder);
+    struct dirent * entry;
+    int             count = 0;
+
+    if (dir == NULL) {
+        return 0;
+    }
+
+    while (((entry = readdir(dir)) != NULL) && (count < TREE_ENTRIES)) {
+        char        path[4200];
+        struct stat st;
+
+        if ((entry->d_name[0] == '.') || (strcasecmp(entry->d_name, "SamplePool") == 0)) {
+            continue;
+        }
+        snprintf(path, sizeof(path), "%s/%s", folder, entry->d_name);
+
+        if (stat(path, &st) != 0) {
+            continue;
+        }
+        bool        folderEntry = S_ISDIR(st.st_mode);
+
+        if (folderEntry || (S_ISREG(st.st_mode) && emu_bank_is_bank_file(entry->d_name))) {
+            out[count].name   = strdup(entry->d_name);
+            out[count].folder = folderEntry;
+            count            += (out[count].name != NULL) ? 1 : 0;
+        }
+    }
+    closedir(dir);
+    qsort(out, (size_t)count, sizeof(out[0]), tree_compare);
+    return count;
+}
+
+static void tree_free(tTreeEntry * e, int count) {
+    for (int i = 0; i < count; i++) {
+        free(e[i].name);
+    }
+}
+
+// the first bank in a folder, depth first, from its start (direction 1) or its end (-1)
+static bool tree_first(const char * folder, int direction, int * budget, char * out, size_t size) {
+    tTreeEntry * e     = (--*budget > 0) ? calloc(TREE_ENTRIES, sizeof(tTreeEntry)) : NULL;
+    int          count = (e != NULL) ? tree_list(folder, e) : 0;
+    bool         found = false;
+
+    for (int k = 0; (k < count) && !found; k++) {
+        int  i = (direction > 0) ? k : (count - 1 - k);
+        char path[4200];
+
+        snprintf(path, sizeof(path), "%s/%s", folder, e[i].name);
+
+        if (!e[i].folder) {
+            found = snprintf(out, size, "%s", path) < (int)size;
+        } else {
+            found = tree_first(path, direction, budget, out, size);
+        }
+    }
+
+    tree_free(e, count);
+    free(e);
+    return found;
+}
+
+// notes §20: the bank after (direction 1) or before (-1) this one: the rest of its folder, then up a level and on, to
+// the drive's root
+static bool tree_neighbour(const char * path, int direction, char * out, size_t size) {
+    char current[4200];
+    int  budget = TREE_FOLDERS;
+
+    snprintf(current, sizeof(current), "%s", path);
+
+    for ( ; ;) {
+        char *       slash = strrchr(current, '/');
+
+        if ((slash == NULL) || (slash == current)) {
+            return false;
+        }
+        *slash = '\0';   // current is now the folder, slash + 1 the entry within it
+        const char * leaf  = slash + 1;
+        char         name[1024];
+
+        snprintf(name, sizeof(name), "%s", leaf);
+
+        if ((strcmp(current, "/Volumes") == 0) || (current[0] == '\0')) {
+            return false;   // a drive's root reached
+        }
+        tTreeEntry * e     = calloc(TREE_ENTRIES, sizeof(tTreeEntry));
+        int          count = (e != NULL) ? tree_list(current, e) : 0;
+        int          at    = -1;
+        bool         found = false;
+
+        for (int i = 0; i < count; i++) {
+            at = (strcasecmp(e[i].name, name) == 0) ? i : at;
+        }
+
+        for (int i = at + direction; (i >= 0) && (i < count) && !found; i += direction) {
+            char next[4200];
+
+            snprintf(next, sizeof(next), "%s/%s", current, e[i].name);
+            found = !e[i].folder ? (snprintf(out, size, "%s", next) < (int)size) : tree_first(next, direction, &budget, out, size);
+        }
+
+        tree_free(e, count);
+        free(e);
+
+        if (found || (budget <= 0)) {
+            return found;
+        }
+    }
+}
+
 // notes §12: Prev / Next through a bank's presets, when the layer plays one
 static bool host_step_preset(void * user, int layer, int direction) {
     tUaPlugin *        t       = (tUaPlugin *)user;
@@ -1003,7 +1141,23 @@ static bool host_step_preset(void * user, int layer, int direction) {
     if (count == 0u) {
         return false;
     }
-    next = make_program(program->ref, (uint32_t)((((int64_t)program->preset + direction) % count + count) % count));
+    int64_t            to      = (int64_t)program->preset + direction;
+
+    if ((to < 0) || (to >= (int64_t)count)) {   // notes §20: past the bank's end - the neighbouring bank, at its first or last preset
+        char path[4200], error[256];
+        char from[4200];
+
+        snprintf(from, sizeof(from), "%s", emu_bank_path(program->ref->bank));
+
+        for (int tries = 0; (tries < 64) && tree_neighbour(from, direction, path, sizeof(path)); tries++) {
+            if (load_sample(t, layer, path, (direction > 0) ? 0u : UINT32_MAX, error, sizeof(error))) {
+                push_envelope_dials(user, layer, atomic_load(&l->program));
+                return true;
+            }
+            snprintf(from, sizeof(from), "%s", path);   // one that will not load is passed over
+        }
+    }
+    next = make_program(program->ref, (uint32_t)(((to % (int64_t)count) + (int64_t)count) % (int64_t)count));
 
     if (next != NULL) {
         install(t, l, NULL, next);

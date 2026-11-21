@@ -38,6 +38,8 @@ typedef struct {
     int                emu;        // notes §4: the E-mu kernel (uaEmuInterp) read with Anti-alias Off, or -1
     bool               looping;    // notes §2: has passed its loop's end at least once
     double             level;      // velocity's part
+    double             panL, panR; // notes §12: the zone's pan and level, 1 and 1 in the centre at 0 dB
+    bool               oneShot;    // notes §12: a note off leaves it playing to its end
     double             fade;       // 1 while sounding; falls to 0 when stolen
     double             fadeStep;
     tUaEosEnvelope     amp;        // notes §6: its amplifier envelope, the dials' edits included
@@ -54,6 +56,8 @@ typedef struct {
     uint32_t     started;
     double       outL, outR;
     bool         outSet;
+    float        keyVelocity[128];   // notes §13: what each key was struck with, for its release zones
+    bool         keyDown[128];
 } tUaBankVoices;
 
 void ua_bank_voices_init(tUaBankVoices * v, double hostRate);
@@ -62,6 +66,8 @@ void ua_bank_voices_fade_all(tUaBankVoices * v);
 // notes §1: every zone of the preset whose keys and velocities hold the note
 void ua_bank_voices_note_on(tUaBankVoices * v, const tEmuPreset * preset, const tUaEosEnvelope * envs, const tUaEosEnvelope * ref, const tUaPlay * play, uint8_t note, float velocity);
 void ua_bank_voices_note_off(tUaBankVoices * v, uint8_t note, bool pedal);
+// notes §13: after the note off, the zones that sound when this key is let go
+void ua_bank_voices_release_zones(tUaBankVoices * v, const tEmuPreset * preset, const tUaEosEnvelope * envs, const tUaEosEnvelope * ref, const tUaPlay * play, uint8_t note);
 void ua_bank_voices_pedal_up(tUaBankVoices * v);   // notes §9: releases what the pedal held
 void ua_bank_voices_render(tUaBankVoices * v, const tUaPlay * play, float * left, float * right, uint32_t frames);
 bool ua_bank_voices_use_other_than(const tUaBankVoices * v, const tEmuPreset * preset);

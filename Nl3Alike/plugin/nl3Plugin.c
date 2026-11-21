@@ -91,6 +91,10 @@ typedef struct {
     tSynthLibCtlPoints ctl;                            // notes §18: this block's wheel, bend and pressure, each at its frame
     double             wheelLeft;                      // host frames to the next step
     double             tempo;
+    tNl3Arp            arp;                            // arp notes: the arpeggiator, audio thread only
+    tNl3ArpSettings    arpSet;                         // this block's
+    const tNl3Sound *  playSound;                      // the sound an arpeggio's notes start with
+    double             beats;                          // arp notes §5: quarter notes at this block's start - the host's, or run on at its tempo
     float              engine[ENGINE_FRAMES];
     float              engineL[ENGINE_FRAMES], engineR[ENGINE_FRAMES];
     float              engineRight[ENGINE_FRAMES];   // voices notes §26: the voices' right channel
@@ -144,6 +148,7 @@ static void * nl3_create(const tSynthLibPluginDesc * desc) {
 
     snprintf(t->soundName, sizeof(t->soundName), "Init");
     nl3_voices_init(&t->voices);
+    nl3_arp_init(&t->arp);
     nl3_effects_reset(&t->effects);
     t->hostRate    = 48000.0;
     t->tempo       = DEFAULT_TEMPO;
@@ -343,8 +348,30 @@ static tNl3Sound make_sound(const tNl3Plugin * t) {
     return sound;
 }
 
+static void arp_note(void * user, uint8_t note, float velocity, bool on) {
+    tNl3Plugin * t = (tNl3Plugin *)user;
+
+    if (on) {
+        nl3_voices_note_on(&t->voices, t->playSound, note, velocity);
+    } else {
+        nl3_voices_note_off(&t->voices, t->playSound, note);
+    }
+}
+
+// arp notes §5: the host's beat at this frame of the block
+static tNl3ArpClock arp_clock(const tNl3Plugin * t, uint32_t frame) {
+    return (tNl3ArpClock){
+        t->hostRate, t->tempo, true, t->beats + ((double)frame * t->tempo / (60.0 * t->hostRate))
+    };
+}
+
 static void play(tNl3Plugin * t, const tNl3Sound * sound, const tNl3Event * e) {
-    if (e->on) {
+    if (t->arpSet.run) {   // arp notes §3: the keys go to the arpeggiator, which plays the voices
+        tNl3ArpClock c = arp_clock(t, e->offset);
+
+        t->playSound = sound;
+        nl3_arp_key(&t->arp, &t->arpSet, &c, e->note, e->velocity, e->on, arp_note, t);
+    } else if (e->on) {
         nl3_voices_note_on(&t->voices, sound, e->note, e->velocity);
     } else {
         nl3_voices_note_off(&t->voices, sound, e->note);
@@ -398,6 +425,27 @@ static void take_program_change(tNl3Plugin * t) {
     }
 }
 
+// render_host from one frame of the block to another, the arpeggio's steps at their frames
+static void render_span(tNl3Plugin * t, const tNl3Sound * sound, float * left, float * right, uint32_t from, uint32_t to, double gain) {
+    while (from < to) {
+        uint32_t step = nl3_arp_frames_to_step(&t->arp);
+        uint32_t n    = (step < (to - from)) ? step : (to - from);
+
+        if (n > 0) {
+            render_host(t, sound, left + from, (right != NULL) ? (right + from) : NULL, n, gain);
+            nl3_arp_elapse(&t->arp, n);
+            from += n;
+        }
+
+        if ((n == step) && (from <= to)) {
+            tNl3ArpClock c = arp_clock(t, from);
+
+            t->playSound = sound;
+            nl3_arp_step(&t->arp, &t->arpSet, &c, arp_note, t);
+        }
+    }
+}
+
 static void nl3_process(void * inst, const float *const * in, uint32_t numIn, float ** out, uint32_t numOut,
                         uint32_t frames, const tSynthLibTransport * transport) {
     tNl3Plugin * t      = (tNl3Plugin *)inst;
@@ -413,6 +461,16 @@ static void nl3_process(void * inst, const float *const * in, uint32_t numIn, fl
 
     if ((transport != NULL) && transport->tempoValid && (transport->tempo > 0.0)) {
         t->tempo = transport->tempo;    // notes §13: otherwise the last the host gave
+    }
+
+    if ((transport != NULL) && transport->playing && transport->musicTimeValid) {
+        t->beats = transport->projectTimeMusic;
+    }
+    nl3_arp_from_values(t->values, &t->arpSet);
+
+    if (!t->arpSet.run && (t->arp.running || (t->arp.keys > 0))) {   // Run switched off
+        t->playSound = &sound;
+        nl3_arp_stop(&t->arp, arp_note, t);
     }
 
     if ((out == NULL) || (numOut == 0) || (out[0] == NULL)) {
@@ -444,7 +502,7 @@ static void nl3_process(void * inst, const float *const * in, uint32_t numIn, fl
             uint32_t w = (c.offset < frames) ? c.offset : frames;
 
             if (w > done) {
-                render_host(t, &sound, left + done, (right != NULL) ? (right + done) : NULL, w - done, gain);
+                render_span(t, &sound, left, right, done, w, gain);
                 done = w;
             }
             nl3_set_param(t, c.id, c.value);
@@ -456,7 +514,7 @@ static void nl3_process(void * inst, const float *const * in, uint32_t numIn, fl
         }
 
         if (at > done) {
-            render_host(t, &sound, left + done, (right != NULL) ? (right + done) : NULL, at - done, gain);
+            render_span(t, &sound, left, right, done, at, gain);
             done = at;
         }
         play(t, &sound, &t->events[i]);
@@ -466,7 +524,7 @@ static void nl3_process(void * inst, const float *const * in, uint32_t numIn, fl
     synthlib_ctl_points_clear(&t->ctl);
 
     if (done < frames) {
-        render_host(t, &sound, left + done, (right != NULL) ? (right + done) : NULL, frames - done, gain);
+        render_span(t, &sound, left, right, done, frames, gain);
     }
 
     // after the ceiling: it turns the output down and never saves the sound from it
@@ -479,6 +537,7 @@ static void nl3_process(void * inst, const float *const * in, uint32_t numIn, fl
     }
 
     synthlib_swap_fade_apply(&t->fade, left, right, frames, t->hostRate);
+    t->beats     += (double)frames * t->tempo / (60.0 * t->hostRate); // arp notes §5: runs on while the host is stopped
 
     for (uint32_t ch = 2; ch < numOut; ch++) {
         if (out[ch] != NULL) {

@@ -30,3 +30,12 @@ content plays sensibly with it (a piano decays over ~24 s and releases in ~1 s).
 ## 6. Running
 `ua_eos_env_step()` moves the gain toward each stage's level at its rate, attacks in gain and the rest in dB; a stage to
 0% ends at the bottom of the range and the voice with it.
+
+## 13. An SFZ's envelope
+An SFZ gives its amplifier envelope in seconds (`ampeg_attack`, `hold`, `decay`, `release`) and a sustain in percent
+(SynthLib `emuBank.c` notes §9). It is set as an E5000's would be to sound alike: Attack 1 the rate whose measured
+attack (§4) takes closest to the attack time, at level 100; Attack 2 instant; Decay 1 the rate that falls from full to
+the sustain in the decay time, its level the EOS level whose gain (§2) is the SFZ's sustain as a fraction of full -
+an SFZ's 50% is half the amplitude, -6 dB, where an EOS level of 50% is about -22 dB; Decay 2 holding the sustain; Release 1 the rate that falls
+60 dB in the release time; all at depth 16, the one the laws were measured at. Hold is not reproduced yet (Attack 2
+could carry it). The nearest rate is chosen on a log scale; an EOS rate can only be so fine.

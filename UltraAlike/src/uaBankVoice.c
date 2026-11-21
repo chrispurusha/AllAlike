@@ -123,18 +123,22 @@ static tUaEosEnvelope edited_envelope(const tUaEosEnvelope * stored, const tUaEo
     return e;
 }
 
-void ua_bank_voices_note_on(tUaBankVoices * v, const tEmuPreset * preset, const tUaEosEnvelope * envs, const tUaEosEnvelope * ref,
-                            const tUaPlay * play, uint8_t note, float velocity) {
-    int vel = (int)lroundf(velocity * 127.0f);
+// notes §12: a zone's own level and pan - constant power, the centre at unity
+static double pan_gain(const tEmuZone * zone, bool right) {
+    double angle = (fmax(-1.0, fmin(1.0, zone->pan)) + 1.0) * 0.25 * M_PI;
 
-    if (play->solo) {   // notes §7: a new note ends what is sounding
-        ua_bank_voices_fade_all(v);
-    }
+    return (right ? sin(angle) : cos(angle)) * M_SQRT2 * pow(10.0, zone->volume / 20.0);
+}
+
+// the zones a key starts: those struck (release false) or those let go (true, notes §13)
+static void start_zones(tUaBankVoices * v, const tEmuPreset * preset, const tUaEosEnvelope * envs, const tUaEosEnvelope * ref,
+                        const tUaPlay * play, uint8_t note, float velocity, bool release) {
+    int vel = (int)lroundf(velocity * 127.0f);
 
     for (uint32_t z = 0; (preset != NULL) && (z < preset->zoneCount); z++) {
         const tEmuZone * zone  = &preset->zone[z];
 
-        if ((note < zone->keyLow) || (note > zone->keyHigh) || (vel < zone->velLow) || (vel > zone->velHigh)) {
+        if ((zone->release != release) || (note < zone->keyLow) || (note > zone->keyHigh) || (vel < zone->velLow) || (vel > zone->velHigh)) {
             continue;
         }
         tUaBankVoice *   voice = take_voice(v, play, note);
@@ -144,19 +148,40 @@ void ua_bank_voices_note_on(tUaBankVoices * v, const tEmuPreset * preset, const 
         double           was   = voice->active ? voice->env.gain : 0.0;
 
         *voice = (tUaBankVoice){
-            .amp    = edited_envelope(&envs[z], &play->eosEnv, ref),
-            .preset = preset,
-            .sample = zone->sample,
-            .step   = step,
-            .cutoff = ua_resample_cutoff(step),
-            .emu    = play->antiAlias ? -1 : ua_emu_setting(step, v->hostRate),
-            .level  = (1.0 - play->velocity) + (play->velocity * velocity),
-            .fade   = 1.0,
-            .note   = note,
-            .active = true,
-            .age    = v->started++,
+            .amp     = edited_envelope(&envs[z], &play->eosEnv, ref),
+            .preset  = preset,
+            .sample  = zone->sample,
+            .step    = step,
+            .cutoff  = ua_resample_cutoff(step),
+            .emu     = play->antiAlias ? -1 : ua_emu_setting(step, v->hostRate),
+            .level   = (1.0 - play->velocity) + (play->velocity * velocity),
+            .panL    = pan_gain(zone, false),
+            .panR    = pan_gain(zone, true),
+            .oneShot = !play->loose && (zone->oneShot || release),   // notes §13: a release zone plays to its end
+            .fade    = 1.0,
+            .note    = note,
+            .active  = true,
+            .age     = v->started++,
         };
         ua_eos_env_start(&voice->env, was);
+    }
+}
+
+void ua_bank_voices_note_on(tUaBankVoices * v, const tEmuPreset * preset, const tUaEosEnvelope * envs, const tUaEosEnvelope * ref,
+                            const tUaPlay * play, uint8_t note, float velocity) {
+    if (play->solo) {   // notes §7: a new note ends what is sounding
+        ua_bank_voices_fade_all(v);
+    }
+    start_zones(v, preset, envs, ref, play, note, velocity, false);
+    v->keyVelocity[note & 127] = velocity;
+    v->keyDown[note & 127]     = true;
+}
+
+void ua_bank_voices_release_zones(tUaBankVoices * v, const tEmuPreset * preset, const tUaEosEnvelope * envs, const tUaEosEnvelope * ref,
+                                  const tUaPlay * play, uint8_t note) {
+    if (v->keyDown[note & 127]) {   // only where this layer played the note
+        v->keyDown[note & 127] = false;
+        start_zones(v, preset, envs, ref, play, note, v->keyVelocity[note & 127], true);
     }
 }
 
@@ -165,7 +190,7 @@ void ua_bank_voices_note_off(tUaBankVoices * v, uint8_t note, bool pedal) {
     for (int i = 0; i < UA_BANK_VOICES; i++) {
         tUaBankVoice * voice = &v->voice[i];
 
-        if (voice->active && (voice->note == note) && !voice->pedalHeld) {
+        if (voice->active && (voice->note == note) && !voice->pedalHeld && !voice->oneShot) {
             if (pedal) {
                 voice->pedalHeld = true;
             } else {
@@ -283,10 +308,10 @@ void ua_bank_voices_render(tUaBankVoices * v, const tUaPlay * play, float * left
                 float  l, r;
 
                 read_frame(voice, &l, &r);
-                left[at + i]    += l * f * gainL[i];
+                left[at + i]    += l * f * gainL[i] * (float)voice->panL;
 
                 if (right != NULL) {
-                    right[at + i] += r * f * gainR[i];
+                    right[at + i] += r * f * gainR[i] * (float)voice->panR;
                 }
                 voice->position += voice->step * play->bend;   // notes §10
                 voice->fade     -= voice->fadeStep;

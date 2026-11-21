@@ -124,3 +124,13 @@ Each pitch-bend, mod-wheel and sustain-pedal value a block brings is played at i
 synthlibCtlPoints.h): the loop stops at each, sets it and remakes the layer's play settings - the pedal's lift
 releasing what it held there, not at the next block. Without it a host hands over only a block's last value, so a
 fast bend moved once a block. As the other Alikes (2026-11-16).
+
+## 20. Prev / Next past a bank's end
+Within a bank, Prev and Next step its presets. Past either end they move to the neighbouring bank in the folder tree,
+by name, depth first: the rest of the bank's own folder, then up a level and on into the next folder (Emulator X
+banks sit in folders of their own and are found the same way; a bank's SamplePool and hidden folders are passed
+over). Stepping back from a bank's first preset opens the previous bank at its last preset, forward from its last
+opens the next at its first. A bank that will not load is passed over (up to 64 in a row). The walk stops at the
+drive's root and looks into at most 20,000 folders in one step, so it never sweeps a whole drive; when it finds
+nothing, the step wraps round within the bank as before. An SFZ is a bank of one preset, so Prev / Next walks a folder
+of SFZs.

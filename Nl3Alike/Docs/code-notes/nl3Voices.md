@@ -250,8 +250,11 @@ square law (§14): measured on 1:5, +46 at full wheel adds 12.0 dB, at half whee
 ## 33. Octave Shift
 A program's Octave Shift (-2..+2) moves every note by whole octaves: measured on 1:5 (Octave Shift -1), C4 sounds at
 130.8 Hz on the instrument. It was read from the program and never applied, so 354 of the 1024 programs played in the
-wrong octave. It is added to the note for pitch and for the filter's Keyboard Track (assumed - the track with a shift
-not yet measured); the keyboard morph still takes the key played. Transpose is 48 in every program and not applied.
+wrong octave. It is added to the note for pitch, for the filter's Keyboard Track and for the keyboard morph source: on the hardware
+(2026-11-21, 1:27 New Vox, Octave Shift +1, a keyboard morph of +27 on Filter 1's cutoff) the shifted note drives
+the morph - with the key played instead ours was 4-8 dB dark above the 4th harmonic (the owner heard a tone missing);
+with the morph off ours and the hardware agree within 0.6 dB, and with the shift taken into the morph they agree
+again. Transpose is 48 in every program and not applied.
 
 ## 34. The same key again
 A key played again while its last note still sounds takes another voice; the old one is let go (if it was still

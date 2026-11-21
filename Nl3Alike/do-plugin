@@ -100,6 +100,7 @@ SOURCES=(
     "$HERE/src/nl3Envelope.c"
     "$HERE/src/nl3Filter.c"
     "$HERE/src/nl3Voices.c"
+    "$HERE/src/nl3Arp.c"
     "$HERE/plugin/nl3Params.c"
     "$HERE/plugin/nl3Patch.c"
     "$HERE/plugin/nl3Draw.c"

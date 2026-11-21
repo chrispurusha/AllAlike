@@ -68,10 +68,79 @@ double ua_eos_attack_time(int rate, int depth) {
     return (ATTACK_DB / speed16(rate)) * (1.0 + (ATTACK_DEPTH_K * (16.0 - (double)depth) / 16.0));
 }
 
+// notes §13: the rate whose attack takes closest to this long, at the measured depth
+static uint8_t attack_rate(double seconds) {
+    int    best  = 0;
+    double error = INFINITY;
+
+    for (int r = 0; r <= 127; r++) {
+        double e = fabs(log(fmax(1e-4, ua_eos_attack_time(r, 16)) / fmax(1e-4, seconds)));
+
+        if (e < error) {
+            error = e;
+            best  = r;
+        }
+    }
+
+    return (uint8_t)best;
+}
+
+// notes §13: the rate that falls this many dB in this long
+static uint8_t fall_rate(double db, double seconds) {
+    int    best  = 0;
+    double error = INFINITY;
+    double want  = db / fmax(1e-4, seconds);
+
+    for (int r = 0; r <= 127; r++) {
+        double e = fabs(log(fmax(1e-6, ua_eos_speed_db(r, 16)) / want));
+
+        if (e < error) {
+            error = e;
+            best  = r;
+        }
+    }
+
+    return (uint8_t)best;
+}
+
+// notes §13: an SFZ's envelope in seconds, set as an E5000's would be to sound alike
+// notes §13: the EOS level whose gain is this fraction of full - an SFZ's sustain is linear amplitude
+static double eos_level_for(double fraction) {
+    int    best  = 100;
+    double error = INFINITY;
+
+    for (int p = 0; p <= 100; p++) {
+        double e = fabs(ua_eos_level_gain(p, 16) - (fraction * ua_eos_level_gain(100.0, 16)));
+
+        if (e < error) {
+            error = e;
+            best  = p;
+        }
+    }
+
+    return best;
+}
+
+static void from_seconds(const tEmuEnvelope * stored, tUaEosEnvelope * out) {
+    double fraction = fmax(0.0, fmin(100.0, stored->level[2])) / 100.0;
+    double sustain  = eos_level_for(fraction);
+    double drop     = (fraction > 0.0) ? (-20.0 * log10(fraction)) : 60.0;
+
+    *out = (tUaEosEnvelope){
+        .rate  = {attack_rate(stored->time[0]), 0, (drop > 0.05) ? fall_rate(drop, stored->time[2]) : 0, 0, fall_rate(60.0, stored->time[4]), 0},
+        .level = {100, 100, (uint8_t)lround(sustain), (uint8_t)lround(sustain), 0, 0},
+    };
+}
+
 // notes §5: an Emulator X bank stores each stage's rate as a fraction, 0.5 for rate 127
 void ua_eos_from_bank(const tEmuEnvelope * stored, tUaEosEnvelope * out) {
     if ((stored == NULL) || !stored->present) {
         *out = gUaEosDefaultEnvelope;
+        return;
+    }
+
+    if (stored->seconds) {
+        from_seconds(stored, out);
         return;
     }
 

@@ -131,7 +131,7 @@ const tSynthLibParam     gNl3Params[kNl3ParamCount] = {
     {kNl3ParamChordMemory,                      "Chord Memory",                           "Chord",    eSynthLibUnitIndexed,    0.0,            1.0,                    0.000000,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
     {kNl3ParamArpRun,                           "Arpeggio Run",                           "Run",      eSynthLibUnitIndexed,    0.0,            1.0,                    0.000000,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
     {kNl3ParamArpRate,                          "Arpeggio Rate",                          "Rate",     eSynthLibUnitGeneric,    0.0,          127.0,                    0.503937,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kNl3ParamArpMode,                          "Arpeggio Mode",                          "Mode",     eSynthLibUnitIndexed,    0.0,            3.0,                    0.000000,                  3, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kNl3ParamArpMode,                          "Arpeggio Direction",                     "Dir",      eSynthLibUnitIndexed,    0.0,            3.0,                    0.000000,                  3, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
     {kNl3ParamArpRange,                         "Arpeggio Range",                         "Range",    eSynthLibUnitIndexed,    0.0,            3.0,                    0.000000,                  3, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
     {kNl3ParamArpKbdSync,                       "Arpeggio Keyboard Sync",                 "KB Sync",  eSynthLibUnitIndexed,    0.0,            1.0,                    0.000000,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
     {kNl3ParamArpClockSync,                     "Arpeggio Clock Sync",                    "Clock",    eSynthLibUnitIndexed,    0.0,            1.0,                    0.000000,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
@@ -253,6 +253,26 @@ const tSynthLibParam     gNl3Params[kNl3ParamCount] = {
     {kNl3ParamChordNote9,                       "Chord Note 10",                          "Note",     eSynthLibUnitGeneric,    0.0,          127.0,                    0.000000,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
     {kNl3ParamChordNote10,                      "Chord Note 11",                          "Note",     eSynthLibUnitGeneric,    0.0,          127.0,                    0.000000,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
     {kNl3ParamChordNote11,                      "Chord Note 12",                          "Note",     eSynthLibUnitGeneric,    0.0,          127.0,                    0.000000,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kNl3ParamArpVariation,                     "Arpeggio Mode",                          "Mode",     eSynthLibUnitIndexed,    0.0,            3.0,                    0.000000,                  3, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kNl3ParamArpSubDirection,                  "Arpeggio Sub Direction",                 "Sub Dir",  eSynthLibUnitIndexed,    0.0,            4.0,                    0.000000,                  4, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kNl3ParamArpSubRange,                      "Arpeggio Sub Range",                     "Sub Rng",  eSynthLibUnitIndexed,    0.0,            7.0,                    0.142857,                  7, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kNl3ParamArpMaskLength,                    "Arpeggio Mask Length",                   "Length",   eSynthLibUnitIndexed,    0.0,           15.0,                    1.000000,                 15, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kNl3ParamArpMask1,                         "Arpeggio Mask Step 1",                   "1",        eSynthLibUnitIndexed,    0.0,            1.0,                    1.000000,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kNl3ParamArpMask2,                         "Arpeggio Mask Step 2",                   "2",        eSynthLibUnitIndexed,    0.0,            1.0,                    1.000000,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kNl3ParamArpMask3,                         "Arpeggio Mask Step 3",                   "3",        eSynthLibUnitIndexed,    0.0,            1.0,                    1.000000,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kNl3ParamArpMask4,                         "Arpeggio Mask Step 4",                   "4",        eSynthLibUnitIndexed,    0.0,            1.0,                    1.000000,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kNl3ParamArpMask5,                         "Arpeggio Mask Step 5",                   "5",        eSynthLibUnitIndexed,    0.0,            1.0,                    1.000000,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kNl3ParamArpMask6,                         "Arpeggio Mask Step 6",                   "6",        eSynthLibUnitIndexed,    0.0,            1.0,                    1.000000,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kNl3ParamArpMask7,                         "Arpeggio Mask Step 7",                   "7",        eSynthLibUnitIndexed,    0.0,            1.0,                    1.000000,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kNl3ParamArpMask8,                         "Arpeggio Mask Step 8",                   "8",        eSynthLibUnitIndexed,    0.0,            1.0,                    1.000000,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kNl3ParamArpMask9,                         "Arpeggio Mask Step 9",                   "9",        eSynthLibUnitIndexed,    0.0,            1.0,                    1.000000,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kNl3ParamArpMask10,                        "Arpeggio Mask Step 10",                  "10",       eSynthLibUnitIndexed,    0.0,            1.0,                    1.000000,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kNl3ParamArpMask11,                        "Arpeggio Mask Step 11",                  "11",       eSynthLibUnitIndexed,    0.0,            1.0,                    1.000000,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kNl3ParamArpMask12,                        "Arpeggio Mask Step 12",                  "12",       eSynthLibUnitIndexed,    0.0,            1.0,                    1.000000,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kNl3ParamArpMask13,                        "Arpeggio Mask Step 13",                  "13",       eSynthLibUnitIndexed,    0.0,            1.0,                    1.000000,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kNl3ParamArpMask14,                        "Arpeggio Mask Step 14",                  "14",       eSynthLibUnitIndexed,    0.0,            1.0,                    1.000000,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kNl3ParamArpMask15,                        "Arpeggio Mask Step 15",                  "15",       eSynthLibUnitIndexed,    0.0,            1.0,                    1.000000,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kNl3ParamArpMask16,                        "Arpeggio Mask Step 16",                  "16",       eSynthLibUnitIndexed,    0.0,            1.0,                    1.000000,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
     {kNl3ParamPressure,                         "Channel Pressure",                       "Press",    eSynthLibUnitGeneric,    0.0,            1.0,                         0.0,                  0, SYNTHLIB_MIDI_AFTERTOUCH, SYNTHLIB_PARAM_HIDDEN | SYNTHLIB_PARAM_NO_SAVE                         },
 };
 
@@ -470,6 +490,26 @@ const tNl3Field          gNl3Fields[] = {
     {kNl3ParamChordNote9,                       1387, 7, false},
     {kNl3ParamChordNote10,                      1395, 7, false},
     {kNl3ParamChordNote11,                      1403, 7, false},
+    {kNl3ParamArpVariation,                      367, 3, false}, // arp notes §1
+    {kNl3ParamArpSubDirection,                   358, 4, false},
+    {kNl3ParamArpSubRange,                       362, 5, false},
+    {kNl3ParamArpMaskLength,                     354, 4, false},
+    {kNl3ParamArpMask1,                          466, 1, false},
+    {kNl3ParamArpMask2,                          465, 1, false},
+    {kNl3ParamArpMask3,                          464, 1, false},
+    {kNl3ParamArpMask4,                          463, 1, false},
+    {kNl3ParamArpMask5,                          462, 1, false},
+    {kNl3ParamArpMask6,                          461, 1, false},
+    {kNl3ParamArpMask7,                          460, 1, false},
+    {kNl3ParamArpMask8,                          459, 1, false},
+    {kNl3ParamArpMask9,                          474, 1, false},
+    {kNl3ParamArpMask10,                         473, 1, false},
+    {kNl3ParamArpMask11,                         472, 1, false},
+    {kNl3ParamArpMask12,                         471, 1, false},
+    {kNl3ParamArpMask13,                         470, 1, false},
+    {kNl3ParamArpMask14,                         469, 1, false},
+    {kNl3ParamArpMask15,                         468, 1, false},
+    {kNl3ParamArpMask16,                         467, 1, false},
 };
 const uint32_t           gNl3FieldCount      = sizeof(gNl3Fields) / sizeof(gNl3Fields[0]);
 
@@ -491,11 +531,16 @@ static const char *const kChoiceSlope[]      = {"6 dB", "12 dB", "24 dB"};
 static const char *const kChoiceFmode[]      = {"SINGLE", "MULTI"};
 static const char *const kChoiceF2type[]     = {"LP-BP", "LP-HP", "HP>LP", "BP-BP", "PEAK", "NOTCH"};
 static const char *const kChoiceGlide[]      = {"OFF", "ON", "AUTO"};
-static const char *const kChoiceVibsrc[]     = {"OFF", "A.TOUCH", "WHEEL"};   // voices notes §31: stored 1 is aftertouch, 2 the wheel
-static const char *const kChoicePrio[]       = {"OFF", "HI", "LO"};
+static const char *const kChoiceVibsrc[]     = {"OFF", "A.TOUCH", "WHEEL"}; // voices notes §31: stored 1 is aftertouch, 2 the wheel
+static const char *const kChoicePrio[]       = {"OFF", "LO", "HI"};         // arp notes §4: stored 1 is the lowest note, 2 the highest (the manual has them swapped)
 static const char *const kChoiceOctave[]     = {"-2", "-1", "0", "+1", "+2"};
 static const char *const kChoiceArpmode[]    = {"UP", "DOWN", "UP/DOWN", "RANDOM"};
 static const char *const kChoiceArprange[]   = {"1", "2", "3", "4"};
+static const char *const kChoiceArpvar[]     = {"NORMAL", "SUB", "MASK", "SUB+MASK"};
+static const char *const kChoiceArpsub[]     = {"UP", "DOWN", "UP/DOWN", "RANDOM", "STILL"};
+static const char *const kChoiceArpsubrng[]  = {"1", "2", "3", "4", "5", "6", "7", "8"};
+static const char *const kChoiceArpmasklen[] = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16"};
+static const char *const kChoiceArpstep[]    = {"REST", "ON"};
 
 const char * const * nl3_param_choices(uint32_t id) {
     switch (id) {
@@ -598,8 +643,20 @@ const char * const * nl3_param_choices(uint32_t id) {
         case kNl3ParamArpRange:
             return kChoiceArprange;
 
+        case kNl3ParamArpVariation:
+            return kChoiceArpvar;
+
+        case kNl3ParamArpSubDirection:
+            return kChoiceArpsub;
+
+        case kNl3ParamArpSubRange:
+            return kChoiceArpsubrng;
+
+        case kNl3ParamArpMaskLength:
+            return kChoiceArpmasklen;
+
         default:
-            return NULL;
+            return ((id >= kNl3ParamArpMask1) && (id <= kNl3ParamArpMask16)) ? kChoiceArpstep : NULL;
     }
 }
 
@@ -771,14 +828,39 @@ static const tNl3Control kVoice[]               = {
     {kNl3ParamTranspose,    "Transp",   eTiControlDial,   127, 0.0, NULL                    },
     {kNl3ParamChordMemory,  "Chord",    eTiControlChoice,   1, 0.0, nl3_choices_ChordMemory },
 };
-static const tNl3Control kArp[]                 = {
+static const tNl3Control kArp[]                 = {   // arp notes §1: no KB Sync - the instrument clears it
     {kNl3ParamArpRun,       "Run",     eTiControlChoice,   1, 0.0, nl3_choices_ArpRun      },
     {kNl3ParamArpRate,      "Rate",    eTiControlDial,   127, 0.0, NULL                    },
-    {kNl3ParamArpMode,      "Mode",    eTiControlChoice,   3, 0.0, nl3_choices_ArpMode     },
-    {kNl3ParamArpRange,     "Range",   eTiControlChoice,   3, 0.0, nl3_choices_ArpRange    },
-    {kNl3ParamArpKbdSync,   "KB Sync", eTiControlChoice,   1, 0.0, nl3_choices_ArpKbdSync  },
+    {kNl3ParamArpMode,      "Dir",     eTiControlChoice,   3, 0.0, nl3_choices_ArpMode     },
+    {kNl3ParamArpRange,     "Octaves", eTiControlChoice,   3, 0.0, nl3_choices_ArpRange    },
     {kNl3ParamArpClockSync, "Clock",   eTiControlChoice,   1, 0.0, nl3_choices_ArpClockSync},
     {kNl3ParamArpDivisor,   "Divisor", eTiControlDial,   127, 0.0, NULL                    },
+};
+static const tNl3Control kArpMenu[]             = {
+    {kNl3ParamArpVariation,    "Mode",    eTiControlChoice,  3, 0.0, kChoiceArpvar    },
+    {kNl3ParamArpSubDirection, "Sub Dir", eTiControlChoice,  4, 0.0, kChoiceArpsub    },
+    {kNl3ParamArpSubRange,     "Sub Rng", eTiControlChoice,  7, 0.0, kChoiceArpsubrng },
+    {kNl3ParamArpMaskLength,   "Length",  eTiControlChoice, 15, 0.0, kChoiceArpmasklen},
+};
+static const tNl3Control kArpMaskA[]            = {
+    {kNl3ParamArpMask1, "1", eTiControlChoice, 1, 0.0, kChoiceArpstep},
+    {kNl3ParamArpMask2, "2", eTiControlChoice, 1, 0.0, kChoiceArpstep},
+    {kNl3ParamArpMask3, "3", eTiControlChoice, 1, 0.0, kChoiceArpstep},
+    {kNl3ParamArpMask4, "4", eTiControlChoice, 1, 0.0, kChoiceArpstep},
+    {kNl3ParamArpMask5, "5", eTiControlChoice, 1, 0.0, kChoiceArpstep},
+    {kNl3ParamArpMask6, "6", eTiControlChoice, 1, 0.0, kChoiceArpstep},
+    {kNl3ParamArpMask7, "7", eTiControlChoice, 1, 0.0, kChoiceArpstep},
+    {kNl3ParamArpMask8, "8", eTiControlChoice, 1, 0.0, kChoiceArpstep},
+};
+static const tNl3Control kArpMaskB[]            = {
+    {kNl3ParamArpMask9,  "9",  eTiControlChoice, 1, 0.0, kChoiceArpstep},
+    {kNl3ParamArpMask10, "10", eTiControlChoice, 1, 0.0, kChoiceArpstep},
+    {kNl3ParamArpMask11, "11", eTiControlChoice, 1, 0.0, kChoiceArpstep},
+    {kNl3ParamArpMask12, "12", eTiControlChoice, 1, 0.0, kChoiceArpstep},
+    {kNl3ParamArpMask13, "13", eTiControlChoice, 1, 0.0, kChoiceArpstep},
+    {kNl3ParamArpMask14, "14", eTiControlChoice, 1, 0.0, kChoiceArpstep},
+    {kNl3ParamArpMask15, "15", eTiControlChoice, 1, 0.0, kChoiceArpstep},
+    {kNl3ParamArpMask16, "16", eTiControlChoice, 1, 0.0, kChoiceArpstep},
 };
 static const tNl3Control kMorphWheelOsc[]       = {
     {kNl3ParamMorphWheel_Osc2FinePitch,   "O2 Fine", eTiControlDial, 255, -128.0, NULL},
@@ -939,7 +1021,8 @@ static const tNl3Section kFilterPage[]          = {SECTION("FILTER", 0.90, 0.55,
 static const tNl3Section kAmpPage[]             = {SECTION("AMP ENV", 0.85, 0.75, 0.25, kAmpEnv), SECTION_RGB("OUTPUT", RGB_SECTION_OUTPUT, kOutput)};
 static const tNl3Section kLfoPage[]             = {SECTION("LFO 1", 0.80, 0.55, 0.85, kLfo1), SECTION("LFO 2", 0.55, 0.80, 0.85, kLfo2)};
 static const tNl3Section kModPage[]             = {SECTION("MOD ENV", 0.70, 0.45, 0.80, kModEnv)};
-static const tNl3Section kPlayPage[]            = {SECTION_RGB("GLIDE", RGB_SECTION_PLAY, kGlide), SECTION_RGB("VIBRATO", RGB_SECTION_PLAY, kVibrato), SECTION_RGB("VOICE", RGB_SECTION_PLAY, kVoice), SECTION_RGB("ARP", RGB_SECTION_PLAY, kArp)};
+static const tNl3Section kPlayPage[]            = {SECTION_RGB("GLIDE", RGB_SECTION_PLAY, kGlide), SECTION_RGB("VIBRATO", RGB_SECTION_PLAY, kVibrato), SECTION_RGB("VOICE", RGB_SECTION_PLAY, kVoice)};
+static const tNl3Section kArpPage[]             = {SECTION_RGB("ARPEGGIO", RGB_SECTION_PLAY, kArp), SECTION_RGB("SUB / MASK", RGB_SECTION_PLAY, kArpMenu), SECTION_RGB("MASK 1-8", RGB_SECTION_PLAY, kArpMaskA), SECTION_RGB("MASK 9-16", RGB_SECTION_PLAY, kArpMaskB)};
 static const tNl3Section kMorphWheelPage[]      = {SECTION("WHEEL: LFO / MOD ENV", 0.85, 0.55, 0.30, kMorphWheelLfo), SECTION("WHEEL: AMP", 0.85, 0.55, 0.30, kMorphWheelAmp), SECTION("WHEEL: OSC", 0.85, 0.55, 0.30, kMorphWheelOsc), SECTION("WHEEL: FILTER", 0.85, 0.55, 0.30, kMorphWheelFilter)};
 static const tNl3Section kMorphTouchPage[]      = {SECTION("AFTERTOUCH: LFO / MOD ENV", 0.85, 0.55, 0.30, kMorphTouchLfo), SECTION("AFTERTOUCH: AMP", 0.85, 0.55, 0.30, kMorphTouchAmp), SECTION("AFTERTOUCH: OSC", 0.85, 0.55, 0.30, kMorphTouchOsc), SECTION("AFTERTOUCH: FILTER", 0.85, 0.55, 0.30, kMorphTouchFilter)};
 static const tNl3Section kMorphVelocityPage[]   = {SECTION("VELOCITY: LFO / MOD ENV", 0.85, 0.55, 0.30, kMorphVelocityLfo), SECTION("VELOCITY: AMP", 0.85, 0.55, 0.30, kMorphVelocityAmp), SECTION("VELOCITY: OSC", 0.85, 0.55, 0.30, kMorphVelocityOsc), SECTION("VELOCITY: FILTER", 0.85, 0.55, 0.30, kMorphVelocityFilter)};
@@ -948,8 +1031,8 @@ static const tNl3Section kGlobalPage[]          = {SECTION_RGB("PLUG-IN", RGB_SE
 
 #define PAGE(title, sections)    {title, sections, sizeof(sections) / sizeof(sections[0])}
 const tNl3Page           gNl3Pages[]            = {
-    PAGE("OSC",  kOscPage),  PAGE("FILTER", kFilterPage),     PAGE("AMP",   kAmpPage),        PAGE("LFO", kLfoPage),           PAGE("MOD", kModPage),
-    PAGE("PLAY", kPlayPage), PAGE("WHEEL",  kMorphWheelPage), PAGE("TOUCH", kMorphTouchPage), PAGE("VEL", kMorphVelocityPage), PAGE("KBD", kMorphKbdPage),PAGE("GLOBAL", kGlobalPage),
+    PAGE("OSC",  kOscPage),  PAGE("FILTER", kFilterPage), PAGE("AMP",   kAmpPage),        PAGE("LFO",   kLfoPage),        PAGE("MOD", kModPage),
+    PAGE("PLAY", kPlayPage), PAGE("ARP",    kArpPage),    PAGE("WHEEL", kMorphWheelPage), PAGE("TOUCH", kMorphTouchPage), PAGE("VEL", kMorphVelocityPage),PAGE("KBD",kMorphKbdPage), PAGE("GLOBAL", kGlobalPage),
 };
 const uint32_t           gNl3PageCount          = sizeof(gNl3Pages) / sizeof(gNl3Pages[0]);
 
@@ -1168,7 +1251,7 @@ void nl3_sound_from_values(const double * v, tNl3Sound * s) {
         // voices notes §24: pitch cubic in the Amount as the LFOs', Shape and Osc Mix a step a step; Invert is
         // env_both_ways()'s (voices notes §43) - a sign here as well cancelled it
         double amount = plain(v, kNl3ParamMEnvAmount);
-        double cube = (amount >= 127.0) ? 128.0 : amount;
+        double cube   = (amount >= 127.0) ? 128.0 : amount;
 
         s->modEnvPitch[0] = ((dest == 0) || (dest == 2)) ? (cube * cube * cube / LFO_PITCH_CUBE) : 0.0;
         s->modEnvPitch[1] = ((dest == 1) || (dest == 2)) ? (cube * cube * cube / LFO_PITCH_CUBE) : 0.0;
@@ -1291,10 +1374,10 @@ bool nl3_morph_values(const double * v, float velocity, int note, double * out) 
     static const uint32_t kGroups[4] = {kNl3ParamMorphWheel_Lfo1Rate, kNl3ParamMorphTouch_Lfo1Rate, kNl3ParamMorphVelocity_Lfo1Rate, kNl3ParamMorphKbd_Lfo1Rate};
     double                wheel      = v[kNl3ParamModWheel];
     double                source[4]  = {
-        (wheel >= 1.0) ? 1.0 : (wheel * 127.0 / 128.0),                               // 127 is the whole range
-        (v[kNl3ParamPressure] >= 1.0) ? 1.0 : (v[kNl3ParamPressure] * 127.0 / 128.0), // aftertouch, as the wheel (law not yet measured)
-        (double)velocity * 127.0 / 128.0,                                             // 127 is not quite all of it
-        ((double)note - 36.0) / 48.0,                                                 // C2 to C6, and on past either end
+        (wheel >= 1.0) ? 1.0 : (wheel * 127.0 / 128.0),                                // 127 is the whole range
+        (v[kNl3ParamPressure] >= 1.0) ? 1.0 : (v[kNl3ParamPressure] * 127.0 / 128.0),  // aftertouch, as the wheel (law not yet measured)
+        (double)velocity * 127.0 / 128.0,                                              // 127 is not quite all of it
+        ((double)note + (12.0 * (choice(v, kNl3ParamOctaveShift) - 2)) - 36.0) / 48.0, // C2 to C6, and on past either end; the shifted note (voices notes §33)
     };
     bool                  any        = false;
 
@@ -1315,4 +1398,29 @@ bool nl3_morph_values(const double * v, float velocity, int note, double * out) 
     }
 
     return any;
+}
+
+// arp notes §1: the arpeggiator's settings from the parameters
+void nl3_arp_from_values(const double * v, tNl3ArpSettings * arp) {
+    int variation = choice(v, kNl3ParamArpVariation);
+
+    arp->run          = on(v, kNl3ParamArpRun);
+    arp->direction    = choice(v, kNl3ParamArpMode);
+    arp->octaves      = choice(v, kNl3ParamArpRange) + 1;
+    arp->sub          = (variation == 1) || (variation == 3);
+    arp->mask         = (variation == 2) || (variation == 3);
+    arp->subDirection = choice(v, kNl3ParamArpSubDirection);
+    arp->subRange     = choice(v, kNl3ParamArpSubRange) + 1;
+    arp->maskLength   = choice(v, kNl3ParamArpMaskLength) + 1;
+    arp->maskOn       = 0;
+
+    for (int k = 0; k < NL3_ARP_MASK_STEPS; k++) {
+        arp->maskOn |= on(v, (uint32_t)(kNl3ParamArpMask1 + k)) ? (uint16_t)(1u << k) : 0u;
+    }
+
+    arp->clockSync    = on(v, kNl3ParamArpClockSync);
+    arp->rate         = plain(v, kNl3ParamArpRate);
+    arp->divisor      = choice(v, kNl3ParamArpDivisor);
+    arp->voiceMode    = on(v, kNl3ParamMono) ? (on(v, kNl3ParamLegato) ? 2 : 1) : (on(v, kNl3ParamLegato) ? 3 : 0);
+    arp->priority     = choice(v, kNl3ParamMonoPriority);
 }

@@ -22,6 +22,7 @@
 #include "synthlibPlugin.h"
 #include "nl3Draw.h"
 #include "nl3Voices.h"
+#include "nl3Arp.h"
 
 // notes §1: the plug-in's own settings, then the Program's fields in the order the instrument dumps them, then the
 // four morph groups. The ids are what host projects save.
@@ -251,6 +252,26 @@ enum {
     kNl3ParamChordNote9,
     kNl3ParamChordNote10,
     kNl3ParamChordNote11,
+    kNl3ParamArpVariation,   // arp notes §1: the Sound menu's Mode, Sub Arpeggio and Mask
+    kNl3ParamArpSubDirection,
+    kNl3ParamArpSubRange,
+    kNl3ParamArpMaskLength,
+    kNl3ParamArpMask1,
+    kNl3ParamArpMask2,
+    kNl3ParamArpMask3,
+    kNl3ParamArpMask4,
+    kNl3ParamArpMask5,
+    kNl3ParamArpMask6,
+    kNl3ParamArpMask7,
+    kNl3ParamArpMask8,
+    kNl3ParamArpMask9,
+    kNl3ParamArpMask10,
+    kNl3ParamArpMask11,
+    kNl3ParamArpMask12,
+    kNl3ParamArpMask13,
+    kNl3ParamArpMask14,
+    kNl3ParamArpMask15,
+    kNl3ParamArpMask16,
     kNl3ParamPressure,                          // channel pressure, the aftertouch morph's source (voices notes §25)
     kNl3ParamCount
 };
@@ -277,6 +298,7 @@ const char * const * nl3_param_choices(uint32_t id);
 
 // The voices' sound from normalised parameters
 void nl3_sound_from_values(const double * values, tNl3Sound * sound);
+void nl3_arp_from_values(const double * values, tNl3ArpSettings * arp);
 // voices notes §25: the values with the four morph groups added for one voice; false when no morph is set
 bool nl3_morph_values(const double * values, float velocity, int note, double * out);
 

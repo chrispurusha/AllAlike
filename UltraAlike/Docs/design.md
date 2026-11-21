@@ -54,8 +54,15 @@ EOS `.E4B` banks too (2026-11-21): the same reader opens them (SynthLib `Docs/co
 voices, zones, the samples held inside the bank (mono and stereo), loops, the amp envelope, and each zone's tuning
 (its voice's transpose, coarse and fine tune plus its own, applied when a note starts). `tools/uaBankTest.c` plays a
 preset's notes through the bank voices, checks every pitch step against the zone's root and tuning, and writes a WAV.
-Still read from the bank but not yet played: each voice's level and pan, the filter, the other envelopes, LFOs and
-cords.
+Each zone's level and pan are played (2026-11-21); still read from the bank but not yet played: the filter, the
+other envelopes, LFOs and cords.
+
+SFZ instruments too (2026-11-21, SynthLib `emuBank.c.md` §9): one `.sfz` is one preset, its regions the zones -
+key and velocity ranges (velocity layers), root key, tuning, level, pan, loop modes (one-shot included) and loop
+points, the WAVs read on demand. A sample spread over keys is played the E-mu way: repitched by its playback rate
+through the bank voices' interpolators (the E-mu kernels with Anti-alias Off), never time-stretched. SFZ envelopes
+(`ampeg_*`) are not read yet: SFZ zones take UltraAlike's default amp envelope, and a one-shot zone ignores the key's
+release.
 
 ## Numbering (owner, 2026-11-16)
 
