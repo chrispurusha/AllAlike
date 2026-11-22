@@ -137,6 +137,7 @@ typedef struct {
     double       wheel;                                         // 0..1
     double       wheelCutoff, wheelResonance;                   // -64..63
     double       resRoute[4];                                   // -64..63, Env 2, Env 3, LFO 1, LFO 2 to resonance
+    double       noiseRoute[5];                                 // -64..63 to Noise Soften: the wheel, Env 2, Env 3, LFO 1, LFO 2
     int          envTrack[3], envRepeats[3];                    // envelope notes §5: the amplifier, Env 2, Env 3
     int          unison, unisonDetune;                          // notes §24: voices to a key, 0 off; 0..127
     double       tempo;                                         // the host's, beats a minute

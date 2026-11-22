@@ -28,8 +28,8 @@ by 1 - f so that it is centred on zero rather than starting at -1.
   the offset (the width, or the width - 1 for the double saw) over r - not the first slave's phase moved on by the width.
 - **Moving it**: Env 2, Env 3, the wheel and the LFOs add to Sync from the program: (depth - 64) x 2 Sync steps at full
   swing, the envelopes scaled by their velocity, an LFO counting half as on the levels. A Sync of 0 with any route set
-  still runs through the slave (r = 1 is the oscillator itself), so a route can sweep a sound into sync. Env 2 and
-  Env 3 checked against Maths FIXED; the wheel not (FIXED has no wheel yet).
+  still runs through the slave (r = 1 is the oscillator itself), so a route can sweep a sound into sync. Env 2,
+  Env 3 and the wheel checked against Maths FIXED.
 
 Checked 2026-11-22 against the instrument's arithmetic (Maths FIXED), harmonic by harmonic with the filter open: saw,
 square, a narrow pulse and the double saw within 0.1-0.9 dB median from Sync 12 to 96, levels within 0.1 dB; to about 1

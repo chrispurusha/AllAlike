@@ -577,13 +577,22 @@ static double smooth_advance(tSn2Smooth * s, uint32_t frames) {
     return s->current;
 }
 
+// voices notes §11: the pole's corner, from Soften
+static double noise_corner(double soften) {
+    double octave = floor(soften / 16.0);
+
+    return fmin(1.0, pow(2.0, octave) * (1.0 + (soften / 16.0) - octave) / 256.0);
+}
+
 // voices notes §11: one pole of low pass, less its corner's part of what it held
 static double next_noise(tSn2Voice * vc, double corner) {
-    double was = vc->noiseLow;
+    double was  = vc->noiseLow;
 
     vc->noise     = ((2 * vc->noiseCount * vc->noise) + vc->noiseCount + 1) & 0xFFFFFFu;   // the instrument's own, not quite white
     vc->noiseCount++;
-    vc->noiseLow += corner * (((vc->noise >= 0x800000u) ? ((double)vc->noise - 16777216.0) : (double)vc->noise) / 8388608.0 - was);
+    double step = (((vc->noise >= 0x800000u) ? ((double)vc->noise - 16777216.0) : (double)vc->noise) / 8388608.0) - was;
+
+    vc->noiseLow += corner * fmin(1.0, fmax(-1.0, step));   // a word holds no more
     vc->noise     = (vc->noise * 0xAAAAAAu) & 0xFFFFFFu;
     return vc->noiseLow - (corner * was);
 }
@@ -623,8 +632,6 @@ static void render_sub_block(tSn2Voices * v, const tSn2Sound * sound, double cut
                              float * out, uint32_t frames, double gain) {
     double drive   = sn2_filter_drive_word(sound->overdrive);
     bool   tracked = (sound->envTrack[0] != 64) || (sound->envTrack[1] != 64) || (sound->envTrack[2] != 64);
-    double octave  = floor(sound->noiseSoften / 16.0);
-    double corner  = fmin(1.0, pow(2.0, octave) * (1.0 + (sound->noiseSoften / 16.0) - octave) / 256.0);  // notes §11
 
     for (uint32_t i = 0; i < SN2_MAX_VOICES; i++) {
         tSn2Voice * vc = &v->voice[i];
@@ -681,6 +688,14 @@ static void render_sub_block(tSn2Voices * v, const tSn2Sound * sound, double cut
         set_pitch(vc, sound, v->rate);
         double               stretch[SN2_OSCS];
         const double         source[SN2_LEVEL_ROUTES] = {sound->wheel, vc->env[0].level * velocity_level(vc->velocity, sound->env[0].velocity), vc->env[1].level * velocity_level(vc->velocity, sound->env[1].velocity), LFO_TO_LEVEL * vc->lfoValue[0], LFO_TO_LEVEL * vc->lfoValue[1]}; // what the routes follow
+
+        double               noiseSoften              = sound->noiseSoften;
+
+        for (int r = 0; r < SN2_LEVEL_ROUTES; r++) {   // notes §23
+            noiseSoften += 2.0 * source[r] * sound->noiseRoute[r];
+        }
+
+        double               corner                   = noise_corner(fmin(127.99, fmax(0.0, noiseSoften)));
 
         for (int o = 0; o < SN2_OSCS; o++) {   // notes §23: the wheel, Env 2 and Env 3 to pulse width, twice as far as the LFOs
             for (int r = 0; r < 3; r++) {

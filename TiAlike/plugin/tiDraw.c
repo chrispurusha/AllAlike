@@ -78,6 +78,8 @@
 #define CONTROL_W                 (58.0)
 #define DIAL_SIZE                 (40.0)
 #define LABEL_H                   (11.0)
+#define LABEL_CLEAR               (4.0)    // between one control's text and the next's
+#define LABEL_MIN_H               (7.0)
 #define HEADING_TO_DIAL           (34.0)
 #define BUTTON_H                  (12.0)
 #define PATCH_BAR_X               (300.0)
@@ -1031,14 +1033,22 @@ static void draw_patch_bar(void) {
 }
 
 // A button whose label is shrunk to fit it (a mod target's name is wider than its box)
-#define LABEL_MIN_H    (7.0)
 
 #define CLIP_COLOUR    {1.0, 0.15, 0.1}
 
-// ../Docs/panel-layout.md: a choice of OFF and ON is a button that flips on the release, not a menu
+// ../Docs/panel-layout.md: a choice of two is a button that flips on the release, not a menu
 static bool is_toggle(const tTiControl * c) {
-    return (c->kind == eTiControlChoice) && (c->steps == 1) && (c->names != NULL)
-           && (strcasecmp(c->names[0], "OFF") == 0) && (strcasecmp(c->names[1], "ON") == 0);
+    return (c->kind == eTiControlChoice) && (c->steps == 1) && (c->names != NULL);
+}
+
+// a name that says the thing is not happening
+static bool off_name(const char * name) {
+    return (strcasecmp(name, "OFF") == 0) || (strcasecmp(name, "REST") == 0) || (strcasecmp(name, "BYPASS") == 0);
+}
+
+// one that can be off is lit when it is not, its colour dimmed when it is; any other two keep their colour
+static bool is_off_on(const tTiControl * c) {
+    return is_toggle(c) && (off_name(c->names[0]) || off_name(c->names[1]));
 }
 
 static void fitted_button_text(tRectangle r, const char * text, tRgb colour, tRgb textColour) {
@@ -1177,6 +1187,16 @@ static void draw_tabs(void) {
 
 static void draw_table_steps(const tPlaced * pc, tRgb colour);
 
+// A label or a value, drawn smaller where it would run into the next control's
+static void fitted_text(double x, double y, const char * text) {
+    double h = LABEL_H;
+
+    while ((h > LABEL_MIN_H) && (get_text_width(text, h, eNoCache) > (CONTROL_W - LABEL_CLEAR))) {
+        h -= 0.5;
+    }
+    render_text(mainArea, (tRectangle){{x, y + (LABEL_H - h)}, {0.0, h}}, text);
+}
+
 void ti_draw_frame(int pixelWidth, int pixelHeight) {
     char text[64];
 
@@ -1216,7 +1236,7 @@ void ti_draw_frame(int pixelWidth, int pixelHeight) {
         tRgb               colour = {pc->section->colour[0], pc->section->colour[1], pc->section->colour[2]};
 
         set_rgb_colour((tRgb)RGB_GREY_7);
-        render_text(mainArea, (tRectangle){{pc->x, pc->dial.coord.y - 14.0}, {0.0, LABEL_H}}, c->label);
+        fitted_text(pc->x, pc->dial.coord.y - 14.0, c->label);
         int32_t            shown  = step_of(c);
 
         value_text(c, text, sizeof(text));
@@ -1228,18 +1248,18 @@ void ti_draw_frame(int pixelWidth, int pixelHeight) {
 
         if (c->kind == eTiControlTableStep) {
             draw_table_steps(pc, colour);
-        } else if (is_toggle(c)) {   // ../Docs/panel-layout.md: lit when on, its colour dimmed when off
-            bool on  = step_of(c) > 0;
+        } else if (is_off_on(c)) {   // ../Docs/panel-layout.md: lit when on, its colour dimmed when off
+            bool on  = !off_name(c->names[(step_of(c) > 0) ? 1 : 0]);
             tRgb lit = on ? colour : synthlib_button_off_colour(colour);
 
             lit = synthlib_button_held(pc) ? synthlib_button_held_colour(lit) : lit;
             fitted_button_text((tRectangle){{pc->x, pc->dial.coord.y + ((DIAL_SIZE - BUTTON_H) / 2.0)}, {CONTROL_W - 6.0, BUTTON_H}}, text, lit, on ? (tRgb)RGB_BLACK : (tRgb)RGB_PANEL_OFF_TEXT);
         } else if (c->kind == eTiControlChoice) {
-            fitted_button((tRectangle){{pc->x, pc->dial.coord.y + ((DIAL_SIZE - BUTTON_H) / 2.0)}, {CONTROL_W - 6.0, BUTTON_H}}, text, colour);
+            fitted_button((tRectangle){{pc->x, pc->dial.coord.y + ((DIAL_SIZE - BUTTON_H) / 2.0)}, {CONTROL_W - 6.0, BUTTON_H}}, text, synthlib_button_held(pc) ? synthlib_button_held_colour(colour) : colour);
         } else {
             render_dial(mainArea, pc->dial, (uint32_t)shown, (uint32_t)c->steps + 1u, 0, colour);
             set_rgb_colour((tRgb)RGB_WHITE);
-            render_text(mainArea, (tRectangle){{pc->x, pc->dial.coord.y + DIAL_SIZE + 6.0}, {0.0, LABEL_H}}, text);
+            fitted_text(pc->x, pc->dial.coord.y + DIAL_SIZE + 6.0, text);
         }
     }
 

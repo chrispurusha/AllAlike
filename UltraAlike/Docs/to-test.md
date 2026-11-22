@@ -26,3 +26,4 @@ Built but not yet checked in a host or against the instrument. Confirmed: delete
 - Prev / Next past a bank's end (2026-11-21, uaPlugin §20): through a folder of SFZs and across the E4B folders, back landing on the previous bank's last preset
 - SFZ envelopes (uaEosEnv §13): an SFZ with ampeg_attack/decay/sustain/release against another player
 - Release samples (2026-11-21, uaBankVoice §13): a Culture "& note off" instrument (congas triple set fibre m1 & note off) - the lift-off sounds when the key is let go, softer with a soft note; is its level as Independence plays it?
+- Buttons of two options flip on a click instead of opening a list (2026-11-22, ../Docs/panel-layout.md)

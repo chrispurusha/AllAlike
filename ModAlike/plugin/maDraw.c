@@ -58,6 +58,7 @@
 #define CONTROL_W               (58.0)
 #define DIAL_SIZE               (40.0)
 #define LABEL_H                 (11.0)
+#define LABEL_CLEAR             (4.0)      // between one control's text and the next's
 #define LABEL_MIN_H             (7.0)
 #define HEADING_TO_DIAL         (34.0)
 #define BUTTON_H                (12.0)
@@ -172,10 +173,19 @@ bool ma_draw_menu_active(void) {
     return gContextMenu.active || synthlib_popups_modal_active();
 }
 
-// ../Docs/panel-layout.md: a choice of Off and On is a button that flips on the release, not a menu
+// ../Docs/panel-layout.md: a choice of two is a button that flips on the release, not a menu
 static bool is_toggle(const tMaControl * c) {
-    return (c->kind == eMaControlChoice) && (c->steps == 1) && (c->names != NULL)
-           && (strcasecmp(c->names[0], "OFF") == 0) && (strcasecmp(c->names[1], "ON") == 0);
+    return (c->kind == eMaControlChoice) && (c->steps == 1) && (c->names != NULL);
+}
+
+// a name that says the thing is not happening
+static bool off_name(const char * name) {
+    return (strcasecmp(name, "OFF") == 0) || (strcasecmp(name, "REST") == 0) || (strcasecmp(name, "BYPASS") == 0);
+}
+
+// one that can be off is lit when it is not, its colour dimmed when it is; any other two keep their colour
+static bool is_off_on(const tMaControl * c) {
+    return is_toggle(c) && (off_name(c->names[0]) || off_name(c->names[1]));
 }
 
 static void fitted_button_text(tRectangle r, const char * text, tRgb colour, tRgb textColour) {
@@ -263,6 +273,16 @@ static void value_text(const tMaControl * c, char * out, size_t len) {
     }
 }
 
+// A label or a value, drawn smaller where it would run into the next control's
+static void fitted_text(double x, double y, const char * text) {
+    double h = LABEL_H;
+
+    while ((h > LABEL_MIN_H) && (get_text_width(text, h, eNoCache) > (CONTROL_W - LABEL_CLEAR))) {
+        h -= 0.5;
+    }
+    render_text(mainArea, (tRectangle){{x, y + (LABEL_H - h)}, {0.0, h}}, text);
+}
+
 void ma_draw_frame(int pixelWidth, int pixelHeight) {
     char text[64];
 
@@ -302,22 +322,22 @@ void ma_draw_frame(int pixelWidth, int pixelHeight) {
 
         colour = lit ? colour : (tRgb)RGB_PANEL_UNAVAILABLE;   // ../Docs/panel-layout.md: grey means only this
         set_rgb_colour(lit ? (tRgb)RGB_GREY_7 : (tRgb)RGB_GREY_5);
-        render_text(mainArea, (tRectangle){{pc->x, pc->dial.coord.y - 14.0}, {0.0, LABEL_H}}, c->label);
+        fitted_text(pc->x, pc->dial.coord.y - 14.0, c->label);
         value_text(c, text, sizeof(text));
 
-        if (is_toggle(c)) {   // lit when on, its colour dimmed when off
-            bool on   = step_of(c) > 0;
+        if (is_off_on(c)) {   // lit when on, its colour dimmed when off
+            bool on   = !off_name(c->names[(step_of(c) > 0) ? 1 : 0]);
             tRgb face = on ? colour : synthlib_button_off_colour(colour);
 
             face = synthlib_button_held(pc) ? synthlib_button_held_colour(face) : face;
             fitted_button_text((tRectangle){{pc->x, pc->dial.coord.y + ((DIAL_SIZE - BUTTON_H) / 2.0)}, {CONTROL_W - 6.0, BUTTON_H}}, text, face,
                                (on && lit) ? (tRgb)RGB_BLACK : (tRgb)RGB_PANEL_OFF_TEXT);
         } else if (c->kind == eMaControlChoice) {
-            fitted_button((tRectangle){{pc->x, pc->dial.coord.y + ((DIAL_SIZE - BUTTON_H) / 2.0)}, {CONTROL_W - 6.0, BUTTON_H}}, text, colour);
+            fitted_button((tRectangle){{pc->x, pc->dial.coord.y + ((DIAL_SIZE - BUTTON_H) / 2.0)}, {CONTROL_W - 6.0, BUTTON_H}}, text, synthlib_button_held(pc) ? synthlib_button_held_colour(colour) : colour);
         } else {
             render_dial(mainArea, pc->dial, (uint32_t)step_of(c), (uint32_t)c->steps + 1u, 0, colour);
             set_rgb_colour(lit ? (tRgb)RGB_WHITE : (tRgb)RGB_GREY_5);
-            render_text(mainArea, (tRectangle){{pc->x, pc->dial.coord.y + DIAL_SIZE + 6.0}, {0.0, LABEL_H}}, text);
+            fitted_text(pc->x, pc->dial.coord.y + DIAL_SIZE + 6.0, text);
         }
     }
 

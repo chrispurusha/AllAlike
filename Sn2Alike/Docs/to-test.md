@@ -37,3 +37,5 @@ Finished work not yet checked against the instrument.
 - Key Sync, LFO Soften, envelope repeats and key tracking in FLOAT (2026-11-22): checked on the instrument from captures, not yet by ear in a host
 - Unison (2026-11-22): Voices and Detune in UNISON on the GLOBAL page, poly and mono, in a host; glide, which did nothing before
 - Oscillator Shape (2026-11-22): changed on the panel it now reaches FIXED, Link and stored presets (it reached none of them); Init from no program (neutral bytes, sn2Patch notes §9)
+- OSC page: Sync, Skew, Key and Formant dials for each oscillator; Noise Soften routes (Env 2, Env 3, LFOs, wheel); noise at high Soften (2026-11-22)
+- Buttons of two options flip on a click instead of opening a list (2026-11-22, ../Docs/panel-layout.md)

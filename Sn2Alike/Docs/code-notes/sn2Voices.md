@@ -65,8 +65,7 @@ Env Velocity 64 ignores velocity. Above it the level blends towards a curve of 0
 
 ## 11. Noise and ring
 Noise is the instrument's own generator (a counter multiplying a word, not quite white) through one pole with a corner
-c = 2^n (1 + f) / 256, Soften being 16 (n + f), less c times what the pole held. Soften above 112 is still up to 1.7 dB
-bright at the top. Ring is twice the product of Osc 3 and Osc 1 or 2, whatever their levels.
+c = 2^n (1 + f) / 256, Soften being 16 (n + f), less c times what the pole held; the step towards the generator is held to full scale, which dulls the top at high Soften. Ring is twice the product of Osc 3 and Osc 1 or 2, whatever their levels.
 
 ## 12. Glide
 A note starts away from its pitch and arrives in a time set by Glide Time alone, whatever the interval: 0.183 s at 64, doubling every 11.2 steps. Normal starts from the last note played, Auto likewise but only over a held note, and the fixed types start that many semitones away on every note. Linear is a straight line in pitch. Exponential closes a gap at (gap + 2.5) / 0.41T semitones a second, so it lands in a finite time. Glissando is the same path rounded to semitones. Time 0 is no glide. It applies to all voices.
@@ -144,7 +143,7 @@ about 45 semitones the instrument's pitch word runs out of range (FIXED wraps; o
 reach it.
 
 ## 23. Routes to Soften, Resonance and pulse width
-From the program. Soften and Resonance each move 131072/66048 dial steps for each step of a route's amount from 64, at a
+From the program. Noise Soften moves 2 dial steps for each step of a route's amount from 64 at a full source; Soften and Resonance each move 131072/66048 for each step of a route's amount from 64, at a
 full source: the wheel, Env 2, Env 3, LFO 1, LFO 2 (an LFO half, as §19). Pulse width moves a 32nd of its 0..2 for each
 step from the wheel, Env 2 and Env 3 (Osc 1's wheel an eighth of that), a 64th from an LFO.
 

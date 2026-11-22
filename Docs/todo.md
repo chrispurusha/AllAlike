@@ -23,8 +23,8 @@ Work that spans the plug-ins. One line per item; each product's own list is in i
 - Performance controllers per frame (owner 11-16): BUILT 11-16 in Nl3Alike (wheel, bend, pressure), Sn2Alike (wheel, bend), TiAlike (bend through Sostenuto), UltraAlike (bend, wheel, pedal) - SynthLib synthlibCtlPoints.h; Pulse2Alike still takes a block's last value (its engines render a whole block each - the loop needs splitting at the points); each instrument's own smoothing measured only for the NL3 (8 steps over 6.5 ms)
 
 ## Panels, every Alike
-- Dial text overlapping the next control's text (CT 11-22, seen in one plug-in, which not noted): run through every page of every Alike with each dial at its widest value text (longest unit, negative, extremes) and choices at their longest name; fix by shortening or fitting the text, as long choice names already shrink
-- HARDWARE: Device is a list in Nl3Alike, renamed SysEx ID and Channel in Sn2Alike since 11-22 (to-test in each); Channel is still a dial in Nl3Alike and Pulse2Alike - the same list for all three (owner to say)
+- Dial text overlapping the next control's: BUILT 2026-11-22 in all eight panels - labels and values shrink to fit (`fitted_text`); seen on a first or a busy page of each, look again at extremes
+- HARDWARE: Channel is a list in Nl3Alike, Pulse2Alike and Sn2Alike, and Nl3Alike's Device is SysEx ID, a list (2026-11-22)
 - Panel layout (CT 2026-11-17, `panel-layout.md`): the four synths follow it; check UltraAlike, OneShot and ModAlike against it (Voices, Same Note, Anti-alias, Link in the same places and names); release notes: projects saved before 11-17 load the moved plug-in settings wrongly
 
 - Double-click to default BUILT 11-14 in every Alike panel; keyboard tracking's 1:1 marked and the double-click target in Pulse2Alike and Sn2Alike (TiAlike has no fixed point)

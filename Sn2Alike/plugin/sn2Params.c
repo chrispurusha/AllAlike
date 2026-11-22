@@ -280,6 +280,11 @@ const tSynthLibParam     gSn2Params[kSn2ParamCount] = {
     {kSn2ParamOsc3KeySync,      "Osc 3 Key Sync",          "KeySync",  eSynthLibUnitGeneric,   0.0,          127.0,                         0.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
     {kSn2ParamUnison,           "Unison",                  "Unison",   eSynthLibUnitIndexed,   0.0,            7.0,                         0.0,                  7, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
     {kSn2ParamUnisonDetune,     "Unison Detune",           "Detune",   eSynthLibUnitGeneric,   0.0,          127.0,                         0.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kSn2ParamNoiseHardEnv2,    "Noise Env 2 Soften",      "Env 2",    eSynthLibUnitGeneric, -64.0,           63.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kSn2ParamNoiseHardEnv3,    "Noise Env 3 Soften",      "Env 3",    eSynthLibUnitGeneric, -64.0,           63.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kSn2ParamNoiseHardLfo1,    "Noise LFO 1 Soften",      "LFO 1",    eSynthLibUnitGeneric, -64.0,           63.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kSn2ParamNoiseHardLfo2,    "Noise LFO 2 Soften",      "LFO 2",    eSynthLibUnitGeneric, -64.0,           63.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kSn2ParamNoiseHardWheel,   "Noise Wheel Soften",      "Wheel",    eSynthLibUnitGeneric, -64.0,           63.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
 };
 
 #define COUNT(table)    (sizeof(table) / sizeof((table)[0]))   // ../Docs/panel-layout.md: never a count by hand
@@ -436,22 +441,38 @@ static const tSn2Control kGlide[]           = {
     {kSn2ParamGlideType,  "Type",    eTiControlChoice,   9, 0.0, kGlideTypes },
     {kSn2ParamOscTrigger, "Trigger", eTiControlChoice,   1, 0.0, kTriggers   },
 };
-static const tSn2Control kSync[]            = {   // sn2Osc notes §5
-    {kSn2ParamOscSync,  "Osc 1", eTiControlDial, 127, 0.0, NULL},
-    {kSn2ParamOsc2Sync, "Osc 2", eTiControlDial, 127, 0.0, NULL},
-    {kSn2ParamOsc3Sync, "Osc 3", eTiControlDial, 127, 0.0, NULL},
+// sn2Osc notes §5-§8, in the order they act
+static const tSn2Control kSync1[]           = {
+    {kSn2ParamOscSync,         "Sync",    eTiControlDial, 127,   0.0, NULL},
+    {kSn2ParamOsc1SyncSkew,    "Skew",    eTiControlDial, 127, -64.0, NULL},
+    {kSn2ParamOsc1KeySync,     "Key",     eTiControlDial, 127,   0.0, NULL},
+    {kSn2ParamOsc1SyncFormant, "Formant", eTiControlDial, 127,   0.0, NULL},
+};
+static const tSn2Control kSync2[]           = {
+    {kSn2ParamOsc2Sync,        "Sync",    eTiControlDial, 127,   0.0, NULL},
+    {kSn2ParamOsc2SyncSkew,    "Skew",    eTiControlDial, 127, -64.0, NULL},
+    {kSn2ParamOsc2KeySync,     "Key",     eTiControlDial, 127,   0.0, NULL},
+    {kSn2ParamOsc2SyncFormant, "Formant", eTiControlDial, 127,   0.0, NULL},
+};
+static const tSn2Control kSync3[]           = {
+    {kSn2ParamOsc3Sync,        "Sync",    eTiControlDial, 127,   0.0, NULL},
+    {kSn2ParamOsc3SyncSkew,    "Skew",    eTiControlDial, 127, -64.0, NULL},
+    {kSn2ParamOsc3KeySync,     "Key",     eTiControlDial, 127,   0.0, NULL},
+    {kSn2ParamOsc3SyncFormant, "Formant", eTiControlDial, 127,   0.0, NULL},
 };
 #define COLOUR_OSC_1    {0.30, 0.55, 0.85}
 #define COLOUR_MIXER    {0.30, 0.62, 0.72}
 #define COLOUR_OSC_2    {0.30, 0.70, 0.60}
 #define COLOUR_OSC_3    {0.85, 0.55, 0.30}
 static const tSn2Section kOscillatorsPage[] = {
-    {"OSC 1", COLOUR_OSC_1,     kOsc1,  COUNT(kOsc1) },
-    {"MIXER", COLOUR_MIXER,     kMixer, COUNT(kMixer)},
-    {"OSC 2", COLOUR_OSC_2,     kOsc2,  COUNT(kOsc2) },
-    {"GLIDE", RGB_SECTION_PLAY, kGlide, COUNT(kGlide)},
-    {"OSC 3", COLOUR_OSC_3,     kOsc3,  COUNT(kOsc3) },
-    {"SYNC",  COLOUR_OSC_3,     kSync,  COUNT(kSync) },
+    {"OSC 1",      COLOUR_OSC_1,     kOsc1,  COUNT(kOsc1) },
+    {"MIXER",      COLOUR_MIXER,     kMixer, COUNT(kMixer)},
+    {"OSC 2",      COLOUR_OSC_2,     kOsc2,  COUNT(kOsc2) },
+    {"GLIDE",      RGB_SECTION_PLAY, kGlide, COUNT(kGlide)},
+    {"OSC 3",      COLOUR_OSC_3,     kOsc3,  COUNT(kOsc3) },
+    {"OSC 1 SYNC", COLOUR_OSC_1,     kSync1, COUNT(kSync1)},
+    {"OSC 2 SYNC", COLOUR_OSC_2,     kSync2, COUNT(kSync2)},
+    {"OSC 3 SYNC", COLOUR_OSC_3,     kSync3, COUNT(kSync3)},
 };
 static const tSn2Section kFilterPage[]      = {
     {"FILTER", {0.90, 0.55, 0.20}, kFilter, COUNT(kFilter)},
@@ -719,6 +740,12 @@ void sn2_controls_sound(const double * v, double tempo, tSn2Sound * sound) {
     sound->legato         = v[kSn2ParamEnvTrigger] > 0.5;
     sound->wheelCutoff    = (v[kSn2ParamWheelCutoff] * 127.0) - 64.0;
     sound->wheelResonance = (v[kSn2ParamWheelResonance] * 127.0) - 64.0;
+
+    sound->noiseRoute[0]  = (v[kSn2ParamNoiseHardWheel] * 127.0) - 64.0;  // sn2Voices notes §23: the wheel, Env 2, Env 3, LFO 1, LFO 2
+
+    for (int r = 0; r < 4; r++) {
+        sound->noiseRoute[1 + r] = (v[kSn2ParamNoiseHardEnv2 + r] * 127.0) - 64.0;
+    }
 
     for (int r = 0; r < 4; r++) {
         sound->resRoute[r] = (v[kSn2ParamResEnv2 + r] * 127.0) - 64.0;

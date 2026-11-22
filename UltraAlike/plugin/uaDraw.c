@@ -82,6 +82,8 @@
 #define CONTROL_W               (50.0)     // twelve controls across the first row
 #define DIAL_SIZE               (40.0)
 #define LABEL_H                 (11.0)
+#define LABEL_CLEAR             (4.0)      // between one control's text and the next's
+#define LABEL_MIN_H             (7.0)
 #define HEADING_TO_DIAL         (34.0)
 #define BUTTON_H                (12.0)
 #define MENU_BG                 {0.22, 0.22, 0.25}
@@ -867,6 +869,16 @@ static void layout(void) {
     }
 }
 
+// A label or a value, drawn smaller where it would run into the next control's
+static void fitted_text(double x, double y, const char * text) {
+    double h = LABEL_H;
+
+    while ((h > LABEL_MIN_H) && (get_text_width(text, h, eNoCache) > (CONTROL_W - LABEL_CLEAR))) {
+        h -= 0.5;
+    }
+    render_text(mainArea, (tRectangle){{x, y + (LABEL_H - h)}, {0.0, h}}, text);
+}
+
 void ua_draw_frame(int pixelWidth, int pixelHeight) {
     char text[64];
 
@@ -937,7 +949,7 @@ void ua_draw_frame(int pixelWidth, int pixelHeight) {
                                                                                                                             : (tRgb)INACTIVE_COLOUR;
 
         set_rgb_colour(active ? (tRgb)RGB_GREY_7 : (tRgb)RGB_GREY_5);
-        render_text(mainArea, (tRectangle){{pc->x, pc->dial.coord.y - 14.0}, {0.0, LABEL_H}}, c->label);
+        fitted_text(pc->x, pc->dial.coord.y - 14.0, c->label);
         ua_param_text(c->paramId, gValue[c->paramId], text, sizeof(text));
 
         if ((c->paramId == kUaParamEnd) && have_host() && (gHost->sample(gUser, gLayer) != NULL)) {
@@ -956,11 +968,11 @@ void ua_draw_frame(int pixelWidth, int pixelHeight) {
 
             fitted_button_text((tRectangle){{pc->x, pc->dial.coord.y + ((DIAL_SIZE - BUTTON_H) / 2.0)}, {CONTROL_W - 6.0, BUTTON_H}}, text, lit, on ? (tRgb)RGB_BLACK : (tRgb)RGB_PANEL_OFF_TEXT);
         } else if (c->kind == eUaControlChoice) {
-            fitted_button((tRectangle){{pc->x, pc->dial.coord.y + ((DIAL_SIZE - BUTTON_H) / 2.0)}, {CONTROL_W - 6.0, BUTTON_H}}, text, colour);
+            fitted_button((tRectangle){{pc->x, pc->dial.coord.y + ((DIAL_SIZE - BUTTON_H) / 2.0)}, {CONTROL_W - 6.0, BUTTON_H}}, text, held_colour(pc, colour));
         } else {
             render_dial(mainArea, pc->dial, (uint32_t)step_of(c), (uint32_t)gSteps[c->paramId] + 1u, 0, colour);
             set_rgb_colour(active ? (tRgb)RGB_WHITE : (tRgb)RGB_GREY_5);
-            render_text(mainArea, (tRectangle){{pc->x, pc->dial.coord.y + DIAL_SIZE + 6.0}, {0.0, LABEL_H}}, text);
+            fitted_text(pc->x, pc->dial.coord.y + DIAL_SIZE + 6.0, text);
         }
     }
 
@@ -982,6 +994,11 @@ static const tPlaced * hit(double x, double y) {
     }
 
     return NULL;
+}
+
+// ../Docs/panel-layout.md: a choice of two flips on the release as an Off/On does, keeping its colour
+static bool is_toggle(const tUaControl * c) {
+    return (c->kind == eUaControlToggle) || ((c->kind == eUaControlChoice) && (gSteps[c->paramId] == 1));
 }
 
 static void open_value_menu(const tPlaced * pc) {
@@ -1094,7 +1111,7 @@ bool ua_draw_press(double x, double y, tUaEdit * edit, bool * grabbed) {
     }
 
     // notes §11: a toggle flips at the release
-    if (pc->control->kind == eUaControlToggle) {
+    if (is_toggle(pc->control)) {
         synthlib_button_press(pc);
         return true;
     }
@@ -1211,7 +1228,7 @@ static void release_button(const void * held, tCoord at, tUaEdit * edit) {
     for (uint32_t i = 0; i < gPlacedCount; i++) {
         const tPlaced * pc = &gPlaced[i];
 
-        if ((held == pc) && (hit(at.x, at.y) == pc) && (pc->control->kind == eUaControlToggle)) {
+        if ((held == pc) && (hit(at.x, at.y) == pc) && is_toggle(pc->control)) {
             edit->paramId                = pc->control->paramId;
             edit->normalized             = (step_of(pc->control) > 0) ? 0.0 : 1.0;
             gValue[pc->control->paramId] = edit->normalized;

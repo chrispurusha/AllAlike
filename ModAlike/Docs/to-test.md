@@ -16,3 +16,4 @@ Built, not yet tried in a host or against the instrument. Confirmed: delete the 
 - Double-click a dial: back to its default, undoable in the host
 - Shift-drag a dial: a tenth the movement, in each dial mode but Rotary
 - Panel colours (11-17, ../Docs/panel-layout.md Colours): the effects not chosen grey, not dimmed; Anti-alias and Stage flip buttons (Anti-alias grey at 96 kHz); PLUG-IN (was ENGINE) steel blue in the order Anti-alias, Maths, Rate, Stage; OUTPUT sage
+- Buttons of two options flip on a click instead of opening a list (2026-11-22, ../Docs/panel-layout.md)

@@ -54,6 +54,12 @@ The last tab. Its sections, in this order:
 
 A sound's own settings (poly/mono, envelope trigger, unison) never go in PLUG-IN.
 
+## Buttons
+
+A choice of two is a button that flips on the release, everywhere (CT 2026-11-22, thinking first of the arpeggiator pages);
+a list opens only for three or more. Where one of the two says the thing is not happening (OFF, REST, BYPASS) the button dims on
+it; any other two (POLY / MONO, FLOAT / FIXED) keep their colour.
+
 ## In the code
 
 Each section's and page's count comes from `sizeof` of its table (Nl3Alike's `SECTION()` and `PAGE()`, `COUNT()` in

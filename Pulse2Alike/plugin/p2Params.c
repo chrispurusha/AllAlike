@@ -592,9 +592,10 @@ static const tP2Control kSection25[]     = {   // ../Docs/panel-layout.md
     {kP2ParamHiss,       "Hiss",      eP2ControlChoice,  1, 0.0, kNamesHiss      },
     {kP2ParamThump,      "Thump",     eP2ControlChoice,  1, 0.0, kNamesThump     },
 };
+static const char *const kNamesChannel[] = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16"};
 static const tP2Control kHardware[]      = {
     {kP2ParamHwLink,    "Link",    eP2ControlChoice,  1, 0.0, kNamesHwLink},
-    {kP2ParamHwChannel, "Channel", eP2ControlDial,   15, 1.0, NULL        },
+    {kP2ParamHwChannel, "Channel", eP2ControlChoice, 15, 0.0, kNamesChannel},
 };
 static const tP2Section kPage0Sections[] = {
     {"OSC 1", {0.30, 0.55, 0.85}, kSection1, COUNT(kSection1)},

@@ -1022,9 +1022,10 @@ static const tNl3Control kPlugin[]              = {
     {kNl3ParamAliasing,   "Anti-alias", eTiControlChoice,                  1, 0.0, nl3_choices_Aliasing  },
     {kNl3ParamArithmetic, "Maths",      eTiControlChoice,                  1, 0.0, nl3_choices_Arithmetic},
 };
+static const char *const kChannels[]            = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16"};
 static const tNl3Control kHardware[]            = {
     {kNl3ParamHwLink,    "Link",     eTiControlChoice,   1, 0.0, nl3_choices_HwLink},
-    {kNl3ParamHwChannel, "Channel",  eTiControlDial,    15, 1.0, NULL              },
+    {kNl3ParamHwChannel, "Channel",  eTiControlChoice,  15, 0.0, kChannels         },
     {kNl3ParamHwDevice,  "SysEx ID", eTiControlChoice, 127, 0.0, kChoiceDevice     },
 };
 

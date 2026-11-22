@@ -22,6 +22,7 @@
 #include <time.h>
 #include <stdio.h>
 #include <string.h>
+#include <strings.h>
 #include <stdlib.h>
 
 #include "nl3Draw.h"
@@ -75,6 +76,8 @@
 #define CONTROL_W               (58.0)
 #define DIAL_SIZE               (40.0)
 #define LABEL_H                 (11.0)
+#define LABEL_CLEAR             (4.0)      // between one control's text and the next's
+#define LABEL_MIN_H             (7.0)
 #define HEADING_TO_DIAL         (34.0)
 #define BUTTON_H                (12.0)
 #define PATCH_BAR_X             (300.0)
@@ -103,10 +106,19 @@ typedef struct {
     double              x, y, w;
 } tPlacedSection;
 
-// notes §16: an Off/On choice is a button that flips, not a menu of two
+// ../Docs/panel-layout.md: a choice of two is a button that flips on the release, not a menu
 static bool is_toggle(const tNl3Control * c) {
-    return (c->kind == eTiControlChoice) && (c->steps == 1) && (c->names != NULL)
-           && (strcmp(c->names[0], "OFF") == 0) && (strcmp(c->names[1], "ON") == 0);
+    return (c->kind == eTiControlChoice) && (c->steps == 1) && (c->names != NULL);
+}
+
+// a name that says the thing is not happening
+static bool off_name(const char * name) {
+    return (strcasecmp(name, "OFF") == 0) || (strcasecmp(name, "REST") == 0) || (strcasecmp(name, "BYPASS") == 0);
+}
+
+// one that can be off is lit when it is not, its colour dimmed when it is; any other two keep their colour
+static bool is_off_on(const tNl3Control * c) {
+    return is_toggle(c) && (off_name(c->names[0]) || off_name(c->names[1]));
 }
 
 static const tNl3Page *      gPages;
@@ -867,7 +879,6 @@ static void draw_patch_bar(void) {
 // A button whose label is shrunk to fit it (a mod target's name is wider than its box)
 #define CLIP_COLOUR         {1.0, 0.15, 0.1}
 #define LINK_WARN_COLOUR    {0.85, 0.6, 0.15}
-#define LABEL_MIN_H         (7.0)
 
 static void fitted_button(tRectangle r, const char * text, tRgb colour, tRgb textColour) {
     double h = r.size.h;
@@ -975,6 +986,16 @@ static void draw_tabs(void) {
     }
 }
 
+// A label or a value, drawn smaller where it would run into the next control's
+static void fitted_text(double x, double y, const char * text) {
+    double h = LABEL_H;
+
+    while ((h > LABEL_MIN_H) && (get_text_width(text, h, eNoCache) > (CONTROL_W - LABEL_CLEAR))) {
+        h -= 0.5;
+    }
+    render_text(mainArea, (tRectangle){{x, y + (LABEL_H - h)}, {0.0, h}}, text);
+}
+
 void nl3_draw_frame(int pixelWidth, int pixelHeight) {
     char text[64];
 
@@ -1015,7 +1036,7 @@ void nl3_draw_frame(int pixelWidth, int pixelHeight) {
         tRgb                colour = {pc->section->colour[0], pc->section->colour[1], pc->section->colour[2]};
 
         set_rgb_colour((tRgb)RGB_GREY_7);
-        render_text(mainArea, (tRectangle){{pc->x, pc->dial.coord.y - 14.0}, {0.0, LABEL_H}}, c->label);
+        fitted_text(pc->x, pc->dial.coord.y - 14.0, c->label);
         int32_t             shown  = step_of(c);
 
         value_text(c, text, sizeof(text));
@@ -1025,8 +1046,8 @@ void nl3_draw_frame(int pixelWidth, int pixelHeight) {
             shown = (shown < 0) ? 0 : ((shown > c->steps) ? c->steps : shown);
         }
 
-        if (is_toggle(c)) {                                              // notes §16: lit in the section's colour when on
-            bool on  = shown > 0;
+        if (is_off_on(c)) {                                              // notes §16: lit in the section's colour when on
+            bool on  = !off_name(c->names[(shown > 0) ? 1 : 0]);
             tRgb lit = on ? colour : synthlib_button_off_colour(colour); // notes §16
 
             if (on && (c->paramId == kNl3ParamHwLink) && (nl3_hw_port()[0] == '\0')) {   // notes §16: Link on with no output
@@ -1037,11 +1058,11 @@ void nl3_draw_frame(int pixelWidth, int pixelHeight) {
             fitted_button((tRectangle){{pc->x, pc->dial.coord.y + ((DIAL_SIZE - BUTTON_H) / 2.0)}, {CONTROL_W - 6.0, BUTTON_H}}, text, lit,
                           on ? (tRgb)RGB_BLACK : (tRgb)RGB_PANEL_OFF_TEXT);
         } else if (c->kind == eTiControlChoice) {
-            fitted_button((tRectangle){{pc->x, pc->dial.coord.y + ((DIAL_SIZE - BUTTON_H) / 2.0)}, {CONTROL_W - 6.0, BUTTON_H}}, text, colour, (tRgb)RGB_BLACK);
+            fitted_button((tRectangle){{pc->x, pc->dial.coord.y + ((DIAL_SIZE - BUTTON_H) / 2.0)}, {CONTROL_W - 6.0, BUTTON_H}}, text, synthlib_button_held(pc) ? synthlib_button_held_colour(colour) : colour, (tRgb)RGB_BLACK);
         } else {
             render_dial(mainArea, pc->dial, (uint32_t)shown, (uint32_t)c->steps + 1u, 0, colour);
             set_rgb_colour((tRgb)RGB_WHITE);
-            render_text(mainArea, (tRectangle){{pc->x, pc->dial.coord.y + DIAL_SIZE + 6.0}, {0.0, LABEL_H}}, text);
+            fitted_text(pc->x, pc->dial.coord.y + DIAL_SIZE + 6.0, text);
         }
     }
 
