@@ -36,3 +36,4 @@ Finished work not yet checked against the instrument.
 - HARDWARE Channel is a list, 1-16 (2026-11-22)
 - Key Sync, LFO Soften, envelope repeats and key tracking in FLOAT (2026-11-22): checked on the instrument from captures, not yet by ear in a host
 - Unison (2026-11-22): Voices and Detune in UNISON on the GLOBAL page, poly and mono, in a host; glide, which did nothing before
+- Oscillator Shape (2026-11-22): changed on the panel it now reaches FIXED, Link and stored presets (it reached none of them); Init from no program (neutral bytes, sn2Patch notes §9)

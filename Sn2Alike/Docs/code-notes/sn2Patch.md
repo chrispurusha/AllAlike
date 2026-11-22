@@ -23,3 +23,8 @@ The program byte runs 3-14, in panel order: LPF, BPF, HPF, Res LPF, Res BPF, Res
 
 ## 8. Oscillator fields
 Stored with an offset by oscillator. Type: 0, 10, 20 (0 Square, 1 Saw, 2 and 3 audio inputs, 4 Double Saw). Octave: 30, 35, 40 at -2. Semitone: 45, 70, 95 at -12. Audio inputs are not built and play as a Saw.
+
+## 9. A sound from no program
+Bytes the panel does not carry start where they do nothing (most depths 64, the arpeggiator off, the key's level tracking
+centred), the values the backup's programs hold. They were 0 until 2026-11-22: FIXED played an Init 5 dB loud and Link
+would have sent the instrument depths of -64.

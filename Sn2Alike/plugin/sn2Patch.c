@@ -501,6 +501,25 @@ void sn2_patch_name(const uint8_t single[SN2_SINGLE_LENGTH], char name[SN2_SINGL
     name[n] = '\0';
 }
 
+// notes §9: where a byte with no control of its own does nothing, for a sound that came from no program
+static const struct {
+    uint16_t at;
+    uint8_t  value;
+} kNeutral[] = {
+    {MAIN(27),  127}, {MAIN(61),  127}, {MAIN(95),  127}, {MAIN(33),   64}, {MAIN(34),   64}, {MAIN(67),   64},
+    {MAIN(68),   64}, {MAIN(101),  64}, {MAIN(102),  64}, {MAIN(164),  64}, {MAIN(165),  64}, {MAIN(166),  64},
+    {MAIN(174),  64}, {MAIN(175),  64}, {MAIN(176),  64}, {MAIN(199),  64}, {MAIN(200),  64}, {MAIN(203),  64},
+    {MAIN(204),  64}, {MAIN(205),  64}, {MAIN(206),  64}, {MAIN(209),  64}, {MAIN(213),  64}, {MAIN(218),  64},
+    {MAIN(219),  64}, {MAIN(223),  64}, {MAIN(228),  64}, {MAIN(229),  64}, {MAIN(255),  64}, {MAIN(258),  64},
+    {MAIN(259),  64}, {MAIN(266),  64}, {MAIN(271),  64}, {MAIN(277),  64}, {MAIN(169), 124}, {MAIN(179), 126},
+    {MAIN(240),  76}, {MAIN(242),  89}, {MAIN(243),  75}, {MAIN(244), 127}, {MAIN(245),  85}, {MAIN(246),   1},
+    {MAIN(248),  79}, {MAIN(249),   4}, {MAIN(250),  73}, {MAIN(251),  93}, {MAIN(252),   4}, {MAIN(253),   2},
+    {MAIN(264),  55}, {EXTRA(9),   64}, {EXTRA(10),  60}, {EXTRA(11),  36}, {EXTRA(12),  76}, {EXTRA(22),  64},
+    {EXTRA(23),  64}, {EXTRA(24),  64}, {EXTRA(25),  60}, {EXTRA(26),  60}, {EXTRA(27),  60}, {EXTRA(29),  60},
+    {EXTRA(30),  64}, {EXTRA(60),  64}, {EXTRA(61),  64}, {EXTRA(62),  64}, {EXTRA(63),  64}, {EXTRA(64),  30},
+    {EXTRA(65),  64}, {EXTRA(67),  88}, {EXTRA(68), 127}, {EXTRA(69),  60}, {EXTRA(70),  64},
+};
+
 void sn2_patch_to_single(const double normalized[kSn2ParamCount], const uint8_t * base, const char * name, uint8_t out[SN2_SINGLE_LENGTH]) {
     size_t len                                 = (name != NULL) ? strlen(name) : 0;
     double was[kSn2ParamCount];
@@ -515,6 +534,10 @@ void sn2_patch_to_single(const double normalized[kSn2ParamCount], const uint8_t 
         memcpy(out, base, SN2_SINGLE_LENGTH);
     } else {
         memset(out, 0, SN2_SINGLE_LENGTH);
+
+        for (size_t i = 0; i < sizeof(kNeutral) / sizeof(kNeutral[0]); i++) {
+            out[kNeutral[i].at] = kNeutral[i].value;
+        }
     }
     fresh_header(out, MAIN_LENGTH, MAIN_DUMP);
     fresh_header(out + EXT, EXT_LENGTH, EXT_DUMP);
@@ -543,7 +566,18 @@ void sn2_patch_to_single(const double normalized[kSn2ParamCount], const uint8_t 
     if ((base == NULL) || ((normalized[kSn2ParamPolyMode] > 0.5) != (was[kSn2ParamPolyMode] > 0.5))) {
         out[MAIN(238)] = (uint8_t)(((base != NULL) ? (out[MAIN(238)] & 0x7C) : 0x40) | ((normalized[kSn2ParamPolyMode] > 0.5) ? 1 : 2));
     }
-    long unison     = lround(normalized[kSn2ParamUnison] * 7.0);
+
+    for (int o = 0; o < 3; o++) {   // notes §8: the shape, unless the program's own type plays as it
+        static const uint32_t kShape[3] = {kSn2ParamOscShape, kSn2ParamOsc2Shape, kSn2ParamOsc3Shape};
+        static const uint8_t  kType[3]  = {OSC_SAW, OSC_SQUARE, OSC_DOUBLE_SAW};
+        long                  shape     = lround(fmin(1.0, fmax(0.0, normalized[kShape[o]])) * 2.0);
+
+        if ((base == NULL) || (shape != lround(was[kShape[o]] * 2.0))) {
+            out[MAIN(22 + (34 * o))] = (uint8_t)(kType[shape] + (10 * o));
+        }
+    }
+
+    long unison = lround(normalized[kSn2ParamUnison] * 7.0);
 
     if ((base == NULL) || (unison != lround(was[kSn2ParamUnison] * 7.0))) {
         out[MAIN(238)] = (uint8_t)((out[MAIN(238)] & 0x43) | ((unison > 0) ? (0x20 | ((unison - 1) << 2)) : (out[MAIN(238)] & 0x1C)));
@@ -580,9 +614,6 @@ void sn2_patch_init_single(uint8_t out[SN2_SINGLE_LENGTH]) {
     }
 
     sn2_patch_to_single(values, NULL, "Init", out);
-    out[MAIN(22)] = OSC_SAW;
-    out[MAIN(56)] = OSC_SAW + 10;
-    out[MAIN(90)] = OSC_SAW + 20;
 }
 
 bool sn2_patch_save_file(const char * path, const uint8_t single[SN2_SINGLE_LENGTH]) {
