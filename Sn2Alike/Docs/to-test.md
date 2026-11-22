@@ -11,7 +11,7 @@ Finished work not yet checked against the instrument.
 - Sustain pedal in a host; order against notes in one block
 - The LFOS page: Shape, Speed, Range, Delay, Fade, Offset, Trigger, Cutoff; routes to pitch and width come from programs, with no dials yet
 - LFO Key and Free in a chord: Free programs cannot be compared with the reference by time window, its phase depends on its run time
-- Link in a host: MIDI menu, Link on the GLOBAL page (lit / amber NO PORT / BUSY), Channel, Device; notes, bend, wheel, pedal; editing a dial while holding notes
+- Link in a host: MIDI menu, Link on the GLOBAL page (lit / amber NO PORT / BUSY), Channel; editing a dial while holding notes
 - GLOBAL page (11-17, ../Docs/panel-layout.md): PLUG-IN (Voices, Same Note, Anti-alias), HARDWARE, PLAY (Mode, Trigger), EFFECTS, PAN all fit
 - Presets > Read from Hardware in a host: the Reading count, the confirm, and the instrument's data carrying on after it
 - Anti-alias On and Off on a bright high Saw and Square with Soften up, the Sort menu with Prev/Next, and a note held across a preset change (it stops, no clip lamp) (2026-11-12): in a host
@@ -30,3 +30,8 @@ Finished work not yet checked against the instrument.
 - A/B after 2026-11-22 (earlier verdicts on these are stale): Maths FIXED on A000, A007, A011 (were very quiet - the volume was applied twice) and A004; FIXED's pitch envelopes, pitch LFOs and LFO to cutoff (were missing); A001 with the arpeggiator off on the instrument (Freewheel LFOs no longer restart, in FLOAT and FIXED); FM EP (A007) in FLOAT still holds where the instrument decays (known)
 - LFO Trigger reads Freewheel / Keysync on the panel and in the host (2026-11-22)
 - Oscillator Sync (2026-11-22): the SYNC dials on the OSC page (editor now 560 high), and synced programs in FLOAT - A007 FM EP against the instrument (110 of the backup's programs sync an oscillator)
+- Link's Channel (2026-11-22): set to the instrument's Global MIDI channel it loads the patch, follows preset changes, and changing Channel sends again; no Device dial, and no notes sent (each key sounds once)
+- Sync Skew and Formant Width (2026-11-22): A001 and A024 in FLOAT, FIXED and on the instrument; FIXED note starts (the first half cycle was muted); Ensemble programs in FIXED no longer beat alike on every key
+- Envelopes, LFO delay and fade, noise, FM, Volume 127, Resonance / Soften / width routes, LFO Sync to tempo in FLOAT; release, One Shot, mono, glide, bend and wheel in FIXED (2026-11-22): by ear in a host against the instrument - drums and Volume 127 programs changed most (those are up to 3.6 dB louder)
+- HARDWARE Channel is a list, 1-16 (2026-11-22)
+- Key Sync, LFO Soften, envelope repeats and key tracking in FLOAT (2026-11-22): checked on the instrument from captures, not yet by ear in a host

@@ -39,18 +39,18 @@ not change while a note is held - envelopes, LFOs and glide all run in the voice
 ## 7. A note
 The host side writes the 221 words and raises the update in the flags (all of it, with the oscillators restarted)
 for one sample: the voice then sets its own envelope, delay and LFO states. Letting go runs the three envelopes'
-sustain timers out at once (they then release). A voice that has finished is cleared and free.
+sustain timers out and clears their stages, as the host side does, so each releases at once (until 2026-11-22 the
+stages were left, and a key let go mid-attack or mid-decay played on). One Shot runs the timers out as the note starts. A voice that has finished is cleared and free.
 
 ## 8. The words
-`sn2FixedWords.c` (generated from measurements) computes them from the program's own bytes: most are a field in a
-straight line (base + step x value, exact integers); the host side's time laws (envelope attack, decay, release,
-sustain time and rate, delay) are calculated, exactly: an exponent e in 1024ths of an octave that walks in straight
-runs (107 a step for decay and release; attack 363 for its first 12 values then 107; sustain time 336 for 20 then
-80; sustain rate 214 a step each side of its centre), and the word 2^20 halved for each whole octave of e, read
-straight across the octave - (2^20 >> n) x (2048 - f) / 2048. Where no such law reproduces every word (LFO soften
-amount so far) the word is a table of 128 steps, measured; Env 1's sustain is 512 x value squared; the key is (note - 60) in the word's middle.
-A few words combine fields (oscillator pitch, a flags word, the LFO delays and their fade mode) - not all done yet,
-nor velocity; measured on real programs, 95% of the words are exact so far (2026-11-22).
+`sn2FixedWords.c` computes them from the program's own bytes as the instrument's host side does. Checked 2026-11-22 for
+all 1424 programs at five keys and velocities, and field by field over each whole range (4072 settings): every word is
+exact, apart from unison's detune and volume and field values no program holds. Most are a field in a straight line; times are an exponent
+in 1024ths of an octave (`octave_word`, `exponent`); depths on pitch and LFO to cutoff are squared with their sign;
+velocity is ((v v >> 7) v) >> 7 about each envelope's depth; a range of an LFO multiplies its speed by the square root
+of ten; an LFO locked to the tempo has no speed of its own; word $6D is the byte of routes (FM, Filter OSCs Bypass, the
+LFOs' fades), and where a slot is FM its level and depths are squared. The tempo is the processor's X:$5, 120 beats a minute
+at $312700. A few tables remain (LFO soften and sync).
 
 ## 9. In the voices
 Maths FIXED gives each voice a twin (`tSn2Voice.fixed`): note on starts it in the slot the float voices chose,
@@ -66,3 +66,14 @@ of them written from the host side, so a note's clear starts both LFOs from the 
 to Free the four words are carried over from the voice started last, so the LFO runs on from note to note as the
 float voices' shared free LFO does. The delay and fade are not among them and start again with each note. While no
 voice sounds, FIXED's free LFO waits where it was; the float voices' and the instrument's run on.
+
+## 11. Free oscillators
+The update at a note's start restarts the phases only for Osc Trigger Percussive. For Ensemble that part of it is left
+out and the phases and windows are kept over the clear (until 2026-11-22 every note restarted them, so detuned
+oscillators beat from the same place on every key). A voice's phases wait while it is silent; the instrument's run on.
+The windows (sn2Osc notes §7) start open in the template, as on a voice that has played: they began shut, which muted
+the first half cycle of every note.
+
+## 12. While it sounds
+The wheel (word $D7), each oscillator's bend and the tempo are kept up to date. Mono: a note that restarts is started
+as any other; a legato one changes only the key and the glide. A glide starts at the pitch the float voice worked out.

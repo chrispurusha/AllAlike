@@ -1,22 +1,21 @@
 # Sn2Alike todo
 
 ## First
-- **Fixed-point option** - BUILT 2026-11-22, Maths FLOAT/FIXED in Global's PLUG-IN section (sn2Fixed notes). Words calculated or measured: linear fields, envelope times, velocity, filter type, oscillator type/octave/semitone, pulse width, LFO delay (fade mode 0), overdrive, Special Width. Still to do: fine tune (approximate), Q Normalise, LFO speeds, LFO delay fade mode 1, width modulation, drift, flags word
-- Output tilt (hardware 11-22, Osc 1 alone, filter open): the instrument's harmonics fall faster than ours - re the fundamental -1.8 dB at h2, -3.8 at h4, -3.9 at h16, -5.6 at h64. The instrument's own arithmetic (voice and effects) matches ours within 0.4 dB, so it is after the processors or in the rig: loop a flat signal through the rig first; if real, measure the output response once and consider a fixed output EQ. Levels match within ~0.6 dB from cutoff 20 to 127, LFO to cutoff in level and direction (capture /Volumes/ext-ssd/Captures/Sn2Alike/cutsweep_2026-11-22.json)
+- **Fixed-point option** - BUILT 2026-11-22; its words are the instrument's own (sn2Fixed notes §8). Still to do: unison (detune and volume words), aftertouch, VCO drift, Constant Gate (no program uses it; on the instrument it sounds from the moment it is loaded)
+- Output tilt: not seen again on 2026-11-22 (findings); look once more only if an A/B sounds bright
 - LFO settings by the instrument's names (owner 11-22): Freewheel/Keysync (done), delay sync, delay fade/gate, delay fade in/out, sync on/off - check each against the panel and program bytes (Delay Trigger bytes 169/179 are still unread)
-- Oscillator Sync BUILT in FLOAT 2026-11-22 (sn2Osc notes §5, checked against FIXED). Still: Sync from the wheel and Env 3 (mod knob), Key Sync, Sync Skew, Formant Width; the restart's softening above 8 kHz (ours up to 1.8 dB bright); square above Sync 120 (1.7 dB low at 127); A007's release tail stops sooner than FIXED's
-- Converge FLOAT on FIXED, and both on the hardware (owner 11-22). Private tools compare every program and every single field (`converge.py`, `fieldsweep.py`; the voice's own arithmetic in FIXED is exact, its host-side words are not). Built 11-22: Sync, envelope to pitch (voices notes §22). FLOAT still lacks: Sync from Env 3 and the wheel (mod knob), Sync Skew, Formant Width, Soften from Env 2 / Hardness routes, envelope to resonance, Drum One Shot, Constant Gate, Filter OSCs Bypass as FIXED plays it. Host-side (both models approximate - settle on the hardware): Env 1 Sustain Time/Rate/Sustain 0, envelope attack 0 (FLOAT's Env 2 seems slower to rise than FIXED's, a bright blip at the note's start with envelope to cutoff), Env 1 Attack 127. FIXED's own gaps: LFO 2 fade mode 1, LFO speeds, fine tune, Q Normalise, width modulation, drift
-- A001 (owner 11-22): FLOAT wrong - Sync Skew not built (Osc 2 Skew 124; at 64 FLOAT agrees with FIXED within 1 dB, 2 in the top band)
-- A024 (owner 11-22): the voice vanishes in FIXED
-- A011: FLOAT and FIXED agree, but are ~9 dB above the hardware capture (which had the effects on) - check with effects matched
+- Oscillator Sync, Sync Skew, Formant Width and Env 3 / wheel to Sync BUILT in FLOAT 2026-11-22 (sn2Osc notes §5-§7, checked against FIXED; the wheel route unchecked, FIXED has no wheel). Still: panel dials for Skew, Formant Width and Key Sync; the restart's softening above 8 kHz (ours up to 1.8 dB bright); square above Sync 120 (1.7 dB low at 127); A007's release tail stops sooner than FIXED's
+- Converge FLOAT on FIXED (the reference; the instrument decides): 52 of 1421 programs more than 3 dB apart. FLOAT still lacks: Noise Hardness routes, LFO speed routes, the audio inputs' silence. Noise Soften above 112 up to 1.7 dB bright. A007 and A026 held are up to 5 dB out; A023 in the middle
+- A001 (owner 11-22): FLOAT now within 2 dB of FIXED in every octave band (Skew); compare both with the instrument, arpeggiator off. Its 16 unison voices are in neither
+- A024 (owner 11-22): the voice vanishing in FIXED was not reproduced; FLOAT, FIXED and the instrument now agree to 1-2 dB dry. Osc 1 and 3 beat to near silence every 2-3 s on all three. Listen again
+- A011: matches the instrument dry, 2026-11-22
 - Same Note (built 11-17, sn2Voices notes §21): find what the instrument does with a key struck again (one voice restarted, or a new voice beside the releasing one) and make that the default
-- Envelope Delay (Env 2 and Env 3, program bytes 193 and 187) is not built: the instrument delays the envelope's start (Env 2 Delay 0 acts at once, 64 arrives between 0.1 and 1.2 s, 112 not within 1.2 s - hardware 2026-11-08); the reference ignores it, so measure the law on the hardware (more values, longer notes, a pitch track that survives the jump)
+- Envelope Delay BUILT 2026-11-22 in FLOAT (FIXED had it): check against the instrument (hw/envdelay captures, 11-08)
 - LFO Delay Trigger (program bytes 169 and 179) is not read; find what it does (single or multi trigger of the delay?) on the hardware. And recheck the LFO Delay law itself there (it was measured on the reference, which ignores envelope delay)
 - Anti-alias (Global, built): find why more Soften aliases more (-84 dB at Soften 0, -66 at 64, A4)
-- Oscillator: Hardness, Skew, Formant Width; audio inputs; tighten the stretch law (design: nulls stop near -31 dB)
+- Oscillator: Hardness; audio inputs; tighten the stretch law (design: nulls stop near -31 dB)
 - Performances not read
-- FM (6%); LFO routes to level, Soften, sync and resonance; LFO Speed from Env 3, wheel and pressure; wheel and pressure to LFO depth; LFO Sync to tempo; Env routes to pitch, width, level and resonance; Env 2 Delay
-- Noise: join Soften 112-127 properly
+- LFO and LFO Speed from Env 3, wheel and pressure; wheel and pressure to LFO depth; LFO Sync to tempo; Env routes to pitch, width, level and resonance; Env 2 Delay
 - Finish the panel: Filter page done, the rest still placeholder
 - `Docs/code-notes/` came across from TiAlike with the code: rewrite each as its file changes
 - Panel: named drop-downs for modulation sources and destinations, waves and other numbered choices

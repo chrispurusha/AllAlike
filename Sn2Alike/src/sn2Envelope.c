@@ -19,178 +19,107 @@
 #include <math.h>
 
 #include "sn2Envelope.h"
+#include "sn2Fixed.h"
 
-#define TOP              (1.0)
-#define SETTLED          (1.0 / 65536.0)
-#define DECAY_QUICKER    (0.24)          // notes §1
-#define SILENT           (1.0 / 65536.0) // notes §5
-#define GLIDE_S          (0.35)          // notes §6: seconds across the whole range
-#define GAP_DONE         (1.0 / 128.0)   // notes §8
-#define RISE_S           (0.027)
-#define FALL_DB_S        (14200.0)       // notes §8: at Sustain Rate 0, a decade slower every 16 steps
-#define LEVEL_RATE       (64.0)
-#define FOREVER          (127.0)
+#define SILENT       (1.0 / 65536.0) // notes §4
+#define NEAR         (1.0 / 128.0)   // notes §3: the decay is done
+#define CATCH_UP     (1.0 / 32.0)    // notes §3: a step towards a sustain level moved while held
+#define HOLD_DONE    (0.5)
 
-// notes §2: seconds at points every `step` of the dial (the last at `last`), a straight line in the logarithm between them
-static double law_points(const double * seconds, int n, double step, double last, double dial) {
-    for (int k = 1; k < n; k++) {
-        double at = (k == n - 1) ? last : k * step;
+void sn2_env_shape(const tSn2EnvDials * dials, bool amplifier, bool oneShot, int note, tSn2EnvShape * shape) {
+    int moved = sn2_fixed_key_moves(note, dials->track, false);   // notes §5
 
-        if (dial <= at) {
-            double from = (k - 1) * step;
-            double t    = (dial - from) / (at - from);
-
-            return exp(log(seconds[k - 1]) + (t * (log(seconds[k]) - log(seconds[k - 1]))));
-        }
-    }
-
-    return seconds[n - 1];
+    shape->delay   = sn2_fixed_env_step(eSn2EnvDelay, dials->delay, 0);
+    shape->attack  = sn2_fixed_env_step(eSn2EnvAttack, dials->attack, sn2_fixed_key_moves(note, dials->track, true));
+    shape->decay   = sn2_fixed_env_step(eSn2EnvDecay, dials->decay, moved);
+    shape->release = sn2_fixed_env_step(amplifier ? eSn2EnvRelease : eSn2EnvDecay, dials->release, moved);
+    shape->hold    = sn2_fixed_env_step(eSn2EnvTime, dials->time, moved);
+    shape->rate    = sn2_fixed_env_step(eSn2EnvRate, dials->rate, moved);
+    shape->sustain = dials->sustain / 128.0;
+    shape->sustain = amplifier ? (shape->sustain * shape->sustain) : shape->sustain;
+    shape->oneShot = oneShot;
 }
 
-static double law(const double * seconds, double dial) {
-    return law_points(seconds, 9, 16.0, 127.0, dial);
+void sn2_env_start(tSn2Env * env, int repeats) {
+    env->stage  = eTiEnvAttack;
+    env->waited = 0.0;
+    env->held   = 0.0;
+    env->again  = repeats;
+    env->sample = 0;
 }
 
-// notes §8: the hold after the decay, 0..126; 127 holds for ever
-static double hold_seconds(double dial) {
-    static const double kHold[] = {
-        0.0048, 0.0064, 0.0166, 0.0403, 0.0607, 0.0904,  0.136, 0.217, 0.316,
-        0.4919, 0.7703, 1.1461, 1.8248, 2.7579, 4.2149, 6.8215, 8.9527
-    };
-
-    if (dial < 0.0) {
-        return 0.0;   // notes §9: One Shot
-    }
-    return (dial >= FOREVER - 0.5) ? INFINITY : law_points(kHold, 17, 8.0, 126.0, dial);
-}
-
-void sn2_env_shape(double attack, double decay, double sustain, double release, double sustainTime, double sustainRate, bool squared, double sampleRate, tSn2EnvShape * shape) {
-    static const double kAttack[] = {0.0006, 0.007, 0.021, 0.062, 0.198, 0.596, 1.913, 6.405, 13.07};    // to the top
-    static const double kHalf[]   = {0.0003, 0.0016, 0.0044, 0.0144, 0.045, 0.150, 0.460, 1.42, 4.45};   // to half
-
-    shape->attackStep  = TOP / (law(kAttack, attack) * sampleRate);
-    shape->decayMul    = pow(0.5, 1.0 / (law(kHalf, decay) * (1.0 - (DECAY_QUICKER * sustain / 127.0)) * sampleRate));
-    shape->releaseMul  = pow(0.5, 1.0 / (law(kHalf, release) * sampleRate));
-    shape->sustain     = (sustain / 127.0) * (squared ? (sustain / 127.0) : 1.0);
-    shape->glideStep   = TOP / (GLIDE_S * sampleRate);
-    // notes §8
-    shape->gapMul      = pow(0.5, 1.0 / (law(kHalf, decay) * sampleRate));
-    shape->gapSustain  = (sustain / 128.0) * (squared ? (sustain / 128.0) : 1.0);
-    shape->holdSamples = hold_seconds(sustainTime) * sampleRate;
-    shape->fallMul     = (sustainRate < LEVEL_RATE - 0.5) ? pow(10.0, -FALL_DB_S * pow(10.0, -sustainRate / 16.0) / (20.0 * sampleRate)) : 1.0;
-    shape->riseStep    = ((sustainRate > LEVEL_RATE + 0.5) && isfinite(shape->holdSamples)) ? TOP / (RISE_S * sampleRate) : 0.0;
-}
-
-void sn2_env_gate(tSn2Env * env, bool on) {
-    if (on) {
-        env->stage   = eTiEnvAttack;
-        env->holding = false;
-        env->gap     = -1.0;
-    } else if (env->stage != eTiEnvIdle) {
-        env->stage = eTiEnvRelease;
-    }
-}
-
-static void hold(tSn2Env * env, double level) {
-    env->level = level;
-    env->held  = level;
-    env->stage = eTiEnvSustain;
-}
-
-// notes §8: the decay's own clock starts the hold; then the level falls or rises at the Sustain Rate until the hold ends
-static void sustain_stage(tSn2Env * env, const tSn2EnvShape * shape) {
-    if (!env->holding) {
-        if (env->gap < 0.0) {
-            env->gap = fmax(env->level - shape->gapSustain, 0.0);
-        }
-        env->gap    *= shape->gapMul;
-
-        if (env->gap > GAP_DONE) {
-            return;
-        }
-        env->holding = true;
-        env->left    = shape->holdSamples;
-    }
-
-    if (shape->riseStep > 0.0) {
-        env->level = fmin(TOP, env->level + shape->riseStep);
+void sn2_env_release(tSn2Env * env) {
+    if (env->stage != eTiEnvIdle) {
         env->stage = eTiEnvSustain;
-        env->held  = shape->sustain;
-    } else if (shape->fallMul < 1.0) {
-        env->level *= shape->fallMul;
-        env->stage  = eTiEnvSustain;
-        env->held   = shape->sustain;
+        env->held  = 1.0;
+    }
+}
+
+static void attack(tSn2Env * env, const tSn2EnvShape * shape) {
+    env->waited = fmin(1.0, env->waited + shape->delay);
+
+    if (env->waited >= 1.0) {
+        env->level += shape->attack;
+    }
+
+    if (env->level >= 1.0) {
+        env->level = 1.0;
+        env->stage = eTiEnvDecay;
+    }
+}
+
+static void decay(tSn2Env * env, const tSn2EnvShape * shape) {
+    double gap = (env->level - shape->sustain) * (1.0 - shape->decay);
+
+    env->level = shape->sustain + gap;
+
+    if (gap < NEAR) {
+        env->stage = (env->again > 0) ? eTiEnvAttack : eTiEnvSustain;
+        env->again--;
+        env->held  = shape->oneShot ? 1.0 : 0.0;
+    }
+}
+
+static void sustain(tSn2Env * env, const tSn2EnvShape * shape) {
+    env->held += shape->hold;
+
+    if (env->held >= HOLD_DONE) {
+        env->level -= env->level * shape->release;
 
         if (env->level < SILENT) {
             env->level = 0.0;
             env->stage = eTiEnvIdle;
-            return;
         }
-    }
+    } else if (shape->rate < 0.0) {
+        env->level += env->level * shape->rate;
+    } else if (shape->rate > 0.0) {
+        env->level = fmin(1.0, env->level + shape->rate);
+    } else {
+        double gap = env->level - shape->sustain;
 
-    if ((env->left -= 1.0) <= 0.0) {
-        env->stage = eTiEnvRelease;
+        env->level = shape->sustain + (gap * (1.0 - ((fabs(gap) > NEAR) ? CATCH_UP : shape->decay)));
     }
 }
 
 double sn2_env_next(tSn2Env * env, const tSn2EnvShape * shape) {
-    switch (env->stage) {
-        case eTiEnvAttack:
-            env->level += shape->attackStep;
+    if ((env->sample++ % SN2_ENV_TICK) == 0) {
+        switch (env->stage) {
+            case eTiEnvAttack:
+                attack(env, shape);
+                break;
 
-            if (env->level >= TOP) {
-                env->level = TOP;
-                env->stage = eTiEnvDecay;
-            }
-            break;
+            case eTiEnvDecay:
+                decay(env, shape);
+                break;
 
-        case eTiEnvDecay:
-            env->level  = shape->sustain + ((env->level - shape->sustain) * shape->decayMul);
+            case eTiEnvSustain:
+                sustain(env, shape);
+                break;
 
-            if ((env->level - shape->sustain) <= SETTLED) {
-                hold(env, shape->sustain);
-            }
-            break;
-
-        case eTiEnvSustain:
-
-            // notes §6
-            if (shape->sustain != env->held) {
-                env->held  = shape->sustain;
-                env->stage = eTiEnvGlide;
-            }
-            break;
-
-        case eTiEnvGlide:
-
-            if (env->level < shape->sustain) {
-                env->level = fmin(shape->sustain, env->level + shape->glideStep);
-            } else {
-                env->level = fmax(shape->sustain, env->level - shape->glideStep);
-            }
-
-            if (env->level == shape->sustain) {
-                hold(env, shape->sustain);
-            }
-            break;
-
-        case eTiEnvRelease:
-            env->level *= shape->releaseMul;
-
-            // notes §5
-            if (env->level < SILENT) {
-                env->level = 0.0;
-                env->stage = eTiEnvIdle;
-            }
-            break;
-
-        case eTiEnvIdle:
-        default:
-            break;
-    }
-
-    if ((env->stage == eTiEnvDecay) || (env->stage == eTiEnvSustain) || (env->stage == eTiEnvGlide)) {
-        sustain_stage(env, shape);
+            case eTiEnvIdle:
+            default:
+                break;
+        }
     }
     return env->level;
 }

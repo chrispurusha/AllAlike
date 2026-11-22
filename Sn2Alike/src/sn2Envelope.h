@@ -20,42 +20,47 @@
 #define __TI_ENVELOPE_H__
 
 #include <stdbool.h>
+#include <stdint.h>
 
 typedef enum {
     eTiEnvIdle = 0,
     eTiEnvAttack,
     eTiEnvDecay,
-    eTiEnvSustain,
-    eTiEnvGlide,      // notes §6: to a sustain level changed while it is held
-    eTiEnvRelease
+    eTiEnvSustain     // notes §3: the hold, the fall or the rise, and at its end the release
 } tSn2EnvStage;
 
-// notes §1: the four controls as per-sample steps at one sample rate
+#define SN2_ENV_TICK    (4)   // notes §1: samples at the engine's rate
+
+// notes §2: a step of every control, as fractions of full scale
 typedef struct {
-    double attackStep;     // added
-    double decayMul;       // multiplied, down to sustain
-    double sustain;        // level
-    double releaseMul;
-    double glideStep;
-    double gapMul;         // notes §8: the decay's own approach, which starts the hold
-    double gapSustain;
-    double holdSamples;    // INFINITY: held until the key is let go
-    double fallMul;        // 1: a level sustain
-    double riseStep;       // 0: no rise
+    double delay;         // added to the delay's clock
+    double attack;        // added
+    double decay;         // of the distance to sustain
+    double release;       // of the level
+    double sustain;
+    double hold;          // added to the hold's clock; 0 holds until the key is let go
+    double rate;          // below 0 of the level, above 0 added
+    bool   oneShot;
 } tSn2EnvShape;
 
 typedef struct {
     tSn2EnvStage stage;
-    double       level;    // 0..1, the amplifier's gain
-    double       held;     // the sustain level the sustain stage started from
-    double       gap;      // notes §8: decay distance still to close before the hold starts
-    double       left;     // samples of hold to go, once it has started
-    bool         holding;
+    double       level;   // 0..1
+    double       waited;  // the delay's clock
+    double       held;    // the hold's clock
+    int          again;   // repeats to go
+    uint32_t     sample;
 } tSn2Env;
 
-// The panel's 0..127 for Attack, Decay, Sustain, Release, Sustain Time and Rate; squared: the amplifier's Sustain (notes §3)
-void sn2_env_shape(double attack, double decay, double sustain, double release, double sustainTime, double sustainRate, bool squared, double sampleRate, tSn2EnvShape * shape);
-void sn2_env_gate(tSn2Env * env, bool on);                      // on: attack from where it is; off: release
+// The panel's dials: Delay, Attack, Decay, Sustain, Release, Sustain Time and Rate; amplifier: the first envelope
+typedef struct {
+    double delay, attack, decay, sustain, release, time, rate;
+    int    track;         // 64 none: how a key moves the times
+} tSn2EnvDials;
+
+void sn2_env_shape(const tSn2EnvDials * dials, bool amplifier, bool oneShot, int note, tSn2EnvShape * shape);
+void sn2_env_start(tSn2Env * env, int repeats);                 // from where it is
+void sn2_env_release(tSn2Env * env);
 double sn2_env_next(tSn2Env * env, const tSn2EnvShape * shape); // one sample on
 
 static inline bool sn2_env_idle(const tSn2Env * env) {

@@ -105,6 +105,7 @@ typedef struct {
     int                hwLock;
     bool               hwSent, hwExtensionDue;
     double             hwSentAt;
+    uint8_t            hwDevice;
     uint8_t            hwLast[SN2_SINGLE_LENGTH];
     _Atomic bool       startPreset;  // notes: a new instance plays A000
     _Atomic int        wantPreset;   // a program change waiting for the fade
@@ -314,7 +315,8 @@ static tSn2Sound make_sound(const tSn2Plugin * t) {
         .env            = {MOD_ENV_SOUND(t->values, kSn2ParamEnv2Attack, kSn2ParamEnv2Decay, kSn2ParamEnv2Sustain, kSn2ParamEnv2Release, kSn2ParamEnv2Velocity, kSn2ParamEnv2Cutoff, kSn2ParamEnv2SustainTime, kSn2ParamEnv2SustainRate), MOD_ENV_SOUND(t->values, kSn2ParamEnv3Attack, kSn2ParamEnv3Decay, kSn2ParamEnv3Sustain, kSn2ParamEnv3Release, kSn2ParamEnv3Velocity, kSn2ParamEnv3Cutoff, kSn2ParamEnv3SustainTime, kSn2ParamEnv3SustainRate)},
     };
 
-    sn2_controls_sound(t->values, &sound);
+    sn2_controls_sound(t->values, t->tempo, &sound);
+    sound.tempo      = t->tempo;
     sound.fixedPoint = t->values[kSn2ParamArithmetic] >= 0.5;   // sn2Fixed notes §9: the program's words for the host side
 
     if (sound.fixedPoint) {
@@ -345,18 +347,13 @@ static void queue(tSn2Plugin * t, tSn2Event e) {
     }
 }
 
+// notes §14: the instrument takes its notes from the host, never from Link
 static void sn2_note_on(void * inst, uint8_t channel, uint8_t note, float velocity, uint32_t sampleOffset) {
-    tSn2Plugin * t = (tSn2Plugin *)inst;
-
-    (void)t;   // notes §14: the instrument takes its notes from the host, not from Link
     (void)channel;
     queue((tSn2Plugin *)inst, (tSn2Event){sampleOffset, note, true, velocity});
 }
 
 static void sn2_note_off(void * inst, uint8_t channel, uint8_t note, float velocity, uint32_t sampleOffset) {
-    tSn2Plugin * t = (tSn2Plugin *)inst;
-
-    (void)t;
     (void)channel;
     (void)velocity;
     queue((tSn2Plugin *)inst, (tSn2Event){sampleOffset, note, false, 0.0f});
@@ -771,7 +768,12 @@ static void hardware_link(tSn2Plugin * t, void * user) {
         return;
     }
     uint8_t single[SN2_SINGLE_LENGTH];
-    uint8_t device = (uint8_t)lround(synthlib_plugin_param_value(user, kSn2ParamHwDevice) * 127.0);
+    uint8_t device = (uint8_t)lround(synthlib_plugin_param_value(user, kSn2ParamHwChannel) * 15.0);   // hardware notes §4
+
+    if (device != t->hwDevice) {
+        t->hwDevice = device;
+        t->hwSent   = false;    // the sound again, to the channel now set
+    }
 
     if (t->hwExtensionDue) {
         if ((now_seconds() - t->hwSentAt) >= LINK_EXT_SECONDS) {
@@ -867,9 +869,9 @@ static void sn2_panel_sync(void * user) {
     sn2_draw_read_tick();
     int          id = sn2_hardware_identified(); // hardware notes §4
 
-    if (id >= 0) {
-        sn2_set_param(user, kSn2ParamHwDevice, (double)id / 127.0);
-        synthlib_plugin_param_edited(user, kSn2ParamHwDevice, (double)id / 127.0);
+    if ((id >= 0) && (id <= 15)) {
+        sn2_set_param(user, kSn2ParamHwChannel, (double)id / 15.0);
+        synthlib_plugin_param_edited(user, kSn2ParamHwChannel, (double)id / 15.0);
     }
 
     // another instance's store shows within a second

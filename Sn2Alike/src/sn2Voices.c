@@ -22,25 +22,17 @@
 
 #include "sn2Voices.h"
 
-#define SMOOTH_S                 (2048.0 / 46875.0) // notes §5
-#define MIDDLE_C_HZ              (261.663)
-#define VELOCITY_FLOOR           (0.0157)
-#define VELOCITY_RANGE           (0.98)
-#define RING_GAIN                (2.0)
-#define NOISE_DIFFERENCE         (0.85)
-#define NOISE_FLOOR              (0.04)
-#define NOISE_CORNER_HZ          (20.0)
-#define NOISE_DIFFERENCE_FROM    (120.0)
-#define GLIDE_AT_64              (0.183) // voices notes §12
-#define GLIDE_DOUBLING           (11.2)
-#define GLIDE_CURVE              (0.41)
-#define GLIDE_LANDING            (2.5)
-#define ENV_TO_CUTOFF            (2.2146)
-#define DRIVE_IN                 (0.5) // voices notes §8
-#define FILTER_IN                (0.5)
-#define LFO_FADE_HOLD            (0.0125)
-#define LFO_FADE_FALL            (5.7)
-#define SUB_BLOCK                (32u) // notes §4
+#define SMOOTH_S          (2048.0 / 46875.0)        // notes §5
+#define MIDDLE_C_HZ       (261.663)
+#define RING_GAIN         (2.0)
+#define GLIDE_AT_64       (0.183)        // voices notes §12
+#define GLIDE_DOUBLING    (11.2)
+#define GLIDE_CURVE       (0.41)
+#define GLIDE_LANDING     (2.5)
+#define ENV_TO_CUTOFF     (98304.0 / 43691.0)
+#define DRIVE_IN          (0.5)        // voices notes §8
+#define FILTER_IN         (0.5)
+#define SUB_BLOCK         (32u)        // notes §4
 
 void sn2_voices_init(tSn2Voices * v) {
     memset(v, 0, sizeof(*v));
@@ -48,6 +40,15 @@ void sn2_voices_init(tSn2Voices * v) {
     v->rate     = SN2_ENGINE_HZ;
     v->lastNote = -1;
     sn2_edge_build(v->edge);
+
+    uint32_t seed = 1;
+
+    for (uint32_t i = 0; i < SN2_MAX_VOICES; i++) {   // notes §8: where free oscillators first stand
+        for (int o = 0; o < SN2_OSCS; o++) {
+            seed                 = (seed * 1664525u) + 1013904223u;
+            v->voice[i].phase[o] = ((double)seed / 2147483648.0) - 1.0;
+        }
+    }
 }
 
 #define FIXED_GAIN     (2.580 * 63.0 / SN2_VOLUME_UNITY) // sn2Fixed notes §9: a voice's bus word to the output level, its volume in it
@@ -66,6 +67,7 @@ void sn2_voices_set_fixed(tSn2Voices * v, bool fixed) {
 
         for (uint32_t i = 0; (v->fixed != NULL) && (i < SN2_MAX_VOICES); i++) {
             sn2_fixed_voice_clear(&v->fixed[i]);
+            sn2_fixed_osc_seed(&v->fixed[i], v->voice[i].phase);   // sn2Fixed notes §11
             v->voice[i].fixed = &v->fixed[i];
         }
     }
@@ -80,12 +82,14 @@ void sn2_voices_free(tSn2Voices * v) {
     }
 }
 
-#define CLEAN_FACTOR      (4)      // notes §17
-#define BYPASS_GAIN       (0.249)  // notes §20: 0.771 of the open filter's level
-#define FREE_LFO_START    (0.5)    // notes §15: a free LFO restarts half a cycle in when a note finds no voice sounding
-#define LFO_TO_LEVEL      (0.5)    // notes §19: an LFO moves a level half as far as the wheel
-#define FM_DEPTH          (5.2e-3) // notes §18: the change in Osc 3's phase step, a fraction of it, per level squared per unit of modulator
-#define FM_SAW            (0.82)   // a saw modulates 0.82 as hard, against the square the depth is measured with
+#define CLEAN_FACTOR      (4)                  // notes §17
+#define BYPASS_GAIN       (0.249)              // notes §20: 0.771 of the open filter's level
+#define FREE_LFO_START    (0.5)                // notes §15: a free LFO restarts half a cycle in when a note finds no voice sounding
+#define VOICE_LEVEL       (1.0162)             // notes §10: an envelope at its top is 127/128, the gain was set without it
+#define ROUTE_STEPS       (131072.0 / 66048.0) // notes §23: dial steps a full source moves Resonance or Soften for each of its amount
+#define LFO_TO_LEVEL      (0.5)                // notes §19: an LFO moves a level half as far as the wheel
+#define FM_DEPTH          (1.0 / 256.0)        // notes §18: the change in Osc 3's phase step, a fraction of it, per level squared per unit of modulator
+#define FM_MOST           (0.5)                // notes §18: the step moves by no more than this
 
 static double gCleanFir[SN2_CLEAN_TAPS];   // a windowed sinc, built once - the same for every instance
 
@@ -116,7 +120,7 @@ void sn2_voices_set_limit(tSn2Voices * v, uint32_t limit) {
     // notes §2: voices above a lowered limit are released, not cut
     for (uint32_t i = limit; i < SN2_MAX_VOICES; i++) {
         v->voice[i].gate = false;
-        sn2_env_gate(&v->voice[i].amp, false);
+        sn2_env_release(&v->voice[i].amp);
     }
 }
 
@@ -156,6 +160,7 @@ static double next_random(uint32_t * seed) {
 
 static void lfo_restart(tSn2Voice * vc, const tSn2Sound * sound) {
     vc->lfoAge = 0.0;
+    memset(vc->lfoValue, 0, sizeof(vc->lfoValue));
 
     for (int l = 0; l < SN2_LFOS; l++) {
         vc->lfoHeld[l] = next_random(&vc->noiseSeed);
@@ -183,10 +188,9 @@ static double lfo_wave(int shape, double phase, double held) {
 }
 
 static double lfo_fade(const tSn2LfoSound * lfo, double age) {
-    if (lfo->fadeOut) {
-        return (lfo->delay > 0.0) ? exp(-fmax(age - LFO_FADE_HOLD, 0.0) * LFO_FADE_FALL / lfo->delay) : 0.0;
-    }
-    return (lfo->delay > 0.0) ? fmin(1.0, age / lfo->delay) : 1.0;
+    double steps = age * SN2_ENGINE_HZ / SN2_ENV_TICK;
+
+    return lfo->fadeOut ? pow(fmax(0.0, 1.0 + lfo->fade), steps) : fmin(1.0, steps * lfo->fade);
 }
 
 // voices notes §15: every LFO moved on by one sub-block, and what it does to this voice
@@ -212,6 +216,12 @@ static void lfo_advance(tSn2Voices * v, tSn2Voice * vc, const tSn2Sound * sound,
         vc->lfoPhase[l] = next;
         double               value = (lfo_wave(lfo->shape, next, vc->lfoHeld[l]) + lfo->offset) * fade;   // notes §15: the offset fades in too
 
+        if (lfo->soften > 0.0) {   // notes §15: smoothed, the faster the LFO the less
+            double steps = seconds * SN2_ENGINE_HZ / SN2_ENV_TICK;
+            double part  = fmin(1.0, 256.0 * lfo->soften * lfo->hz * 2.0 * SN2_ENV_TICK / SN2_ENGINE_HZ);
+
+            value = vc->lfoValue[l] + ((value - vc->lfoValue[l]) * (1.0 - pow(1.0 - part, steps)));
+        }
         vc->lfoValue[l] = value;
 
         *cutoff        += value * sound->lfoCutoff[l];
@@ -261,6 +271,48 @@ static void advance_glide(tSn2Voice * vc, const tSn2Sound * sound, double second
     vc->glide = (move >= size) ? 0.0 : ((vc->glide > 0.0) ? (vc->glide - move) : (vc->glide + move));
 }
 
+// sn2Fixed notes §9: the voice's twin begins the note, where Maths is FIXED
+static void start_fixed(tSn2Voices * v, const tSn2Sound * sound, tSn2Voice * pick, uint8_t note, float velocity) {
+    if (!sound->fixedPoint || (pick->fixed == NULL)) {
+        return;
+    }
+    uint32_t    words[SN2_FIXED_WORDS];
+
+    uint32_t    carried[SN2_LFOS][SN2_FIXED_LFO_WORDS];
+    uint32_t    oscs[SN2_FIXED_OSC_WORDS];
+    tSn2Voice * from = pick;   // sn2Fixed notes §10: a free LFO runs on from the voice started last
+
+    for (uint32_t i = 0; i < SN2_MAX_VOICES; i++) {
+        tSn2Voice * o = &v->voice[i];
+
+        if ((o != pick) && (o->fixed != NULL) && ((from == pick) || (o->started > from->started))) {
+            from = o;
+        }
+    }
+
+    for (int l = 0; l < SN2_LFOS; l++) {
+        sn2_fixed_lfo_save(from->fixed, l, carried[l]);
+    }
+
+    memcpy(words, sound->fixedWords, sizeof(words));
+    sn2_fixed_note_words(words, note, velocity, pick->glide);
+    sn2_fixed_osc_save(pick->fixed, oscs);
+    sn2_fixed_voice_clear(pick->fixed);
+    sn2_fixed_voice_start(pick->fixed, words, sound->oscsFree);
+
+    if (sound->oscsFree) {
+        sn2_fixed_osc_restore(pick->fixed, oscs);   // sn2Fixed notes §11
+    }
+
+    for (int l = 0; l < SN2_LFOS; l++) {
+        if (!sound->lfo[l].keyed) {
+            sn2_fixed_lfo_restore(pick->fixed, l, carried[l]);
+        }
+    }
+
+    pick->quiet = 0;
+}
+
 static void held_remove(tSn2Voices * v, uint8_t note) {
     for (uint32_t i = 0; i < v->heldCount; i++) {
         if (v->heldNote[i] == note) {
@@ -284,24 +336,32 @@ static void mono_play(tSn2Voices * v, const tSn2Sound * sound, uint8_t note, flo
     start_glide(v, sound, vc, note, over);
 
     if (restart) {
-        vc->velocity  = velocity;
+        vc->velocity   = velocity;
 
         if (!sound->oscsFree) {
             memset(vc->phase, 0, sizeof(vc->phase));
             memset(vc->cleanHist, 0, sizeof(vc->cleanHist));   // notes §17: a restarted wave starts its filter clean
         }
-        vc->started   = ++v->clock;
-        vc->noiseSeed = vc->noiseSeed ? vc->noiseSeed : (uint32_t)((v->clock * 2654435761u) | 1u);
+        vc->started    = ++v->clock;
+        vc->noiseSeed  = vc->noiseSeed ? vc->noiseSeed : (uint32_t)((v->clock * 2654435761u) | 1u);
+        vc->noiseCount = vc->noiseCount ? vc->noiseCount : (uint32_t)(0x41u + (v->clock * 7919u));
+        start_fixed(v, sound, vc, note, velocity);
         lfo_restart(vc, sound);
-        sn2_env_gate(&vc->amp, true);
+        sn2_env_start(&vc->amp, sound->envRepeats[0]);
 
         for (int e = 0; e < SN2_MOD_ENVS; e++) {
-            sn2_env_gate(&vc->env[e], true);
+            sn2_env_start(&vc->env[e], sound->envRepeats[1 + e]);
         }
 
         if (vc->amp.level <= 0.0) {
             sn2_filter_reset(&vc->filter);
         }
+    } else if (sound->fixedPoint && (vc->fixed != NULL)) {   // sn2Fixed notes §12: legato
+        uint32_t words[SN2_FIXED_WORDS];
+
+        memcpy(words, sound->fixedWords, sizeof(words));
+        sn2_fixed_note_words(words, note, (float)vc->velocity, vc->glide);
+        sn2_fixed_voice_move(vc->fixed, words);
     }
     set_pitch(vc, sound, v->rate);
 }
@@ -315,10 +375,10 @@ static void let_go(const tSn2Sound * sound, tSn2Voice * voice) {
     }
 
     if (!sound->oneShot) {
-        sn2_env_gate(&voice->amp, false);
+        sn2_env_release(&voice->amp);
 
         for (int e = 0; e < SN2_MOD_ENVS; e++) {
-            sn2_env_gate(&voice->env[e], false);
+            sn2_env_release(&voice->env[e]);
         }
     }
 }
@@ -364,10 +424,14 @@ void sn2_voices_note_on(tSn2Voices * v, const tSn2Sound * sound, uint8_t note, f
             }
         }
     }
-    pick->active   = true;
-    pick->gate     = true;
-    pick->note     = note;
-    pick->velocity = velocity;
+    pick->active     = true;
+    pick->gate       = true;
+    pick->note       = note;
+    pick->velocity   = velocity;
+
+    for (int o = 0; o < SN2_OSCS; o++) {
+        pick->window[o] = 1.0;   // sn2Osc notes §7
+    }
 
     // voices notes §8
     if (!sound->oscsFree) {
@@ -377,45 +441,16 @@ void sn2_voices_note_on(tSn2Voices * v, const tSn2Sound * sound, uint8_t note, f
     start_glide(v, sound, pick, note, false);
     set_pitch(pick, sound, v->rate);
 
-    pick->started  = ++v->clock;
+    pick->started    = ++v->clock;
 
-    if (sound->fixedPoint && (pick->fixed != NULL)) {   // sn2Fixed notes §9
-        uint32_t    words[SN2_FIXED_WORDS];
-
-        uint32_t    carried[SN2_LFOS][SN2_FIXED_LFO_WORDS];
-        tSn2Voice * from = pick;   // sn2Fixed notes §10: a free LFO runs on from the voice started last
-
-        for (uint32_t i = 0; i < SN2_MAX_VOICES; i++) {
-            tSn2Voice * o = &v->voice[i];
-
-            if ((o != pick) && (o->fixed != NULL) && ((from == pick) || (o->started > from->started))) {
-                from = o;
-            }
-        }
-
-        for (int l = 0; l < SN2_LFOS; l++) {
-            sn2_fixed_lfo_save(from->fixed, l, carried[l]);
-        }
-
-        memcpy(words, sound->fixedWords, sizeof(words));
-        sn2_fixed_note_words(words, note, velocity);
-        sn2_fixed_voice_clear(pick->fixed);
-        sn2_fixed_voice_start(pick->fixed, words);
-
-        for (int l = 0; l < SN2_LFOS; l++) {
-            if (!sound->lfo[l].keyed) {
-                sn2_fixed_lfo_restore(pick->fixed, l, carried[l]);
-            }
-        }
-
-        pick->quiet = 0;
-    }
-    pick->noiseSeed = pick->noiseSeed ? pick->noiseSeed : (uint32_t)((v->clock * 2654435761u) | 1u);
+    start_fixed(v, sound, pick, note, velocity);
+    pick->noiseSeed  = pick->noiseSeed ? pick->noiseSeed : (uint32_t)((v->clock * 2654435761u) | 1u);
+    pick->noiseCount = pick->noiseCount ? pick->noiseCount : (uint32_t)(0x41u + (v->clock * 7919u));
     lfo_restart(pick, sound);
-    sn2_env_gate(&pick->amp, true);
+    sn2_env_start(&pick->amp, sound->envRepeats[0]);
 
     for (int e = 0; e < SN2_MOD_ENVS; e++) {
-        sn2_env_gate(&pick->env[e], true);
+        sn2_env_start(&pick->env[e], sound->envRepeats[1 + e]);
     }
 
     if (pick->amp.level <= 0.0) {
@@ -493,55 +528,20 @@ static double smooth_advance(tSn2Smooth * s, uint32_t frames) {
     return s->current;
 }
 
-// voices notes §11: white noise in -1..1
-static double next_white(tSn2Voice * vc) {
-    uint32_t x = vc->noiseSeed;
+// voices notes §11: one pole of low pass, less its corner's part of what it held
+static double next_noise(tSn2Voice * vc, double corner) {
+    double was = vc->noiseLow;
 
-    x            ^= x << 13;
-    x            ^= x >> 17;
-    x            ^= x << 5;
-    vc->noiseSeed = x;
-    return ((double)x / 2147483648.0) - 1.0;
-}
-
-// voices notes §11: the low-passed noise's level, measured at these Softens and joined
-static double noise_gain(double soften) {
-    static const double kSoften[] = {0.0, 32.0, 64.0, 96.0, 112.0, 120.0};
-    static const double kGain[]   = {1.2, 1.075, 0.95, 0.75, 0.54, 0.54};
-
-    for (int k = 1; k < 6; k++) {
-        if (soften <= kSoften[k]) {
-            return kGain[k - 1] + ((kGain[k] - kGain[k - 1]) * (soften - kSoften[k - 1]) / (kSoften[k] - kSoften[k - 1]));
-        }
-    }
-
-    return kGain[5];
-}
-
-// voices notes §11
-static double next_noise(tSn2Voice * vc, double soften, double corner) {
-    double white = next_white(vc);
-
-    if (soften >= NOISE_DIFFERENCE_FROM) {
-        double out = white - vc->noiseLast;
-
-        vc->noiseLast = white;
-        return (out * NOISE_DIFFERENCE) + (white * NOISE_FLOOR);
-    }
-    vc->noiseLow += corner * (white - vc->noiseLow);
-    return vc->noiseLow * noise_gain(soften);
+    vc->noise     = ((2 * vc->noiseCount * vc->noise) + vc->noiseCount + 1) & 0xFFFFFFu;   // the instrument's own, not quite white
+    vc->noiseCount++;
+    vc->noiseLow += corner * (((vc->noise >= 0x800000u) ? ((double)vc->noise - 16777216.0) : (double)vc->noise) / 8388608.0 - was);
+    vc->noise     = (vc->noise * 0xAAAAAAu) & 0xFFFFFFu;
+    return vc->noiseLow - (corner * was);
 }
 
 // voices notes §10
 static double velocity_level(double velocity, double amount) {
-    double curve = VELOCITY_FLOOR + (VELOCITY_RANGE * velocity * velocity * velocity);
-
-    if (amount >= 64.0) {
-        double a = (amount - 64.0) / 63.0;
-
-        return 1.0 - a + (a * curve);
-    }
-    return 1.0 - (((64.0 - amount) / 64.0) * curve);
+    return sn2_fixed_velocity(velocity, amount);   // notes §10
 }
 
 // sn2Osc notes §5: one sample of an oscillator, free or synced
@@ -549,19 +549,50 @@ static double osc_sample(const double * edge, tSn2OscShape shape, double phase, 
     return (ratio > 0.0) ? sn2_osc_sample_synced(edge, shape, phase, ratio, stretch, width) : sn2_osc_sample(edge, shape, phase, stretch, width);
 }
 
+// sn2Osc notes §5, §6: the slave's ratio and its edge, with Skew from where the oscillator is in its cycle
+static double sync_now(const tSn2OscSound * os, double soften, double sync, double phase, double increment, double * stretch) {
+    sync     = fmax(0.0, sync - (24.0 * os->skew * phase));
+    *stretch = sn2_osc_stretch(increment * pow(2.0, sync / 24.0), soften);   // past the cap too
+    return sn2_sync_ratio(sync);
+}
+
+// The three envelopes' steps, for a key (envelope notes §5)
+static void env_shapes(const tSn2Sound * sound, int note, tSn2EnvShape * amp, tSn2EnvShape mods[SN2_MOD_ENVS]) {
+    const tSn2EnvDials dials = {0.0, sound->ampAttack, sound->ampDecay, sound->ampSustain, sound->ampRelease, sound->ampSustainTime, sound->ampSustainRate, sound->envTrack[0]};
+
+    sn2_env_shape(&dials, true, sound->oneShot, note, amp);
+
+    for (int e = 0; e < SN2_MOD_ENVS; e++) {
+        const tSn2ModEnv * m = &sound->env[e];
+        const tSn2EnvDials d = {m->delay, m->attack, m->decay, m->sustain, m->release, m->sustainTime, m->sustainRate, sound->envTrack[1 + e]};
+
+        sn2_env_shape(&d, false, sound->oneShot, note, &mods[e]);
+    }
+}
+
 static void render_sub_block(tSn2Voices * v, const tSn2Sound * sound, double cutoff, double res, const tSn2EnvShape * amp, const tSn2EnvShape * mods,
                              float * out, uint32_t frames, double gain) {
-    double drive  = sn2_filter_drive_word(sound->overdrive);
-    double corner = fmin(1.0, 2.0 * M_PI * NOISE_CORNER_HZ * pow(2.0, sound->noiseSoften / 15.0) / v->rate);
+    double drive   = sn2_filter_drive_word(sound->overdrive);
+    bool   tracked = (sound->envTrack[0] != 64) || (sound->envTrack[1] != 64) || (sound->envTrack[2] != 64);
+    double octave  = floor(sound->noiseSoften / 16.0);
+    double corner  = fmin(1.0, pow(2.0, octave) * (1.0 + (sound->noiseSoften / 16.0) - octave) / 256.0);  // notes §11
 
     for (uint32_t i = 0; i < SN2_MAX_VOICES; i++) {
-        tSn2Voice *      vc = &v->voice[i];
+        tSn2Voice * vc = &v->voice[i];
 
         if (!vc->active) {
             continue;
         }
 
         if (sound->fixedPoint && (vc->fixed != NULL) && vc->fixed->sounding) {   // sn2Fixed notes §9: the voice in the instrument's own words
+            double bend[SN2_OSCS];
+
+            for (int o = 0; o < SN2_OSCS; o++) {
+                bend[o] = sound->bend * sound->osc[o].bendRange;
+            }
+
+            sn2_fixed_voice_live(vc->fixed, sound->wheel, bend, (sound->tempo > 0.0) ? sound->tempo : 120.0);
+
             for (uint32_t f = 0; f < frames; f++) {
                 double y = sn2_fixed_voice_sample(vc->fixed) * FIXED_GAIN;
 
@@ -575,8 +606,17 @@ static void render_sub_block(tSn2Voices * v, const tSn2Sound * sound, double cut
             }
             continue;
         }
-        double           lfoCut;
-        double           width[SN2_OSCS];
+        tSn2EnvShape         ownAmp, ownMods[SN2_MOD_ENVS];
+        const tSn2EnvShape * ampShape = amp;
+        const tSn2EnvShape * modShape = mods;
+
+        if (tracked) {   // envelope notes §5
+            env_shapes(sound, vc->note, &ownAmp, ownMods);
+            ampShape = &ownAmp;
+            modShape = ownMods;
+        }
+        double               lfoCut;
+        double               width[SN2_OSCS];
 
         lfo_advance(v, vc, sound, (double)frames / v->rate, &lfoCut, width);
 
@@ -590,23 +630,36 @@ static void render_sub_block(tSn2Voices * v, const tSn2Sound * sound, double cut
             advance_glide(vc, sound, (double)frames / v->rate);
         }
         set_pitch(vc, sound, v->rate);
-        double           stretch[SN2_OSCS];
-        double           level                    = velocity_level(vc->velocity, sound->ampVelocity);
-        tSn2FilterCoeffs coeffs;
+        double               stretch[SN2_OSCS];
+        const double         source[SN2_LEVEL_ROUTES] = {sound->wheel, vc->env[0].level * velocity_level(vc->velocity, sound->env[0].velocity), vc->env[1].level * velocity_level(vc->velocity, sound->env[1].velocity), LFO_TO_LEVEL * vc->lfoValue[0], LFO_TO_LEVEL * vc->lfoValue[1]}; // what the routes follow
 
-        // voices notes §9
-        double           moved                    = (((double)vc->note - 60.0) * sound->tracking) + (sound->wheel * sound->wheelCutoff * ENV_TO_CUTOFF) + lfoCut;
-
-        for (int e = 0; e < SN2_MOD_ENVS; e++) {
-            moved += vc->env[e].level * sound->env[e].amount * ENV_TO_CUTOFF * velocity_level(vc->velocity, sound->env[e].velocity);
+        for (int o = 0; o < SN2_OSCS; o++) {   // notes §23: the wheel, Env 2 and Env 3 to pulse width, twice as far as the LFOs
+            for (int r = 0; r < 3; r++) {
+                width[o] += source[r] * sound->osc[o].widthRoute[r];
+            }
         }
 
-        sn2_filter_coeffs(sound->filterType, sound->filterSlope, cutoff + moved, fmin(127.0, fmax(0.0, res + (sound->wheel * sound->wheelResonance))), sound->normalise, sound->filterWidth, &coeffs);
+        double               level                    = velocity_level(vc->velocity, sound->ampVelocity);
+        tSn2FilterCoeffs     coeffs;
+
+        // voices notes §9
+        double               moved                    = (((double)vc->note - 60.0) * sound->tracking) + (sound->wheel * sound->wheelCutoff * ENV_TO_CUTOFF) + lfoCut;
+
+        for (int e = 0; e < SN2_MOD_ENVS; e++) {
+            moved += source[1 + e] * sound->env[e].amount * ENV_TO_CUTOFF;
+        }
+
+        double               resonance                = sound->wheel * sound->wheelResonance; // notes §23
+
+        for (int r = 0; r < 4; r++) {
+            resonance += source[1 + r] * sound->resRoute[r];
+        }
+
+        sn2_filter_coeffs(sound->filterType, sound->filterSlope, cutoff + moved, fmin(127.0, fmax(0.0, res + (resonance * ROUTE_STEPS))), sound->normalise, sound->filterWidth, &coeffs);
 
         // notes §19: each mixer level moved by the wheel, Env 2, Env 3 and the LFOs
-        const double     source[SN2_LEVEL_ROUTES] = {sound->wheel, vc->env[0].level * velocity_level(vc->velocity, sound->env[0].velocity), vc->env[1].level * velocity_level(vc->velocity, sound->env[1].velocity), LFO_TO_LEVEL * vc->lfoValue[0], LFO_TO_LEVEL * vc->lfoValue[1]};
-        const double     base[SN2_LEVEL_SLOTS]    = {sound->osc[0].level, sound->osc[1].level, sound->osc[2].level, sound->ring13, sound->ring23, sound->noiseLevel};
-        double           slot[SN2_LEVEL_SLOTS];
+        const double         base[SN2_LEVEL_SLOTS]    = {sound->osc[0].level, sound->osc[1].level, sound->osc[2].level, sound->ring13, sound->ring23, sound->noiseLevel};
+        double               slot[SN2_LEVEL_SLOTS];
 
         for (int s = 0; s < SN2_LEVEL_SLOTS; s++) {
             slot[s] = base[s];
@@ -618,39 +671,46 @@ static void render_sub_block(tSn2Voices * v, const tSn2Sound * sound, double cut
             slot[s] = fmin(1.0, fmax(0.0, slot[s]));
         }
 
-        double           oscLevel[SN2_OSCS];
-        double           ratio[SN2_OSCS];   // sn2Osc notes §5: the sync slave's, 0 free
+        double               oscLevel[SN2_OSCS];
+        double               ratio[SN2_OSCS];  // sn2Osc notes §5: the sync slave's, 0 free
+        double               syncAt[SN2_OSCS]; // its Sync, before Skew
+        double               soften[SN2_OSCS];
 
         for (int o = 0; o < SN2_OSCS; o++) {
-            const tSn2OscSound * os   = &sound->osc[o];
-            double               sync = os->sync + vc->syncMod[o] + (vc->env[0].level * os->syncEnv2);   // sn2Osc notes §5
-            bool                 on   = (os->sync > 0.0) || (os->syncLfo[0] != 0.0) || (os->syncLfo[1] != 0.0) || (os->syncEnv2 != 0.0);
+            const tSn2OscSound * os = &sound->osc[o];
+            bool                 on = (os->sync > 0.0) || (os->syncLfo[0] != 0.0) || (os->syncLfo[1] != 0.0) || (os->syncEnv2 != 0.0) || (os->syncEnv3 != 0.0)
+                                      || (os->syncWheel != 0.0) || (os->skew != 0.0) || (os->keySync != 0.0);
 
-            sync        = fmax(0.0, sync);
-            ratio[o]    = on ? sn2_sync_ratio(sync) : 0.0;
-            stretch[o]  = sn2_osc_stretch(vc->increment[o] * (on ? pow(2.0, sync / 24.0) : 1.0), os->soften);   // past the cap too
+            syncAt[o]   = os->sync + vc->syncMod[o] + (source[1] * os->syncEnv2) + (source[2] * os->syncEnv3) + (sound->wheel * os->syncWheel) - (os->keySync * ((double)vc->note + glide_heard(vc, sound) - 60.0));   // sn2Osc notes §5, §8
+            soften[o]   = os->soften;
+
+            for (int r = 0; r < SN2_LEVEL_ROUTES; r++) {   // notes §23
+                soften[o] += source[r] * os->softenRoute[r] * ROUTE_STEPS;
+            }
+
+            soften[o]   = fmin(127.0, fmax(0.0, soften[o]));
+            stretch[o]  = sn2_osc_stretch(vc->increment[o], soften[o]);
+            ratio[o]    = on ? sync_now(os, soften[o], syncAt[o], vc->phase[o], vc->increment[o], &stretch[o]) : 0.0;
             oscLevel[o] = slot[o];
         }
 
-        double           ring13     = slot[3];
-        double           ring23     = slot[4];
-        double           noiseLevel = slot[5];
+        double               ring13     = slot[3];
+        double               ring23     = slot[4];
+        double               noiseLevel = slot[5];
 
         // notes §18: FM depth from each slot's level, squared; a slot set to FM is not heard as ring or noise
-        double           fmD13      = sound->fm13 ? (FM_DEPTH * pow(ring13 * 128.0, 2.0)) : 0.0;
-        double           fmD23      = sound->fm23 ? (FM_DEPTH * pow(ring23 * 128.0, 2.0)) : 0.0;
-        double           fmDN       = sound->fmNoise ? (FM_DEPTH * pow(noiseLevel * 128.0, 2.0)) : 0.0;
-        bool             fm         = (fmD13 != 0.0) || (fmD23 != 0.0) || (fmDN != 0.0);
-
-        fmD13 *= (sound->osc[0].shape == eTiOscSquare) ? 1.0 : FM_SAW;
-        fmD23 *= (sound->osc[1].shape == eTiOscSquare) ? 1.0 : FM_SAW;
+        double               fmD13      = sound->fm13 ? (FM_DEPTH * pow(ring13 * 128.0, 2.0)) : 0.0;
+        double               fmD23      = sound->fm23 ? (FM_DEPTH * pow(ring23 * 128.0, 2.0)) : 0.0;
+        double               fmDN       = sound->fmNoise ? (FM_DEPTH * pow(noiseLevel * 128.0, 2.0)) : 0.0;
+        bool                 fm         = (fmD13 != 0.0) || (fmD23 != 0.0) || (fmDN != 0.0);
 
         for (uint32_t f = 0; f < frames; f++) {
             double mix      = 0.0;
-            double noiseNow = next_noise(vc, sound->noiseSoften, corner);
+            double noiseFm  = vc->noiseLow;   // notes §18: before this sample's
+            double noiseNow = next_noise(vc, corner);
 
             for (int e = 0; e < SN2_MOD_ENVS; e++) {
-                (void)sn2_env_next(&vc->env[e], &mods[e]);
+                (void)sn2_env_next(&vc->env[e], &modShape[e]);
             }
 
             double wave[SN2_OSCS];
@@ -662,21 +722,29 @@ static void render_sub_block(tSn2Voices * v, const tSn2Sound * sound, double cut
 
                 bool                 fm3 = fm && (o == 2);   // notes §18: Osc 3 is the one modulated
 
+                if ((os->skew != 0.0) && ((f & 3) == 0)) {   // sn2Osc notes §6: as often as the instrument's slow words
+                    ratio[o] = sync_now(os, soften[o], syncAt[o], vc->phase[o], vc->increment[o], &stretch[o]);
+                }
+
                 if (v->clean) {   // notes §17: the same law at four times the rate, then the low-pass back down
                     double * h  = vc->cleanHist[o];
 
                     for (int k = 0; k < CLEAN_FACTOR; k++) {
-                        h[(vc->cleanAt + k) % SN2_CLEAN_TAPS] = osc_sample(v->edge, os->shape, vc->phase[o], ratio[o], stretch[o], wid);
+                        h[(vc->cleanAt + k) % SN2_CLEAN_TAPS] = osc_sample(v->edge, os->shape, vc->phase[o], ratio[o], stretch[o], wid) * vc->window[o];
                         double sub = vc->increment[o];
 
                         if (fm3) {   // Osc 1's and Osc 2's own sub-steps, not their filtered output
                             uint32_t at = (vc->cleanAt + k) % SN2_CLEAN_TAPS;
 
-                            sub = fmin(fmax(sub * (1.0 + (fmD13 * vc->cleanHist[0][at]) + (fmD23 * vc->cleanHist[1][at]) + (fmDN * noiseNow)), -1.0), 1.0);
+                            sub += fmin(fmax(sub * ((fmD13 * vc->cleanHist[0][at]) + (fmD23 * vc->cleanHist[1][at]) + (fmDN * noiseFm)), -FM_MOST), FM_MOST);
                         }
                         vc->phase[o]                         += sub / CLEAN_FACTOR;
-                        vc->phase[o]                         -= (vc->phase[o] >= 1.0) ? 2.0 : 0.0;
-                        vc->phase[o]                         += (vc->phase[o] < -1.0) ? 2.0 : 0.0; // a step through zero runs backwards
+                        vc->window[o]                        -= vc->window[o] * os->windowFall / CLEAN_FACTOR;
+
+                        if ((vc->phase[o] >= 1.0) || (vc->phase[o] < -1.0)) {   // a step through zero runs backwards
+                            vc->phase[o] += (vc->phase[o] >= 1.0) ? -2.0 : 2.0;
+                            vc->window[o] = 1.0;
+                        }
                     }
 
                     double   y  = 0.0;
@@ -688,36 +756,38 @@ static void render_sub_block(tSn2Voices * v, const tSn2Sound * sound, double cut
 
                     wave[o] = y;
                 } else {
-                    wave[o]       = osc_sample(v->edge, os->shape, vc->phase[o], ratio[o], stretch[o], wid);
+                    wave[o]        = osc_sample(v->edge, os->shape, vc->phase[o], ratio[o], stretch[o], wid) * vc->window[o];
+                    vc->window[o] -= vc->window[o] * os->windowFall;
                     double inc = vc->increment[o];
 
                     if (fm3) {   // through zero, within a cycle a sample
-                        inc = fmin(fmax(inc * (1.0 + (fmD13 * wave[0]) + (fmD23 * wave[1]) + (fmDN * noiseNow)), -1.0), 1.0);
+                        inc += fmin(fmax(inc * ((fmD13 * wave[0]) + (fmD23 * wave[1]) + (fmDN * noiseFm)), -FM_MOST), FM_MOST);
                     }
-                    vc->phase[o] += inc;
+                    vc->phase[o]  += inc;
 
-                    if (vc->phase[o] >= 1.0) {
-                        vc->phase[o] -= 2.0;
-                    } else if (vc->phase[o] < -1.0) {
-                        vc->phase[o] += 2.0;
+                    if ((vc->phase[o] >= 1.0) || (vc->phase[o] < -1.0)) {
+                        vc->phase[o] += (vc->phase[o] >= 1.0) ? -2.0 : 2.0;
+                        vc->window[o] = 1.0;
                     }
                 }
                 mix += wave[o] * oscLevel[o];
             }
 
             double around = 0.0;   // notes §20: Filter OSCs Bypass
+            double noise  = sound->fmNoise ? 0.0 : (noiseNow * noiseLevel);
+
+            vc->cleanAt = (vc->cleanAt + CLEAN_FACTOR) % SN2_CLEAN_TAPS;
+            mix        += RING_GAIN * wave[2] * ((sound->fm13 ? 0.0 : (wave[0] * ring13)) + (sound->fm23 ? 0.0 : (wave[1] * ring23)));
 
             if (sound->oscsAround) {
                 around = mix;
-                mix    = 0.0;
+                mix    = 2.0 * noise;
+            } else {
+                mix += noise;
             }
-            vc->cleanAt = (vc->cleanAt + CLEAN_FACTOR) % SN2_CLEAN_TAPS;
-            mix        += RING_GAIN * wave[2] * ((sound->fm13 ? 0.0 : (wave[0] * ring13)) + (sound->fm23 ? 0.0 : (wave[1] * ring23)));
-            mix        += sound->fmNoise ? 0.0 : (noiseNow * noiseLevel);
-
             double y      = sn2_filter_process(&vc->filter, &coeffs, sn2_filter_drive(mix * DRIVE_IN, drive) * FILTER_IN * coeffs.gain) + (around * BYPASS_GAIN);
 
-            out[f]     += (float)(y * sn2_env_next(&vc->amp, amp) * level * gain);
+            out[f]     += (float)(y * sn2_env_next(&vc->amp, ampShape) * level * gain * VOICE_LEVEL);
         }
 
         if (sn2_env_idle(&vc->amp)) {
@@ -740,16 +810,9 @@ void sn2_voices_render(tSn2Voices * v, const tSn2Sound * sound, float * out, uin
 
     smooth_toward(&v->cutoff, sound->cutoff, v->rate);
     smooth_toward(&v->resonance, sound->resonance, v->rate);
-    tSn2EnvShape amp;
+    tSn2EnvShape amp, mods[SN2_MOD_ENVS];
 
-    sn2_env_shape(sound->ampAttack, sound->ampDecay, sound->ampSustain, sound->ampRelease, sound->oneShot ? -1.0 : sound->ampSustainTime, sound->ampSustainRate, true, v->rate, &amp);
-    tSn2EnvShape mods[SN2_MOD_ENVS];
-
-    for (int e = 0; e < SN2_MOD_ENVS; e++) {
-        const tSn2ModEnv * m = &sound->env[e];
-
-        sn2_env_shape(m->attack, m->decay, m->sustain, m->release, sound->oneShot ? -1.0 : m->sustainTime, m->sustainRate, false, v->rate, &mods[e]);
-    }
+    env_shapes(sound, 60, &amp, mods);
 
     // notes §4: the coefficients every sub-block, the same for every voice until keyfollow and envelopes come
     for (uint32_t done = 0; done < frames; done += SUB_BLOCK) {

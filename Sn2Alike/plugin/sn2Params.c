@@ -16,6 +16,7 @@
  */
 // Notes: Docs/code-notes/sn2Params.md - "// notes §k" refers there.
 
+#include <limits.h>
 #include <math.h>
 
 #include "sn2Params.h"
@@ -161,7 +162,7 @@ const tSynthLibParam     gSn2Params[kSn2ParamCount] = {
     {kSn2ParamLfo2Fade,         "LFO 2 Fade",              "Fade",     eSynthLibUnitIndexed,   0.0,            1.0,                         0.0,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
     {kSn2ParamHwLink,           "Link Hardware",           "Link",     eSynthLibUnitIndexed,   0.0,            1.0,                         0.0,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
     {kSn2ParamHwChannel,        "Hardware MIDI Channel",   "Channel",  eSynthLibUnitGeneric,   1.0,           16.0,                  6.0 / 15.0,                 15, SYNTHLIB_MIDI_NONE,                                                                             0},
-    {kSn2ParamHwDevice,         "Hardware Device ID",      "Device",   eSynthLibUnitGeneric,   0.0,          127.0,                 6.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kSn2ParamHwDevice,         "Hardware Device ID",      "Device",   eSynthLibUnitGeneric,   0.0,          127.0,                 6.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,       SYNTHLIB_PARAM_HIDDEN                                                  },                       // unused since 11-22 (hardware notes §4); keeps the later ids
     {kSn2ParamPan,              "Pan",                     "Pan",      eSynthLibUnitGeneric,   0.0,          127.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
     {kSn2ParamPanSpeed,         "Pan Speed",               "Speed",    eSynthLibUnitGeneric,   0.0,          127.0,                34.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
     {kSn2ParamPanDepth,         "Pan Depth",               "Depth",    eSynthLibUnitGeneric,   0.0,          127.0,                         0.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
@@ -222,6 +223,61 @@ const tSynthLibParam     gSn2Params[kSn2ParamCount] = {
     {kSn2ParamOsc1PitchEnv3,    "Osc 1 Env 3 Pitch",       "Env 3",    eSynthLibUnitGeneric, -64.0,           63.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
     {kSn2ParamOsc2PitchEnv3,    "Osc 2 Env 3 Pitch",       "Env 3",    eSynthLibUnitGeneric, -64.0,           63.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
     {kSn2ParamOsc3PitchEnv3,    "Osc 3 Env 3 Pitch",       "Env 3",    eSynthLibUnitGeneric, -64.0,           63.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kSn2ParamOsc1SyncSkew,     "Osc 1 Sync Skew",         "Skew",     eSynthLibUnitGeneric, -64.0,           63.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kSn2ParamOsc2SyncSkew,     "Osc 2 Sync Skew",         "Skew",     eSynthLibUnitGeneric, -64.0,           63.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kSn2ParamOsc3SyncSkew,     "Osc 3 Sync Skew",         "Skew",     eSynthLibUnitGeneric, -64.0,           63.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kSn2ParamOsc1SyncFormant,  "Osc 1 Formant Width",     "Formant",  eSynthLibUnitGeneric,   0.0,          127.0,                         1.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kSn2ParamOsc2SyncFormant,  "Osc 2 Formant Width",     "Formant",  eSynthLibUnitGeneric,   0.0,          127.0,                         1.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kSn2ParamOsc3SyncFormant,  "Osc 3 Formant Width",     "Formant",  eSynthLibUnitGeneric,   0.0,          127.0,                         1.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kSn2ParamOsc1SyncEnv3,     "Osc 1 Env 3 Sync",        "Env 3",    eSynthLibUnitGeneric, -64.0,           63.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kSn2ParamOsc2SyncEnv3,     "Osc 2 Env 3 Sync",        "Env 3",    eSynthLibUnitGeneric, -64.0,           63.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kSn2ParamOsc3SyncEnv3,     "Osc 3 Env 3 Sync",        "Env 3",    eSynthLibUnitGeneric, -64.0,           63.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kSn2ParamOsc1SyncWheel,    "Osc 1 Wheel Sync",        "Wheel",    eSynthLibUnitGeneric, -64.0,           63.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kSn2ParamOsc2SyncWheel,    "Osc 2 Wheel Sync",        "Wheel",    eSynthLibUnitGeneric, -64.0,           63.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kSn2ParamOsc3SyncWheel,    "Osc 3 Wheel Sync",        "Wheel",    eSynthLibUnitGeneric, -64.0,           63.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kSn2ParamOsc1SoftenEnv2,   "Osc 1 Env 2 Soften",      "Env 2",    eSynthLibUnitGeneric, -64.0,           63.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kSn2ParamOsc1HardEnv3,     "Osc 1 Env 3 Soften",      "Env 3",    eSynthLibUnitGeneric, -64.0,           63.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kSn2ParamOsc1HardLfo1,     "Osc 1 LFO 1 Soften",      "LFO 1",    eSynthLibUnitGeneric, -64.0,           63.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kSn2ParamOsc1HardLfo2,     "Osc 1 LFO 2 Soften",      "LFO 2",    eSynthLibUnitGeneric, -64.0,           63.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kSn2ParamOsc1HardWheel,    "Osc 1 Wheel Soften",      "Wheel",    eSynthLibUnitGeneric, -64.0,           63.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kSn2ParamOsc2SoftenEnv2,   "Osc 2 Env 2 Soften",      "Env 2",    eSynthLibUnitGeneric, -64.0,           63.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kSn2ParamOsc2HardEnv3,     "Osc 2 Env 3 Soften",      "Env 3",    eSynthLibUnitGeneric, -64.0,           63.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kSn2ParamOsc2HardLfo1,     "Osc 2 LFO 1 Soften",      "LFO 1",    eSynthLibUnitGeneric, -64.0,           63.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kSn2ParamOsc2HardLfo2,     "Osc 2 LFO 2 Soften",      "LFO 2",    eSynthLibUnitGeneric, -64.0,           63.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kSn2ParamOsc2HardWheel,    "Osc 2 Wheel Soften",      "Wheel",    eSynthLibUnitGeneric, -64.0,           63.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kSn2ParamOsc3SoftenEnv2,   "Osc 3 Env 2 Soften",      "Env 2",    eSynthLibUnitGeneric, -64.0,           63.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kSn2ParamOsc3HardEnv3,     "Osc 3 Env 3 Soften",      "Env 3",    eSynthLibUnitGeneric, -64.0,           63.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kSn2ParamOsc3HardLfo1,     "Osc 3 LFO 1 Soften",      "LFO 1",    eSynthLibUnitGeneric, -64.0,           63.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kSn2ParamOsc3HardLfo2,     "Osc 3 LFO 2 Soften",      "LFO 2",    eSynthLibUnitGeneric, -64.0,           63.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kSn2ParamOsc3HardWheel,    "Osc 3 Wheel Soften",      "Wheel",    eSynthLibUnitGeneric, -64.0,           63.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kSn2ParamResEnv2,          "Env 2 Resonance",         "Env 2",    eSynthLibUnitGeneric, -64.0,           63.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kSn2ParamResEnv3,          "Env 3 Resonance",         "Env 3",    eSynthLibUnitGeneric, -64.0,           63.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kSn2ParamResLfo1,          "LFO 1 Resonance",         "LFO 1",    eSynthLibUnitGeneric, -64.0,           63.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kSn2ParamResLfo2,          "LFO 2 Resonance",         "LFO 2",    eSynthLibUnitGeneric, -64.0,           63.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kSn2ParamEnv2Delay,        "Env 2 Delay",             "Delay",    eSynthLibUnitGeneric,   0.0,          127.0,                         0.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kSn2ParamEnv3Delay,        "Env 3 Delay",             "Delay",    eSynthLibUnitGeneric,   0.0,          127.0,                         0.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kSn2ParamLfo1Sync,         "LFO 1 Sync",              "Sync",     eSynthLibUnitGeneric,   0.0,           34.0,                         0.0,                 34, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kSn2ParamLfo2Sync,         "LFO 2 Sync",              "Sync",     eSynthLibUnitGeneric,   0.0,           34.0,                         0.0,                 34, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kSn2ParamOsc1WidthWheel,   "Osc 1 Wheel Width",       "Wheel",    eSynthLibUnitGeneric, -64.0,           63.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kSn2ParamOsc1WidthEnv2,    "Osc 1 Env 2 Width",       "Env 2",    eSynthLibUnitGeneric, -64.0,           63.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kSn2ParamOsc1WidthEnv3,    "Osc 1 Env 3 Width",       "Env 3",    eSynthLibUnitGeneric, -64.0,           63.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kSn2ParamOsc2WidthWheel,   "Osc 2 Wheel Width",       "Wheel",    eSynthLibUnitGeneric, -64.0,           63.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kSn2ParamOsc2WidthEnv2,    "Osc 2 Env 2 Width",       "Env 2",    eSynthLibUnitGeneric, -64.0,           63.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kSn2ParamOsc2WidthEnv3,    "Osc 2 Env 3 Width",       "Env 3",    eSynthLibUnitGeneric, -64.0,           63.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kSn2ParamOsc3WidthWheel,   "Osc 3 Wheel Width",       "Wheel",    eSynthLibUnitGeneric, -64.0,           63.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kSn2ParamOsc3WidthEnv2,    "Osc 3 Env 2 Width",       "Env 2",    eSynthLibUnitGeneric, -64.0,           63.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kSn2ParamOsc3WidthEnv3,    "Osc 3 Env 3 Width",       "Env 3",    eSynthLibUnitGeneric, -64.0,           63.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kSn2ParamAmpKeyTime,       "Amp Env Key Times",       "Key",      eSynthLibUnitGeneric, -64.0,           63.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kSn2ParamEnv2KeyTime,      "Env 2 Key Times",         "Key",      eSynthLibUnitGeneric, -64.0,           63.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kSn2ParamEnv3KeyTime,      "Env 3 Key Times",         "Key",      eSynthLibUnitGeneric, -64.0,           63.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kSn2ParamAmpRepeats,       "Amp Env Repeats",         "Repeat",   eSynthLibUnitGeneric,   0.0,          127.0,                         0.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kSn2ParamEnv2Repeats,      "Env 2 Repeats",           "Repeat",   eSynthLibUnitGeneric,   0.0,          127.0,                         0.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kSn2ParamEnv3Repeats,      "Env 3 Repeats",           "Repeat",   eSynthLibUnitGeneric,   0.0,          127.0,                         0.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kSn2ParamLfo1Soften,       "LFO 1 Soften",            "Soften",   eSynthLibUnitGeneric,   0.0,          127.0,                         0.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kSn2ParamLfo2Soften,       "LFO 2 Soften",            "Soften",   eSynthLibUnitGeneric,   0.0,          127.0,                         0.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kSn2ParamOsc1KeySync,      "Osc 1 Key Sync",          "KeySync",  eSynthLibUnitGeneric,   0.0,          127.0,                         0.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kSn2ParamOsc2KeySync,      "Osc 2 Key Sync",          "KeySync",  eSynthLibUnitGeneric,   0.0,          127.0,                         0.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kSn2ParamOsc3KeySync,      "Osc 3 Key Sync",          "KeySync",  eSynthLibUnitGeneric,   0.0,          127.0,                         0.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
 };
 
 #define COUNT(table)    (sizeof(table) / sizeof((table)[0]))   // ../Docs/panel-layout.md: never a count by hand
@@ -521,10 +577,10 @@ static const tSn2Section kLevelsPage[]      = {
     {"LFO 1 TO LEVEL", {0.30, 0.70, 0.60}, kLfo1Level, COUNT(kLfo1Level)},
     {"LFO 2 TO LEVEL", {0.30, 0.55, 0.85}, kLfo2Level, COUNT(kLfo2Level)},
 };
+static const char *const kChannels[]        = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16"};
 static const tSn2Control kHardware[]        = {
-    {kSn2ParamHwLink,    "Link",    eTiControlChoice,   1, 0.0, kOffOn},
-    {kSn2ParamHwChannel, "Channel", eTiControlDial,    15, 1.0, NULL  },
-    {kSn2ParamHwDevice,  "Device",  eTiControlDial,   127, 0.0, NULL  },
+    {kSn2ParamHwLink,    "Link",    eTiControlChoice,  1, 0.0, kOffOn   },
+    {kSn2ParamHwChannel, "Channel", eTiControlChoice, 15, 0.0, kChannels},
 };
 static const tSn2Control kPan[]             = {
     {kSn2ParamPan,        "Pan",     eTiControlDial,   127, 0.0, NULL  },
@@ -593,17 +649,10 @@ tSn2EffectsSound sn2_effects_sound(const double * v, double tempo) {
 static double lfo_semis(double normalized) {
     double d = (normalized * 127.0) - 64.0;
 
-    return ((d < 0.0) ? -1.0 : 1.0) * d * d / 57.6;
+    return ((d < 0.0) ? -1.0 : 1.0) * d * d * 768.0 / 43691.0;
 }
 
-static double lfo_delay(double dial) {
-    if (dial <= 0.0) {
-        return 0.0;
-    }
-    return (dial < 64.0) ? exp(-1.08 + (0.0417 * (dial - 64.0))) : exp(-1.08 + (0.0525 * (dial - 64.0)));
-}
-
-void sn2_controls_sound(const double * v, tSn2Sound * sound) {
+void sn2_controls_sound(const double * v, double tempo, tSn2Sound * sound) {
     for (int l = 0; l < SN2_LFOS; l++) {
         int    at    = l * (kSn2ParamLfo2Shape - kSn2ParamLfo1Shape);
         double speed = v[kSn2ParamLfo1Speed + at] * 127.0;
@@ -611,11 +660,17 @@ void sn2_controls_sound(const double * v, tSn2Sound * sound) {
         sound->lfo[l]       = (tSn2LfoSound){
             .shape   = (int)lround(v[kSn2ParamLfo1Shape + at] * 3.0),
             .hz      = (speed * speed / 1638.4) * pow(10.0, lround(v[kSn2ParamLfo1Range + at] * 2.0)),
-            .delay   = lfo_delay(v[kSn2ParamLfo1Delay + at] * 127.0),
+            .soften  = sn2_fixed_lfo_soften(v[kSn2ParamLfo1Soften + l] * 127.0),
+            .fade    = sn2_fixed_lfo_delay(v[kSn2ParamLfo1Delay + at] * 127.0, v[kSn2ParamLfo1Fade + l] > 0.5),
             .fadeOut = v[kSn2ParamLfo1Fade + l] > 0.5,
             .offset  = v[kSn2ParamLfo1Offset + at],
             .keyed   = v[kSn2ParamLfo1Trigger + at] > 0.5,
         };
+        int    sync  = (int)lround(v[kSn2ParamLfo1Sync + l] * 34.0);
+
+        if (sync > 0) {   // sn2Voices notes §15: locked to the host's tempo
+            sound->lfo[l].hz = sn2_fixed_lfo_sync_hz(sync) * tempo / 120.0;
+        }
         sound->lfoCutoff[l] = lfo_semis(v[kSn2ParamLfo1Cutoff + at]);
 
         for (int o = 0; o < SN2_OSCS; o++) {
@@ -654,8 +709,37 @@ void sn2_controls_sound(const double * v, tSn2Sound * sound) {
     sound->wheelCutoff    = (v[kSn2ParamWheelCutoff] * 127.0) - 64.0;
     sound->wheelResonance = (v[kSn2ParamWheelResonance] * 127.0) - 64.0;
 
+    for (int r = 0; r < 4; r++) {
+        sound->resRoute[r] = (v[kSn2ParamResEnv2 + r] * 127.0) - 64.0;
+    }
+
+    for (int e = 0; e < 3; e++) {   // sn2Envelope notes §5
+        int repeats = (int)lround(v[kSn2ParamAmpRepeats + e] * 127.0);
+
+        sound->envTrack[e]   = (int)lround(v[kSn2ParamAmpKeyTime + e] * 127.0);
+        sound->envRepeats[e] = (repeats >= 127) ? INT_MAX : repeats;
+    }
+
+    sound->env[0].delay   = v[kSn2ParamEnv2Delay] * 127.0;
+    sound->env[1].delay   = v[kSn2ParamEnv3Delay] * 127.0;
+
     for (int o = 0; o < SN2_OSCS; o++) {
-        sound->osc[o].bendRange  = (v[kSn2ParamOsc1BendRange + o] * 24.0) - 12.0;
-        sound->osc[o].wheelPitch = (v[kSn2ParamOsc1WheelPitch + o] * 127.0) - 64.0;
+        sound->osc[o].bendRange      = (v[kSn2ParamOsc1BendRange + o] * 24.0) - 12.0;
+        sound->osc[o].wheelPitch     = (v[kSn2ParamOsc1WheelPitch + o] * 127.0) - 64.0;
+        sound->osc[o].syncEnv3       = 2.0 * ((v[kSn2ParamOsc1SyncEnv3 + o] * 127.0) - 64.0);  // sn2Osc notes §5
+        sound->osc[o].syncWheel      = 2.0 * ((v[kSn2ParamOsc1SyncWheel + o] * 127.0) - 64.0);
+        sound->osc[o].skew           = ((v[kSn2ParamOsc1SyncSkew + o] * 127.0) - 64.0) / 64.0; // sn2Osc notes §6
+        sound->osc[o].softenRoute[0] = (v[kSn2ParamOsc1HardWheel + (5 * o)] * 127.0) - 64.0;   // sn2Voices notes §23: the wheel, Env 2, Env 3, LFO 1, LFO 2
+
+        for (int r = 0; r < 4; r++) {
+            sound->osc[o].softenRoute[1 + r] = (v[kSn2ParamOsc1SoftenEnv2 + (5 * o) + r] * 127.0) - 64.0;
+        }
+
+        for (int r = 0; r < 3; r++) {   // sn2Voices notes §23: Osc 1's wheel route is an eighth of the others'
+            sound->osc[o].widthRoute[r] = ((v[kSn2ParamOsc1WidthWheel + (3 * o) + r] * 127.0) - 64.0) / (((o == 0) && (r == 0)) ? 256.0 : 32.0);
+        }
+
+        sound->osc[o].keySync        = 2.0 * v[kSn2ParamOsc1KeySync + o] * 127.0 / 128.0;            // sn2Osc notes §8
+        sound->osc[o].windowFall     = (127.0 - (v[kSn2ParamOsc1SyncFormant + o] * 127.0)) / 4096.0; // sn2Osc notes §7
     }
 }

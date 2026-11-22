@@ -100,7 +100,8 @@ int main(int argc, char ** argv) {
     };
     uint32_t          frames = (uint32_t)(atof(argv[5]) * RATE);
     float *           out    = calloc(frames + BLOCK, sizeof(float));
-    sn2_controls_sound(values, &sound);
+    sn2_controls_sound(values, 120.0, &sound);
+    sound.tempo = 120.0;
     static tSn2Voices voices;
 
     sn2_voices_init(&voices);

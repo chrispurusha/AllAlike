@@ -29,6 +29,7 @@
 #define BLOCK          (0x33)    // notes §6: the voice's words
 #define FLAGS_HELD     (0xFFFF40u)
 #define FLAG_UPDATE    (0x1Fu)   // notes §7: everything recomputed, the phases restarted
+#define FLAG_PHASES    (0x08u)   // notes §11: the part of it that restarts the phases
 #define FLAG_CLEAR     (0x80u)
 #define STATE          (0x64)    // notes §7: the voice's envelope states
 #define BUS            (0x1D)
@@ -93,6 +94,10 @@ void sn2_fixed_template(const double * edge) {
 
     gY[0xC06] = 0x7FFFFE;
 
+    for (int o = 0; o < 3; o++) {   // notes §6: the oscillators' windows are open, as on a voice that has played
+        gY[STATE + 1 + (4 * o)] = 0x7FFFFF;
+    }
+
     registers(&d, gX, gY);
     gX[BLOCK] = FLAG_CLEAR;
 
@@ -111,18 +116,26 @@ void sn2_fixed_voice_clear(tSn2FixedVoice * v) {
     v->sounding = false;
 }
 
-void sn2_fixed_voice_start(tSn2FixedVoice * v, const uint32_t words[SN2_FIXED_WORDS]) {
+void sn2_fixed_voice_start(tSn2FixedVoice * v, const uint32_t words[SN2_FIXED_WORDS], bool freeOscs) {
     if (!gBuilt) {
         return;
     }
 
-    for (int i = 1; i < SN2_FIXED_WORDS; i++) {
+    for (int i = 1; i < SN2_FIXED_BLOCK; i++) {
         v->x[BLOCK + i] = words[i] & 0xFFFFFFu;
     }
 
-    v->x[BLOCK] = FLAGS_HELD | FLAG_UPDATE;
+    v->x[BLOCK] = FLAGS_HELD | (freeOscs ? (FLAG_UPDATE & ~FLAG_PHASES) : FLAG_UPDATE);
     v->updating = 1;
     v->sounding = true;
+
+    for (int o = 0; o < 3; o++) {
+        v->pitch[o] = words[1 + (0x24 * o)];
+    }
+
+    for (int e = 0; e < 3; e++) {   // notes §7: each envelope's timer counts its repeats up to 0
+        v->y[STATE + 0x16 + (2 * e)] = words[SN2_FIXED_REPEATS + e];
+    }
 }
 
 // notes §10: each LFO's running words; the second LFO's are five on from the first's, its last one on
@@ -140,9 +153,47 @@ void sn2_fixed_lfo_restore(tSn2FixedVoice * v, int lfo, const uint32_t saved[SN2
     }
 }
 
-// notes §7: the three sustain timers run out at once
+void sn2_fixed_voice_live(tSn2FixedVoice * v, double wheel, const double bend[3], double tempo) {
+    v->x[0x05]         = w24(3221248.0 * tempo / 120.0);
+
+    uint32_t w = (uint32_t)lround(wheel * 127.0);
+
+    v->x[BLOCK + 0xD7] = (w << 16) | (((w * 2) & 0xFFu) << 8);
+
+    for (int o = 0; o < 3; o++) {
+        v->x[BLOCK + 1 + (0x24 * o)] = (uint32_t)((int32_t)v->pitch[o] + (int32_t)lround(bend[o] * 43691.0)) & 0xFFFFFFu;
+    }
+}
+
+void sn2_fixed_voice_move(tSn2FixedVoice * v, const uint32_t words[SN2_FIXED_WORDS]) {
+    for (int i = 0xDA; i <= 0xDC; i++) {
+        v->x[BLOCK + i] = words[i];
+    }
+}
+
+// notes §11: each oscillator's phase and window
+void sn2_fixed_osc_save(const tSn2FixedVoice * v, uint32_t saved[SN2_FIXED_OSC_WORDS]) {
+    for (int i = 0; i < SN2_FIXED_OSC_WORDS; i++) {
+        saved[i] = v->y[STATE + (4 * (i / 2)) + (i % 2)];
+    }
+}
+
+void sn2_fixed_osc_restore(tSn2FixedVoice * v, const uint32_t saved[SN2_FIXED_OSC_WORDS]) {
+    for (int i = 0; i < SN2_FIXED_OSC_WORDS; i++) {
+        v->y[STATE + (4 * (i / 2)) + (i % 2)] = saved[i];
+    }
+}
+
+void sn2_fixed_osc_seed(tSn2FixedVoice * v, const double phase[3]) {
+    for (int o = 0; o < 3; o++) {
+        v->y[STATE + (4 * o)] = w24(phase[o] * 8388607.0);
+    }
+}
+
+// notes §7: a key let go - at once, whatever the envelopes are doing
 void sn2_fixed_voice_release(tSn2FixedVoice * v) {
-    v->y[STATE + 0x16] = v->y[STATE + 0x18] = v->y[STATE + 0x1A] = 0x7FFFFF;
+    v->y[STATE + 0x16]  = v->y[STATE + 0x18] = v->y[STATE + 0x1A] = 0x7FFFFF;
+    v->y[STATE + 0x15] &= ~0x3Fu;
 }
 
 double sn2_fixed_voice_sample(tSn2FixedVoice * v) {

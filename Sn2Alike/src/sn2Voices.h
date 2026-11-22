@@ -47,11 +47,13 @@ typedef struct {
     float            velocity;
     double           phase[SN2_OSCS];
     double           increment[SN2_OSCS];
-    tSn2Env          amp;       // the amplifier envelope
-    double           glide;     // notes §12: semitones from the note
-    double           glideRate; // semitones a second, for a straight glide
+    double           window[SN2_OSCS]; // sn2Osc notes §7: Formant Width's, 1 as each cycle starts
+    tSn2Env          amp;              // the amplifier envelope
+    double           glide;            // notes §12: semitones from the note
+    double           glideRate;        // semitones a second, for a straight glide
     uint32_t         noiseSeed;
-    double           noiseLow, noiseLast;
+    uint32_t         noise, noiseCount;
+    double           noiseLow;
     tSn2Env          env[SN2_MOD_ENVS];
     tSn2Filter       filter;
     double           lfoPhase[SN2_LFOS]; // 0..1
@@ -71,7 +73,8 @@ typedef struct {
 typedef struct {
     int    shape;       // 0 square, 1 saw, 2 triangle, 3 sample and hold
     double hz;
-    double delay;       // seconds of fade in
+    double soften;      // voices notes §15: its smoothing, 0 none
+    double fade;        // voices notes §15: a step of its delay, below 0 a part of what is left
     bool   fadeOut;     // voices notes §15: from full, dying away, in place of a fade in
     double offset;      // added to the wave
     bool   keyed;       // restarts with each note
@@ -85,7 +88,14 @@ typedef struct {
     double       soften;             // 0..127
     double       sync;               // 0..127, 0 free
     double       syncEnv2;           // Sync steps at full Env 2
+    double       syncEnv3;           // Sync steps at full Env 3 (mod knob route)
+    double       syncWheel;          // Sync steps at full Mod Wheel (mod knob route)
     double       syncLfo[SN2_LFOS];  // Sync steps at full swing
+    double       skew;               // sn2Osc notes §6: octaves the slave moves over a cycle, -1..1
+    double       softenRoute[5];     // voices notes §23: Soften steps from the wheel, Env 2, Env 3, LFO 1 and LFO 2
+    double       widthRoute[3];      // voices notes §23: in width units, from the wheel, Env 2 and Env 3
+    double       keySync;            // sn2Osc notes §8: Sync steps off for each key up
+    double       windowFall;         // sn2Osc notes §7: what the window loses a sample, 0 none
     double       envPitch[2];        // semitones at full Env 2, Env 3
     double       level;              // 0..1
     double       bendRange;          // semitones at full bend, negative inverts the wheel
@@ -96,7 +106,7 @@ typedef struct {
 
 // Env 2 or 3, in the panel's units
 typedef struct {
-    double attack, decay, sustain, release, velocity, amount;
+    double delay, attack, decay, sustain, release, velocity, amount;
     double sustainTime, sustainRate;   // 0..127 (envelope notes §8)
 } tSn2ModEnv;
 
@@ -125,6 +135,9 @@ typedef struct {
     double       bend;                                          // -1..1
     double       wheel;                                         // 0..1
     double       wheelCutoff, wheelResonance;                   // -64..63
+    double       resRoute[4];                                   // -64..63, Env 2, Env 3, LFO 1, LFO 2 to resonance
+    int          envTrack[3], envRepeats[3];                    // envelope notes §5: the amplifier, Env 2, Env 3
+    double       tempo;                                         // the host's, beats a minute
     bool         mono;                                          // one voice, last note priority
     bool         pedal;                                         // the sustain pedal is down
     double       levelRoute[SN2_LEVEL_SLOTS][SN2_LEVEL_ROUTES]; // notes §19: full level per unit of Wheel, Env 2, Env 3, LFO 1, LFO 2
@@ -144,7 +157,7 @@ typedef struct {
        .octaves   = ((values)[octave_] * 4.0) - 2.0,                                                      \
        .semitones = ((values)[semitone_] * 24.0) - 12.0,                                                  \
        .cents     = ((values)[fine_] * 127.0) - 64.0,                                                     \
-       .width     = (values)[width_] * 127.0 / 64.0,                                                      \
+       .width     = ((values)[width_] >= 1.0) ? 2.0 : ((values)[width_] * 127.0 / 64.0),                  \
        .soften    = (values)[soften_] * 127.0,                                                            \
        .sync      = (values)[sync_] * 127.0,                                                              \
        .level     = (values)[level_] * 127.0 / 128.0,                                                     \
@@ -189,9 +202,7 @@ typedef struct {
 
 // voices notes §14: from the normalised Volume
 static inline double sn2_volume_gain(double normalized) {
-    double volume = normalized * 127.0;
-
-    return ((volume >= 126.5) ? 84.0 : volume) / SN2_VOLUME_UNITY;
+    return normalized * 127.0 / SN2_VOLUME_UNITY;
 }
 
 void sn2_voices_init(tSn2Voices * v);

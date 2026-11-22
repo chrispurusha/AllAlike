@@ -55,7 +55,7 @@ The level does not follow velocity: the Init Single's velocity to volume is 0, a
 velocity 1 and 127. The patch's own velocity amounts come with the modulation.
 
 ## 8. Level and pitch
-In Percussive trigger mode every oscillator starts each note at the same phase, so identical oscillators add. Ensemble lets them run on. The oscillator mix reaches the Overdrive saturator at a half, fitted from its gain at four settings, and the saturator's output reaches the filter at a half again, which sets where level-dependent damping starts. The filter's output is scaled so a wide-open Saw at Level 127 and Volume 127 matches the reference.
+In Percussive trigger mode every oscillator starts each note at the same phase, so identical oscillators add. Ensemble lets them run on. Each voice's oscillators first stand at scattered phases, as on an instrument whose voices never stop running. The oscillator mix reaches the Overdrive saturator at a half, fitted from its gain at four settings, and the saturator's output reaches the filter at a half again, which sets where level-dependent damping starts. The filter's output is scaled so a wide-open Saw at Level 127 and Volume 127 matches the reference.
 
 ## 9. Tracking
 A voice's cutoff moves (note - 60) x Tracking dial steps, so Tracking 127 follows the keyboard one to one around middle C. The coefficients are worked out per voice for that reason.
@@ -64,7 +64,9 @@ A voice's cutoff moves (note - 60) x Tracking dial steps, so Tracking 127 follow
 Env Velocity 64 ignores velocity. Above it the level blends towards a curve of 0.016 + 0.98 v cubed, below it towards the inverse, in proportion to the distance from 64.
 
 ## 11. Noise and ring
-At Soften 127 noise is the difference of successive white samples, rising 6 dB an octave, over a floor 27 dB down; lower, one pole of low pass whose corner doubles every 15 steps. The two have not been joined: the change at Soften 120 is a guess. Ring is twice the product of Osc 3 and Osc 1 or 2, whatever their levels.
+Noise is the instrument's own generator (a counter multiplying a word, not quite white) through one pole with a corner
+c = 2^n (1 + f) / 256, Soften being 16 (n + f), less c times what the pole held. Soften above 112 is still up to 1.7 dB
+bright at the top. Ring is twice the product of Osc 3 and Osc 1 or 2, whatever their levels.
 
 ## 12. Glide
 A note starts away from its pitch and arrives in a time set by Glide Time alone, whatever the interval: 0.183 s at 64, doubling every 11.2 steps. Normal starts from the last note played, Auto likewise but only over a held note, and the fixed types start that many semitones away on every note. Linear is a straight line in pitch. Exponential closes a gap at (gap + 2.5) / 0.41T semitones a second, so it lands in a finite time. Glissando is the same path rounded to semitones. Time 0 is no glide. It applies to all voices.
@@ -73,11 +75,14 @@ A note starts away from its pitch and arrives in a time set by Glide Time alone,
 Polyphony 1 in a program. One voice and a list of the keys down, last note priority: a released key returns to the newest still held. Measured: value 34 of the trigger byte, and 35-37, restart the envelope on each change including the return; 32, 33 and 38 do not. Glide Auto counts a key still held on the one voice.
 
 ## 14. Volume and the output
-A program's Volume is part of the sound. Measured: gain is Volume/84, and 127 plays as 84, not as the loudest; the Supernova II gives 18.6 dB between 9 and 127, against 19.4 from this law. The output saturates hard at 0.97675 of full scale: flat tops, with no gain reduction, whatever the voice count, with the effects on or bypassed.
+A program's Volume is part of the sound. Gain is Volume/84, straight to 127 (the instrument 2026-11-22: +3.6 dB from 84 to 127; an earlier note that 127 plays as 84 was wrong). The output saturates hard at 0.97675 of full scale: flat tops, with no gain reduction, whatever the voice count, with the effects on or bypassed.
 
 ## 15. LFOs
 Two per voice, stepped every sub-block. Rate 2.5 Hz x (Speed/64)^2, Range x1, x10, x100. Square, rising saw from -1, triangle rising from 0 and sample and hold, all +-1; Offset adds Offset/127 of the amount, and the Delay fades the offset in with the wave (measured through a level route: with Offset 127 and Delay 66 the whole output rises from 0 over about 0.4 s). Key restarts the phase with a note; Free runs on, through silence too - on the instrument (2026-11-22, notes 0.53 s apart with no voice sounding between them) each note met the LFO somewhere new. An earlier model restarted a free LFO whenever a note found no voice sounding; the instrument does not. Delay is a straight fade in: 0.125 s at 40, 0.34 s at 64, 1.33 s at 90. Pitch and cutoff go as amount^2/57.6 semitones, width in step with the amount, one unit in the panel's 64 a unit. Measured.
 Fade Out, in place of the fade in: from full, an exponential fall after 12.5 ms, time constant the fade in's time over 5.7. A square at Speed 0 this way is a pitch or filter blip at the note's start.
+
+LFO Soften smooths the LFO's output, offset and fade included: each step it moves a part of the way, 256 x Soften's word x
+the LFO's own step (the whole way with Soften 0), so a slow LFO is smoothed for longer. Within 0.8 dB of FIXED on cutoff.
 
 ## 16. Pan
 After the effects, in sn2Effects.c. A share of 0.5 + (64 - Pan)/128 + 0.5 Depth/127 sin, left 2 x share, right 2 x (1 - share), a sine at Speed^2/642.5 Hz. Bypass leaves it out. Pan Effects takes the wet signal with it. Measured. Read a panned sound by its sum: one channel of an auto-pan looks peaky, and misled a kurtosis comparison.
@@ -104,17 +109,9 @@ the noise modulates it, at the slot's own level (1x3, 2x3, Noise) as the depth, 
 or noise. The modulator is the oscillator's own output before its mix level (Osc 1's mix makes no difference); Osc 3 is
 heard through its own mix level as usual.
 
-Linear and through zero: each sample Osc 3's phase step is multiplied by 1 + depth x modulator, so the swing in hertz is
-a fixed share of Osc 3's pitch - the same 16% at depth 8 from 523 Hz to 2093 Hz - and symmetric in hertz, not in cents;
-past 1 the phase runs backwards. The depth goes as the level squared: a full square modulator swings Osc 3 by 1.25 x
-10^-3 x level^2 of its pitch. A saw modulates 0.82 as hard as its own level would say against the square. The step is
-held within a cycle a sample.
-
-Against reference renders: Osc 3's two pitches under a square Osc 1 within 1-4% at depths 6 to 24; spectra of an FM
-voice best matched within 0.06-0.13 of the depth squared from 8 to 127 (square) and at the same depth with the saw
-factor; 808 Cow Bell 2 (FM 2x3) 5.3 -> 0.8 in spectrum error. With Anti-alias on, Osc 3's sub-steps take Osc 1's and
-Osc 2's own sub-steps (2026-11-12).
-
+Linear and through zero: each sample Osc 3's phase step moves by step x (level^2 / 256) x modulator, by no more than half
+a cycle's half either way. The modulator is the oscillator's output, or the noise's pole. Exact against FIXED (2026-11-22)
+to 0.2 dB up to level 60. With Anti-alias on, Osc 3's sub-steps take Osc 1's and Osc 2's own.
 
 ## 19. Mixer level routes
 Every mixer slot - Osc 1-3, ring 1x3 and 2x3, noise - has five routes onto its level, each bipolar about 64: the
@@ -127,10 +124,9 @@ close. The levels are worked out once a sub-block. The FM depths (§18) take the
 Many programs play only through these - all levels 0, the sound coming in on Env 2 or an LFO.
 
 ## 20. Filter Oscs Bypass
-The program's switch (ext byte 3, bit 5, beside the FM switches): Osc 1-3 go around the filter and its Overdrive and
-join its output at 0.771 of the level they would have through a fully open filter (-2.3 dB), so a closed filter
-leaves them untouched. Noise still goes through the filter. The ring products are sent with the noise; not
-measured - two squares at one pitch ring down to mostly DC, which a closed filter passes anyway.
+The program's switch (ext byte 3, bit 5): Osc 1-3 and the ring products go around the filter and its Overdrive and join
+its output at 0.771 of the level they would have through a fully open filter. Noise alone goes through the filter, at
+twice its usual level.
 
 ## 21. The same key again (Same Note)
 A plug-in setting, not part of a sound. Piano, the default and what the plug-in has always done, gives a key struck
@@ -147,3 +143,7 @@ arithmetic (Maths FIXED): steady offsets within 0.1 semitone up and down, and En
 about 45 semitones the instrument's pitch word runs out of range (FIXED wraps; ours does not) - only extreme settings
 reach it.
 
+## 23. Routes to Soften, Resonance and pulse width
+From the program. Soften and Resonance each move 131072/66048 dial steps for each step of a route's amount from 64, at a
+full source: the wheel, Env 2, Env 3, LFO 1, LFO 2 (an LFO half, as §19). Pulse width moves a 32nd of its 0..2 for each
+step from the wheel, Env 2 and Env 3 (Osc 1's wheel an eighth of that), a 64th from an LFO.

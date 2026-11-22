@@ -45,8 +45,8 @@ The last tab. Its sections, in this order:
    (Pulse2Alike: its Oversample does that job). Maths is the last of the four, so a plug-in without it just goes on
    to its own (Pulse2Alike, Sn2Alike).
 
-2. **HARDWARE** - only in a plug-in that can follow its instrument: Link, Channel, Device (the instrument's SysEx
-   device id). Link is here and nowhere else - no Link HW button in the patch bar (CT 2026-11-17). When Link is on
+2. **HARDWARE** - only in a plug-in that can follow its instrument: Link, Channel, and SysEx ID, a list (not the MIDI port, which is the MIDI menu's; the instrument's SysEx
+   device id) where it is a setting of its own (Nl3Alike; on the Supernova II it is the Global MIDI channel). Link is here and nowhere else - no Link HW button in the patch bar (CT 2026-11-17). When Link is on
    but cannot work, its button turns amber and says why: NO PORT (no MIDI output chosen), BUSY (another instance
    holds the instrument).
 
@@ -66,8 +66,8 @@ Pulse2Alike's empty place is a control of kind `eP2ControlGap`: it keeps its wid
 
 | | PLUG-IN | HARDWARE | then |
 |---|---|---|---|
-| Nl3Alike | Voices, Same Note, Anti-alias, Maths | Link, Channel, Device | - |
-| Sn2Alike | Voices, Same Note, Anti-alias | Link, Channel, Device | PLAY (Mode, Trigger), EFFECTS, PAN |
+| Nl3Alike | Voices, Same Note, Anti-alias, Maths | Link, Channel, SysEx ID | - |
+| Sn2Alike | Voices, Same Note, Anti-alias | Link, Channel | PLAY (Mode, Trigger), EFFECTS, PAN |
 | Pulse2Alike | Voices, Same Note, (empty), OvrSmp, Anomalies, Hiss, Thump | Link, Channel | PERFORMANCE |
 | TiAlike | Voices, Same Note, Anti-alias, Maths, Delay, Reverb | Link | PLAY, UNISON, CONTROL |
 | ModAlike | Anti-alias, Maths, Rate, Stage (an effect: no Voices or Same Note) | - | - |

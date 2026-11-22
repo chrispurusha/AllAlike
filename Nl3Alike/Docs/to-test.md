@@ -60,3 +60,4 @@ Finished work not yet checked against the instrument or in a host.
 - Nl3Alike LFO 2 to Pan and Resonance, wheel morphs on a Dual Sine Osc 2 (1:28 DXexpress with the wheel moving)
 - Arpeggiator (2026-11-21, arp notes): 1:43, 1:46 and other arp programs against the instrument; the ARP page - Mode, Sub, Mask steps; Clock on with the host playing
 - A/B after 2026-11-22: Osc Mod FM at high Amounts (was losing its fundamental above about 100 in FIXED), DFM on Dual Sine (1:11 IonoSPHERE, 1:1 TD Style Lead, 1:14 ElecGit, 1:22 FMorgan2) - same-pitch Dual Sine FM varies note to note on the instrument too
+- HARDWARE SysEx ID (was Device) is a list, 1-127 and All, the instrument's own names (2026-11-22; it was a dial reading 0-127): opens and fits, and the number chosen is the one the instrument answers to (1 is sent as 0, taken from the manual's range, not checked; All is as before)

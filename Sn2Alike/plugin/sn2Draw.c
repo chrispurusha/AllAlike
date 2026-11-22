@@ -618,7 +618,7 @@ void sn2_draw_read_hardware(void) {
         show_alert("Read from Hardware", "Choose the instrument's output in the MIDI menu first.");
         return;
     }
-    tSn2HardwareResult r = sn2_hardware_read_start(sn2_hw_port(), (uint8_t)lround(gValue[kSn2ParamHwDevice] * 127.0));
+    tSn2HardwareResult r = sn2_hardware_read_start(sn2_hw_port(), (uint8_t)lround(gValue[kSn2ParamHwChannel] * 15.0));
 
     if (r != eSn2HardwareSent) {
         sn2_hardware_read_stop();
@@ -648,7 +648,7 @@ void sn2_draw_read_tick(void) {
 
     if (state == eSn2ReadTimedOut) {
         sn2_hardware_read_stop();
-        show_alert("Read from Hardware", "Nothing came back. Check the MIDI port, the Device number, and that MIDI runs both ways.");
+        show_alert("Read from Hardware", "Nothing came back. Check the MIDI port, the Channel, and that MIDI runs both ways.");
         return;
     }
     char          path[1100];

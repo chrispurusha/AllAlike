@@ -201,12 +201,12 @@ static void action_panel_help(int index) {
     (void)index;
     show_alert("The Panel",
                "A work in progress: three oscillators (Saw, Square and Double Saw), noise and the ring modulators, the filter in all twelve types, "
-               "the envelopes, glide, mono and legato, and the effects. Not yet: Sync, FM, several modulation routes and "
+               "the envelopes, glide, mono and legato, and the effects. Not yet: the arpeggiator, unison, several modulation routes and "
                "performances - see the todo list.\n\n"
                "Patches: < Prev and Next > step through the presets, A000-L127, in the order the Sort menu sets; Load... opens a .syx or .mid file of "
                "Singles, choosing one when it holds several. The name beside them edits on a click. A Single keeps "
                "every byte it came with, though only what is built so far plays.\n\n"
-               "Link (HARDWARE, GLOBAL page): the Supernova II follows this sound. Play it from the host on the instrument's own MIDI channel: Link sends no notes, so a key sounds once. Choose its output in the MIDI menu (the button reads NO PORT, in amber, until you do, and BUSY while another instance has the instrument); Device (the SysEx ID) must match the instrument's own Global setting. Only its edit buffer is written, never a stored program.\n\n"
+               "Link (HARDWARE, GLOBAL page): the Supernova II follows this sound. Play it from the host on its own MIDI channel: Link sends no notes, so a key sounds once. Choose its output in the MIDI menu (the button reads NO PORT, in amber, until you do, and BUSY while another instance has the instrument); Channel must match the instrument's Global MIDI channel. Only its edit buffer is written, never a stored program.\n\n"
                "Dials: drag to turn, Shift to turn finely. Controls chooses how a drag turns them: Rotary follows the "
                "pointer round the dial, Vertical and Horizontal count its movement.\n\n"
                "Lists (the oscillator's shape, the filter's mode) open a menu of their values on a click.\n\n"
@@ -240,7 +240,7 @@ static char gPortLabels[SN2_HARDWARE_MAX_PORTS][260];
 
 static void action_port(int index) {
     sn2_set_hw_port(gPortNames[gContextMenu.items[index].param]);
-    (void)sn2_hardware_identify_start(sn2_hw_port());   // hardware notes §4: the SysEx ID follows from the reply
+    (void)sn2_hardware_identify_start(sn2_hw_port());   // hardware notes §4: Channel follows from the reply
 }
 
 static void open_midi_menu(tCoord anchor) {

@@ -20,11 +20,14 @@
 // Notes: Docs/code-notes/sn2Fixed.md - "// notes §k" refers there. Generated from measurements: do not edit by hand.
 
 #include <math.h>
+#include <stdlib.h>
+#include <string.h>
 #include <stdbool.h>
 #include <stdint.h>
 
 #include "sn2Filter.h"
 #include "sn2Fixed.h"
+#include "sn2Osc.h"
 
 // notes §8: where each field the words read sits in a single: start of its dump, offset, mask, shift
 typedef struct {
@@ -231,29 +234,10 @@ static const int      kOscField[3][5]        = { // octave, semitone, fine, puls
     {136, 141, 118, 140, 149},
     {168, 173, 150, 172, 181},
 };
-static const int      kLfoField[2][2]        = {{43, 44}, {53, 54}}; // delay, fade mode
-static const uint32_t kLfoDelay[128]         = { // notes §8: the LFO delay, measured (fade mode 0)
-    0x158C00, 0x124C00, 0x0F8600, 0x0DE600, 0x0C4600, 0x0AA600, 0x090600, 0x07B300,
-    0x06E300, 0x061300, 0x054300, 0x047300, 0x03D180, 0x036980, 0x030180, 0x029980,
-    0x023180, 0x01E4C0, 0x01B0C0, 0x017CC0, 0x0148C0, 0x0114C0, 0x00F060, 0x00D660,
-    0x00BC60, 0x00A260, 0x008860, 0x007730, 0x006A30, 0x005D30, 0x005030, 0x004330,
-    0x003B18, 0x003898, 0x003618, 0x003398, 0x003118, 0x002E98, 0x002C18, 0x002998,
-    0x002718, 0x002498, 0x002218, 0x001FCC, 0x001E8C, 0x001D4C, 0x001C0C, 0x001ACC,
-    0x00198C, 0x00184C, 0x00170C, 0x0015CC, 0x00148C, 0x00134C, 0x00120C, 0x0010CC,
-    0x000FC6, 0x000F26, 0x000E86, 0x000DE6, 0x000D46, 0x000CA6, 0x000C06, 0x000B66,
-    0x000AC6, 0x000A26, 0x000986, 0x0008E6, 0x000846, 0x0007D3, 0x000783, 0x000733,
-    0x0006E3, 0x000693, 0x000643, 0x0005F3, 0x0005A3, 0x000553, 0x000503, 0x0004B3,
-    0x000463, 0x000413, 0x0003E1, 0x0003B9, 0x000391, 0x000369, 0x000341, 0x000319,
-    0x0002F1, 0x0002C9, 0x0002A1, 0x000279, 0x000251, 0x000229, 0x000201, 0x0001EC,
-    0x0001D8, 0x0001C4, 0x0001B0, 0x00019C, 0x000188, 0x000174, 0x000160, 0x00014C,
-    0x000138, 0x000124, 0x000110, 0x0000FE, 0x0000F4, 0x0000EA, 0x0000E0, 0x0000D6,
-    0x0000CC, 0x0000C2, 0x0000B8, 0x0000AE, 0x0000A4, 0x00009A, 0x000090, 0x000086,
-    0x00007E, 0x000079, 0x000074, 0x00006F, 0x00006A, 0x000065, 0x000060, 0x00005B
-};
 static const uint32_t kOscType[12]           = {0x18, 4, 5, 6, 0xC, 4, 4, 4, 4, 4, 4, 4}; // notes §8: the oscillator's mode, by type
 
 // notes §8: every word as it stands when nothing moves it
-static const uint32_t kBase[SN2_FIXED_WORDS] = {
+static const uint32_t kBase[SN2_FIXED_BLOCK] = {
     0x000000, 0x4e397c, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x7ffffc,
     0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000,
     0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000, 0x000000,
@@ -649,10 +633,26 @@ static int field(const uint8_t * single, int f) {
     return (single[d->dump + 10 + d->offset] >> d->shift) & d->mask;
 }
 
+#define EXTENSION    (297 + 10)
+
+// notes §8: a pulse width depth, its byte twice over
+static uint32_t width_word(uint8_t byte) {
+    int d = (byte & 0x7F) - 64;
+
+    return (d == 63) ? 0x7FFE81u : ((uint32_t)((d * 2) & 0xFF) * 0x010001u);
+}
+
+// notes §8: 1024 to 2047 in an exponent's low ten bits, shifted by its octave
+static int32_t exponent(int32_t e) {
+    int32_t m     = (e & 1023) | 1024;
+    int32_t shift = (e >> 10) - 11;
+
+    return (shift >= 0) ? (m << shift) : (m >> -shift);
+}
+
 void sn2_fixed_program_words(const uint8_t * single, uint32_t words[SN2_FIXED_WORDS]) {
-    for (int i = 0; i < SN2_FIXED_WORDS; i++) {
-        words[i] = kBase[i];
-    }
+    memset(words, 0, SN2_FIXED_WORDS * sizeof(words[0]));
+    memcpy(words, kBase, sizeof(kBase));
 
     for (unsigned i = 0; i < sizeof(kLinear) / sizeof(kLinear[0]); i++) {
         words[kLinear[i].word] = (uint32_t)(kLinear[i].base + (kLinear[i].step * field(single, kLinear[i].field))) & 0xFFFFFFu;
@@ -679,26 +679,88 @@ void sn2_fixed_program_words(const uint8_t * single, uint32_t words[SN2_FIXED_WO
 
     // notes §8: each oscillator's tuning - its fields count from 32 + 5o, 57 + 25o and 64 - and its pulse width
     for (int o = 0; o < 3; o++) {
-        int octave = field(single, kOscField[o][0]) - (32 + (5 * o));
+        int octave = field(single, kOscField[o][0]) - (33 + (5 * o));
         int semis  = field(single, kOscField[o][1]) - (57 + (25 * o));
         int fine   = field(single, kOscField[o][2]) - 64;
         int width  = field(single, kOscField[o][3]) - 64;
+        int pitch  = (0x8156 + (((octave * 12) + semis) * 256) + ((fine * 8 * 0x51EB) >> 16)) & 0xFFFF;
 
-        words[0x01 + (0x24 * o)] = (uint32_t)(0x4E397C + (octave * 0x080004) + (semis * 0xAAAB) + (int32_t)lround(fine * 437.0)) & 0xFFFFFFu;
-        words[0x18 + (0x24 * o)] = (uint32_t)((width >= 64) ? 0x3FFFFF : (width * 65536)) & 0xFFFFFFu;
+        words[0x01 + (0x24 * o)] = (uint32_t)(((int64_t)pitch * 0xAAAB) >> 8) & 0xFFFFFFu;
+        words[0x18 + (0x24 * o)] = (uint32_t)((width >= 63) ? 0x3FFFFF : (width * 65536)) & 0xFFFFFFu;
 
         int type   = field(single, kOscField[o][4]) - (10 * o); // each oscillator's types count from 10o
 
         words[0x1D + (0x24 * o)] = kOscType[(type < 0) ? 0 : ((type > 11) ? 11 : type)];
     }
 
-    for (int l = 0; l < 2; l++) {   // notes §8: each LFO's delay; fade mode 1 is not measured yet
-        if (field(single, kLfoField[l][1]) == 0) {
-            int delay = field(single, kLfoField[l][0]);
+    const uint8_t * extra = single + EXTENSION;
+    uint8_t         modes = extra[3];   // notes §8: FM, Filter OSCs Bypass, the LFOs' fade modes
 
-            words[0xC0 + (2 * l)] = kLfoDelay[(delay < 0) ? 0 : ((delay > 127) ? 127 : delay)];
+    words[0x6D] = modes;
+
+    for (int o = 0; o < 3; o++) {   // notes §8: what moves each pulse width - Env 2, Env 3, LFO 1, LFO 2, and the wheel
+        static const int kWidthWord[4] = {0x17, 0x19, 0x1A, 0x1B};
+        static const int kWidthByte[4] = {43, 44, 45, 46};
+
+        for (int k = 0; k < 4; k++) {
+            words[kWidthWord[k] + (0x24 * o)] = width_word(single[10 + kWidthByte[k] + (34 * o)]);
+        }
+
+        if (o > 0) {
+            words[0x1C + (0x24 * o)] = width_word(single[10 + 42 + (34 * o)]);
         }
     }
+
+    for (int g = 0; g < 3; g++) {   // notes §8: noise and the two rings, squared where they are FM depths instead
+        static const int kFmBit[3] = {2, 0, 1};
+
+        if (((modes >> kFmBit[g]) & 1) != 0) {
+            int at = 0x74 + (6 * g);
+
+            words[at] = (uint32_t)(int32_t)(((words[at] >> 16) * (words[at] >> 16)) << 9) & 0xFFFFFFu;
+
+            for (int i = 1; i < 6; i++) {
+                int32_t d = sn2_s24(words[at + i]) / 131072;
+
+                words[at + i] = (uint32_t)(d * abs(d) * 2048) & 0xFFFFFFu;
+            }
+        }
+    }
+
+    for (int l = 0; l < 2; l++) {   // notes §8: each LFO's delay and fade, and its speed and what moves it
+        static const int32_t kRange[3] = {0x0B96, 0x24A3, 0x73DA};
+        const uint8_t *      b         = single + 10 + 160 + (10 * l);
+        int                  range     = single[10 + 180 + l] - (28 + (3 * l));
+        int32_t              k         = kRange[(range < 0) ? 2 : ((range > 2) ? 2 : range)];
+        int                  d         = 127 - b[0];
+        int32_t              delay     = exponent((d * 0x50) + ((d > 0x5F) ? ((d - 0x5F) * 128) : 0) + 0x41B3);
+
+        words[0xC0 + (2 * l)] = (uint32_t)((((modes >> (3 + l)) & 1) != 0) ? (-(delay * 2) >> 8) : (delay >> 9)) & 0xFFFFFFu;
+
+        for (int i = 0; i < 4; i++) {   // locked to the tempo, only the tempo moves it
+            words[0xC7 + (8 * l) + i] = (b[7] != 0) ? 0u : (uint32_t)((i == 0) ? (b[3] * k) : (((b[3 + i] - 64) * 2) * k)) & 0xFFFFFFu;
+        }
+    }
+
+    if ((single[10 + 237] & 0x04) != 0) {   // notes §8: One Shot - no hold
+        words[0xAA] = words[0xB3] = words[0xBC] = 0x7FFFFF;
+    }
+    words[0xD9]                = (single[10 + 233] == 120) ? 0xFFFFFF : 0xFF0000;
+
+    for (int e = 0; e < 3; e++) {   // notes §8: what the key needs - repeats, time tracking and the dials it moves
+        static const uint8_t kDial[3][4] = {{194, 195, 197, 16}, {188, 189, 191, 17}, {182, 183, 185, 18}};
+
+        words[SN2_FIXED_REPEATS + e] = (uint32_t)((extra[13 + e] >= 127) ? -0x7FFF80 : -((int32_t)extra[13 + e] + 1)) & 0xFFFFFFu;   // 127 for ever
+        words[SN2_FIXED_RATES + e]   = extra[19 + e];
+        words[SN2_FIXED_TRACKS + e]  = extra[4 + e];
+
+        for (int k = 0; k < 4; k++) {
+            words[SN2_FIXED_DIALS + (4 * e) + k] = (k < 3) ? single[10 + kDial[e][k]] : extra[kDial[e][k]];
+        }
+    }
+
+    words[SN2_FIXED_GLIDE]     = single[10 + 231];
+    words[SN2_FIXED_GLIDE + 1] = (single[10 + 234] == 122) ? 1 : 0;
 
     // notes §8: until the key arrives, each envelope's velocity word holds its depth
     for (int e = 0; e < 3; e++) {
@@ -706,7 +768,7 @@ void sn2_fixed_program_words(const uint8_t * single, uint32_t words[SN2_FIXED_WO
     }
 
     // notes §8: the Special Width, none with Constant Gate
-    words[0x95] = field(single, FIELD_GATE) ? 0u : ((uint32_t)field(single, FIELD_WIDTH) << 16);
+    words[0x95]                = field(single, FIELD_GATE) ? 0u : ((uint32_t)field(single, FIELD_WIDTH) << 16);
 
     for (unsigned i = 0; i < sizeof(kSigned) / sizeof(kSigned[0]); i++) {
         int a = (field(single, kSigned[i].field) & 0x7F) - 64;
@@ -721,18 +783,133 @@ void sn2_fixed_program_words(const uint8_t * single, uint32_t words[SN2_FIXED_WO
     }
 }
 
+static int clamp_dial(int dial) {
+    return (dial < 0) ? 0 : ((dial > 127) ? 127 : dial);
+}
+
+// notes §8: how many steps a key moves an envelope's times, Attack by two thirds as much
+int sn2_fixed_key_moves(int note, int track, bool attack) {
+    int high = ((note - 60) * (track - 64) * 2) >> 8;
+
+    return attack ? high : (high + (high >> 1));
+}
+
+// notes §8: Sustain Rate, its distance from the centre as a time the key moves like the others
+static int32_t rate_word(int dial, int moved) {
+    int s = dial - 64;
+
+    if (s == 0) {
+        return 0;
+    }
+    int d = 127 - clamp_dial(127 - (2 * ((abs(s) > 63) ? 63 : abs(s))) - moved);
+
+    return (s > 0) ? (exponent((d * 0x6B) + 0x39B3) >> 8) : (-exponent((d * 0x6B) + 0x4019) >> 8);
+}
+
 // notes §8: the key, as semitones from middle C in the word's middle
-void sn2_fixed_note_words(uint32_t words[SN2_FIXED_WORDS], uint8_t note, float velocity) {
+void sn2_fixed_note_words(uint32_t words[SN2_FIXED_WORDS], uint8_t note, float velocity, double glide) {
     int     v     = (int)lroundf(velocity * 127.0f);
 
     v           = (v < 1) ? 1 : ((v > 127) ? 127 : v);
     int32_t curve = (((v * v) >> 7) * v) >> 7;   // notes §8: the velocity's curve, 0 to 125
     words[0xDA] = (uint32_t)(((int32_t)note - 60) * 65536) & 0xFFFFFFu;
+    words[0xDD] = (uint32_t)(int32_t)lround(((double)note - 60.0 + glide) * 65536.0) & 0xFFFFFFu;
 
     for (int e = 0; e < 3; e++) {   // notes §8: the depth (64 none) tilts the envelope's level by the curve
         int32_t depth = (int32_t)words[0xA5 + (9 * e)] & 0x7F;
         int32_t floor = 127 * 1024 * ((128 - depth < 64) ? (128 - depth) : 64);
 
         words[0xA5 + (9 * e)] = (uint32_t)(floor + ((depth - 64) * 1024 * curve)) & 0xFFFFFFu;
+
+        int32_t track = (int32_t)words[SN2_FIXED_TRACKS + e] - 64;
+
+        if (track != 0) {   // notes §8: the key's distance from middle C moves the time dials
+            static const uint8_t kWord[3][4] = {{0xA6, 0xA7, 0xA8, 0xAA}, {0xAF, 0xB0, 0xB1, 0xB3}, {0xB8, 0xB9, 0xBA, 0xBC}};
+            int                  high        = sn2_fixed_key_moves(note, track + 64, true);
+            int                  moved       = sn2_fixed_key_moves(note, track + 64, false);
+
+            words[0xAB + (9 * e)] = (uint32_t)rate_word((int)words[SN2_FIXED_RATES + e], moved) & 0xFFFFFFu;
+
+            for (int k = 0; k < 4; k++) {
+                int dial = (int)words[SN2_FIXED_DIALS + (4 * e) + k];
+                int by   = (k == 0) ? high : moved;   // Attack by two thirds as much
+
+                if ((k == 3) && ((dial == 127) || (words[kWord[e][k]] == 0x7FFFFF))) {
+                    continue;
+                }
+                dial = clamp_dial(dial - by);
+
+                for (unsigned i = 0; i < sizeof(kLookups) / sizeof(kLookups[0]); i++) {
+                    if (kLookups[i].word == kWord[e][k]) {
+                        words[kWord[e][k]] = law_word(&kLaws[kLookups[i].law], dial);
+                    }
+                }
+            }
+        }
     }
+
+    // notes §8: the glide - towards the key by a part of what is left, or in a straight line over the interval
+    int32_t d    = 127 - (int32_t)words[SN2_FIXED_GLIDE];
+    int32_t rate = exponent((d * 0x5D) + ((d > 0x70) ? ((d - 0x70) * 256) : 0) + 0x41B3);
+
+    if (words[SN2_FIXED_GLIDE + 1] != 0) {
+        int32_t line = (int32_t)(((int64_t)lround(fabs(glide) * 256.0) * rate) >> 16);
+
+        words[0xDB] = (uint32_t)(((line < 0x200) ? 0x200 : line) >> 8);
+        words[0xDC] = 0;
+    } else {
+        words[0xDB] = (uint32_t)(rate >> 13) & 0xFFFFFFu;
+        words[0xDC] = (uint32_t)(rate >> 8) & 0xFFFFFFu;
+    }
+}
+
+double sn2_fixed_env_step(tSn2EnvLaw which, double dial, int moved) {
+    static const uint8_t kWord[6] = {0xAD, 0xA6, 0xA7, 0xA8, 0xAA, 0xAB};
+    int                  v        = clamp_dial((int)lround(dial));
+
+    if (which == eSn2EnvRate) {
+        return rate_word(v, moved) / 8388608.0;
+    }
+
+    if ((which != eSn2EnvTime) || (v < 127)) {   // Sustain Time 127 holds for ever, whatever the key
+        v = clamp_dial(v - moved);
+    }
+
+    for (unsigned i = 0; i < sizeof(kLookups) / sizeof(kLookups[0]); i++) {
+        if (kLookups[i].word == kWord[which]) {
+            return sn2_s24(law_word(&kLaws[kLookups[i].law], v)) / 8388608.0;
+        }
+    }
+
+    return 0.0;
+}
+
+double sn2_fixed_lfo_soften(double dial) {
+    int32_t w = sn2_s24(kTables[1][clamp_dial((int)lround(dial))]);
+
+    return (w < 0) ? 0.0 : (w / 8388608.0);
+}
+
+static int32_t velocity_word(int v, int32_t depth) {
+    int32_t curve = (((v * v) >> 7) * v) >> 7;   // notes §8: the velocity's curve, 0 to 125
+    int32_t floor = 127 * 1024 * ((128 - depth < 64) ? (128 - depth) : 64);
+
+    return floor + ((depth - 64) * 1024 * curve);
+}
+
+double sn2_fixed_velocity(double velocity, double depth) {
+    int v = (int)lround(velocity * 127.0);
+
+    return velocity_word((v < 1) ? 1 : ((v > 127) ? 127 : v), (int32_t)lround(depth)) / 8388608.0;
+}
+
+double sn2_fixed_lfo_delay(double dial, bool fadeOut) {
+    int32_t d     = 127 - (int32_t)lround(dial);
+    int32_t delay = exponent((d * 0x50) + ((d > 0x5F) ? ((d - 0x5F) * 128) : 0) + 0x41B3);
+
+    return (fadeOut ? (-(delay * 2) >> 8) : (delay >> 9)) / 8388608.0;
+}
+
+double sn2_fixed_lfo_sync_hz(int sync) {
+    return (double)kTables[2][(sync < 0) ? 0 : ((sync > 34) ? 34 : sync)] * 3221248.0 / (8388608.0 * 8388608.0) * (SN2_ENGINE_HZ / 8.0);
 }

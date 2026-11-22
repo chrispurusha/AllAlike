@@ -104,3 +104,12 @@ A001 with effects and distortion off, held 1/2/4/8 notes (48 55 60 64 67 72 76 7
   The instrument runs out of voices; neither the reference nor Sn2Alike does.
 - On a program change the instrument's delay echoes stop, as Sn2Alike's now do (by ear).
 
+## 2026-11-22 - Sync Skew and Formant Width
+- Laws in code-notes/sn2Osc.md §6 and §7, read from the words FIXED works out. FLOAT against FIXED over 1421 programs: spectrum more than 1 dB apart in 358 (380 before), more than 3 dB in 198 (216).
+- Hardware captures with Osc 2 alone, Sync 0 and 47, Skew and Formant Width swept: `/Volumes/ext-ssd/Captures/Sn2Alike/hw/skew_2026-11-22/` and `skew_formant_2026-11-22/`. The first set's levels were read against the wrong fundamental (Osc 2 is an octave down) and are withdrawn. FLOAT and FIXED are not yet compared with them.
+
+## 2026-11-22 - FLOAT, FIXED and the instrument
+- FIXED's words checked against the instrument's own (sn2Fixed notes §8). Fixed in it: key release and One Shot, fine tune, LFO ranges, LFO fades, the width routes, FM and Filter OSCs Bypass, glide, mono, bend and wheel.
+- FLOAT against FIXED over 1421 programs: spectrum more than 3 dB apart 216 -> 52, more than 1 dB 380 -> 208; level more than 3 dB apart 188 -> 28. The drums left are mostly FIXED's own rounding under a closed filter.
+- Fourteen programs dry on the instrument (A000 2 4 6 7 8 9 11 12 22 23 24 26 27), the rig's 12.3 dB off: FIXED within 1-3 dB in every band above the recording's noise, FLOAT within 2 except A007 and A026 held (up to 5 dB in places) and A023. Captures in `/Volumes/ext-ssd/Captures/Sn2Alike/hw/ab_2026-11-22/`.
+- The output tilt noted earlier on 11-22 does not appear here: an open saw agrees to 0.2 dB from 250 Hz to 8 kHz, 0.8 dB above.

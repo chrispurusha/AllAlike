@@ -83,8 +83,11 @@
 #define NAME_FIELD_SIZING       "WWWWWWWWWW"     // NL3_SINGLE_NAME_LENGTH of the widest capital
 #define PRESET_COUNT_TEXT       "1024"
 #define MENU_BG                 {0.22, 0.22, 0.25}
-#define MENU_MAX                (32)
+#define MENU_MAX                (128)
 #define MENU_CELL_W             (96.0)
+#define MENU_LONG               (32)       // a list longer than this is numbers, in narrow cells
+#define MENU_NARROW_W           (40.0)
+#define MENU_LONG_COLUMNS       (16)
 #define MENU_ROWS_PER_COLUMN    (8)
 #define OPENING_RELEASE_SLOP    (4.0)     // notes §3: how far the pointer may move and still be the opening click
 
@@ -1064,7 +1067,8 @@ static const tPlaced * hit(double x, double y) {
 static void open_value_menu(const tPlaced * pc) {
     const tNl3Control * c       = pc->control;
     int                 count   = (c->steps + 1 < MENU_MAX) ? (c->steps + 1) : MENU_MAX;
-    uint32_t            columns = (uint32_t)((count + MENU_ROWS_PER_COLUMN - 1) / MENU_ROWS_PER_COLUMN);
+    bool                narrow  = count > MENU_LONG;
+    uint32_t            columns = narrow ? MENU_LONG_COLUMNS : (uint32_t)((count + MENU_ROWS_PER_COLUMN - 1) / MENU_ROWS_PER_COLUMN);
 
     for (int i = 0; i < count; i++) {
         gMenuItems[i] = (tMenuItem){
@@ -1077,7 +1081,7 @@ static void open_value_menu(const tPlaced * pc) {
     };
     gMenuFor          = c;
     gMenuChoice       = -1;
-    open_context_menu(below_rect(pc->dial), gMenuItems, columns, MENU_CELL_W);
+    open_context_menu(below_rect(pc->dial), gMenuItems, columns, narrow ? MENU_NARROW_W : MENU_CELL_W);
 }
 
 // notes §2
