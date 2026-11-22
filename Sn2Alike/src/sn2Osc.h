@@ -37,5 +37,10 @@ void sn2_edge_build(double * edge);
 double sn2_osc_stretch(double increment, double soften);
 // notes §1: one sample at phase -1..1 (advanced by the caller); offset, 0..2, is the second saw's
 double sn2_osc_sample(const double * edge, tSn2OscShape shape, double phase, double stretch, double offset);
+// notes §5: Sync - the slave's ratio to the oscillator, and the slave's phase from the oscillator's (both -1..1)
+double sn2_sync_ratio(double sync);
+double sn2_sync_phase(double phase, double ratio);
+// notes §5: one sample of a synced oscillator, from its own phase; each ramp is a slave of its own
+double sn2_osc_sample_synced(const double * edge, tSn2OscShape shape, double phase, double ratio, double stretch, double offset);
 
 #endif // __TI_OSC_H__

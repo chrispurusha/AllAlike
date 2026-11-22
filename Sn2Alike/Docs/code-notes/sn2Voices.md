@@ -138,3 +138,12 @@ again the voice already on it - held, pedal-held or releasing - and restarts it 
 zero unless Osc Free, §8). Stack lets that voice go (unless held by a one-shot envelope) and takes a free voice, else
 the oldest, so each strike rings on; with a sustain pedal and a long release that piles up voices, which is what Piano
 is for. What the instrument itself does with a repeated key is not yet checked.
+
+## 22. Envelope to pitch
+Env 2 and Env 3 move each oscillator's pitch from the program (bytes 29 and 30 for Osc 1, 34 on for each oscillator),
+with no dials yet: amount a = depth - 64, a x |a| / 28.8 semitones at a full envelope - twice the LFOs' law (§15), as
+an LFO counts half - times the envelope's level and its velocity setting. Checked 2026-11-22 against the instrument's
+arithmetic (Maths FIXED): steady offsets within 0.1 semitone up and down, and Env 3 decays tracked step for step. Past
+about 45 semitones the instrument's pitch word runs out of range (FIXED wraps; ours does not) - only extreme settings
+reach it.
+

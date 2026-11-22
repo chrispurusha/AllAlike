@@ -159,7 +159,7 @@ delays, the sine LFO's Symmetry.
 ## Sn2Alike
 
 **Missing**
-- **Oscillator:** Sync, Hardness, Skew, Formant Width; the audio-input types.
+- **Oscillator:** Hardness, Skew, Formant Width; the audio-input types. (Sync BUILT 2026-11-22, sn2Osc notes §5.)
 - **Modulation:** LFO routes to level, Soften, sync and resonance; LFO speed from Env 3, wheel and pressure; LFO tempo sync; envelope routes to pitch, width, level and resonance; Env 2 Delay; Env 2 and 3 generally.
 - **Effects:** the comb, Pan Type, phaser types, the chorus feedback law, the Gated reverbs' gates.
 - **Performances:** not read at all.

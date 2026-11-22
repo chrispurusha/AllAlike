@@ -195,6 +195,7 @@ static void lfo_advance(tSn2Voices * v, tSn2Voice * vc, const tSn2Sound * sound,
 
     for (int o = 0; o < SN2_OSCS; o++) {
         vc->lfoSemis[o] = 0.0;
+        vc->syncMod[o]  = 0.0;
         width[o]        = sound->osc[o].width;
     }
 
@@ -217,6 +218,7 @@ static void lfo_advance(tSn2Voices * v, tSn2Voice * vc, const tSn2Sound * sound,
 
         for (int o = 0; o < SN2_OSCS; o++) {
             vc->lfoSemis[o] += value * sound->osc[o].lfoPitch[l];
+            vc->syncMod[o]  += LFO_TO_LEVEL * value * sound->osc[o].syncLfo[l];   // sn2Osc notes §5: an LFO counts half, as on the levels
             width[o]        += value * sound->osc[o].lfoWidth[l];
         }
     }
@@ -542,6 +544,11 @@ static double velocity_level(double velocity, double amount) {
     return 1.0 - (((64.0 - amount) / 64.0) * curve);
 }
 
+// sn2Osc notes §5: one sample of an oscillator, free or synced
+static double osc_sample(const double * edge, tSn2OscShape shape, double phase, double ratio, double stretch, double width) {
+    return (ratio > 0.0) ? sn2_osc_sample_synced(edge, shape, phase, ratio, stretch, width) : sn2_osc_sample(edge, shape, phase, stretch, width);
+}
+
 static void render_sub_block(tSn2Voices * v, const tSn2Sound * sound, double cutoff, double res, const tSn2EnvShape * amp, const tSn2EnvShape * mods,
                              float * out, uint32_t frames, double gain) {
     double drive  = sn2_filter_drive_word(sound->overdrive);
@@ -572,6 +579,12 @@ static void render_sub_block(tSn2Voices * v, const tSn2Sound * sound, double cut
         double           width[SN2_OSCS];
 
         lfo_advance(v, vc, sound, (double)frames / v->rate, &lfoCut, width);
+
+        for (int o = 0; o < SN2_OSCS; o++) {   // notes §22: Env 2 and Env 3 to pitch, as the LFOs
+            for (int e = 0; e < SN2_MOD_ENVS; e++) {
+                vc->lfoSemis[o] += vc->env[e].level * velocity_level(vc->velocity, sound->env[e].velocity) * sound->osc[o].envPitch[e];
+            }
+        }
 
         if (vc->glide != 0.0) {
             advance_glide(vc, sound, (double)frames / v->rate);
@@ -606,21 +619,28 @@ static void render_sub_block(tSn2Voices * v, const tSn2Sound * sound, double cut
         }
 
         double           oscLevel[SN2_OSCS];
+        double           ratio[SN2_OSCS];   // sn2Osc notes §5: the sync slave's, 0 free
 
         for (int o = 0; o < SN2_OSCS; o++) {
-            stretch[o]  = sn2_osc_stretch(vc->increment[o], sound->osc[o].soften);
+            const tSn2OscSound * os   = &sound->osc[o];
+            double               sync = os->sync + vc->syncMod[o] + (vc->env[0].level * os->syncEnv2);   // sn2Osc notes §5
+            bool                 on   = (os->sync > 0.0) || (os->syncLfo[0] != 0.0) || (os->syncLfo[1] != 0.0) || (os->syncEnv2 != 0.0);
+
+            sync        = fmax(0.0, sync);
+            ratio[o]    = on ? sn2_sync_ratio(sync) : 0.0;
+            stretch[o]  = sn2_osc_stretch(vc->increment[o] * (on ? pow(2.0, sync / 24.0) : 1.0), os->soften);   // past the cap too
             oscLevel[o] = slot[o];
         }
 
-        double           ring13                   = slot[3];
-        double           ring23                   = slot[4];
-        double           noiseLevel               = slot[5];
+        double           ring13     = slot[3];
+        double           ring23     = slot[4];
+        double           noiseLevel = slot[5];
 
         // notes §18: FM depth from each slot's level, squared; a slot set to FM is not heard as ring or noise
-        double           fmD13                    = sound->fm13 ? (FM_DEPTH * pow(ring13 * 128.0, 2.0)) : 0.0;
-        double           fmD23                    = sound->fm23 ? (FM_DEPTH * pow(ring23 * 128.0, 2.0)) : 0.0;
-        double           fmDN                     = sound->fmNoise ? (FM_DEPTH * pow(noiseLevel * 128.0, 2.0)) : 0.0;
-        bool             fm                       = (fmD13 != 0.0) || (fmD23 != 0.0) || (fmDN != 0.0);
+        double           fmD13      = sound->fm13 ? (FM_DEPTH * pow(ring13 * 128.0, 2.0)) : 0.0;
+        double           fmD23      = sound->fm23 ? (FM_DEPTH * pow(ring23 * 128.0, 2.0)) : 0.0;
+        double           fmDN       = sound->fmNoise ? (FM_DEPTH * pow(noiseLevel * 128.0, 2.0)) : 0.0;
+        bool             fm         = (fmD13 != 0.0) || (fmD23 != 0.0) || (fmDN != 0.0);
 
         fmD13 *= (sound->osc[0].shape == eTiOscSquare) ? 1.0 : FM_SAW;
         fmD23 *= (sound->osc[1].shape == eTiOscSquare) ? 1.0 : FM_SAW;
@@ -646,7 +666,7 @@ static void render_sub_block(tSn2Voices * v, const tSn2Sound * sound, double cut
                     double * h  = vc->cleanHist[o];
 
                     for (int k = 0; k < CLEAN_FACTOR; k++) {
-                        h[(vc->cleanAt + k) % SN2_CLEAN_TAPS] = sn2_osc_sample(v->edge, os->shape, vc->phase[o], stretch[o], wid);
+                        h[(vc->cleanAt + k) % SN2_CLEAN_TAPS] = osc_sample(v->edge, os->shape, vc->phase[o], ratio[o], stretch[o], wid);
                         double sub = vc->increment[o];
 
                         if (fm3) {   // Osc 1's and Osc 2's own sub-steps, not their filtered output
@@ -668,7 +688,7 @@ static void render_sub_block(tSn2Voices * v, const tSn2Sound * sound, double cut
 
                     wave[o] = y;
                 } else {
-                    wave[o]       = sn2_osc_sample(v->edge, os->shape, vc->phase[o], stretch[o], wid);
+                    wave[o]       = osc_sample(v->edge, os->shape, vc->phase[o], ratio[o], stretch[o], wid);
                     double inc = vc->increment[o];
 
                     if (fm3) {   // through zero, within a cycle a sample

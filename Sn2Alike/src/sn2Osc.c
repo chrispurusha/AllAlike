@@ -28,6 +28,7 @@
 #define SOFT_LEAST       (29.0)
 #define SOFT_SCALE       (61.0)
 #define SOFT_STEP        (0.96)
+#define SYNC_TOP         (120.0)     // notes §5: a ratio of 32
 
 // notes §1: a saw's ramp, shaped by the table towards its jump
 static double ramp(const double * edge, double phase, double stretch) {
@@ -44,6 +45,34 @@ double sn2_osc_stretch(double increment, double soften) {
     double soft  = SOFT_LEAST + (SOFT_SCALE * ((pow(2.0, whole) * (1.0 + (SOFT_STEP * ((soften / 16.0) - whole)))) - 1.0));
 
     return fmax(fmin(pitch, soft), 1.0);
+}
+
+double sn2_sync_ratio(double sync) {
+    return pow(2.0, fmin(sync, SYNC_TOP) / 24.0);
+}
+
+// notes §5: the slave restarts with each of the oscillator's cycles; its last, partial cycle is centred on zero
+double sn2_sync_phase(double phase, double ratio) {
+    double cycles = ratio * (phase + 1.0) / 2.0;
+    double whole  = floor(cycles);
+    double slave  = (2.0 * (cycles - whole)) - 1.0;
+    double part   = ratio - floor(ratio);
+
+    return ((whole >= floor(ratio)) && (part > 0.0)) ? (slave + 1.0 - part) : slave;
+}
+
+double sn2_osc_sample_synced(const double * edge, tSn2OscShape shape, double phase, double ratio, double stretch, double offset) {
+    double out = ramp(edge, sn2_sync_phase(phase, ratio), stretch);
+
+    if (shape != eTiOscSaw) {   // the second ramp's own slave, its master moved on by the offset over the ratio
+        double other  = phase + (((shape == eTiOscSquare) ? offset : (offset - 1.0)) / ratio);
+
+        other = (other >= 1.0) ? (other - 2.0) : ((other < -1.0) ? (other + 2.0) : other);
+        double second = ramp(edge, sn2_sync_phase(other, ratio), stretch);
+
+        out  += (shape == eTiOscSquare) ? -second : second;
+    }
+    return out / 2.0;
 }
 
 double sn2_osc_sample(const double * edge, tSn2OscShape shape, double phase, double stretch, double offset) {

@@ -68,9 +68,9 @@ int main(int argc, char ** argv) {
     sn2_patch_name(gPrograms[index], name);
     tSn2Sound         sound = {
         .osc            = {
-            OSC_SOUND(values, kSn2ParamOscShape,  kSn2ParamPulseWidth, kSn2ParamOscSoften,  kSn2ParamOscLevel,  kSn2ParamOsc1Octave, kSn2ParamOsc1Semitone, kSn2ParamOsc1Fine),
-            OSC_SOUND(values, kSn2ParamOsc2Shape, kSn2ParamOsc2Width,  kSn2ParamOsc2Soften, kSn2ParamOsc2Level, kSn2ParamOsc2Octave, kSn2ParamOsc2Semitone, kSn2ParamOsc2Fine),
-            OSC_SOUND(values, kSn2ParamOsc3Shape, kSn2ParamOsc3Width,  kSn2ParamOsc3Soften, kSn2ParamOsc3Level, kSn2ParamOsc3Octave, kSn2ParamOsc3Semitone, kSn2ParamOsc3Fine),
+            OSC_SOUND(values, kSn2ParamOscShape,  kSn2ParamPulseWidth, kSn2ParamOscSoften,  kSn2ParamOscLevel,  kSn2ParamOsc1Octave, kSn2ParamOsc1Semitone, kSn2ParamOsc1Fine, kSn2ParamOscSync),
+            OSC_SOUND(values, kSn2ParamOsc2Shape, kSn2ParamOsc2Width,  kSn2ParamOsc2Soften, kSn2ParamOsc2Level, kSn2ParamOsc2Octave, kSn2ParamOsc2Semitone, kSn2ParamOsc2Fine, kSn2ParamOsc2Sync),
+            OSC_SOUND(values, kSn2ParamOsc3Shape, kSn2ParamOsc3Width,  kSn2ParamOsc3Soften, kSn2ParamOsc3Level, kSn2ParamOsc3Octave, kSn2ParamOsc3Semitone, kSn2ParamOsc3Fine, kSn2ParamOsc3Sync),
         },
         .cutoff         = values[kSn2ParamCutoff] * 127.0,
         .resonance      = values[kSn2ParamResonance] * 127.0,

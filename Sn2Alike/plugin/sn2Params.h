@@ -42,14 +42,17 @@ enum {
     kSn2ParamProgram,
     kSn2ParamBank,
     kSn2ParamOscSoften,
+    kSn2ParamOscSync,        // sn2Osc notes §5: each oscillator synced to a slave Sync/2 semitones above it
     kSn2ParamOscLevel,
     kSn2ParamOsc2Shape,
     kSn2ParamOsc2Width,
     kSn2ParamOsc2Soften,
+    kSn2ParamOsc2Sync,
     kSn2ParamOsc2Level,
     kSn2ParamOsc3Shape,
     kSn2ParamOsc3Width,
     kSn2ParamOsc3Soften,
+    kSn2ParamOsc3Sync,
     kSn2ParamOsc3Level,
     kSn2ParamOsc1Octave,
     kSn2ParamOsc1Semitone,
@@ -204,6 +207,21 @@ enum {
     kSn2ParamNoiseLfo2Level,
     kSn2ParamArithmetic,     // sn2Fixed notes §9: Maths - FLOAT, or FIXED in the instrument's own words
     kSn2ParamFilterWidth,    // sn2Filter notes §7: Special Filter Width - the two sections apart
+    kSn2ParamOsc1SyncEnv2,   // sn2Osc notes §5: what moves each oscillator's Sync, from the program
+    kSn2ParamOsc2SyncEnv2,
+    kSn2ParamOsc3SyncEnv2,
+    kSn2ParamOsc1SyncLfo1,
+    kSn2ParamOsc2SyncLfo1,
+    kSn2ParamOsc3SyncLfo1,
+    kSn2ParamOsc1SyncLfo2,
+    kSn2ParamOsc2SyncLfo2,
+    kSn2ParamOsc3SyncLfo2,
+    kSn2ParamOsc1PitchEnv2,   // sn2Voices notes §22: envelope to pitch, from the program
+    kSn2ParamOsc2PitchEnv2,
+    kSn2ParamOsc3PitchEnv2,
+    kSn2ParamOsc1PitchEnv3,
+    kSn2ParamOsc2PitchEnv3,
+    kSn2ParamOsc3PitchEnv3,
     kSn2ParamCount
 };
 

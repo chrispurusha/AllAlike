@@ -283,9 +283,9 @@ static void sn2_set_param(void * inst, uint32_t id, double normalized);
 static tSn2Sound make_sound(const tSn2Plugin * t) {
     tSn2Sound sound = (tSn2Sound){
         .osc            = {
-            OSC_SOUND(t->values, kSn2ParamOscShape,  kSn2ParamPulseWidth, kSn2ParamOscSoften,  kSn2ParamOscLevel,  kSn2ParamOsc1Octave, kSn2ParamOsc1Semitone, kSn2ParamOsc1Fine),
-            OSC_SOUND(t->values, kSn2ParamOsc2Shape, kSn2ParamOsc2Width,  kSn2ParamOsc2Soften, kSn2ParamOsc2Level, kSn2ParamOsc2Octave, kSn2ParamOsc2Semitone, kSn2ParamOsc2Fine),
-            OSC_SOUND(t->values, kSn2ParamOsc3Shape, kSn2ParamOsc3Width,  kSn2ParamOsc3Soften, kSn2ParamOsc3Level, kSn2ParamOsc3Octave, kSn2ParamOsc3Semitone, kSn2ParamOsc3Fine),
+            OSC_SOUND(t->values, kSn2ParamOscShape,  kSn2ParamPulseWidth, kSn2ParamOscSoften,  kSn2ParamOscLevel,  kSn2ParamOsc1Octave, kSn2ParamOsc1Semitone, kSn2ParamOsc1Fine, kSn2ParamOscSync),
+            OSC_SOUND(t->values, kSn2ParamOsc2Shape, kSn2ParamOsc2Width,  kSn2ParamOsc2Soften, kSn2ParamOsc2Level, kSn2ParamOsc2Octave, kSn2ParamOsc2Semitone, kSn2ParamOsc2Fine, kSn2ParamOsc2Sync),
+            OSC_SOUND(t->values, kSn2ParamOsc3Shape, kSn2ParamOsc3Width,  kSn2ParamOsc3Soften, kSn2ParamOsc3Level, kSn2ParamOsc3Octave, kSn2ParamOsc3Semitone, kSn2ParamOsc3Fine, kSn2ParamOsc3Sync),
         },
         .cutoff         = t->values[kSn2ParamCutoff] * 127.0,
         .resonance      = t->values[kSn2ParamResonance] * 127.0,

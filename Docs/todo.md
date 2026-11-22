@@ -23,6 +23,7 @@ Work that spans the plug-ins. One line per item; each product's own list is in i
 - Performance controllers per frame (owner 11-16): BUILT 11-16 in Nl3Alike (wheel, bend, pressure), Sn2Alike (wheel, bend), TiAlike (bend through Sostenuto), UltraAlike (bend, wheel, pedal) - SynthLib synthlibCtlPoints.h; Pulse2Alike still takes a block's last value (its engines render a whole block each - the loop needs splitting at the points); each instrument's own smoothing measured only for the NL3 (8 steps over 6.5 ms)
 
 ## Panels, every Alike
+- Dial text overlapping the next control's text (CT 11-22, seen in one plug-in, which not noted): run through every page of every Alike with each dial at its widest value text (longest unit, negative, extremes) and choices at their longest name; fix by shortening or fitting the text, as long choice names already shrink
 - HARDWARE's Device dial (CT 2026-11-17: makes no sense as a dial): replace with a drop-down menu of its values, in every Alike that has one (Nl3Alike, Sn2Alike); `panel-layout.md` to follow
 - Panel layout (CT 2026-11-17, `panel-layout.md`): the four synths follow it; check UltraAlike, OneShot and ModAlike against it (Voices, Same Note, Anti-alias, Link in the same places and names); release notes: projects saved before 11-17 load the moved plug-in settings wrongly
 

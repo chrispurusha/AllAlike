@@ -59,6 +59,7 @@ typedef struct {
     double           lfoValue[SN2_LFOS]; // this sub-block's, for the level routes
     double           lfoAge;             // seconds since the note began
     double           lfoSemis[SN2_OSCS];
+    double           syncMod[SN2_OSCS];  // Sync steps the LFOs add this sub-block
     uint64_t         started;            // for stealing the oldest
     tSn2FixedVoice * fixed;              // sn2Fixed notes §9: its twin in the instrument's own words, with Maths FIXED
     uint32_t         quiet;              // samples silent since it was let go
@@ -82,6 +83,10 @@ typedef struct {
     double       octaves, semitones, cents;
     double       width;              // 0..2, 1 square
     double       soften;             // 0..127
+    double       sync;               // 0..127, 0 free
+    double       syncEnv2;           // Sync steps at full Env 2
+    double       syncLfo[SN2_LFOS];  // Sync steps at full swing
+    double       envPitch[2];        // semitones at full Env 2, Env 3
     double       level;              // 0..1
     double       bendRange;          // semitones at full bend, negative inverts the wheel
     double       wheelPitch;         // semitones at full wheel
@@ -134,13 +139,14 @@ typedef struct {
 } tSn2Sound;
 
 // One oscillator's sound from normalised parameters
-#define OSC_SOUND(values, shape_, width_, soften_, level_, octave_, semitone_, fine_)                   { \
+#define OSC_SOUND(values, shape_, width_, soften_, level_, octave_, semitone_, fine_, sync_)            { \
        .shape     = (tSn2OscShape)lround((values)[shape_] * 2.0),                                         \
        .octaves   = ((values)[octave_] * 4.0) - 2.0,                                                      \
        .semitones = ((values)[semitone_] * 24.0) - 12.0,                                                  \
        .cents     = ((values)[fine_] * 127.0) - 64.0,                                                     \
        .width     = (values)[width_] * 127.0 / 64.0,                                                      \
        .soften    = (values)[soften_] * 127.0,                                                            \
+       .sync      = (values)[sync_] * 127.0,                                                              \
        .level     = (values)[level_] * 127.0 / 128.0,                                                     \
 }
 
