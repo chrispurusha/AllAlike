@@ -2,12 +2,14 @@
 
 ## First
 - **Fixed-point option** - BUILT 2026-11-22, Maths FLOAT/FIXED in Global's PLUG-IN section (sn2Fixed notes). Words calculated or measured: linear fields, envelope times, velocity, filter type, oscillator type/octave/semitone, pulse width, LFO delay (fade mode 0), overdrive, Special Width. Still to do: fine tune (approximate), Q Normalise, LFO speeds, LFO delay fade mode 1, width modulation, drift, flags word
-- FM EP (A007): float holds its level where the hardware and FIXED decay - find what float misses
+- Output tilt (hardware 11-22, Osc 1 alone, filter open): the instrument's harmonics fall faster than ours - re the fundamental -1.8 dB at h2, -3.8 at h4, -3.9 at h16, -5.6 at h64. The instrument's own arithmetic (voice and effects) matches ours within 0.4 dB, so it is after the processors or in the rig: loop a flat signal through the rig first; if real, measure the output response once and consider a fixed output EQ. Levels match within ~0.6 dB from cutoff 20 to 127, LFO to cutoff in level and direction (capture /Volumes/ext-ssd/Captures/Sn2Alike/cutsweep_2026-11-22.json)
+- LFO settings by the instrument's names (owner 11-22): Freewheel/Keysync (done), delay sync, delay fade/gate, delay fade in/out, sync on/off - check each against the panel and program bytes (Delay Trigger bytes 169/179 are still unread)
+- Oscillator Sync (FLOAT; FIXED has it): 110 of the 1424 backup programs have an audible synced oscillator (most at 63). Law from FIXED 11-22: hard sync, the slave Sync/2 semitones above the note (24, 48, 96 give the saw one, two, four octaves up with no fundamental; 127 peaks at h32); ModKnob LFO2 Sync moves it. Next: how the instrument smooths the reset - trace the oscillator words in FIXED - then build and compare with FIXED. FM EP (A007) is this: Sync 63 plus LFO 2 to sync puts its energy near h32, under cutoff 46, so the instrument (and FIXED) is quiet and decays with Env 2 while FLOAT plays the plain square
 - A011: FLOAT and FIXED agree, but are ~9 dB above the hardware capture (which had the effects on) - check with effects matched
 - Same Note (built 11-17, sn2Voices notes §21): find what the instrument does with a key struck again (one voice restarted, or a new voice beside the releasing one) and make that the default
 - Envelope Delay (Env 2 and Env 3, program bytes 193 and 187) is not built: the instrument delays the envelope's start (Env 2 Delay 0 acts at once, 64 arrives between 0.1 and 1.2 s, 112 not within 1.2 s - hardware 2026-11-08); the reference ignores it, so measure the law on the hardware (more values, longer notes, a pitch track that survives the jump)
 - LFO Delay Trigger (program bytes 169 and 179) is not read; find what it does (single or multi trigger of the delay?) on the hardware. And recheck the LFO Delay law itself there (it was measured on the reference, which ignores envelope delay)
-- Aliasing setting (optional), per instance as in Nl3Alike: Instrument or Clean (`../Docs/feature-status.md`, anti-aliasing); first find why more Soften aliases more (-84 dB at Soften 0, -66 at 64, A4)
+- Anti-alias (Global, built): find why more Soften aliases more (-84 dB at Soften 0, -66 at 64, A4)
 - Oscillator: Sync, Hardness, Skew, Formant Width; audio inputs; tighten the stretch law (design: nulls stop near -31 dB)
 - Performances not read
 - FM (6%); LFO routes to level, Soften, sync and resonance; LFO Speed from Env 3, wheel and pressure; wheel and pressure to LFO depth; LFO Sync to tempo; Env routes to pitch, width, level and resonance; Env 2 Delay
@@ -42,7 +44,7 @@
 - Link: the SysEx ID from the identity reply (hardware notes §4, built 2026-11-08): check on the instrument that choosing the port sets it
 - Outliers after the LFOs: Vanilla group -3 dB, TB1, BubbleArp, China Cymbal, Ride 2, A Syncy Feeling, RainPicks, Timpani
 - FM built 2026-11-12 (voices notes §18). Still out: Elect Hi Tom 2 and Ride 2 (square modulators at 111 and 66) are no closer with FM on - look at what else they use; look at whether the level routes (voices notes §19) scale the depth as the level does
-- Arpeggiator: 58 of the backup's programs use it and play without it here; the ranking lists them apart
+- Arpeggiator: 58 of the backup's programs use it and play without it here; the ranking lists them apart (A001 SkewedArp: the instrument steps a held C over 36/48/60/67 - pattern bank 76, octave range 2; owner compares with it off meanwhile)
 - Mixer level routes (voices notes §19): checked on Env 2 to Osc 1 only; the LFO and Env 3 routes and the ring and noise slots take the same law untested
 - Filter Oscs Bypass: whether the ring products go round the filter with the oscillators
 - Self Osc (6:85): Resonance 127, Q Normalise 127, a short Env 2 noise burst - ours starts self-oscillating from 33 dB lower and reaches full 0.3 s late; the filter words match ours, the cause is elsewhere

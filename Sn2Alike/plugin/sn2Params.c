@@ -404,7 +404,7 @@ static const tSn2Section kEnvelopesPage[]   = {
 };
 static const char *const kLfoShapes[]       = {"Square", "Saw", "Triangle", "S+H"};
 static const char *const kLfoRanges[]       = {"x1", "x10", "x100"};
-static const char *const kLfoTriggers[]     = {"Free", "Key"};
+static const char *const kLfoTriggers[]     = {"Freewheel", "Keysync"};
 static const char *const kLfoFades[]        = {"In", "Out"};
 #define LFO_CONTROLS(n)    {                                                              \
        {kSn2ParamLfo ## n ## Shape, "Shape", eTiControlChoice, 3, 0.0, kLfoShapes},       \

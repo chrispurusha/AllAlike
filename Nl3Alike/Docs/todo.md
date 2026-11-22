@@ -3,7 +3,7 @@
 ## First
 - Priority (CT 2026-11-14): programs 2-4 (String Pad, Happy ending, Ethereality) - Unison done; multi types 1, 4, 5 and the Sine's Shape done (filter notes §15-16, osc notes §12) - vibrato BUILT 11-14 (voices notes §31; source 1 = aftertouch, 2 = wheel); what reaches the second cutoff (Filter 2 Env, key track, LFO to Filter 2) measured, then the Sine's Shape (program 4); vibrato later
 - Modulation (CT 2026-11-14: first): LFO 2 to Resonance and Pan, Invert on the positive-only destinations, LFO to Osc Mod once Osc Mod exists (pitch, filter, Shape, Osc Mix and Amp done, voices notes §21-22); Smooth Random and Special waves; keyed start phase; Mono mode (Env single cycle BUILT 11-20, voices notes §37)
-- Modulation: what the Mod Env's Amount 127 does to pitch (the offset reads zero); its other destinations are built bar OSCMOD and FILT 2 (below)
+- Modulation: what the Mod Env's Amount 127 does to pitch (the offset reads zero); its destinations are built bar FILT 2 (OSCMOD is built: voices notes §39)
 - Morph: aftertouch BUILT 11-14 (channel pressure, the wheel's law assumed - measure it); the Control Pedal as a source; whether a morphed knob is clamped to its range before or after the groups add
 - Check the switch names against the instrument (stored value = panel position is measured; the names follow the
   manual's order)
@@ -36,7 +36,7 @@
   - Dual Sine BUILT 11-20 (osc notes §19) - recheck 1:1 TD Style Lead, 1:11 IonoSPHERE, 1:14 ElecGit, 1:22 FMorgan2; Dual Sine FM's depth still 1-4 dB apart from the instrument's arithmetic - trace the phase words sample for sample
   - Dist LP BUILT 11-20 (filter notes §17) - recheck 1:8 Distorted Lead and 1:14 ElecGit
   - 1:8 Distorted Lead (CT 11-20): mod wheel tracking not quite right - its wheel morphs Freq 1 by +98 from 39; the instrument's cutoff rises straight on past knob 127 where ours jumped fully open: FIXED 11-20 (filter notes §4), recheck
-  - 1:11 IonoSPHERE (CT 11-20, later): DFM not right (or ours sounds like the hardware's DM) - type is read right (bit 380). Osc Mod FM/DFM into Dual Sine oscillators is far from the instrument's arithmetic: both Dual Sine FM, DFM 64 at A4 - ours has much more top; DFM 40 with Osc 2 Carrier 28 - the instrument shows no modulation at all, ours some. Modulator sign/weights and sine B's plain increment fixed 11-20 (osc notes §19) changed nothing there: trace the DFM routine ($7EF) and Osc 1's $A88 sample for sample. FILT now takes a Dual Sine Osc 2's Osc Mod signal, not its output - check
+  - 1:11 IonoSPHERE: DFM into Dual Sine now agrees with the instrument's arithmetic wherever the result does not hang on the oscillators' start phase (osc notes §17) - listen again against the hardware
   - 1:11 IonoSPHERE (CT 11-20): Osc 2 out of tune, ours about an octave off - Carrier with Partial is a partial ratio (9x the note here, ours played +9 semitones), FIXED 11-20 (osc notes §19); recheck
   - 1:9 Early lead (CT 11-20): glide missing - Glide Mode 2 = Auto (legato only) confirmed on the instrument; the glide is now the instrument's constant rate (voices notes §12, BUILT 11-20) where ours was a near-instant fixed time: recheck legato
   - Osc 2 Noise BUILT 11-20 (osc notes §20) - 1:20 Hard Wind is noise now but quiet (-53 dB): recheck its level against the instrument
@@ -55,7 +55,7 @@
   - 1:18 Albatross: zipper/tick in Nl3Alike
   - 1:19 ChimeOrch: louder on the instrument
   - 1:21 SawLead: detuning FIXED 11-16 (Osc 2 Partial, osc notes §16) - recheck the ticking; 5-7 dB quiet against the other programs (Classic filter, Distortion 100?)
-- Osc Mod: FM and DFM BUILT 11-16 (osc notes §17), DM, DIST and RM BUILT 11-20 (§18); FILT BUILT 11-20 (filter notes §18); LFO to OSCMOD and Mod Env/LFO to FILT 2 BUILT 11-20 (voices notes §39); still fixed-point forms of §18 and a check against the hardware
+- Osc Mod: all six types BUILT and checked against the instrument's arithmetic 11-22 (FM/DFM within 0.7 dB at 64-127 once the modulated increment wraps, osc notes §17; DIST and RM within 0.6 dB; DM within 0.8 dB off unison). Still: fixed-point forms of DM/DIST/RM (§18) for Maths FIXED, and a check against the hardware
 - Poly Legato (manual p.108): a chord played over a held one takes over the old voices without restarting the envelopes, and with Glide each glides in parallel to its new note, plus the rules for a chord with more or fewer notes - replaces the stopgap in voices notes §12a (poly + Legato glides each voice from its own last pitch while a key is held; envelopes restart)
 - Arpeggiator BUILT 11-21 (arp notes): still open - with Chord Memory and Unison; nl3render does not run it
 - Mono note priority (stored 1 = lowest, 2 = highest, arp notes §4) is not played by the voices: last-note priority always

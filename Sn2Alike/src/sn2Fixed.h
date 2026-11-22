@@ -27,7 +27,8 @@
 
 #include "sn2Dsp.h"
 
-#define SN2_FIXED_WORDS    (0xDE)   // notes §6: a voice's words from the host side, the first its flags
+#define SN2_FIXED_WORDS        (0xDE)
+#define SN2_FIXED_LFO_WORDS    (4) // notes §6: a voice's words from the host side, the first its flags
 
 // notes §6: one voice in the instrument's words - its memory, its registers
 typedef struct {
@@ -43,6 +44,9 @@ void sn2_fixed_voice_clear(tSn2FixedVoice * v);
 // notes §7: a note - the host's words, then the update; and its release
 void sn2_fixed_voice_start(tSn2FixedVoice * v, const uint32_t words[SN2_FIXED_WORDS]);
 void sn2_fixed_voice_release(tSn2FixedVoice * v);
+// notes §10: a free-running LFO - its phase words taken over from another voice (or the voice's own, before a clear)
+void sn2_fixed_lfo_save(const tSn2FixedVoice * v, int lfo, uint32_t saved[SN2_FIXED_LFO_WORDS]);
+void sn2_fixed_lfo_restore(tSn2FixedVoice * v, int lfo, const uint32_t saved[SN2_FIXED_LFO_WORDS]);
 // one sample at the engine's rate: what the voice adds to its bus, -1..1
 double sn2_fixed_voice_sample(tSn2FixedVoice * v);
 

@@ -575,7 +575,7 @@ static bool sn2_param_text(const tSynthLibPluginDesc * desc, void * inst, uint32
 
         snprintf(out, len, "%s", ranges[(step < 0) ? 0 : ((step > 2) ? 2 : step)]);
     } else if ((id == kSn2ParamLfo1Trigger) || (id == kSn2ParamLfo2Trigger)) {
-        snprintf(out, len, "%s", (step > 0) ? "Key" : "Free");
+        snprintf(out, len, "%s", (step > 0) ? "Keysync" : "Freewheel");
     } else if ((id == kSn2ParamLfo1Fade) || (id == kSn2ParamLfo2Fade)) {
         snprintf(out, len, "%s", (step > 0) ? "Out" : "In");
     } else if ((id == kSn2ParamHwLink) || (id == kSn2ParamPanEffects)) {

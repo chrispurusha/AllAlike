@@ -164,7 +164,14 @@ Mod (2026-11-20: first built on the whole output, twice too deep; plain sines wi
 instrument's arithmetic within about 1 dB on ten lines, where they were 5-50 dB apart), a fixed deviation whatever the note, so the spectrum changes
 across the keyboard; with DFM it gains 16 x depth x the change in that signal between its last two samples - phase
 modulation, the index the same at every pitch, as the instrument's manual describes. Increments are in the units the
-phase uses (2.0 a cycle). The Mod Env's OSCMOD destination adds its Amount steps to Osc Mod's before the square. Not
+phase uses (2.0 a cycle). The Mod Env's OSCMOD destination adds its Amount steps to Osc Mod's before the square. The modulated increment is
+stored as the accumulator's middle word, not limited: past half a cycle a sample it wraps round, as a phase does
+(limiting it, as first built, pinned Osc 1 at the top of the band - FM 127 lost its fundamental by some 56 dB).
+Checked 2026-11-22 against the instrument's arithmetic with plain sines, Osc 2 detuned so that their phase sweeps:
+FM and DFM at 64, 96 and 127 agree within 0.7 dB in every octave band. Where the two oscillators share a pitch the
+result rests on the phase between them, which is free (plain waves) or, for Dual Sine FM, set at the note's start
+within a sample or so by when the increments arrive - it differs from note to note on the instrument too, and at
+high Amounts that sample changes the timbre a great deal. Not
 yet (DM, DIST and RM are §18, FILT filter notes §18): LFO to OSCMOD; Osc 2's output taken before or after its level (taken raw here); a check
 of the result against the instrument's sound.
 

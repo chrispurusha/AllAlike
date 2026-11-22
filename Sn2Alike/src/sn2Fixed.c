@@ -125,6 +125,21 @@ void sn2_fixed_voice_start(tSn2FixedVoice * v, const uint32_t words[SN2_FIXED_WO
     v->sounding = true;
 }
 
+// notes §10: each LFO's running words; the second LFO's are five on from the first's, its last one on
+static const int kLfoWords[2][SN2_FIXED_LFO_WORDS] = {{0x86, 0x89, 0x8A, 0x9A}, {0x8B, 0x8E, 0x8F, 0x9B}};
+
+void sn2_fixed_lfo_save(const tSn2FixedVoice * v, int lfo, uint32_t saved[SN2_FIXED_LFO_WORDS]) {
+    for (int i = 0; i < SN2_FIXED_LFO_WORDS; i++) {
+        saved[i] = v->y[kLfoWords[lfo][i]];
+    }
+}
+
+void sn2_fixed_lfo_restore(tSn2FixedVoice * v, int lfo, const uint32_t saved[SN2_FIXED_LFO_WORDS]) {
+    for (int i = 0; i < SN2_FIXED_LFO_WORDS; i++) {
+        v->y[kLfoWords[lfo][i]] = saved[i];
+    }
+}
+
 // notes §7: the three sustain timers run out at once
 void sn2_fixed_voice_release(tSn2FixedVoice * v) {
     v->y[STATE + 0x16] = v->y[STATE + 0x18] = v->y[STATE + 0x1A] = 0x7FFFFF;

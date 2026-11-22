@@ -27,3 +27,5 @@ Finished work not yet checked against the instrument.
 - Fast wheel/bend/aftertouch moves (11-16, SynthLib synthlibCtlPoints.h): smooth, not stepping once a host block
 - Same Note (11-17, sn2Voices notes §21): Piano with the sustain pedal down, one key struck over and over - one voice; Stack - each strike rings on beside the last
 - Panel colours (11-17, ../Docs/panel-layout.md Colours): no grey sections; OFF/ON settings are buttons that flip on release, dimmed when off; CLIP dimmed when off; no Link HW in the patch bar (11-17) - Link is on the GLOBAL page only - all readable
+- A/B after 2026-11-22 (earlier verdicts on these are stale): Maths FIXED on A000, A007, A011 (were very quiet - the volume was applied twice) and A004; FIXED's pitch envelopes, pitch LFOs and LFO to cutoff (were missing); A001 with the arpeggiator off on the instrument (Freewheel LFOs no longer restart, in FLOAT and FIXED); FM EP (A007) in FLOAT still holds where the instrument decays (known)
+- LFO Trigger reads Freewheel / Keysync on the panel and in the host (2026-11-22)

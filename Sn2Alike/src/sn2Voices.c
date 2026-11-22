@@ -322,20 +322,9 @@ static void let_go(const tSn2Sound * sound, tSn2Voice * voice) {
 }
 
 void sn2_voices_note_on(tSn2Voices * v, const tSn2Sound * sound, uint8_t note, float velocity) {
-    tSn2Voice * pick   = NULL;
-    bool        silent = true;
+    tSn2Voice * pick = NULL;
 
     v->pedalled[note & 0x7F] = false;
-
-    for (uint32_t i = 0; i < SN2_MAX_VOICES; i++) {
-        silent = silent && !v->voice[i].active;
-    }
-
-    for (int l = 0; (l < SN2_LFOS) && silent; l++) {
-        static const double kFreeStart[4] = {0.0, 0.5, 0.75, 0.0};   // notes §15: square, saw, triangle, S+H
-
-        v->lfoFree[l] = kFreeStart[sound->lfo[l].shape & 3];
-    }
 
     if (sound->mono) {
         held_remove(v, note);
@@ -373,10 +362,10 @@ void sn2_voices_note_on(tSn2Voices * v, const tSn2Sound * sound, uint8_t note, f
             }
         }
     }
-    pick->active    = true;
-    pick->gate      = true;
-    pick->note      = note;
-    pick->velocity  = velocity;
+    pick->active   = true;
+    pick->gate     = true;
+    pick->note     = note;
+    pick->velocity = velocity;
 
     // voices notes §8
     if (!sound->oscsFree) {
@@ -386,15 +375,37 @@ void sn2_voices_note_on(tSn2Voices * v, const tSn2Sound * sound, uint8_t note, f
     start_glide(v, sound, pick, note, false);
     set_pitch(pick, sound, v->rate);
 
-    pick->started   = ++v->clock;
+    pick->started  = ++v->clock;
 
     if (sound->fixedPoint && (pick->fixed != NULL)) {   // sn2Fixed notes §9
-        uint32_t words[SN2_FIXED_WORDS];
+        uint32_t    words[SN2_FIXED_WORDS];
+
+        uint32_t    carried[SN2_LFOS][SN2_FIXED_LFO_WORDS];
+        tSn2Voice * from = pick;   // sn2Fixed notes §10: a free LFO runs on from the voice started last
+
+        for (uint32_t i = 0; i < SN2_MAX_VOICES; i++) {
+            tSn2Voice * o = &v->voice[i];
+
+            if ((o != pick) && (o->fixed != NULL) && ((from == pick) || (o->started > from->started))) {
+                from = o;
+            }
+        }
+
+        for (int l = 0; l < SN2_LFOS; l++) {
+            sn2_fixed_lfo_save(from->fixed, l, carried[l]);
+        }
 
         memcpy(words, sound->fixedWords, sizeof(words));
         sn2_fixed_note_words(words, note, velocity);
         sn2_fixed_voice_clear(pick->fixed);
         sn2_fixed_voice_start(pick->fixed, words);
+
+        for (int l = 0; l < SN2_LFOS; l++) {
+            if (!sound->lfo[l].keyed) {
+                sn2_fixed_lfo_restore(pick->fixed, l, carried[l]);
+            }
+        }
+
         pick->quiet = 0;
     }
     pick->noiseSeed = pick->noiseSeed ? pick->noiseSeed : (uint32_t)((v->clock * 2654435761u) | 1u);

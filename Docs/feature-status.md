@@ -1,7 +1,7 @@
 # Feature status
 
 Where each plug-in stands: what is **missing**, what is **built but needs more work**, and what is **built but not
-yet checked** in a host or against the instrument. Updated 2026-11-20. This overview covers all eight plug-ins; detailed
+yet checked** in a host or against the instrument. Updated 2026-11-22. This overview covers all eight plug-ins; detailed
 per-product status is summarized below and the working lists remain in each product's `Docs/`.
 
 This is a summary for planning. The working lists stay in each plug-in's `Docs/todo.md` (one line per item) and
@@ -61,7 +61,7 @@ Missing everywhere, or built in one and wanted in the others:
   would gain most; Sn2Alike's saw is at -57 to -84 dB, and more Soften aliases more - to check against the instrument;
   Pulse2Alike not measured. Clean's correction (a longer step, summed over every jump in reach) belongs in SynthLib once a
   second plug-in uses it.
-- **Arithmetic option** (float or the instrument's fixed point, per instance): TiAlike has the filter's biquad, Nl3Alike every built filter mode and the Saw, Pulse, Triangle and Sine; Sn2Alike to follow.
+- **Arithmetic option** (float or the instrument's fixed point, per instance): TiAlike has the filter's biquad, Nl3Alike every built filter mode and the Saw, Pulse, Triangle and Sine; Sn2Alike the whole voice (Maths FIXED, 2026-11-22: the instrument's own per-sample voice arithmetic, fed the words its host side writes - most computed, some still approximate, `Sn2Alike/Docs/code-notes/sn2Fixed.md`).
 - **Preset browsers by category** (2026-11-09): Pulse2Alike (by each sound's CLASS), TiAlike and Nl3Alike sort Load/Store
   Preset by category - built, not yet tried in a host; Sn2Alike to follow. Planned for all (`Docs/todo.md`): a browse
   folder listing every single under one root, Store to the next empty slot, and import becoming a confirmed Replace
@@ -160,12 +160,13 @@ delays, the sine LFO's Symmetry.
 
 **Missing**
 - **Oscillator:** Sync, Hardness, Skew, Formant Width; the audio-input types.
-- **Filter:** Special Width.
 - **Modulation:** LFO routes to level, Soften, sync and resonance; LFO speed from Env 3, wheel and pressure; LFO tempo sync; envelope routes to pitch, width, level and resonance; Env 2 Delay; Env 2 and 3 generally.
 - **Effects:** the comb, Pan Type, phaser types, the chorus feedback law, the Gated reverbs' gates.
 - **Performances:** not read at all.
 - **Panel:** only the Filter page is finished; dials for the LFO routes, bend and wheel.
-- **Arithmetic option** as TiAlike's.
+- **Arpeggiator** (58 of the backup's programs use it; A001 among them).
+
+**Built 2026-11-22:** Maths FIXED (the whole voice in the instrument's arithmetic); Special Filter Width (float within 0.1 dB of the reference); Freewheel LFOs run on through silence and from note to note in both modes, as the hardware does; FIXED's volume no longer applied twice. Checked on the hardware the same day: filter level within ~0.6 dB from cutoff 20 to 127, and LFO to cutoff in level and direction; open, the hardware's harmonics fall up to ~5.6 dB faster than ours - not in the instrument's arithmetic, so the rig or its analogue output (to settle).
 
 **Built 2026-11-12:** FM (Osc 1, Osc 2 or the noise modulating Osc 3, linear through zero, depth the level squared); the Anti-alias switch (GLOBAL page, On by default: the oscillators at four times the rate and filtered back, the instrument's aliases 7-22 dB down with the harmonics unchanged; Off is the instrument's own); the Sort menu with Prev/Next following it; a preset change stops the old notes and keeps the clip lamp out of the fade.
 
@@ -187,6 +188,7 @@ delays, the sine LFO's Symmetry.
 
 Started 2026-11-02 from Sn2Alike's skeleton. Everything below is measured on the instrument; the fixed-point paths reproduce the measured output exactly, and floating point takes the same steps.
 **Built and measured**
+- **Osc Mod**, all six types (2026-11-22 against the instrument's arithmetic): FM and DFM within 0.7 dB at Amount 64-127 once the modulated increment wraps as the instrument's does; DIST and RM within 0.6 dB; DM within 0.8 dB away from unison. Same-pitch oscillators depend on their free (or note-on, host-timed) phase, as on the instrument. Fixed-point forms of DM/DIST/RM and a check on the hardware remain.
 - **Oscillators:** Saw, Pulse (Shape sets the width, 50% to almost nothing), Triangle, Sine (Shape is a feedback), Osc 1 Noise (Shape its colour, 2026-11-16); sync (saw measured, 2026-11-14); pitch, Osc 2's Coarse in semitones (-64 to +63) or partials (2026-11-16: 366 programs use Partial, all played mistuned before), Octave Shift (2026-11-16: 354 programs played in the wrong octave); the Anti-alias switch. Oscillators run free - no note sets their phase, as on the instrument (2026-11-16; resetting it ticked on repeated and mono notes).
 - **Osc Mix** (2026-11-16): the instrument's own law, 1 - x² and 2x - x², each oscillator 2.5 dB down at the middle - within 0.1 dB of the instrument at every setting (a straight crossfade had left balanced programs up to 3.5 dB quiet).
 - **Filter:** LP and HP at 6, 12 and 24 dB, BP 12 and 24, BR, Classic (a ladder as two stages), and multi mode types 1 (lowpass beside highpass on the two cutoffs), 4 and 5 (three all-pass stages with feedback - peaks or notches, Freq 2 setting their width); coefficient laws, level compensation, key tracking (a semitone a note above C2).
@@ -203,7 +205,7 @@ Started 2026-11-02 from Sn2Alike's skeleton. Everything below is measured on the
 **Missing**
 - **Filter:** the other three multi modes, Distorted LP and filter distortion (1:1, and SawLead's level).
 - **Oscillators:** Osc 2 Noise (Noise Type and Frequency), Noise 3's colour, Dual Sine, Shape on the Saw and Triangle; sync on the other waves checked.
-- **Osc Mod** DM, Dist, Filt FM and RM (FM and DFM BUILT 2026-11-16 from the instrument's arithmetic, with the Mod Env to them); the Mod Env to Filter 2 (13); the LFOs' Smooth Random and Special waves, Env/KB-sync and Mono modes; LFO 2 to Resonance and Pan.
+- The Mod Env to Filter 2 (13); the LFOs' Smooth Random and Special waves, Env/KB-sync and Mono modes; LFO 2 to Resonance and Pan.
 - **Level across the library:** a sweep of bank 1 against the instrument at three wheel positions, the worst narrowed by switching features off on both sides (owner, 2026-11-16) - 1:2, 1:7, 1:15, 1:17, 1:18 and 1:19 noted by ear; an A/B harness scoring renders against captures.
 - Reading its 1024 programs is built but untried.
 

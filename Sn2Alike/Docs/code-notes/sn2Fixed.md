@@ -59,3 +59,10 @@ output. The program's volume is one of the voice's own words ($BE), so it is not
 float voices: applying it twice took a program at volume 9 some 19 dB too low. A volume change reaches the next note. A twin silent for 4096 samples after its release frees the slot. The
 effects stay in floating point: the instrument does them on another processor. On the base test program FIXED
 nulls against the instrument to 44.9 dB, its spectrum the same to 0.01 dB, its level to 0.00 dB.
+
+## 10. Free-running LFOs
+Each LFO's running state is four of the voice's words (LFO 1 at Y:$86, $89, $8A and $9A; LFO 2 five on, and $9B), none
+of them written from the host side, so a note's clear starts both LFOs from the beginning. That is what Key does. For an LFO set
+to Free the four words are carried over from the voice started last, so the LFO runs on from note to note as the
+float voices' shared free LFO does. The delay and fade are not among them and start again with each note. While no
+voice sounds, FIXED's free LFO waits where it was; the float voices' and the instrument's run on.

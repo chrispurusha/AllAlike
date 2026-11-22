@@ -59,3 +59,4 @@ Finished work not yet checked against the instrument or in a host.
 - Nl3Alike Chord Memory (1:35 Tonewheel, 1:63 FifthPad): the chord plays and lets go as one key
 - Nl3Alike LFO 2 to Pan and Resonance, wheel morphs on a Dual Sine Osc 2 (1:28 DXexpress with the wheel moving)
 - Arpeggiator (2026-11-21, arp notes): 1:43, 1:46 and other arp programs against the instrument; the ARP page - Mode, Sub, Mask steps; Clock on with the host playing
+- A/B after 2026-11-22: Osc Mod FM at high Amounts (was losing its fundamental above about 100 in FIXED), DFM on Dual Sine (1:11 IonoSPHERE, 1:1 TD Style Lead, 1:14 ElecGit, 1:22 FMorgan2) - same-pitch Dual Sine FM varies note to note on the instrument too

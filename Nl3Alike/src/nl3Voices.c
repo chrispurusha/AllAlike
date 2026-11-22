@@ -974,7 +974,9 @@ static void render_sub_block(tNl3Voices * v, const tNl3Sound * sound, double cut
                     double add = OSC_MOD_SOURCE * ((vs->oscModType == 3) ? (4.0 * fmDepth * vc->fmLast[0]) : (16.0 * fmDepth * (vc->fmLast[1] - vc->fmLast[0])));
 
                     inc += add;
-                    incW = nl3_word(fmax(-0.999, fmin(0.999, nl3_word_value(incW) + add)));
+                    double w   = nl3_word_value(incW) + add; // osc notes §17: stored raw - it wraps, as a phase does
+
+                    incW = nl3_word(w - (2.0 * floor((w + 1.0) / 2.0)));
                 }
 
                 if (os->syncNoise) {                   // osc notes §22
