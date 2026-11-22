@@ -41,3 +41,4 @@ Finished work not yet checked against the instrument.
 - Buttons of two options flip on a click instead of opening a list (2026-11-22, ../Docs/panel-layout.md)
 - Dial values in their units, panel and host, while dragging too (2026-11-22, sn2Params notes §4)
 - Glide Auto glides every note in poly, legato only in mono (2026-11-22, sn2Voices notes §12b): A016 against the instrument
+- EQ, Dry and Distortion levels from the instrument (2026-11-22, sn2Effects notes §7b, §8a): A015 and everything else with effects on, by ear - more bass than before; A024 no longer rings up

@@ -23,9 +23,9 @@
 - Envelopes: Env 2 and 3 Sustain Time and Rate are built on the amplifier's law, not checked on their own; then filter and pitch routes
 - Release 0 ends about 4 ms later than the instrument's
 - Effects: comb; Pan Type; phaser type; chorus feedback law
-- A024 rings up like feedback (owner, 2026-11-22): its chorus section is Phaser at Feedback 127, played here as a chorus with a 0.98 loop - 8.6 dB of lift that goes at Feedback 64. Wants the phaser built
-- A013 not right, perhaps one tone's tuning (owner, 2026-11-22): capture the instrument dry and wet; here the tones sit at -12.05, +31.00 and +36.05 semitones, and FLOAT's lowest one is 2 dB under FIXED's
-- A015 lower than the instrument (owner, 2026-11-22): mono, Distortion 102 at Volume 35, EQ Bass 127 - see Distortion at low Volume below; FIXED and FLOAT agree
+- A024: the phaser itself (Feedback is left off it meanwhile, sn2Effects notes §3); its dry level wanders from the instrument by some dB, a filter sweep or beating
+- A013: dry, FIXED matches the instrument to 0.3 dB at every harmonic and in pitch; FLOAT's Osc 1 is 2-3 dB low there and the chorus makes the rest of the difference
+- Effects: is the wet fed after Dry (Dry 0 is silent on the instrument)? Then chorus, delay and reverb levels against the instrument again (sn2Effects notes §8a)
 - Effects orders in Performance mode, if performances are ever built: on the instrument a program ignores its order
 - Reverb: the Gated types' gates; closer than the measured model if its network can be read
 - SuperStrings1 about 18 dB loud, sustain falling about 55 dB/s while held: cause not found (its Sustain Time and Rate are default)
@@ -38,12 +38,10 @@
 - Peaks: one note reaches about twice our peak on the instrument's model at the same rms (A001 0.46 against 0.21): the attack or a phase
 - Level meters at stages, as G2Alike's: voices, filter, effects, output; then the same on the other Alikes
 - Master Volume's law on the instrument, and where it sits: built as plain dial/127 after the ceiling
-- Distortion at low Volume: 5-9 dB cleaner here than the instrument at Volume 10 and below, 2 dB dirtier at A002's own settings
 - Volume 127 with Distortion on: the instrument is 2.5 dB up on 84, here level
 - Crest factor: the instrument's chords peak about 1.7x ours at the same rms, so it reaches the ceiling sooner
 - Voices peak about 3 dB above the instrument in A001: drives Distortion and the ceiling harder; look at oscillator start phases and the Osc mix law
 - A001 voices: 22-26 dB dark above 3 kHz with Sync off; Sync, then whatever else
-- Distortion Compensation on a saw: its level law at extreme Levels
 - Filter Overdrive and Q Normalise: check both again against the reference (owner, 2026-11-01)
 - Panel dials for LFO routes to pitch and width
 - Link: the SysEx ID from the identity reply (hardware notes §4, built 2026-11-08): check on the instrument that choosing the port sets it
