@@ -119,7 +119,7 @@ Missing everywhere, or built in one and wanted in the others:
 
 **Missing**
 - **Effects:** Chorus types other than Classic; the pattern delays'
-  routing (patterns 2+5 to 5+5 built 2026-11-09, but on the instrument the right is a single tap fed into the left's loop); Reverb's Feedback modes; Distortion Quality and Tone; Character types other than Analog Boost.
+  routing (patterns 2+5 to 5+5 built 2026-11-09, but on the instrument the right is a single tap fed into the left's loop); Distortion Tone; Character types other than Analog Boost.
 - **Vocoder, input follower, soft knobs:** not offered.
 - **Fixed point** beyond the filter (oscillators, envelopes, mix, saturation, ladder): a sample-exact null needs all of them.
 
