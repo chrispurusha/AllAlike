@@ -1,8 +1,8 @@
 # OneShot
 
-A one-sample player as a VST3 and Audio Unit instrument, built on SynthLib (macOS, arm64 + x86_64).
+A layered sample player as a VST3 and Audio Unit instrument, built on SynthLib (macOS, arm64 + x86_64).
 
-One sample per instance, held in memory, played by any note. Meant for drum and percussion hits - one instance per
+Four samples per instance, held in memory, each with its own key range. Meant for drum and percussion hits - one instance per
 pad in a Drum Rack, with ordinary effect plug-ins after it.
 
 ```

@@ -3,8 +3,8 @@
 A work in progress inspired by the Korg Prophecy, as a VST3 and Audio Unit instrument for macOS 12 or later.
 Not affiliated with or endorsed by Korg.
 
-**Placeholder.** This is the plug-in, GUI and SynthLib scaffold for a future independently modelled sound engine.
-Its current oscillator, filter, envelope, patch and hardware code is inherited scaffolding and has not been validated against the Prophecy. See
+**Early work.** Filter 1 is the instrument's, in fixed and floating point. The oscillator and the amp envelope are stand-ins;
+Filter 2, the mixer, LFOs, effects and programs are not built. See
 [`Docs/design.md`](Docs/design.md).
 
 One of the plug-ins in [AllAlike](../README.md), built on [SynthLib](https://github.com/chrispurusha/SynthLib).

@@ -39,7 +39,7 @@ for arg in "$@"; do
     case $arg in
         arm64|aarch64) ARCHS+=(aarch64) ;;
         x64|x86_64)    ARCHS+=(x86_64) ;;
-        all)           PRODUCTS=(Pulse2Alike TiAlike Sn2Alike Nl3Alike OneShot ModAlike ProphAlike) ;;
+        all)           PRODUCTS=(Pulse2Alike TiAlike Sn2Alike Nl3Alike UltraAlike OneShot ModAlike ProphAlike) ;;
         *Alike|OneShot) PRODUCTS+=($arg) ;;
         *) echo "usage: tools/do-windows-plugin <Product>|all [x64] [arm64]" >&2; exit 2 ;;
     esac

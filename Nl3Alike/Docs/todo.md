@@ -1,7 +1,7 @@
 # Nl3Alike todo
 
 ## First
-- Not read by the engine, though the panel has them: the LFOs' Clock and Divisor, and Transpose (2026-11-22)
+- Not read by the engine, though the panel has them: the LFOs' Clock, Divisor and Mono, Transpose, the arpeggiator's Keyboard Sync; the LFOs' Smooth plays as Random and Special as Triangle (2026-11-22)
 - Priority (CT 2026-11-14): programs 2-4 (String Pad, Happy ending, Ethereality) - Unison done; multi types 1, 4, 5 and the Sine's Shape done (filter notes §15-16, osc notes §12) - vibrato BUILT 11-14 (voices notes §31; source 1 = aftertouch, 2 = wheel); what reaches the second cutoff (Filter 2 Env, key track, LFO to Filter 2) measured, then the Sine's Shape (program 4); vibrato later
 - Modulation (CT 2026-11-14: first): LFO 2 to Resonance and Pan, Invert on the positive-only destinations, LFO to Osc Mod once Osc Mod exists (pitch, filter, Shape, Osc Mix and Amp done, voices notes §21-22); Smooth Random and Special waves; keyed start phase; Mono mode (Env single cycle BUILT 11-20, voices notes §37)
 - Modulation: what the Mod Env's Amount 127 does to pitch (the offset reads zero); its destinations are built bar FILT 2 (OSCMOD is built: voices notes §39)

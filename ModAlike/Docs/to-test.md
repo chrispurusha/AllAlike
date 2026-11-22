@@ -1,6 +1,6 @@
 # To test
 
-Built, not yet tried in a host or against the instrument. Confirmed: delete the line. Failed: move it to todo.md.
+Built; tried in Ableton Live (owner, 2026-11-22), these not yet checked one by one. Confirmed: delete the line. Failed: move it to todo.md.
 
 - Loads in Ableton as an effect (VST3 and AU); its panel opens, resizes, and its dials, lists and menus work; automation moves the panel's dials
 - The panel follows a change made in the host (automation, the generic parameter list) and a reopened project
@@ -14,6 +14,6 @@ Built, not yet tried in a host or against the instrument. Confirmed: delete the 
   level and stereo handling are not)
 - Flanger Range (2026-11-14, G2Alike reference §70.2): turning Range no longer zippers - Range and FB glide over 125 ms as every dial does
 - Double-click a dial: back to its default, undoable in the host
-- Shift-drag a dial: a tenth the movement, in each dial mode but Rotary
+- Shift-drag a dial: a quarter of the movement, in each dial mode but Rotary
 - Panel colours (11-17, ../Docs/panel-layout.md Colours): the effects not chosen grey, not dimmed; Anti-alias and Stage flip buttons (Anti-alias grey at 96 kHz); PLUG-IN (was ENGINE) steel blue in the order Anti-alias, Maths, Rate, Stage; OUTPUT sage
 - Buttons of two options flip on a click instead of opening a list (2026-11-22, ../Docs/panel-layout.md)

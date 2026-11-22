@@ -27,12 +27,13 @@ cd ${0:a:h}
 # name, the prefix of its build settings, and one line for the Read Me
 PRODUCTS=(
     "Pulse2Alike|P2A|A reproduction inspired by the Waldorf Pulse 2."
-    "TiAlike|TIA|A reproduction inspired by the Access Virus TI's single-patch engine. Beta."
-    "Sn2Alike|SN2|A reproduction inspired by the Novation Supernova II. Nearly ready for beta."
-    "Nl3Alike|NL3|A reproduction inspired by the Clavia Nord Lead 3. Work in progress: the filter is the instrument's, the rest a placeholder."
-    "OneShot|OS|A one-sample player for drum pads: AHR/ADSR envelope with curves, start with zero-crossing snap. Work in progress."
+    "TiAlike|TIA|A reproduction inspired by the Access Virus TI. Beta."
+    "Sn2Alike|SN2|A reproduction inspired by the Novation Supernova II. Beta."
+    "Nl3Alike|NL3|A reproduction inspired by the Clavia Nord Lead 3. Beta."
+    "UltraAlike|UA|An instrument inspired by the E-mu Ultra samplers: plays .E4B, .exb, SFZ, WAV and AIFF. Alpha."
+    "OneShot|OS|A layered sample player: four samples, with key ranges and an envelope, filter and saturation each. Work in progress."
     "ModAlike|MA|A Phaser, Chorus and Flanger as an effect, with stereo modes and Mix. Work in progress."
-    "ProphAlike|PROPH|A placeholder instrument inspired by the Korg Prophecy. Work in progress."
+    "ProphAlike|PROPH|An instrument inspired by the Korg Prophecy. Early: its Filter 1 is built, the rest a placeholder."
 )
 
 WORK=$(mktemp -d)   # never on a host's VST3 search path, and never a working build/ directory
@@ -169,6 +170,7 @@ done
 cp "$FTL" "$STAGE/Licences/FreeType FTL.txt"
 cp "$VST3_LICENSE" "$STAGE/Licences/VST3 SDK LICENSE.txt"
 
+EXPECT="$(<Docs/release-expectations.txt)"   # what changed for a user; edit it for each release
 SYNTHLIB_COMMIT="$(git -C ../SynthLib describe --always --dirty --abbrev=12)"
 ALLALIKE_COMMIT="$(git describe --always --dirty --abbrev=12)"
 
@@ -177,6 +179,8 @@ AllAlike $VERSION_CLEAN
 Reproductions of synthesizers as VST3 and Audio Unit plug-ins for macOS 12 or later (Apple silicon and Intel).
 
 $LIST
+$EXPECT
+
 INSTALLING
 
 Copy whichever plug-ins you want into the system plug-in folders. To /Library/Audio/Plug-Ins/VST3:
@@ -197,9 +201,10 @@ before the host sees it.
 
 SOUNDS
 
-Each plug-in keeps its presets in ~/Library/Application Support/<plug-in>/Presets.syx, and they start empty.
+Each synthesizer keeps its presets in ~/Library/Application Support/<plug-in>/Presets.syx, and they start empty.
 To fill them, use Import Presets in its Presets or File menu, with .syx or .mid files of the instrument's own sounds.
 No sounds ship with these plug-ins.
+UltraAlike and OneShot open files instead: Load... takes a bank or a sample.
 
 LICENCE
 
@@ -208,6 +213,9 @@ GPL version 3 - see LICENSE.txt.
 Portions of this software are copyright (C) The FreeType Project (www.freetype.org). All rights reserved.
 This software is based in part on the work of the FreeType Team. Its licence, and the VST3 SDK's, are in
 the Licences folder.
+
+The time-stretching in OneShot and UltraAlike is the Rubber Band Library, GPL version 2 or later
+(https://breakfastquay.com/rubberband/).
 
 Built from AllAlike $ALLALIKE_COMMIT with SynthLib $SYNTHLIB_COMMIT
 EOF

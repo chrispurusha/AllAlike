@@ -13,11 +13,11 @@ plug-ins is listed in `Docs/todo.md` beside this file. When an item here is done
 | Pulse2Alike | Beta: the whole instrument plays; model still has open measurement work | One sound per instance, optional extra voices |
 | TiAlike | Ready for beta (owner, 2026-11-14): voice nearly complete, effects partly | One Single per instance, a voice limit, no Multi |
 | Sn2Alike | Nearly ready for beta (owner, 2026-11-14) | One program per instance (to confirm), no performances yet |
-| Nl3Alike | Work in progress: oscillators, FM/DFM, most filter modes, envelopes, LFOs, morphs, Unison and vibrato built; several oscillator modes, filter distortion and modulation routes remain | One Program per instance |
-| UltraAlike | Work in progress: measured against an E5000 Ultra; excluded from aggregate release scripts | One preset or loose sample per instance |
+| Nl3Alike | Beta (owner, 2026-11-22): most of it plays; LFO clock, Mono and two waves, Transpose and a few switches do nothing yet | One Program per instance |
+| UltraAlike | Alpha (owner, 2026-11-22): `.E4B`, `.exb`, SFZ, WAV and AIFF play, measured against an E5000 Ultra; no filters or modulation | One preset or loose sample per instance |
 | OneShot | Work in progress: four-layer sample player with per-layer processing; host checks remain | Four sample layers per instance, each with a key range |
-| ModAlike | Work in progress: Phaser, Chorus and Flanger effect; host checks remain | One effect per instance |
-| ProphAlike | Placeholder: plug-in scaffold; engine to be measured | Instrument placeholder |
+| ModAlike | Work in progress: Phaser, Chorus and Flanger effect; plays in Ableton Live, some checks remain | One effect per instance |
+| ProphAlike | Early: Filter 1 exact; the oscillators and the rest placeholders | Instrument placeholder |
 
 ## Across all of them
 
@@ -202,11 +202,11 @@ Started 2026-11-02 from Sn2Alike's skeleton. Everything below is measured on the
 - **Program:** one parameter per field, programs read and written back byte for byte; the Sort menu; Off/On choices as toggle buttons.
 - **Link:** a change to any of 45 knobs goes as the instrument's controller and a held note follows it; anything else as the whole program, which the instrument takes from the next note (2026-11-16).
 
+- **Built 2026-11-20 to 22:** Dual Sine and its FM, Osc 2 Noise, Noise3, synched noise, Osc 2 without Keyboard Track; Distorted LP, the band pass at 6 dB and every multi mode; Osc Bypass; LFO 2 to Resonance and Pan, the LFOs' Env mode and Invert, LFO and Mod Env to Filter 2 and Osc Mod; Chord Memory; the arpeggiator with Sub and Mask.
+
 **Missing**
-- The LFOs' Clock and Divisor, and Transpose: on the panel, not read by the engine (2026-11-22).
-- **Filter:** the other three multi modes, Distorted LP and filter distortion (1:1, and SawLead's level).
-- **Oscillators:** Osc 2 Noise (Noise Type and Frequency), Noise 3's colour, Dual Sine, Shape on the Saw and Triangle; sync on the other waves checked.
-- The Mod Env to Filter 2 (13); the LFOs' Smooth Random and Special waves, Env/KB-sync and Mono modes; LFO 2 to Resonance and Pan.
+- On the panel, not read by the engine: the LFOs' Clock, Divisor and Mono, Transpose, the arpeggiator's Keyboard Sync. The LFOs' Smooth plays as Random and Special as Triangle.
+- Mono's note priority (last note always outside the arpeggiator), Poly Legato, Chord Memory's odd counts and chords in Mono; Shape on the Saw and Triangle.
 - **Level across the library:** a sweep of bank 1 against the instrument at three wheel positions, the worst narrowed by switching features off on both sides (owner, 2026-11-16) - 1:2, 1:7, 1:15, 1:17, 1:18 and 1:19 noted by ear; an A/B harness scoring renders against captures.
 - Reading its 1024 programs is built but untried.
 
@@ -214,7 +214,7 @@ Started 2026-11-02 from Sn2Alike's skeleton. Everything below is measured on the
 
 ## UltraAlike
 
-Started 2026-11-14 from OneShot's skeleton (`aumu Ultr CPur`); a reproduction inspired by the E-mu Ultra samplers, measured against the owner's E5000 Ultra since 2026-11-16 (rig, method and test bank in `UltraAlike/Docs/design.md`). One preset or sample an instance; Emulator X banks (`.exb`) play, a bank folder or its file. Not in `do-plugins` or `do-release`.
+Started 2026-11-14 from OneShot's skeleton (`aumu Ultr CPur`); a reproduction inspired by the E-mu Ultra samplers, measured against the owner's E5000 Ultra since 2026-11-16 (rig, method and test bank in `UltraAlike/Docs/design.md`). One preset or sample an instance; EOS banks (`.E4B`), Emulator X banks (`.exb`, a bank folder or its file), SFZ instruments (`ampeg_*` envelopes, release samples, one-shots) and loose WAV or AIFF play. In `do-plugins` and the releases since 2026-11-22.
 
 **Built**
 - **The panel is the E5000's controls** (2026-11-16): PITCH (Transpose, Coarse, Fine in 1/64 semitones, Non-Transpose, Root, Low/High key), PLAY (Solo, Bend range), OUTPUT (Volume in dB, Pan, Velocity), AMP ENV RATE and LEVEL (the six stages Atk1-Rls2 as rates 0-127 and levels, and Depth), GLOBAL (Anti-alias, Polarity). OneShot's controls are gone from the panel.
@@ -232,7 +232,7 @@ Started 2026-11-14 from OneShot's skeleton (`aumu Ultr CPur`); a reproduction in
 - The waveform's envelope overlay still draws from the old dials.
 
 **Missing**
-- Each voice's tuning, level and pan from the bank; filter (Z-plane) and auxiliary envelopes; LFOs; the modulation (E-mu's patch cords) as the other Alikes' modulation matrix; `.E4B` banks.
+- Filter (Z-plane) and auxiliary envelopes; LFOs; the modulation (E-mu's patch cords) as the other Alikes' modulation matrix; key and velocity crossfades; drawing a bank's waves, key ranges and velocity layers.
 
 **Built, not yet checked in a host**: all of the above (checked with engine harnesses and the plug-in opened in a test host). `UltraAlike/Docs/to-test.md` lists what to try.
 
@@ -244,7 +244,7 @@ Not a hardware reproduction; it shares SynthLib and the panel's look.
 **Built:** WAV/AIFF loading; Prev/Next through the sample's folder with play-on-load; a band-limited windowed-sinc
 interpolator (images and aliases near -88 dB); AHR or ADSR envelope with curves (Attack fine in its first 5 ms);
 Start with snapping to zero crossings; tune, key tracking, velocity, pan and volume (smoothed); One Shot / Gate,
-Poly / Mono; Reset. **Missing**: a category browser (Snare, Closed HH...) with search; OGG; reverse; keeping the sample
+Poly / Mono; Reset. **Missing**: a category browser (Snare, Closed HH...) with search; OGG; keeping the sample
 inside the project. **Built, not yet checked**: everything in a real host - see `OneShot/Docs/to-test.md`.
 
 ## ModAlike
@@ -255,11 +255,11 @@ offset) / Mid-Side; Chorus Input Stereo (a Chorus a side) or Mono; Mix with the 
 reported (31 samples below 88.2 kHz, none above); Engine Rate (96 kHz or the host's, no latency), Maths Float/Fixed,
 output Stage, Anti-alias at the host rate; the panel, in the Alikes' look; `auval` passes and `tools/do-matest` checks
 levels, movement, stereo, Mid/Side, Mix and latency. **Missing**: dial values in their units; a click-free effect
-switch. **Built, not yet checked**: everything in a real host - see `ModAlike/Docs/to-test.md`.
+switch. Tried in Ableton Live (owner, 2026-11-22); the checks still to do are in `ModAlike/Docs/to-test.md`.
 
 
 ## ProphAlike
 
-A placeholder instrument inspired by the Korg Prophecy. The SynthLib plug-in and panel are scaffolding; the sound
-engine, patch handling and hardware controls are not validated against the instrument. See
+An instrument inspired by the Korg Prophecy. **Built** (2026-11-21): Filter 1 in all its types, word for word in fixed
+point and to -95 dB in floating point. **Placeholder**: the oscillator, the amp envelope's times, patch handling and the hardware controls. See
 `ProphAlike/Docs/design.md` and `ProphAlike/Docs/to-test.md`.

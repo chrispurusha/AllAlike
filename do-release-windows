@@ -2,7 +2,7 @@
 # Builds one AllAlike release for Windows, on this Mac: every plug-in do-release ships, as VST3 (Windows has no
 # Audio Unit), cross-built by tools/do-windows-plugin with llvm-mingw. Writes ONE .zip to the Desktop,
 # AllAlike-<version>-windows.zip: "Read Me First.txt", LICENSE.txt and Licences/ at the top, and a folder per
-# architecture - x64 and arm64 - holding every plug-in as a VST3 bundle folder for that architecture. Unsigned.
+# architecture - x64 and arm64 - holding every plug-in as a single-file .vst3 for that architecture. Unsigned.
 # ./do-release runs this after the .dmg.
 #
 # Same arguments as ./do-release, and run with the SAME one for the same release, BEFORE the tag is made - both
@@ -30,12 +30,13 @@ cd ${0:a:h}
 # name and one line for the Read Me - the same plug-ins as ./do-release
 PRODUCTS=(
     "Pulse2Alike|A reproduction inspired by the Waldorf Pulse 2."
-    "TiAlike|A reproduction inspired by the Access Virus TI's single-patch engine. Beta."
-    "Sn2Alike|A reproduction inspired by the Novation Supernova II. Nearly ready for beta."
-    "Nl3Alike|A reproduction inspired by the Clavia Nord Lead 3. Work in progress: the filter is the instrument's, the rest a placeholder."
-    "OneShot|A one-sample player for drum pads: AHR/ADSR envelope with curves, start with zero-crossing snap. Work in progress."
+    "TiAlike|A reproduction inspired by the Access Virus TI. Beta."
+    "Sn2Alike|A reproduction inspired by the Novation Supernova II. Beta."
+    "Nl3Alike|A reproduction inspired by the Clavia Nord Lead 3. Beta."
+    "UltraAlike|An instrument inspired by the E-mu Ultra samplers: plays .E4B, .exb, SFZ, WAV and AIFF. Alpha."
+    "OneShot|A layered sample player: four samples, with key ranges and an envelope, filter and saturation each. Work in progress."
     "ModAlike|A Phaser, Chorus and Flanger as an effect, with stereo modes and Mix. Work in progress."
-    "ProphAlike|A placeholder instrument inspired by the Korg Prophecy. Work in progress."
+    "ProphAlike|An instrument inspired by the Korg Prophecy. Early: its Filter 1 is built, the rest a placeholder."
 )
 
 WORK=$(mktemp -d)
@@ -135,6 +136,7 @@ for entry in $PRODUCTS; do
     VST3_LIST+="    ${entry%%|*}.vst3"$'\n'
 done
 
+EXPECT="$(<Docs/release-expectations.txt)"   # what changed for a user; edit it for each release
 SYNTHLIB_COMMIT="$(git -C ../SynthLib describe --always --dirty --abbrev=12)"
 ALLALIKE_COMMIT="$(git describe --always --dirty --abbrev=12)"
 STAGE="$WORK/AllAlike-$VERSION_CLEAN-windows"
@@ -186,6 +188,8 @@ Reproductions of synthesizers as VST3 plug-ins for 64-bit Windows 10 or later: I
 on ARM (Snapdragon PCs, Parallels on an Apple silicon Mac).
 
 $LIST
+$EXPECT
+
 WHICH FOLDER
 
     x64      for an ordinary PC (Intel or AMD) - and for an x64 host emulated on Windows on ARM,
@@ -216,10 +220,11 @@ those menu items report that there is no MIDI.
 
 SOUNDS
 
-Each plug-in keeps its presets in %USERPROFILE%\\Library\\Application Support\\<plug-in>\\Presets.syx,
+Each synthesizer keeps its presets in %USERPROFILE%\\Library\\Application Support\\<plug-in>\\Presets.syx,
 as on the Mac, and they start empty.
 To fill them, use Import Presets in its Presets or File menu, with .syx or .mid files of the instrument's own sounds.
 No sounds ship with these plug-ins.
+UltraAlike and OneShot open files instead: Load... takes a bank or a sample.
 
 LICENCE
 
@@ -228,6 +233,9 @@ GPL version 3 - see LICENSE.txt.
 Portions of this software are copyright (C) The FreeType Project (www.freetype.org). All rights reserved.
 This software is based in part on the work of the FreeType Team. Its licence, and the VST3 SDK's, are in
 the Licences folder.
+
+The time-stretching in OneShot and UltraAlike is the Rubber Band Library, GPL version 2 or later
+(https://breakfastquay.com/rubberband/).
 
 Built from AllAlike $ALLALIKE_COMMIT with SynthLib $SYNTHLIB_COMMIT
 EOF

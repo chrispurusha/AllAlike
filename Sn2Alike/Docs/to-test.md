@@ -22,7 +22,7 @@ Finished work not yet checked against the instrument.
 - Free-running LFOs start the same way on every note from silence (Whiteout)
 - Panel buttons (2026-11-14, SynthLib buttonPress.h §1): Prev/Next/Load and the tabs light while held and act on the release, and not at all when released off the button
 - Double-click a dial: back to its default, undoable in the host
-- Shift-drag a dial: a tenth the movement, in each dial mode but Rotary
+- Shift-drag a dial: a quarter of the movement, in each dial mode but Rotary
 - Filter Tracking at 127 turns gold; double-click goes there
 - Fast wheel/bend/aftertouch moves (11-16, SynthLib synthlibCtlPoints.h): smooth, not stepping once a host block
 - Same Note (11-17, sn2Voices notes §21): Piano with the sustain pedal down, one key struck over and over - one voice; Stack - each strike rings on beside the last

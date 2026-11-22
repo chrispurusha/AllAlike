@@ -1,0 +1,35 @@
+BEFORE YOU UPDATE
+
+Sn2Alike, coming from 1.0.9 or earlier: many of its parameters have moved, so a project saved with the old version
+opens with the wrong settings. In each such project:
+
+    1. If you have edited a sound and want to keep it, save it with File > Save Patch As... BEFORE updating.
+       The new version cannot recover it from the project.
+    2. After updating, load the preset (or the saved patch) again in each Sn2Alike.
+    3. Set the plug-in's own settings again too: Voices, Master, Maths, Link, Channel and SysEx ID.
+    4. Check any automation and any controllers mapped to Sn2Alike's dials: they may now turn something else.
+    5. Save the project.
+
+Your preset library (Presets.syx) is not affected. Projects using the other plug-ins should open as before.
+Keep a copy of a project you care about before opening it in a new version: these are betas, and later ones may move
+parameters again.
+
+WHAT TO EXPECT
+
+Pulse2Alike, TiAlike, Sn2Alike and Nl3Alike are betas. UltraAlike is new here and an alpha: it plays banks (.E4B, .exb),
+SFZ and loose samples, but has no filters, LFOs or modulation yet, and its saved projects may not survive an update.
+OneShot and ModAlike are usable but work in progress. ProphAlike has its first filter and little else.
+
+Sn2Alike sounds different from 1.0.9, and closer to the instrument: the EQ, Distortion and dry level now follow
+measurements of it, so most sounds with effects on have more bass. FLOAT (the default) is the fast one; FIXED
+follows the instrument's own arithmetic and costs more. They agree closely on most sounds, not on all. Not built yet:
+the arpeggiator (programs that use it play as plain notes), the Phaser (it plays as a chorus), the comb, Performances,
+and the audio inputs. Its chorus, delay and reverb levels are still approximate.
+
+Nl3Alike: the LFOs' Clock, Divisor and Mono, Transpose and the arpeggiator's Keyboard Sync are on the
+panel but do nothing yet, and the LFOs' Smooth and Special waves play as Random and Triangle.
+
+In every plug-in, holding Shift while dragging a dial moves it a quarter as far. Sn2Alike, Nl3Alike and TiAlike
+show their dials in units (dB, ms, Hz, semitones) where that is known, and the plain number where it is not.
+
+Known problems and everything missing: Docs/feature-status.md at https://github.com/chrispurusha/AllAlike

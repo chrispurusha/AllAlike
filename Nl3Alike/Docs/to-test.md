@@ -26,7 +26,7 @@ Finished work not yet checked against the instrument or in a host.
 - Every voice its own LFO (voices notes §29): String Pad up the keyboard beside the instrument - no 2.2 Hz pulse-width beating at C5
 - Aftertouch morph (voices notes §30): a program with Aftertouch morph ranges, pressed - the moves arrive, and their size against the instrument
 - Double-click a dial: back to its default, undoable in the host
-- Shift-drag a dial: a tenth the movement, in each dial mode but Rotary
+- Shift-drag a dial: a quarter of the movement, in each dial mode but Rotary
 - Sync (osc notes §13): a synced saw swept with Shape (Sync Detune) beside the instrument - the restart fade means no spike
 - Vibrato (voices notes §31): a lead with vibrato on aftertouch (TD Style Lead, Early lead) pressed beside the instrument - depth and rate
 - Classic filter (filter notes §13): swept against the instrument, resonance up - the ladder's character; Early lead still dull (its envelope/key track)

@@ -1,5 +1,5 @@
 /*
- * TiAlike - a reproduction inspired by the Access Virus TI's single-patch engine, as a VST3 and Audio Unit
+ * TiAlike - a reproduction inspired by the Access Virus TI, as a VST3 and Audio Unit
  * instrument.
  *
  * Copyright (C) 2026 Chris Turner <chris_purusha@icloud.com>

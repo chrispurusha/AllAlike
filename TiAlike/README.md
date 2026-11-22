@@ -1,6 +1,6 @@
 # TiAlike
 
-A reproduction inspired by the Access Virus TI's single-patch sound engine, as a VST3 and Audio Unit instrument.
+A reproduction inspired by the Access Virus TI, as a VST3 and Audio Unit instrument.
 
 One instance plays one Single: patches are loaded per instance, with an adjustable voice limit in poly mode. There
 is no Multi or performance mode. Each section of the engine is reproduced by measurement and checked against

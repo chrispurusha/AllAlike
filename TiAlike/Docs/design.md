@@ -4,8 +4,7 @@ Living design note, started 2026-10-26.
 
 ## 1. What it is, and what it is not
 
-A plug-in (VST3 and AU, on SynthLib like Pulse2Alike and G2Alike): a reproduction inspired by the Access Virus TI's
-single-patch sound engine.
+A plug-in (VST3 and AU, on SynthLib like Pulse2Alike and G2Alike): a reproduction inspired by the Access Virus TI.
 
 **In scope (CT, 2026-10-26):**
 - **One single patch per instance.** An instance plays one Single, the way Pulse2Alike plays one sound. Another
