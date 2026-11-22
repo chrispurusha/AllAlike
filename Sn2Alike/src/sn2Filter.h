@@ -27,9 +27,9 @@
 #define SN2_ENGINE_HZ        (39062.0)  // notes §3: the rate the voices run at, whatever the host's
 
 typedef struct {
-    double f, damp[2];  // damp: a section each
-    double gain;        // notes §6: ahead of the filter
-    double trim;        // notes §6: off the damping
+    double f[2], damp[2]; // a section each (notes §7: apart by the Special Width)
+    double gain;          // notes §6: ahead of the filter
+    double trim[2];       // notes §6: off the damping, a section each
     bool   parallel;
     double taps[2][4];
 } tSn2FilterCoeffs;
@@ -39,7 +39,7 @@ typedef struct {
 } tSn2Filter;
 
 // cutoff and resonance in the panel's 0..127 (fractions allowed)
-void sn2_filter_coeffs(uint32_t type, uint32_t slope, double cutoff, double resonance, double normalise, tSn2FilterCoeffs * c);
+void sn2_filter_coeffs(uint32_t type, uint32_t slope, double cutoff, double resonance, double normalise, double width, tSn2FilterCoeffs * c);
 // notes §5: Overdrive 0..127 as the drive word; the saturator on the filter's input
 double sn2_filter_drive_word(double overdrive);
 double sn2_filter_drive(double x, double word);

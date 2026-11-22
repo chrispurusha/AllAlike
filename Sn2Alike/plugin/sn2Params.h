@@ -202,6 +202,8 @@ enum {
     kSn2ParamRing13Lfo2Level,
     kSn2ParamRing23Lfo2Level,
     kSn2ParamNoiseLfo2Level,
+    kSn2ParamArithmetic,     // sn2Fixed notes §9: Maths - FLOAT, or FIXED in the instrument's own words
+    kSn2ParamFilterWidth,    // sn2Filter notes §7: Special Filter Width - the two sections apart
     kSn2ParamCount
 };
 

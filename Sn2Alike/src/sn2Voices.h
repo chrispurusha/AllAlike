@@ -24,6 +24,7 @@
 
 #include "sn2Envelope.h"
 #include "sn2Filter.h"
+#include "sn2Fixed.h"
 #include "sn2Osc.h"
 
 #define SN2_OSCS            (3)
@@ -37,28 +38,30 @@
 
 // notes §6: how the two filters are put together
 typedef struct {
-    bool       active;
+    bool             active;
 
-    double     cleanHist[SN2_OSCS][SN2_CLEAN_TAPS];   // notes §17: each oscillator at four times the rate
-    uint32_t   cleanAt;
-    bool       gate;
-    uint8_t    note;
-    float      velocity;
-    double     phase[SN2_OSCS];
-    double     increment[SN2_OSCS];
-    tSn2Env    amp;       // the amplifier envelope
-    double     glide;     // notes §12: semitones from the note
-    double     glideRate; // semitones a second, for a straight glide
-    uint32_t   noiseSeed;
-    double     noiseLow, noiseLast;
-    tSn2Env    env[SN2_MOD_ENVS];
-    tSn2Filter filter;
-    double     lfoPhase[SN2_LFOS]; // 0..1
-    double     lfoHeld[SN2_LFOS];  // sample and hold
-    double     lfoValue[SN2_LFOS]; // this sub-block's, for the level routes
-    double     lfoAge;             // seconds since the note began
-    double     lfoSemis[SN2_OSCS];
-    uint64_t   started;            // for stealing the oldest
+    double           cleanHist[SN2_OSCS][SN2_CLEAN_TAPS]; // notes §17: each oscillator at four times the rate
+    uint32_t         cleanAt;
+    bool             gate;
+    uint8_t          note;
+    float            velocity;
+    double           phase[SN2_OSCS];
+    double           increment[SN2_OSCS];
+    tSn2Env          amp;       // the amplifier envelope
+    double           glide;     // notes §12: semitones from the note
+    double           glideRate; // semitones a second, for a straight glide
+    uint32_t         noiseSeed;
+    double           noiseLow, noiseLast;
+    tSn2Env          env[SN2_MOD_ENVS];
+    tSn2Filter       filter;
+    double           lfoPhase[SN2_LFOS]; // 0..1
+    double           lfoHeld[SN2_LFOS];  // sample and hold
+    double           lfoValue[SN2_LFOS]; // this sub-block's, for the level routes
+    double           lfoAge;             // seconds since the note began
+    double           lfoSemis[SN2_OSCS];
+    uint64_t         started;            // for stealing the oldest
+    tSn2FixedVoice * fixed;              // sn2Fixed notes §9: its twin in the instrument's own words, with Maths FIXED
+    uint32_t         quiet;              // samples silent since it was let go
 } tSn2Voice;
 
 #define SN2_LFOS    (2)
@@ -100,6 +103,7 @@ typedef struct {
     double       tracking;                                      // 0..1
     double       overdrive;                                     // 0..127
     double       normalise;                                     // 0..127, Q Normalise
+    double       filterWidth;                                   // 0..127, Special Filter Width (sn2Filter notes §7)
     bool         oscsFree;                                      // Ensemble: phases run on between notes
     double       glideTime;                                     // 0..127
     int          glideStyle;                                    // 0 Portamento, 1 Glissando
@@ -125,6 +129,8 @@ typedef struct {
     double       lfoCutoff[SN2_LFOS];                           // semitones at full swing
     bool         legato;                                        // mono: a change of note does not restart the envelopes
     bool         piano;                                         // notes §21: Same Note Piano
+    bool         fixedPoint;                                    // sn2Fixed notes §9: Maths FIXED
+    uint32_t     fixedWords[SN2_FIXED_WORDS];                   // the program's words for the host side to write
 } tSn2Sound;
 
 // One oscillator's sound from normalised parameters
@@ -158,20 +164,21 @@ typedef struct {
 } tSn2Smooth;
 
 typedef struct {
-    tSn2Voice  voice[SN2_MAX_VOICES];
-    tSn2Smooth cutoff, resonance;
-    uint32_t   limit;         // 1..SN2_MAX_VOICES (design §1: the instance's voice limit)
-    double     rate;
-    uint64_t   clock;
-    int        lastNote;      // notes §12: -1 before the first
-    uint8_t    heldNote[128]; // mono: the keys down, oldest first
-    float      heldVelocity[128];
-    uint32_t   heldCount;
-    bool       pedal;             // as the last block saw it
-    double     lfoFree[SN2_LFOS]; // the phase of a free running LFO
-    bool       pedalled[128];     // keys up while the pedal held them
-    double     edge[SN2_EDGE_POINTS];
-    bool       clean;             // notes §17: Anti-alias - the oscillators at four times the rate, filtered back
+    tSn2Voice        voice[SN2_MAX_VOICES];
+    tSn2Smooth       cutoff, resonance;
+    uint32_t         limit;   // 1..SN2_MAX_VOICES (design §1: the instance's voice limit)
+    double           rate;
+    uint64_t         clock;
+    int              lastNote;      // notes §12: -1 before the first
+    uint8_t          heldNote[128]; // mono: the keys down, oldest first
+    float            heldVelocity[128];
+    uint32_t         heldCount;
+    bool             pedal;             // as the last block saw it
+    double           lfoFree[SN2_LFOS]; // the phase of a free running LFO
+    bool             pedalled[128];     // keys up while the pedal held them
+    double           edge[SN2_EDGE_POINTS];
+    bool             clean;             // notes §17: Anti-alias - the oscillators at four times the rate, filtered back
+    tSn2FixedVoice * fixed;             // sn2Fixed notes §9: allocated the first time Maths FIXED is chosen
 } tSn2Voices;
 
 // voices notes §14: from the normalised Volume
@@ -184,6 +191,8 @@ static inline double sn2_volume_gain(double normalized) {
 void sn2_voices_init(tSn2Voices * v);
 void sn2_voices_set_limit(tSn2Voices * v, uint32_t limit);
 void sn2_voices_set_clean(tSn2Voices * v, bool clean);   // notes §17: Anti-alias
+void sn2_voices_set_fixed(tSn2Voices * v, bool fixed);   // sn2Fixed notes §9: Maths
+void sn2_voices_free(tSn2Voices * v);
 void sn2_voices_note_on(tSn2Voices * v, const tSn2Sound * sound, uint8_t note, float velocity);
 void sn2_voices_note_off(tSn2Voices * v, const tSn2Sound * sound, uint8_t note);
 void sn2_voices_all_off(tSn2Voices * v);

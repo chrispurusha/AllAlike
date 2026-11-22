@@ -202,6 +202,8 @@ const tSynthLibParam     gSn2Params[kSn2ParamCount] = {
     {kSn2ParamRing13Lfo2Level,  "1x3 LFO 2 Level",         "LFO 2",    eSynthLibUnitGeneric, -64.0,           63.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
     {kSn2ParamRing23Lfo2Level,  "2x3 LFO 2 Level",         "LFO 2",    eSynthLibUnitGeneric, -64.0,           63.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
     {kSn2ParamNoiseLfo2Level,   "Noise LFO 2 Level",       "LFO 2",    eSynthLibUnitGeneric, -64.0,           63.0,                64.0 / 127.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kSn2ParamArithmetic,       "Arithmetic",              "Maths",    eSynthLibUnitIndexed,   0.0,            1.0,                         0.0,                  1, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kSn2ParamFilterWidth,      "Special Filter Width",    "Width",    eSynthLibUnitGeneric,   0.0,          127.0,                         0.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
 };
 
 #define COUNT(table)    (sizeof(table) / sizeof((table)[0]))   // ../Docs/panel-layout.md: never a count by hand
@@ -249,6 +251,7 @@ static const tSn2Control kFilter[]          = {
     {kSn2ParamFilterTrack, "Track",   eTiControlDial,   127, 0.0, NULL    },
     {kSn2ParamFilterDrive, "Drive",   eTiControlDial,   127, 0.0, NULL    },
     {kSn2ParamFilterQ,     "Q Norm",  eTiControlDial,   127, 0.0, NULL    },
+    {kSn2ParamFilterWidth, "Width",   eTiControlDial,   127, 0.0, NULL    },
     {kSn2ParamOscsBypass,  "Osc Byp", eTiControlChoice,   1, 0.0, kFmOnOff},
 };
 static const tSn2Control kAmpEnv[]          = {
@@ -268,11 +271,13 @@ static const tSn2Control kAmp[]             = {
 static const char *const kPolyModes[]       = {"Poly", "Mono"};
 static const char *const kEnvTriggers[]     = {"Retrigger", "Legato"};
 static const char *const kAntiAlias[]       = {"OFF", "ON"};
+static const char *const kArithmetic[]      = {"FLOAT", "FIXED"};
 static const char *const kSameNote[]        = {"STACK", "PIANO"};
 static const tSn2Control kVoices[]          = {
-    {kSn2ParamVoiceLimit, "Voices",     eTiControlDial,   SN2_MAX_VOICES - 1, 1.0, NULL      },     // ../Docs/panel-layout.md
-    {kSn2ParamSameNote,   "Same Note",  eTiControlChoice,                  1, 0.0, kSameNote },
-    {kSn2ParamAntiAlias,  "Anti-alias", eTiControlChoice,                  1, 0.0, kAntiAlias},
+    {kSn2ParamVoiceLimit, "Voices",     eTiControlDial,   SN2_MAX_VOICES - 1, 1.0, NULL       },    // ../Docs/panel-layout.md
+    {kSn2ParamSameNote,   "Same Note",  eTiControlChoice,                  1, 0.0, kSameNote  },
+    {kSn2ParamAntiAlias,  "Anti-alias", eTiControlChoice,                  1, 0.0, kAntiAlias },
+    {kSn2ParamArithmetic, "Maths",      eTiControlChoice,                  1, 0.0, kArithmetic},
 };
 static const tSn2Control kPlay[]            = {
     {kSn2ParamPolyMode,   "Mode",    eTiControlChoice, 1, 0.0, kPolyModes  },

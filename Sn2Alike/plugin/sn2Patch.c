@@ -137,6 +137,7 @@ static const struct {
     {kSn2ParamAmpDecay,         MAIN(195), 0x7F,   0},
     {kSn2ParamAmpSustain,       MAIN(196), 0x7F,   0},
     {kSn2ParamAmpRelease,       MAIN(197), 0x7F,   0},
+    {kSn2ParamFilterWidth,      EXTRA(7),  0x7F,   0},   // sn2Filter notes §7
     {kSn2ParamAmpSustainTime,   EXTRA(16), 0x7F,   0},
     {kSn2ParamEnv2SustainTime,  EXTRA(17), 0x7F,   0},
     {kSn2ParamEnv3SustainTime,  EXTRA(18), 0x7F,   0},

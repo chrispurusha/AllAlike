@@ -77,6 +77,7 @@ int main(int argc, char ** argv) {
         .tracking       = values[kSn2ParamFilterTrack],
         .overdrive      = values[kSn2ParamFilterDrive] * 127.0,
         .normalise      = values[kSn2ParamFilterQ] * 127.0,
+        .filterWidth    = values[kSn2ParamFilterWidth] * 127.0,
         .oscsFree       = values[kSn2ParamOscTrigger] > 0.5,
         .glideTime      = values[kSn2ParamGlideTime] * 127.0,
         .glideStyle     = (int)lround(values[kSn2ParamGlideStyle]),
@@ -103,6 +104,12 @@ int main(int argc, char ** argv) {
     static tSn2Voices voices;
 
     sn2_voices_init(&voices);
+
+    if (getenv("SN2_FIXED")) {   // Maths FIXED: the voices in the instrument's own words
+        sound.fixedPoint = true;
+        sn2_fixed_program_words(gPrograms[index], sound.fixedWords);
+        sn2_voices_set_fixed(&voices, true);
+    }
     sn2_voices_set_limit(&voices, 16);
     sn2_voices_note_on(&voices, &sound, (uint8_t)atoi(argv[4]), (argc > 6) ? (float)(atof(argv[6]) / 127.0) : 1.0f);
 
@@ -116,8 +123,8 @@ int main(int argc, char ** argv) {
             sn2_voices_note_on(&voices, &sound, (uint8_t)atoi(n), (argc > 6) ? (float)(atof(argv[6]) / 127.0) : 1.0f);
         }
     }
-    uint32_t          gate   = (argc > 7) ? (uint32_t)(atof(argv[7]) * RATE) : frames;
-    uint32_t          second = (argc > 10) ? (uint32_t)(atof(argv[10]) * RATE) : frames;
+    uint32_t gate   = (argc > 7) ? (uint32_t)(atof(argv[7]) * RATE) : frames;
+    uint32_t second = (argc > 10) ? (uint32_t)(atof(argv[10]) * RATE) : frames;
 
     for (uint32_t f = 0; f < frames; f += BLOCK) {
         // arguments 9 and 10: a second note and when it starts

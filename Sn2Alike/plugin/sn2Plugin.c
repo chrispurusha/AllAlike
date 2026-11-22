@@ -137,6 +137,7 @@ static void * sn2_create(const tSynthLibPluginDesc * desc) {
     snprintf(t->soundName, sizeof(t->soundName), "Init");
     sn2_voices_init(&t->voices);
     sn2_voices_set_clean(&t->voices, t->values[kSn2ParamAntiAlias] >= 0.5);   // voices notes §17: On unless the host says otherwise
+    sn2_voices_set_fixed(&t->voices, t->values[kSn2ParamArithmetic] >= 0.5);  // sn2Fixed notes §9
     sn2_effects_reset(&t->effects);
     t->hostRate    = 48000.0;
     t->tempo       = DEFAULT_TEMPO;
@@ -149,6 +150,7 @@ static void * sn2_create(const tSynthLibPluginDesc * desc) {
 }
 
 static void sn2_destroy(void * inst) {
+    sn2_voices_free(&((tSn2Plugin *)inst)->voices);
     sn2_hardware_release(&((tSn2Plugin *)inst)->hwLock);
     synthlib_resample_free(&((tSn2Plugin *)inst)->resampler);
     synthlib_resample_free(&((tSn2Plugin *)inst)->resamplerR);
@@ -290,6 +292,7 @@ static tSn2Sound make_sound(const tSn2Plugin * t) {
         .tracking       = t->values[kSn2ParamFilterTrack],
         .overdrive      = t->values[kSn2ParamFilterDrive] * 127.0,
         .normalise      = t->values[kSn2ParamFilterQ] * 127.0,
+        .filterWidth    = t->values[kSn2ParamFilterWidth] * 127.0,
         .oscsFree       = t->values[kSn2ParamOscTrigger] > 0.5,
         .glideTime      = t->values[kSn2ParamGlideTime] * 127.0,
         .glideStyle     = (int)lround(t->values[kSn2ParamGlideStyle]),
@@ -312,6 +315,14 @@ static tSn2Sound make_sound(const tSn2Plugin * t) {
     };
 
     sn2_controls_sound(t->values, &sound);
+    sound.fixedPoint = t->values[kSn2ParamArithmetic] >= 0.5;   // sn2Fixed notes §9: the program's words for the host side
+
+    if (sound.fixedPoint) {
+        uint8_t single[SN2_SINGLE_LENGTH];
+
+        sn2_patch_to_single(t->values, t->haveBase ? t->base : NULL, t->soundName, single);
+        sn2_fixed_program_words(single, sound.fixedWords);
+    }
     return sound;
 }
 
@@ -478,6 +489,8 @@ static void sn2_set_param(void * inst, uint32_t id, double normalized) {
         }
     } else if (id == kSn2ParamAntiAlias) {
         sn2_voices_set_clean(&t->voices, normalized >= 0.5);   // voices notes §17
+    } else if (id == kSn2ParamArithmetic) {
+        sn2_voices_set_fixed(&t->voices, normalized >= 0.5);   // sn2Fixed notes §9
     } else if (id == kSn2ParamVoiceLimit) {
         sn2_voices_set_limit(&t->voices, voice_limit(t));
     }
@@ -519,6 +532,8 @@ static bool sn2_param_text(const tSynthLibPluginDesc * desc, void * inst, uint32
         snprintf(out, len, "%s", shapes[(step < 0) ? 0 : ((step > 2) ? 2 : step)]);
     } else if (id == kSn2ParamFilterType) {
         snprintf(out, len, "%s", filters[(step < 0) ? 0 : ((step > 11) ? 11 : step)]);
+    } else if (id == kSn2ParamArithmetic) {
+        snprintf(out, len, "%s", (step > 0) ? "Fixed" : "Float");
     } else if (id == kSn2ParamChorusType) {
         static const char *const types[] = {"Quad Chorus", "Chorus/Flanger", "Phaser"};
 
@@ -587,7 +602,7 @@ static bool sn2_param_text(const tSynthLibPluginDesc * desc, void * inst, uint32
 
 // What a sound carries: everything but the plug-in's own settings
 static bool sound_param(uint32_t id) {
-    return (id != kSn2ParamVoiceLimit) && (id != kSn2ParamAntiAlias) && (id != kSn2ParamSameNote) && (id != kSn2ParamMaster) && (id != kSn2ParamEffectsBypass) && (id != kSn2ParamSustainPedal)
+    return (id != kSn2ParamVoiceLimit) && (id != kSn2ParamAntiAlias) && (id != kSn2ParamArithmetic) && (id != kSn2ParamSameNote) && (id != kSn2ParamMaster) && (id != kSn2ParamEffectsBypass) && (id != kSn2ParamSustainPedal)
            && (id != kSn2ParamHwLink) && (id != kSn2ParamHwChannel) && (id != kSn2ParamHwDevice) && (id != kSn2ParamProgram) && (id != kSn2ParamBank)
            && (id != kSn2ParamPitchBend) && (id != kSn2ParamModWheel);
 }

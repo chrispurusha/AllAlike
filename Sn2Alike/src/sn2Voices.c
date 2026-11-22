@@ -17,6 +17,7 @@
 // Notes: Docs/code-notes/sn2Voices.md - "// notes §k" refers there.
 
 #include <math.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "sn2Voices.h"
@@ -47,6 +48,36 @@ void sn2_voices_init(tSn2Voices * v) {
     v->rate     = SN2_ENGINE_HZ;
     v->lastNote = -1;
     sn2_edge_build(v->edge);
+}
+
+#define FIXED_GAIN     (2.580)     // sn2Fixed notes §9: a voice's bus word to the instrument's output level, volume aside
+#define FIXED_QUIET    (4096)      // samples silent after its release before a fixed voice is free
+
+// sn2Fixed notes §9: Maths FIXED - every voice gets its twin; the memory is allocated once, on first use
+void sn2_voices_set_fixed(tSn2Voices * v, bool fixed) {
+    if (fixed && (v->fixed == NULL)) {
+        static bool built;
+
+        if (!built) {
+            sn2_fixed_template(v->edge);
+            built = true;
+        }
+        v->fixed = calloc(SN2_MAX_VOICES, sizeof(tSn2FixedVoice));
+
+        for (uint32_t i = 0; (v->fixed != NULL) && (i < SN2_MAX_VOICES); i++) {
+            sn2_fixed_voice_clear(&v->fixed[i]);
+            v->voice[i].fixed = &v->fixed[i];
+        }
+    }
+}
+
+void sn2_voices_free(tSn2Voices * v) {
+    free(v->fixed);
+    v->fixed = NULL;
+
+    for (uint32_t i = 0; i < SN2_MAX_VOICES; i++) {
+        v->voice[i].fixed = NULL;
+    }
 }
 
 #define CLEAN_FACTOR      (4)      // notes §17
@@ -277,6 +308,10 @@ static void mono_play(tSn2Voices * v, const tSn2Sound * sound, uint8_t note, flo
 static void let_go(const tSn2Sound * sound, tSn2Voice * voice) {
     voice->gate = false;
 
+    if ((voice->fixed != NULL) && voice->fixed->sounding && !sound->oneShot) {
+        sn2_fixed_voice_release(voice->fixed);
+    }
+
     if (!sound->oneShot) {
         sn2_env_gate(&voice->amp, false);
 
@@ -352,6 +387,16 @@ void sn2_voices_note_on(tSn2Voices * v, const tSn2Sound * sound, uint8_t note, f
     set_pitch(pick, sound, v->rate);
 
     pick->started   = ++v->clock;
+
+    if (sound->fixedPoint && (pick->fixed != NULL)) {   // sn2Fixed notes §9
+        uint32_t words[SN2_FIXED_WORDS];
+
+        memcpy(words, sound->fixedWords, sizeof(words));
+        sn2_fixed_note_words(words, note, velocity);
+        sn2_fixed_voice_clear(pick->fixed);
+        sn2_fixed_voice_start(pick->fixed, words);
+        pick->quiet = 0;
+    }
     pick->noiseSeed = pick->noiseSeed ? pick->noiseSeed : (uint32_t)((v->clock * 2654435761u) | 1u);
     lfo_restart(pick, sound);
     sn2_env_gate(&pick->amp, true);
@@ -492,9 +537,24 @@ static void render_sub_block(tSn2Voices * v, const tSn2Sound * sound, double cut
     double corner = fmin(1.0, 2.0 * M_PI * NOISE_CORNER_HZ * pow(2.0, sound->noiseSoften / 15.0) / v->rate);
 
     for (uint32_t i = 0; i < SN2_MAX_VOICES; i++) {
-        tSn2Voice *      vc                       = &v->voice[i];
+        tSn2Voice *      vc = &v->voice[i];
 
         if (!vc->active) {
+            continue;
+        }
+
+        if (sound->fixedPoint && (vc->fixed != NULL) && vc->fixed->sounding) {   // sn2Fixed notes §9: the voice in the instrument's own words
+            for (uint32_t f = 0; f < frames; f++) {
+                double y = sn2_fixed_voice_sample(vc->fixed) * FIXED_GAIN;
+
+                out[f]   += (float)(y * gain);
+                vc->quiet = (vc->gate || (fabs(y) > 1e-6)) ? 0 : (vc->quiet + 1);
+            }
+
+            if (vc->quiet >= FIXED_QUIET) {
+                vc->active          = false;
+                vc->fixed->sounding = false;
+            }
             continue;
         }
         double           lfoCut;
@@ -517,7 +577,7 @@ static void render_sub_block(tSn2Voices * v, const tSn2Sound * sound, double cut
             moved += vc->env[e].level * sound->env[e].amount * ENV_TO_CUTOFF * velocity_level(vc->velocity, sound->env[e].velocity);
         }
 
-        sn2_filter_coeffs(sound->filterType, sound->filterSlope, cutoff + moved, fmin(127.0, fmax(0.0, res + (sound->wheel * sound->wheelResonance))), sound->normalise, &coeffs);
+        sn2_filter_coeffs(sound->filterType, sound->filterSlope, cutoff + moved, fmin(127.0, fmax(0.0, res + (sound->wheel * sound->wheelResonance))), sound->normalise, sound->filterWidth, &coeffs);
 
         // notes §19: each mixer level moved by the wheel, Env 2, Env 3 and the LFOs
         const double     source[SN2_LEVEL_ROUTES] = {sound->wheel, vc->env[0].level * velocity_level(vc->velocity, sound->env[0].velocity), vc->env[1].level * velocity_level(vc->velocity, sound->env[1].velocity), LFO_TO_LEVEL * vc->lfoValue[0], LFO_TO_LEVEL * vc->lfoValue[1]};

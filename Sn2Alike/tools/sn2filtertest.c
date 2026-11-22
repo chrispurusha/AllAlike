@@ -16,7 +16,7 @@ int main(int argc, char ** argv) {
     tSn2Filter       f;
     static double    h[POINTS];
 
-    sn2_filter_coeffs((uint32_t)atoi(argv[1]), (uint32_t)atoi(argv[2]), atof(argv[3]), atof(argv[4]), 0.0, &c);
+    sn2_filter_coeffs((uint32_t)atoi(argv[1]), (uint32_t)atoi(argv[2]), atof(argv[3]), atof(argv[4]), 0.0, 0.0, &c);
     sn2_filter_reset(&f);
 
     for (int i = 0; i < POINTS; i++) {

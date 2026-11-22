@@ -63,17 +63,23 @@ static double section_damp(double f, double d) {
     return 2.0 * 0.7 * d * (1.0 - (f * d / 2.0));
 }
 
-void sn2_filter_coeffs(uint32_t type, uint32_t slope, double cutoff, double resonance, double normalise, tSn2FilterCoeffs * c) {
+static double section_f(double cutoff) {
+    return fmin(F_AT_64 * pow(2.0, (cutoff - 64.0) / 12.0), F_MAX);
+}
+
+void sn2_filter_coeffs(uint32_t type, uint32_t slope, double cutoff, double resonance, double normalise, double width, tSn2FilterCoeffs * c) {
     const tSn2FilterType * t     = &kTypes[(type < SN2_FILTER_TYPES) ? type : 0][(slope < SN2_FILTER_SLOPES) ? slope : 0];
-    double                 f     = fmin(F_AT_64 * pow(2.0, (cutoff - 64.0) / 12.0), F_MAX);
     double                 d     = (127.0 - resonance) / 127.0;
     bool                   plain = (type < FIRST_RES_TYPE);
+    double                 apart = plain ? 0.0 : (width / 2.0);   // notes §7: the Res and + types' sections, below and above the cutoff
 
-    c->f        = f;
-    c->damp[0]  = section_damp(f, plain ? fmax(d, PLAIN_FIRST_D) : d);  // notes §3
-    c->damp[1]  = section_damp(f, d);
+    c->f[0]     = section_f(cutoff - apart);
+    c->f[1]     = section_f(cutoff + apart);
+    c->damp[0]  = section_damp(c->f[0], plain ? fmax(d, PLAIN_FIRST_D) : d);  // notes §3
+    c->damp[1]  = section_damp(c->f[1], d);
     c->gain     = 1.0 - ((normalise / 128.0) * (resonance / 127.0));
-    c->trim     = 2.0 * (fmax(normalise - NORMALISE_TRIM_FROM, 0.0) / 128.0) * (1.0 - f);
+    c->trim[0]  = 2.0 * (fmax(normalise - NORMALISE_TRIM_FROM, 0.0) / 128.0) * (1.0 - c->f[0]);
+    c->trim[1]  = 2.0 * (fmax(normalise - NORMALISE_TRIM_FROM, 0.0) / 128.0) * (1.0 - c->f[1]);
     c->parallel = t->parallel;
     memcpy(c->taps, t->taps, sizeof(c->taps));
 }
@@ -99,23 +105,24 @@ static double saturate(double x) {
 }
 
 // notes §1: two passes a sample, the output their average
-static double section(double * low, double * band, const tSn2FilterCoeffs * c, const double * tap, double damp, double x) {
-    double sum = 0.0;
+static double section(double * low, double * band, const double * tap, double f, double damp, double trim, double x) {
+    double sum  = 0.0;
+    double held = fmax(damp, 2.0 * (fabs(*band) - LEVEL_DAMP_FROM)) - trim;   // notes §4: once a sample, from the band as it starts
 
     for (int pass = 0; pass < PASSES; pass++) {
-        *low  = saturate(*low + (c->f * *band));
-        double high = x - *low - ((fmax(damp, 2.0 * (fabs(*band) - LEVEL_DAMP_FROM)) - c->trim) * *band);  // notes §4
+        *low  = saturate(*low + (f * *band));
+        double high = saturate(x - *low - (held * *band));   // notes §4: limited before it is used
 
         sum  += (tap[0] * x) + (tap[1] * *band) + (tap[2] * *low) + (tap[3] * high);
-        *band = saturate(*band + (c->f * high));
+        *band = saturate(*band + (f * high));
     }
 
     return sum / PASSES;
 }
 
 double sn2_filter_process(tSn2Filter * f, const tSn2FilterCoeffs * c, double x) {
-    double first  = section(&f->low[0], &f->band[0], c, c->taps[0], c->damp[0], x);
-    double second = section(&f->low[1], &f->band[1], c, c->taps[1], c->damp[1], c->parallel ? x : first);
+    double first  = section(&f->low[0], &f->band[0], c->taps[0], c->f[0], c->damp[0], c->trim[0], x);
+    double second = section(&f->low[1], &f->band[1], c->taps[1], c->f[1], c->damp[1], c->trim[1], c->parallel ? x : first);
 
     return c->parallel ? (first + second) : second;
 }
