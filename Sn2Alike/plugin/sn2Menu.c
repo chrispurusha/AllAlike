@@ -201,7 +201,7 @@ static void action_panel_help(int index) {
     (void)index;
     show_alert("The Panel",
                "A work in progress: three oscillators (Saw, Square and Double Saw), noise and the ring modulators, the filter in all twelve types, "
-               "the envelopes, glide, mono and legato, and the effects. Not yet: the arpeggiator, unison, several modulation routes and "
+               "the envelopes, glide, mono and legato, and the effects. Not yet: the arpeggiator, several modulation routes and "
                "performances - see the todo list.\n\n"
                "Patches: < Prev and Next > step through the presets, A000-L127, in the order the Sort menu sets; Load... opens a .syx or .mid file of "
                "Singles, choosing one when it holds several. The name beside them edits on a click. A Single keeps "

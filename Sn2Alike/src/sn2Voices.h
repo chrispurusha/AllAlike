@@ -44,6 +44,7 @@ typedef struct {
     uint32_t         cleanAt;
     bool             gate;
     uint8_t          note;
+    int              which;     // notes §24: its number in a unison
     float            velocity;
     double           phase[SN2_OSCS];
     double           increment[SN2_OSCS];
@@ -137,6 +138,7 @@ typedef struct {
     double       wheelCutoff, wheelResonance;                   // -64..63
     double       resRoute[4];                                   // -64..63, Env 2, Env 3, LFO 1, LFO 2 to resonance
     int          envTrack[3], envRepeats[3];                    // envelope notes §5: the amplifier, Env 2, Env 3
+    int          unison, unisonDetune;                          // notes §24: voices to a key, 0 off; 0..127
     double       tempo;                                         // the host's, beats a minute
     bool         mono;                                          // one voice, last note priority
     bool         pedal;                                         // the sustain pedal is down

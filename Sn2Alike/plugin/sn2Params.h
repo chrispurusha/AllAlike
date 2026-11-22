@@ -277,6 +277,8 @@ enum {
     kSn2ParamOsc1KeySync,
     kSn2ParamOsc2KeySync,
     kSn2ParamOsc3KeySync,
+    kSn2ParamUnison,          // sn2Voices notes §24: 0 off, else voices to a key
+    kSn2ParamUnisonDetune,
     kSn2ParamCount
 };
 

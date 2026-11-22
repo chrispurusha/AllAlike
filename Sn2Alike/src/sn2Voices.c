@@ -142,6 +142,10 @@ static double glide_heard(const tSn2Voice * vc, const tSn2Sound * sound) {
 static void set_pitch(tSn2Voice * vc, const tSn2Sound * sound, double rate) {
     double note = (double)vc->note + glide_heard(vc, sound);
 
+    if (sound->unison > 0) {   // notes §24
+        note += sn2_unison_cents(sound->unison, vc->which, sound->unisonDetune) / 100.0;
+    }
+
     for (int o = 0; o < SN2_OSCS; o++) {
         vc->increment[o] = osc_increment(&sound->osc[o], note, sound->bend, sound->wheel, vc->lfoSemis[o], rate);
     }
@@ -237,13 +241,8 @@ static void lfo_advance(tSn2Voices * v, tSn2Voice * vc, const tSn2Sound * sound,
 }
 
 // voices notes §12
-static void start_glide(tSn2Voices * v, const tSn2Sound * sound, tSn2Voice * pick, uint8_t note, bool over) {
+static void start_glide(const tSn2Voices * v, const tSn2Sound * sound, tSn2Voice * pick, uint8_t note, bool held) {
     static const double kFixed[8] = {-2.0, 2.0, -5.0, 5.0, -7.0, 7.0, -12.0, 12.0};
-    bool                held      = over;
-
-    for (uint32_t i = 0; i < SN2_MAX_VOICES; i++) {
-        held = held || (v->voice[i].gate && (&v->voice[i] != pick));
-    }
 
     // voices notes §12a: from the pitch this voice had reached, mid-glide or not; a voice never played, from the last note
     double              from      = (pick->note > 0) ? ((double)pick->note + pick->glide) : (double)v->lastNote;
@@ -258,7 +257,17 @@ static void start_glide(tSn2Voices * v, const tSn2Sound * sound, tSn2Voice * pic
         }
     }
     pick->glideRate = fabs(pick->glide) / glide_seconds(sound->glideTime);
-    v->lastNote     = note;
+}
+
+// notes §24: the voices a key takes, and each one's number, from the last down
+static uint32_t unison_voices(const tSn2Voices * v, const tSn2Sound * sound) {
+    uint32_t n = (sound->unison > 0) ? (uint32_t)sound->unison : 1;
+
+    return (n < v->limit) ? n : v->limit;
+}
+
+static int unison_which(const tSn2Sound * sound, uint32_t at) {
+    return (sound->unison > 0) ? (sound->unison - 1 - (int)at) : 0;
 }
 
 static void advance_glide(tSn2Voice * vc, const tSn2Sound * sound, double seconds) {
@@ -295,7 +304,7 @@ static void start_fixed(tSn2Voices * v, const tSn2Sound * sound, tSn2Voice * pic
     }
 
     memcpy(words, sound->fixedWords, sizeof(words));
-    sn2_fixed_note_words(words, note, velocity, pick->glide);
+    sn2_fixed_note_words(words, note, velocity, pick->glide, pick->which);
     sn2_fixed_osc_save(pick->fixed, oscs);
     sn2_fixed_voice_clear(pick->fixed);
     sn2_fixed_voice_start(pick->fixed, words, sound->oscsFree);
@@ -325,15 +334,16 @@ static void held_remove(tSn2Voices * v, uint8_t note) {
 }
 
 // voices notes §13: the one voice moves to a note; the envelopes restart unless it is legato over a held note
-static void mono_play(tSn2Voices * v, const tSn2Sound * sound, uint8_t note, float velocity) {
-    tSn2Voice * vc      = &v->voice[0];
+static void mono_voice(tSn2Voices * v, const tSn2Sound * sound, uint32_t at, uint8_t note, float velocity) {
+    tSn2Voice * vc      = &v->voice[at];
     bool        over    = vc->active && vc->gate;
     bool        restart = !over || !sound->legato;
 
     vc->active = true;
     vc->gate   = true;
-    vc->note   = note;
+    vc->which  = unison_which(sound, at);
     start_glide(v, sound, vc, note, over);
+    vc->note   = note;
 
     if (restart) {
         vc->velocity   = velocity;
@@ -360,10 +370,21 @@ static void mono_play(tSn2Voices * v, const tSn2Sound * sound, uint8_t note, flo
         uint32_t words[SN2_FIXED_WORDS];
 
         memcpy(words, sound->fixedWords, sizeof(words));
-        sn2_fixed_note_words(words, note, (float)vc->velocity, vc->glide);
+        sn2_fixed_note_words(words, note, (float)vc->velocity, vc->glide, vc->which);
         sn2_fixed_voice_move(vc->fixed, words);
     }
     set_pitch(vc, sound, v->rate);
+}
+
+// voices notes §13, §24: every unison voice moves with the key
+static void mono_play(tSn2Voices * v, const tSn2Sound * sound, uint8_t note, float velocity) {
+    uint32_t n = unison_voices(v, sound);
+
+    for (uint32_t at = 0; at < n; at++) {
+        mono_voice(v, sound, at, note, velocity);
+    }
+
+    v->lastNote = note;
 }
 
 // A key let go: the envelopes release, except a one-shot's (sn2Envelope notes §9)
@@ -383,49 +404,37 @@ static void let_go(const tSn2Sound * sound, tSn2Voice * voice) {
     }
 }
 
-void sn2_voices_note_on(tSn2Voices * v, const tSn2Sound * sound, uint8_t note, float velocity) {
-    tSn2Voice * pick = NULL;
+// notes §21, §24: the key's own voice where Piano restarts it, else a free voice, else the oldest let go, else the oldest;
+// never one this key has just taken
+static tSn2Voice * choose_voice(tSn2Voices * v, const tSn2Sound * sound, uint8_t note, uint64_t since) {
+    tSn2Voice * best = NULL;
+    int         rank = 0;
 
-    v->pedalled[note & 0x7F] = false;
-
-    if (sound->mono) {
-        held_remove(v, note);
-        v->heldNote[v->heldCount]     = note;
-        v->heldVelocity[v->heldCount] = velocity;
-        v->heldCount++;
-        mono_play(v, sound, note, velocity);
-        return;
-    }
-    v->heldCount             = 0;
-
-    // notes §21: Piano restarts the key's own voice, Stack lets it go and takes another; else a free voice; else the oldest
     for (uint32_t i = 0; i < v->limit; i++) {
-        if (v->voice[i].active && (v->voice[i].note == note)) {
-            if (sound->piano && (pick == NULL)) {
-                pick = &v->voice[i];
-            } else if (v->voice[i].gate) {
-                let_go(sound, &v->voice[i]);
-            }
+        tSn2Voice * vc = &v->voice[i];
+        int         r  = vc->active ? (vc->gate ? 1 : 2) : 3;
+
+        if (vc->started > since) {
+            continue;
+        }
+
+        if (sound->piano && vc->active && (vc->note == note)) {
+            r = 4;
+        }
+
+        if ((best == NULL) || (r > rank) || ((r == rank) && (r < 3) && (vc->started < best->started))) {
+            best = vc;
+            rank = r;
         }
     }
 
-    for (uint32_t i = 0; (i < v->limit) && (pick == NULL); i++) {
-        if (!v->voice[i].active) {
-            pick = &v->voice[i];
-        }
-    }
+    return (best != NULL) ? best : &v->voice[0];
+}
 
-    if (pick == NULL) {
-        pick = &v->voice[0];
-
-        for (uint32_t i = 1; i < v->limit; i++) {
-            if (v->voice[i].started < pick->started) {
-                pick = &v->voice[i];
-            }
-        }
-    }
+static void poly_voice(tSn2Voices * v, const tSn2Sound * sound, tSn2Voice * pick, uint8_t note, float velocity, bool held) {
     pick->active     = true;
     pick->gate       = true;
+    start_glide(v, sound, pick, note, held);
     pick->note       = note;
     pick->velocity   = velocity;
 
@@ -438,7 +447,6 @@ void sn2_voices_note_on(tSn2Voices * v, const tSn2Sound * sound, uint8_t note, f
         memset(pick->phase, 0, sizeof(pick->phase));
         memset(pick->cleanHist, 0, sizeof(pick->cleanHist));   // notes §17: a restarted wave starts its filter clean
     }
-    start_glide(v, sound, pick, note, false);
     set_pitch(pick, sound, v->rate);
 
     pick->started    = ++v->clock;
@@ -456,6 +464,47 @@ void sn2_voices_note_on(tSn2Voices * v, const tSn2Sound * sound, uint8_t note, f
     if (pick->amp.level <= 0.0) {
         sn2_filter_reset(&pick->filter);    // a voice starting from silence starts with a quiet filter
     }
+}
+
+void sn2_voices_note_on(tSn2Voices * v, const tSn2Sound * sound, uint8_t note, float velocity) {
+    uint32_t n     = unison_voices(v, sound);
+    uint64_t since = v->clock;
+    bool     held  = false;
+
+    v->pedalled[note & 0x7F] = false;
+
+    if (sound->mono) {
+        held_remove(v, note);
+        v->heldNote[v->heldCount]     = note;
+        v->heldVelocity[v->heldCount] = velocity;
+        v->heldCount++;
+        mono_play(v, sound, note, velocity);
+        return;
+    }
+    v->heldCount             = 0;
+
+    for (uint32_t i = 0; i < SN2_MAX_VOICES; i++) {
+        held = held || (v->voice[i].gate && (v->voice[i].note != note));
+
+        if (!sound->piano && v->voice[i].gate && (v->voice[i].note == note)) {   // notes §21: Stack lets the key's last voices go
+            let_go(sound, &v->voice[i]);
+        }
+    }
+
+    for (uint32_t at = 0; at < n; at++) {
+        tSn2Voice * pick = choose_voice(v, sound, note, since);
+
+        pick->which = unison_which(sound, at);
+        poly_voice(v, sound, pick, note, velocity, held);
+    }
+
+    for (uint32_t i = 0; i < SN2_MAX_VOICES; i++) {   // what this key had beyond the voices it takes now
+        if (v->voice[i].gate && (v->voice[i].note == note) && (v->voice[i].started <= since)) {
+            let_go(sound, &v->voice[i]);
+        }
+    }
+
+    v->lastNote = note;
 }
 
 static void release_note(tSn2Voices * v, const tSn2Sound * sound, uint8_t note);
@@ -639,7 +688,7 @@ static void render_sub_block(tSn2Voices * v, const tSn2Sound * sound, double cut
             }
         }
 
-        double               level                    = velocity_level(vc->velocity, sound->ampVelocity);
+        double               level                    = velocity_level(vc->velocity, sound->ampVelocity) * ((sound->unison > 0) ? ((16.0 - sound->unison) / 16.0) : 1.0);   // notes §24
         tSn2FilterCoeffs     coeffs;
 
         // voices notes §9

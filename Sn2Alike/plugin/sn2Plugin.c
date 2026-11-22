@@ -581,6 +581,12 @@ static bool sn2_param_text(const tSynthLibPluginDesc * desc, void * inst, uint32
         snprintf(out, len, "%ld", step + 1);
     } else if (id == kSn2ParamEffectsBypass) {
         snprintf(out, len, "%s", (step > 0) ? "Bypass" : "On");
+    } else if (id == kSn2ParamUnison) {
+        if (step > 0) {
+            snprintf(out, len, "%ld", step + 1);
+        } else {
+            snprintf(out, len, "Off");
+        }
     } else if (id == kSn2ParamPolyMode) {
         snprintf(out, len, "%s", (step > 0) ? "Mono" : "Poly");
     } else if (id == kSn2ParamEnvTrigger) {

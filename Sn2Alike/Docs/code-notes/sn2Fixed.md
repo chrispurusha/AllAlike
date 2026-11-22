@@ -45,7 +45,7 @@ stages were left, and a key let go mid-attack or mid-decay played on). One Shot 
 ## 8. The words
 `sn2FixedWords.c` computes them from the program's own bytes as the instrument's host side does. Checked 2026-11-22 for
 all 1424 programs at five keys and velocities, and field by field over each whole range (4072 settings): every word is
-exact, apart from unison's detune and volume and field values no program holds. Most are a field in a straight line; times are an exponent
+exact, apart from field values no program holds. Most are a field in a straight line; times are an exponent
 in 1024ths of an octave (`octave_word`, `exponent`); depths on pitch and LFO to cutoff are squared with their sign;
 velocity is ((v v >> 7) v) >> 7 about each envelope's depth; a range of an LFO multiplies its speed by the square root
 of ten; an LFO locked to the tempo has no speed of its own; word $6D is the byte of routes (FM, Filter OSCs Bypass, the
@@ -77,3 +77,7 @@ the first half cycle of every note.
 ## 12. While it sounds
 The wheel (word $D7), each oscillator's bend and the tempo are kept up to date. Mono: a note that restarts is started
 as any other; a legato one changes only the key and the glide. A glide starts at the pitch the float voice worked out.
+
+## 13. Unison
+The note words retune the three oscillators for the voice's number, and the volume word is scaled (sn2Voices notes §24);
+both match the instrument's for every count and number at six Detunes.

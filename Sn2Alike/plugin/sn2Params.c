@@ -278,6 +278,8 @@ const tSynthLibParam     gSn2Params[kSn2ParamCount] = {
     {kSn2ParamOsc1KeySync,      "Osc 1 Key Sync",          "KeySync",  eSynthLibUnitGeneric,   0.0,          127.0,                         0.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
     {kSn2ParamOsc2KeySync,      "Osc 2 Key Sync",          "KeySync",  eSynthLibUnitGeneric,   0.0,          127.0,                         0.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
     {kSn2ParamOsc3KeySync,      "Osc 3 Key Sync",          "KeySync",  eSynthLibUnitGeneric,   0.0,          127.0,                         0.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
+    {kSn2ParamUnison,           "Unison",                  "Unison",   eSynthLibUnitIndexed,   0.0,            7.0,                         0.0,                  7, SYNTHLIB_MIDI_NONE,       LIST                                                                   },
+    {kSn2ParamUnisonDetune,     "Unison Detune",           "Detune",   eSynthLibUnitGeneric,   0.0,          127.0,                         0.0,                127, SYNTHLIB_MIDI_NONE,                                                                             0},
 };
 
 #define COUNT(table)    (sizeof(table) / sizeof((table)[0]))   // ../Docs/panel-layout.md: never a count by hand
@@ -582,6 +584,11 @@ static const tSn2Control kHardware[]        = {
     {kSn2ParamHwLink,    "Link",    eTiControlChoice,  1, 0.0, kOffOn   },
     {kSn2ParamHwChannel, "Channel", eTiControlChoice, 15, 0.0, kChannels},
 };
+static const char *const kUnisonNames[]     = {"OFF", "2", "3", "4", "5", "6", "7", "8"};
+static const tSn2Control kUnison[]          = {
+    {kSn2ParamUnison,       "Voices", eTiControlChoice,   7, 0.0, kUnisonNames},
+    {kSn2ParamUnisonDetune, "Detune", eTiControlDial,   127, 0.0, NULL        },
+};
 static const tSn2Control kPan[]             = {
     {kSn2ParamPan,        "Pan",     eTiControlDial,   127, 0.0, NULL  },
     {kSn2ParamPanSpeed,   "Speed",   eTiControlDial,   127, 0.0, NULL  },
@@ -593,6 +600,7 @@ static const tSn2Section kGlobalPage[]      = {
     {"PLUG-IN",  RGB_SECTION_PLUGIN, kVoices,   COUNT(kVoices)  },
     {"HARDWARE", RGB_SECTION_PLUGIN, kHardware, COUNT(kHardware)},
     {"PLAY",     RGB_SECTION_PLAY,   kPlay,     COUNT(kPlay)    },
+    {"UNISON",   RGB_SECTION_PLAY,   kUnison,   COUNT(kUnison)  },
     {"EFFECTS",  COLOUR_EFFECTS,     kGlobalFx, COUNT(kGlobalFx)},
     {"PAN",      RGB_SECTION_OUTPUT, kPan,      COUNT(kPan)     },
 };
@@ -685,6 +693,9 @@ void sn2_controls_sound(const double * v, double tempo, tSn2Sound * sound) {
 
     sound->bend           = (2.0 * v[kSn2ParamPitchBend]) - 1.0;
     sound->wheel          = v[kSn2ParamModWheel];
+    sound->unison         = (int)lround(v[kSn2ParamUnison] * 7.0);
+    sound->unison        += (sound->unison > 0) ? 1 : 0;   // sn2Voices notes §24: 2 to 8
+    sound->unisonDetune   = (int)lround(v[kSn2ParamUnisonDetune] * 127.0);
     sound->pedal          = v[kSn2ParamSustainPedal] >= 0.5;
     sound->piano          = v[kSn2ParamSameNote] >= 0.5;
     sound->mono           = v[kSn2ParamPolyMode] > 0.5;

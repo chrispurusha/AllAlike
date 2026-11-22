@@ -1,12 +1,12 @@
 # Sn2Alike todo
 
 ## First
-- **Fixed-point option** - BUILT 2026-11-22; its words are the instrument's own (sn2Fixed notes §8). Still to do: unison (detune and volume words), aftertouch, VCO drift, Constant Gate (no program uses it; on the instrument it sounds from the moment it is loaded)
+- **Fixed-point option** - BUILT 2026-11-22; its words are the instrument's own (sn2Fixed notes §8). Still to do: aftertouch, VCO drift, Constant Gate (no program uses it; on the instrument it sounds from the moment it is loaded)
 - Output tilt: not seen again on 2026-11-22 (findings); look once more only if an A/B sounds bright
 - LFO settings by the instrument's names (owner 11-22): Freewheel/Keysync (done), delay sync, delay fade/gate, delay fade in/out, sync on/off - check each against the panel and program bytes (Delay Trigger bytes 169/179 are still unread)
 - Oscillator Sync, Sync Skew, Formant Width and Env 3 / wheel to Sync BUILT in FLOAT 2026-11-22 (sn2Osc notes §5-§7, checked against FIXED; the wheel route unchecked, FIXED has no wheel). Still: panel dials for Skew, Formant Width and Key Sync; the restart's softening above 8 kHz (ours up to 1.8 dB bright); square above Sync 120 (1.7 dB low at 127); A007's release tail stops sooner than FIXED's
 - Converge FLOAT on FIXED (the reference; the instrument decides): 52 of 1421 programs more than 3 dB apart. FLOAT still lacks: Noise Hardness routes, LFO speed routes, the audio inputs' silence. Noise Soften above 112 up to 1.7 dB bright. A007 and A026 held are up to 5 dB out; A023 in the middle
-- A001 (owner 11-22): FLOAT now within 2 dB of FIXED in every octave band (Skew); compare both with the instrument, arpeggiator off. Its 16 unison voices are in neither
+- A001 (owner 11-22): FLOAT now within 2 dB of FIXED in every octave band (Skew); compare both with the instrument, arpeggiator off. It does not use unison (an earlier note misread its byte)
 - A024 (owner 11-22): the voice vanishing in FIXED was not reproduced; FLOAT, FIXED and the instrument now agree to 1-2 dB dry. Osc 1 and 3 beat to near silence every 2-3 s on all three. Listen again
 - A011: matches the instrument dry, 2026-11-22
 - Same Note (built 11-17, sn2Voices notes §21): find what the instrument does with a key struck again (one voice restarted, or a new voice beside the releasing one) and make that the default
@@ -26,9 +26,9 @@
 - Effects orders in Performance mode, if performances are ever built: on the instrument a program ignores its order
 - Reverb: the Gated types' gates; closer than the measured model if its network can be read
 - SuperStrings1 about 18 dB loud, sustain falling about 55 dB/s while held: cause not found (its Sustain Time and Rate are default)
-- Glide (2026-11-02): built from the owner's by-ear report (start from the pitch reached; in poly each voice from its own last pitch) - CONFIRM in the instrument's own code before relying on it: Normal vs Auto, mono and poly
+- Glide: the start from the pitch reached and the rates are confirmed on the instrument (2026-11-22); Auto against Normal in a chord still by ear
 - Wheel to LFO depth, Env 1, width, Soften and sync (bend and wheel are on the panel's MOD page)
-- Voice pool (2026-11-02): with unison off, notes sum on the instrument as here (+3.1/+5.1/+9.3 dB for 2/4/8 against +3.3/+6.2/+8.7); with 16 unison voices it runs out of voices (2 notes -0.3, 4 +3.7, 8 +6.2 dB), and this plug-in has no pool. The unit has 24 voices (CT). Still to find, in the instrument's own code (owner 2026-11-02): how it shares and steals unison voices when they run out; then a pool of 24
+- Voice pool: UNISON BUILT 2026-11-22 (voices notes §24). The instrument has 24 voices (CT) and steals the lowest-ranked; the plug-in has its Voices setting, the oldest let go first. A setting of 24 as the instrument's pool, and its exact ranking, are left
 - Env Trigger values beyond Retrigger and Legato: 41 holds the sound open past note off; Env 2 and 3 are assumed to follow Env 1; Glissando and the fixed Glide types against reference curves in more cases
 - External audio input into the voices, as G2Alike's In 1/2: the Osc types Audio In 1 and 2 (they play as a Saw now), then the other Alikes
 - Output clip: placed last; whether the voice sum saturates at the same point before the effects is not known

@@ -148,6 +148,7 @@ static const struct {
     {kSn2ParamOsc1KeySync,      MAIN(53),  0x7F,   0},
     {kSn2ParamOsc2KeySync,      MAIN(87),  0x7F,   0},
     {kSn2ParamOsc3KeySync,      MAIN(121), 0x7F,   0},
+    {kSn2ParamUnisonDetune,     EXTRA(2),  0x7F,   0},
     {kSn2ParamOsc3Width,        MAIN(109), 0x7F,   0},
     {kSn2ParamOsc3Level,        MAIN(136), 0x7F,   0},
     {kSn2ParamOsc1Octave,       MAIN(23),  0x7F,  30},
@@ -476,9 +477,10 @@ void sn2_patch_from_single(const uint8_t single[SN2_SINGLE_LENGTH], double norma
     normalized[kSn2ParamFmNoise]    = ((single[FADE_AT] >> 2) & 1) ? 1.0 : 0.0;
     normalized[kSn2ParamOneShot]    = ((single[MAIN(237)] >> 2) & 1) ? 1.0 : 0.0;
     normalized[kSn2ParamOscsBypass] = ((single[FADE_AT] >> 5) & 1) ? 1.0 : 0.0;
-    normalized[kSn2ParamPolyMode]   = ((single[MAIN(238)] & 0x03) == 1) ? 1.0 : 0.0;    // above these bits, the Unison voices
+    normalized[kSn2ParamPolyMode]   = ((single[MAIN(238)] & 0x03) == 1) ? 1.0 : 0.0;
+    normalized[kSn2ParamUnison]     = ((single[MAIN(238)] & 0x20) != 0) ? (fmin(7.0, ((single[MAIN(238)] >> 2) & 7) + 1.0) / 7.0) : 0.0; // sn2Voices notes §24
     normalized[kSn2ParamEnvTrigger] = ((single[MAIN(235)] <= 33) || (single[MAIN(235)] == 38)) ? 1.0 : 0.0;
-    normalized[kSn2ParamReverbType] = (double)((single[MAIN(269)] >> 3) & 0x0F) / 15.0; // shares its byte with Early Reflections
+    normalized[kSn2ParamReverbType] = (double)((single[MAIN(269)] >> 3) & 0x0F) / 15.0;                                                  // shares its byte with Early Reflections
     normalized[kSn2ParamOscShape]   = shape_from_type(single[MAIN(22)]);
     normalized[kSn2ParamOsc2Shape]  = shape_from_type(single[MAIN(56)] - 10);
     normalized[kSn2ParamOsc3Shape]  = shape_from_type(single[MAIN(90)] - 20);
@@ -540,6 +542,11 @@ void sn2_patch_to_single(const double normalized[kSn2ParamCount], const uint8_t 
 
     if ((base == NULL) || ((normalized[kSn2ParamPolyMode] > 0.5) != (was[kSn2ParamPolyMode] > 0.5))) {
         out[MAIN(238)] = (uint8_t)(((base != NULL) ? (out[MAIN(238)] & 0x7C) : 0x40) | ((normalized[kSn2ParamPolyMode] > 0.5) ? 1 : 2));
+    }
+    long unison     = lround(normalized[kSn2ParamUnison] * 7.0);
+
+    if ((base == NULL) || (unison != lround(was[kSn2ParamUnison] * 7.0))) {
+        out[MAIN(238)] = (uint8_t)((out[MAIN(238)] & 0x43) | ((unison > 0) ? (0x20 | ((unison - 1) << 2)) : (out[MAIN(238)] & 0x1C)));
     }
 
     if ((base == NULL) || ((normalized[kSn2ParamEnvTrigger] > 0.5) != (was[kSn2ParamEnvTrigger] > 0.5))) {

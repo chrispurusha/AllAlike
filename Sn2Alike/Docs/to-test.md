@@ -35,3 +35,4 @@ Finished work not yet checked against the instrument.
 - Envelopes, LFO delay and fade, noise, FM, Volume 127, Resonance / Soften / width routes, LFO Sync to tempo in FLOAT; release, One Shot, mono, glide, bend and wheel in FIXED (2026-11-22): by ear in a host against the instrument - drums and Volume 127 programs changed most (those are up to 3.6 dB louder)
 - HARDWARE Channel is a list, 1-16 (2026-11-22)
 - Key Sync, LFO Soften, envelope repeats and key tracking in FLOAT (2026-11-22): checked on the instrument from captures, not yet by ear in a host
+- Unison (2026-11-22): Voices and Detune in UNISON on the GLOBAL page, poly and mono, in a host; glide, which did nothing before

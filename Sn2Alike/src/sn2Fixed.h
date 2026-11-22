@@ -28,14 +28,16 @@
 #include "sn2Dsp.h"
 
 #define SN2_FIXED_BLOCK        (0xDE)
-#define SN2_FIXED_WORDS        (SN2_FIXED_BLOCK + 24) // the voice's, then what the key needs of the program (notes §8)
+#define SN2_FIXED_WORDS        (SN2_FIXED_BLOCK + 32) // the voice's, then what the key needs of the program (notes §8)
 #define SN2_FIXED_REPEATS      (SN2_FIXED_BLOCK)
 #define SN2_FIXED_TRACKS       (SN2_FIXED_BLOCK + 3)
 #define SN2_FIXED_DIALS        (SN2_FIXED_BLOCK + 6)
 #define SN2_FIXED_GLIDE        (SN2_FIXED_BLOCK + 18)
 #define SN2_FIXED_RATES        (SN2_FIXED_BLOCK + 20)
+#define SN2_FIXED_TUNING       (SN2_FIXED_BLOCK + 23) // each oscillator's semitones, then its fine tune
+#define SN2_FIXED_UNISON       (SN2_FIXED_BLOCK + 29) // voices, 0 off; then the detune
 #define SN2_FIXED_OSC_WORDS    (6)
-#define SN2_FIXED_LFO_WORDS    (4) // notes §6: a voice's words from the host side, the first its flags
+#define SN2_FIXED_LFO_WORDS    (4)                    // notes §6: a voice's words from the host side, the first its flags
 
 // notes §6: one voice in the instrument's words - its memory, its registers
 typedef struct {
@@ -89,7 +91,9 @@ double sn2_fixed_lfo_delay(double dial, bool fadeOut);
 double sn2_fixed_lfo_sync_hz(int sync);
 // notes §8: the words for a program (a single's bytes), then the key's and velocity's on top
 void sn2_fixed_program_words(const uint8_t * single, uint32_t words[SN2_FIXED_WORDS]);
-// glide: semitones from the note that the voice starts at
-void sn2_fixed_note_words(uint32_t words[SN2_FIXED_WORDS], uint8_t note, float velocity, double glide);
+// glide: semitones from the note that the voice starts at; which: the voice's number in a unison (notes §13)
+void sn2_fixed_note_words(uint32_t words[SN2_FIXED_WORDS], uint8_t note, float velocity, double glide, int which);
+// notes §13: a unison voice's cents off
+int sn2_unison_cents(int voices, int which, int detune);
 
 #endif // __SN2_FIXED_H__

@@ -147,3 +147,13 @@ reach it.
 From the program. Soften and Resonance each move 131072/66048 dial steps for each step of a route's amount from 64, at a
 full source: the wheel, Env 2, Env 3, LFO 1, LFO 2 (an LFO half, as §19). Pulse width moves a 32nd of its 0..2 for each
 step from the wheel, Env 2 and Env 3 (Osc 1's wheel an eighth of that), a 64th from an LFO.
+
+## 24. Unison
+The program's switch (byte 238, bit 5) and count (bits 2-4, the voices less 2): 2 to 8 voices to a key. They are numbered
+from 0; voice w of n is off by (8w + 5 - 4n) 256 / (8n + 16), plus 1, times Detune (extension byte 2) / 256, whole cents: even
+steps about the pitch, a little sharp of it. Every voice is (16 - n) / 16 of its level. Mono moves them together. The
+program's own limit is the plug-in's Voices. A voice to steal is the oldest already let go, else the oldest; a key never
+takes a voice it has just taken. Against the instrument 2026-11-22, 2 to 8 voices at five settings: every voice's pitch
+within half a cent, the level within 0.6 dB.
+A glide starts where the voice's pitch was before the new note (until 2026-11-22 the note was set first, and nothing
+glided); its rate was checked on the instrument in both curves.

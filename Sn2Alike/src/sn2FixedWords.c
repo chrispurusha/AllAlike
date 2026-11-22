@@ -633,6 +633,20 @@ static int field(const uint8_t * single, int f) {
     return (single[d->dump + 10 + d->offset] >> d->shift) & d->mask;
 }
 
+// notes §8: an oscillator's pitch from its semitones and cents
+static uint32_t pitch_word(int semis, int fine) {
+    int pitch = (0x8156 + (semis * 256) + ((fine * 8 * 0x51EB) >> 16)) & 0xFFFF;
+
+    return (uint32_t)(((int64_t)pitch * 0xAAAB) >> 8) & 0xFFFFFFu;
+}
+
+// notes §13
+int sn2_unison_cents(int voices, int which, int detune) {
+    int part = (8 * voices) + 16;
+
+    return ((((((8 * which) + 5 - (4 * voices)) * 256) + part) / part) * detune) >> 8;
+}
+
 #define EXTENSION    (297 + 10)
 
 // notes §8: a pulse width depth, its byte twice over
@@ -683,14 +697,15 @@ void sn2_fixed_program_words(const uint8_t * single, uint32_t words[SN2_FIXED_WO
         int semis  = field(single, kOscField[o][1]) - (57 + (25 * o));
         int fine   = field(single, kOscField[o][2]) - 64;
         int width  = field(single, kOscField[o][3]) - 64;
-        int pitch  = (0x8156 + (((octave * 12) + semis) * 256) + ((fine * 8 * 0x51EB) >> 16)) & 0xFFFF;
 
-        words[0x01 + (0x24 * o)] = (uint32_t)(((int64_t)pitch * 0xAAAB) >> 8) & 0xFFFFFFu;
-        words[0x18 + (0x24 * o)] = (uint32_t)((width >= 63) ? 0x3FFFFF : (width * 65536)) & 0xFFFFFFu;
+        words[SN2_FIXED_TUNING + o]     = (uint32_t)((octave * 12) + semis);
+        words[SN2_FIXED_TUNING + 3 + o] = (uint32_t)fine;
+        words[0x01 + (0x24 * o)]        = pitch_word((octave * 12) + semis, fine);
+        words[0x18 + (0x24 * o)]        = (uint32_t)((width >= 63) ? 0x3FFFFF : (width * 65536)) & 0xFFFFFFu;
 
         int type   = field(single, kOscField[o][4]) - (10 * o); // each oscillator's types count from 10o
 
-        words[0x1D + (0x24 * o)] = kOscType[(type < 0) ? 0 : ((type > 11) ? 11 : type)];
+        words[0x1D + (0x24 * o)]        = kOscType[(type < 0) ? 0 : ((type > 11) ? 11 : type)];
     }
 
     const uint8_t * extra = single + EXTENSION;
@@ -759,6 +774,11 @@ void sn2_fixed_program_words(const uint8_t * single, uint32_t words[SN2_FIXED_WO
         }
     }
 
+    if ((single[10 + 238] & 0x20) != 0) {   // notes §13
+        words[SN2_FIXED_UNISON]     = (uint32_t)(((single[10 + 238] >> 2) & 7) + 2);
+        words[SN2_FIXED_UNISON + 1] = extra[2] & 0x7Fu;
+        words[0xBE]                 = (uint32_t)((words[0xBE] * (16 - words[SN2_FIXED_UNISON])) / 16);
+    }
     words[SN2_FIXED_GLIDE]     = single[10 + 231];
     words[SN2_FIXED_GLIDE + 1] = (single[10 + 234] == 122) ? 1 : 0;
 
@@ -807,7 +827,12 @@ static int32_t rate_word(int dial, int moved) {
 }
 
 // notes §8: the key, as semitones from middle C in the word's middle
-void sn2_fixed_note_words(uint32_t words[SN2_FIXED_WORDS], uint8_t note, float velocity, double glide) {
+void sn2_fixed_note_words(uint32_t words[SN2_FIXED_WORDS], uint8_t note, float velocity, double glide, int which) {
+    if (words[SN2_FIXED_UNISON] > 0) {   // notes §13
+        for (int o = 0; o < 3; o++) {
+            words[0x01 + (0x24 * o)] = pitch_word((int)words[SN2_FIXED_TUNING + o], (int)words[SN2_FIXED_TUNING + 3 + o] + sn2_unison_cents((int)words[SN2_FIXED_UNISON], which, (int)words[SN2_FIXED_UNISON + 1]));
+        }
+    }
     int     v     = (int)lroundf(velocity * 127.0f);
 
     v           = (v < 1) ? 1 : ((v > 127) ? 127 : v);
