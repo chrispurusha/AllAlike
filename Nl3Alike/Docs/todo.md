@@ -1,9 +1,14 @@
 # Nl3Alike todo
 
 ## First
-- Not read by the engine, though the panel has them: the LFOs' Clock, Divisor and Mono, Transpose, the arpeggiator's Keyboard Sync; the LFOs' Smooth plays as Random and Special as Triangle (2026-11-22)
+- Controls that do nothing to the sound (each tested at both ends, 2026-11-22; their values load, save and write back to programs):
+  - LFO 1 and 2 Clock and Divisor: the divisor's table to be measured, as the arpeggiator's was (arp notes §2)
+  - LFO 1 and 2 Mono
+  - LFO Smooth wave (plays as Random) and Special wave (plays as Triangle)
+  - Transpose
+  - Arpeggiator Keyboard Sync
 - Priority (CT 2026-11-14): programs 2-4 (String Pad, Happy ending, Ethereality) - Unison done; multi types 1, 4, 5 and the Sine's Shape done (filter notes §15-16, osc notes §12) - vibrato BUILT 11-14 (voices notes §31; source 1 = aftertouch, 2 = wheel); what reaches the second cutoff (Filter 2 Env, key track, LFO to Filter 2) measured, then the Sine's Shape (program 4); vibrato later
-- Modulation (CT 2026-11-14: first): LFO 2 to Resonance and Pan, Invert on the positive-only destinations, LFO to Osc Mod once Osc Mod exists (pitch, filter, Shape, Osc Mix and Amp done, voices notes §21-22); Smooth Random and Special waves; keyed start phase; Mono mode (Env single cycle BUILT 11-20, voices notes §37)
+- Modulation (CT 2026-11-14: first): LFO 2 to Resonance and Pan, Invert on the positive-only destinations, LFO to Osc Mod once Osc Mod exists (pitch, filter, Shape, Osc Mix and Amp done, voices notes §21-22); keyed start phase (Env single cycle BUILT 11-20, voices notes §37)
 - Modulation: what the Mod Env's Amount 127 does to pitch (the offset reads zero); its destinations are built bar FILT 2 (OSCMOD is built: voices notes §39)
 - Morph: aftertouch BUILT 11-14 (channel pressure, the wheel's law assumed - measure it); the Control Pedal as a source; whether a morphed knob is clamped to its range before or after the groups add
 - Check the switch names against the instrument (stored value = panel position is measured; the names follow the
@@ -59,5 +64,4 @@
 - Osc Mod: all six types BUILT and checked against the instrument's arithmetic 11-22 (FM/DFM within 0.7 dB at 64-127 once the modulated increment wraps, osc notes §17; DIST and RM within 0.6 dB; DM within 0.8 dB off unison). Still: fixed-point forms of DM/DIST/RM (§18) for Maths FIXED, and a check against the hardware
 - Poly Legato (manual p.108): a chord played over a held one takes over the old voices without restarting the envelopes, and with Glide each glides in parallel to its new note, plus the rules for a chord with more or fewer notes - replaces the stopgap in voices notes §12a (poly + Legato glides each voice from its own last pitch while a key is held; envelopes restart)
 - Arpeggiator BUILT 11-21 (arp notes): still open - with Chord Memory and Unison; nl3render does not run it
-- Mono note priority (stored 1 = lowest, 2 = highest, arp notes §4) is not played by the voices: last-note priority always
-- LFO clock sync: the divisor is read but unused - measure its table as the arp's was (arp notes §2)
+- Mono note priority (stored 1 = lowest, 2 = highest, arp notes §4): the arpeggiator follows it; ordinary Mono playing does not, always the last note

@@ -10,7 +10,7 @@ and the arpeggiator with its Sub and Mask modes. Programs load, are written back
 The sound can be played in floating point or in the instrument's own fixed point, where a stage has it.
 
 Not working yet: the LFOs' Clock, Divisor and Mono and their Smooth and Special waves, Transpose, the arpeggiator's
-Keyboard Sync, Mono's note priority and Poly Legato. See [`Docs/todo.md`](Docs/todo.md) and [`Docs/design.md`](Docs/design.md).
+Keyboard Sync, note priority in ordinary Mono playing (the arpeggiator has it), and Poly Legato taking over held voices. See [`Docs/todo.md`](Docs/todo.md) and [`Docs/design.md`](Docs/design.md).
 
 One of the plug-ins in [AllAlike](../README.md), built on [SynthLib](https://github.com/chrispurusha/SynthLib).
 

@@ -205,8 +205,8 @@ Started 2026-11-02 from Sn2Alike's skeleton. Everything below is measured on the
 - **Built 2026-11-20 to 22:** Dual Sine and its FM, Osc 2 Noise, Noise3, synched noise, Osc 2 without Keyboard Track; Distorted LP, the band pass at 6 dB and every multi mode; Osc Bypass; LFO 2 to Resonance and Pan, the LFOs' Env mode and Invert, LFO and Mod Env to Filter 2 and Osc Mod; Chord Memory; the arpeggiator with Sub and Mask.
 
 **Missing**
-- On the panel, not read by the engine: the LFOs' Clock, Divisor and Mono, Transpose, the arpeggiator's Keyboard Sync. The LFOs' Smooth plays as Random and Special as Triangle.
-- Mono's note priority (last note always outside the arpeggiator), Poly Legato, Chord Memory's odd counts and chords in Mono; Shape on the Saw and Triangle.
+- On the panel, no effect on the sound (tested, 2026-11-22): LFO 1 and 2 Clock, Divisor and Mono; Transpose; the arpeggiator's Keyboard Sync. The LFOs' Smooth plays as Random and Special as Triangle.
+- Mono's note priority in ordinary playing (always the last note; the arpeggiator follows it); Poly Legato's taking over of held voices (Legato works in Mono, glide and the arpeggiator); Chord Memory's odd counts and chords in Mono; Shape on the Saw and Triangle.
 - **Level across the library:** a sweep of bank 1 against the instrument at three wheel positions, the worst narrowed by switching features off on both sides (owner, 2026-11-16) - 1:2, 1:7, 1:15, 1:17, 1:18 and 1:19 noted by ear; an A/B harness scoring renders against captures.
 - Reading its 1024 programs is built but untried.
 
