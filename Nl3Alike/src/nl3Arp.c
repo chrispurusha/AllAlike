@@ -47,6 +47,10 @@ static uint32_t rate_ticks(int rate) {
     return (ticks > 0xFFFFu) ? 0xFFFFu : ticks;
 }
 
+int nl3_arp_division(int divisor) {
+    return sync_index(divisor);
+}
+
 double nl3_arp_step_seconds(const tNl3ArpSettings * s, double tempo) {
     if (s->clockSync) {
         return kSyncBeats[sync_index(s->divisor)] * 60.0 / ((tempo > 0.0) ? tempo : 120.0);

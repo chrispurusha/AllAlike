@@ -215,11 +215,15 @@ static double read_delay(const tSn2Effects * e, uint32_t samples) {
     return e->delayLine[(e->delayWrite + SN2_DELAY_LINE - back) % SN2_DELAY_LINE];
 }
 
+double sn2_effects_delay_ms(double time) {
+    return MS_PER_TIME * time;
+}
+
 static double delay_ms(const tSn2EffectsSound * s) {
     int sync = (s->delaySync < 0) ? 0 : ((s->delaySync > 34) ? 34 : s->delaySync);
 
     if (sync == 0) {
-        return MS_PER_TIME * s->delayTime;
+        return sn2_effects_delay_ms(s->delayTime);
     }
     return fmin(kSyncBeats[sync] * 60000.0 / s->tempo, LONGEST_MS);
 }

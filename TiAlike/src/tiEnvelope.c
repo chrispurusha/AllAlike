@@ -20,7 +20,6 @@
 
 #include "tiEnvelope.h"
 
-#define TICKS_PER_SECOND    (46875.0 / 4.0)   // notes §1
 #define TOP                 (1.0)
 #define RISE_TOP            (127.0 / 128.0)   // notes §4
 #define FLOOR               (1.0 / 32768.0)
@@ -129,7 +128,7 @@ double ti_env_mix_level(double dial) {
 
 void ti_env_shape(double attack, double decay, double sustain, double sustainTime, double release, double sampleRate,
                   tTiEnvShape * shape) {
-    double ticks = TICKS_PER_SECOND / sampleRate;   // per sample
+    double ticks = TI_ENV_TICKS / sampleRate;   // per sample
 
     shape->fixed      = false;
 

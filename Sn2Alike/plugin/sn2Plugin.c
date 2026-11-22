@@ -518,12 +518,22 @@ static bool sn2_param_text(const tSynthLibPluginDesc * desc, void * inst, uint32
     static const char *const slopes[]  = {"12 dB", "18 dB", "24 dB"};
 
     (void)desc;
-    (void)inst;
 
     if (id >= kSn2ParamCount) {
         return false;
     }
     long                     step      = lround(value * gSn2Params[id].stepCount);
+
+    if (inst != NULL) {   // sn2Params notes §4: in its unit, where the other settings say how
+        double values[kSn2ParamCount];
+
+        memcpy(values, ((tSn2Plugin *)inst)->values, sizeof(values));
+        values[id] = value;
+
+        if (sn2_param_units(id, values, out, len)) {
+            return true;
+        }
+    }
 
     if ((id == kSn2ParamOscShape) || (id == kSn2ParamOsc2Shape) || (id == kSn2ParamOsc3Shape)) {
         snprintf(out, len, "%s", shapes[(step < 0) ? 0 : ((step > 2) ? 2 : step)]);
@@ -829,6 +839,7 @@ static void sn2_panel_init(void) {
     sn2_draw_set_pages(gSn2Pages, gSn2PageCount);
     sn2_draw_set_host(&gPatchHost);
     sn2_draw_set_display(limit_display);
+    sn2_draw_set_units(sn2_param_units);
 }
 
 // notes: a plain-text channel, off until /tmp/sn2alike-backdoor exists

@@ -18,6 +18,7 @@
 
 #include <limits.h>
 #include <math.h>
+#include <stdio.h>
 
 #include "sn2Params.h"
 #include "synthlibDefs.h"
@@ -681,6 +682,11 @@ static double lfo_semis(double normalized) {
     return ((d < 0.0) ? -1.0 : 1.0) * d * d * 768.0 / 43691.0;
 }
 
+// sn2Voices notes §15
+static double sn2_lfo_hz(double speed, int range) {
+    return (speed * speed / 1638.4) * pow(10.0, range);
+}
+
 void sn2_controls_sound(const double * v, double tempo, tSn2Sound * sound) {
     for (int l = 0; l < SN2_LFOS; l++) {
         int    at    = l * (kSn2ParamLfo2Shape - kSn2ParamLfo1Shape);
@@ -688,7 +694,7 @@ void sn2_controls_sound(const double * v, double tempo, tSn2Sound * sound) {
 
         sound->lfo[l]       = (tSn2LfoSound){
             .shape   = (int)lround(v[kSn2ParamLfo1Shape + at] * 3.0),
-            .hz      = (speed * speed / 1638.4) * pow(10.0, lround(v[kSn2ParamLfo1Range + at] * 2.0)),
+            .hz      = sn2_lfo_hz(speed, (int)lround(v[kSn2ParamLfo1Range + at] * 2.0)),
             .soften  = sn2_fixed_lfo_soften(v[kSn2ParamLfo1Soften + l] * 127.0),
             .fade    = sn2_fixed_lfo_delay(v[kSn2ParamLfo1Delay + at] * 127.0, v[kSn2ParamLfo1Fade + l] > 0.5),
             .fadeOut = v[kSn2ParamLfo1Fade + l] > 0.5,
@@ -779,5 +785,197 @@ void sn2_controls_sound(const double * v, double tempo, tSn2Sound * sound) {
 
         sound->osc[o].keySync        = 2.0 * v[kSn2ParamOsc1KeySync + o] * 127.0 / 128.0;            // sn2Osc notes §8
         sound->osc[o].windowFall     = (127.0 - (v[kSn2ParamOsc1SyncFormant + o] * 127.0)) / 4096.0; // sn2Osc notes §7
+    }
+}
+
+// ---- values in their units - notes §4, from the engine's own laws ------------------------------------------------
+
+static const char *const kSyncNames[] = {
+    "Off", "32nd T", "32nd", "16th T", "16th", "8th T", "16th .", "8th", "4th T", "8th .", "4th", "2nd T", "4th .", "2nd", "1 Bar T", "2nd .", "1 Bar", "2 Bar T",
+    "1 Bar .", "2 Bars", "4 Bar T", "3 Bars", "5 Bar T", "4 Bars", "3 Bar .", "7 Bar T", "5 Bars", "8 Bar T", "6 Bars", "7 Bars", "5 Bar .", "8 Bars", "6 Bar .", "7 Bar .", "8 Bar ."
+};
+
+static bool db_text(double dial, char * out, size_t len) {
+    if (dial < 0.5) {
+        snprintf(out, len, "-inf dB");
+    } else {
+        snprintf(out, len, "%.1f dB", 20.0 * log10(dial / 127.0));
+    }
+    return true;
+}
+
+static bool ms_text(double ms, char * out, size_t len) {
+    if (ms < 10.0) {
+        snprintf(out, len, "%.1f ms", ms);
+    } else if (ms < 1000.0) {
+        snprintf(out, len, "%.0f ms", ms);
+    } else {
+        snprintf(out, len, (ms < 10000.0) ? "%.2f s" : "%.1f s", ms / 1000.0);
+    }
+    return true;
+}
+
+static bool hz_text(double hz, char * out, size_t len) {
+    if (hz < 1.0) {
+        snprintf(out, len, "%.3f Hz", hz);
+    } else if (hz < 100.0) {
+        snprintf(out, len, "%.2f Hz", hz);
+    } else if (hz < 1000.0) {
+        snprintf(out, len, "%.0f Hz", hz);
+    } else {
+        snprintf(out, len, "%.2f kHz", hz / 1000.0);
+    }
+    return true;
+}
+
+static double steps_ms(double steps) {
+    return steps * 1000.0 * SN2_ENV_TICK / SN2_ENGINE_HZ;
+}
+
+// An envelope's dial: a straight line's whole time, a fall's time to half, 127 of Sustain Time for ever
+static bool env_text(tSn2EnvLaw law, double dial, char * out, size_t len) {
+    double step = sn2_fixed_env_step(law, dial, 0);
+
+    if (step <= 0.0) {
+        snprintf(out, len, "Hold");
+        return true;
+    }
+
+    if ((law == eSn2EnvDecay) || (law == eSn2EnvRelease)) {
+        return ms_text(steps_ms((step >= 1.0) ? 1.0 : (log(0.5) / log(1.0 - step))), out, len);
+    }
+    return ms_text(steps_ms(fmax(1.0, ((law == eSn2EnvTime) ? 0.5 : 1.0) / step)), out, len);
+}
+
+bool sn2_param_units(uint32_t id, const double * values, char * out, size_t len) {
+    double v    = values[id];
+    double dial = round(v * 127.0);
+
+    switch (id) {
+        case kSn2ParamVolume:
+        case kSn2ParamMaster:
+        case kSn2ParamOscLevel:
+        case kSn2ParamOsc2Level:
+        case kSn2ParamOsc3Level:
+        case kSn2ParamEffectsDry:
+        case kSn2ParamChorusSend:
+        case kSn2ParamDelaySend:
+        case kSn2ParamReverbSend:
+            return db_text(dial, out, len);
+
+        case kSn2ParamNoiseLevel:
+            return (values[kSn2ParamFmNoise] <= 0.5) && db_text(dial, out, len);   // an FM depth is no level
+
+        case kSn2ParamRing13:
+            return (values[kSn2ParamFm13] <= 0.5) && db_text(dial, out, len);
+
+        case kSn2ParamRing23:
+            return (values[kSn2ParamFm23] <= 0.5) && db_text(dial, out, len);
+
+        case kSn2ParamAmpAttack:
+        case kSn2ParamEnv2Attack:
+        case kSn2ParamEnv3Attack:
+            return env_text(eSn2EnvAttack, dial, out, len);
+
+        case kSn2ParamAmpDecay:
+        case kSn2ParamEnv2Decay:
+        case kSn2ParamEnv3Decay:
+        case kSn2ParamEnv2Release:
+        case kSn2ParamEnv3Release:
+            return env_text(eSn2EnvDecay, dial, out, len);
+
+        case kSn2ParamAmpRelease:
+            return env_text(eSn2EnvRelease, dial, out, len);
+
+        case kSn2ParamAmpSustainTime:
+        case kSn2ParamEnv2SustainTime:
+        case kSn2ParamEnv3SustainTime:
+            return env_text(eSn2EnvTime, dial, out, len);
+
+        case kSn2ParamEnv2Delay:
+        case kSn2ParamEnv3Delay:
+            return (dial > 0.0) ? env_text(eSn2EnvDelay, dial, out, len) : ms_text(0.0, out, len);
+
+        case kSn2ParamLfo1Speed:
+        case kSn2ParamLfo2Speed:
+        {
+            int    l    = (id == kSn2ParamLfo1Speed) ? 0 : 1;
+            int    sync = (int)lround(values[kSn2ParamLfo1Sync + l] * 34.0);
+
+            if (sync > 0) {
+                snprintf(out, len, "%s", kSyncNames[sync]);
+                return true;
+            }
+            return hz_text(sn2_lfo_hz(dial, (int)lround(values[(l == 0) ? kSn2ParamLfo1Range : kSn2ParamLfo2Range] * 2.0)), out, len);
+        }
+
+        case kSn2ParamLfo1Sync:
+        case kSn2ParamLfo2Sync:
+            snprintf(out, len, "%s", kSyncNames[lround(v * 34.0)]);
+            return true;
+
+        case kSn2ParamLfo1Delay:
+        case kSn2ParamLfo2Delay:
+        {
+            bool   fadeOut = values[(id == kSn2ParamLfo1Delay) ? kSn2ParamLfo1Fade : kSn2ParamLfo2Fade] > 0.5;
+            double step    = sn2_fixed_lfo_delay(dial, fadeOut);
+
+            return ms_text(steps_ms(fadeOut ? (log(0.5) / log(fmax(1e-9, 1.0 + step))) : (1.0 / step)), out, len);
+        }
+
+        case kSn2ParamGlideTime:
+            if (dial < 0.5) {
+                snprintf(out, len, "Off");
+                return true;
+            }
+            return ms_text(1000.0 * sn2_glide_seconds(dial), out, len);
+
+        case kSn2ParamDelayTime:
+            if (values[kSn2ParamDelaySync] * 34.0 >= 0.5) {
+                snprintf(out, len, "%s", kSyncNames[lround(values[kSn2ParamDelaySync] * 34.0)]);
+                return true;
+            }
+            return ms_text(sn2_effects_delay_ms(dial), out, len);
+
+        case kSn2ParamCutoff:
+            return hz_text(sn2_filter_hz(dial), out, len);
+
+        case kSn2ParamOscSync:
+        case kSn2ParamOsc2Sync:
+        case kSn2ParamOsc3Sync:
+            snprintf(out, len, "%.1f st", fmin(dial, 120.0) / 2.0);
+            return true;
+
+        case kSn2ParamOsc1SyncSkew:
+        case kSn2ParamOsc2SyncSkew:
+        case kSn2ParamOsc3SyncSkew:
+            snprintf(out, len, (dial == 64.0) ? "0.0 st" : "%+.1f st", (dial - 64.0) * 12.0 / 64.0);
+            return true;
+
+        case kSn2ParamOsc1Fine:
+        case kSn2ParamOsc2Fine:
+        case kSn2ParamOsc3Fine:
+            snprintf(out, len, (dial == 64.0) ? "0 ct" : "%+.0f ct", dial - 64.0);
+            return true;
+
+        case kSn2ParamPulseWidth:
+        case kSn2ParamOsc2Width:
+        case kSn2ParamOsc3Width:
+            snprintf(out, len, "%.0f %%", dial * 100.0 / 128.0);
+            return true;
+
+        case kSn2ParamUnisonDetune:
+        {
+            int n = (int)lround(values[kSn2ParamUnison] * 7.0) + 1;
+
+            if (n < 2) {
+                return false;   // off: the number
+            }
+            snprintf(out, len, "%d ct", sn2_unison_cents(n, n - 1, (int)dial) - sn2_unison_cents(n, 0, (int)dial));   // from the flattest voice to the sharpest
+            return true;
+        }
+
+        default:
+            return false;
     }
 }

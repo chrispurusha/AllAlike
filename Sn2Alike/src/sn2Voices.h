@@ -208,6 +208,8 @@ static inline double sn2_volume_gain(double normalized) {
     return normalized * 127.0 / SN2_VOLUME_UNITY;
 }
 
+// notes §12: from one pitch to the next
+double sn2_glide_seconds(double time);
 void sn2_voices_init(tSn2Voices * v);
 void sn2_voices_set_limit(tSn2Voices * v, uint32_t limit);
 void sn2_voices_set_clean(tSn2Voices * v, bool clean);   // notes §17: Anti-alias

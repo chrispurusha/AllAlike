@@ -27,3 +27,7 @@ section 2 2/3 octaves under the cutoff takes far more out than one at it. Now wi
 Width 0, 64 and 127, and on the Notch; on the 13 programs in the backup that use it, median level error 3.4 -> 1.8 dB,
 spectrum 4.1 -> 1.6 dB. Width comes from the program (extension byte 7; the main dump's 3-bit copy is not used) and
 is on the Filter page.
+
+## 8. Cutoff in hertz
+The two passes a sample make it 2 x rate / pi x asin(f / 2). The peak at high Resonance is there to 1.5% from Cutoff 20
+to 120 in FLOAT and FIXED alike (466 Hz at 64). Before tracking, which is none at middle C.

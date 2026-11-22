@@ -29,3 +29,13 @@ the voice: Saw and Pulse play (the other waveforms as Saw), Osc Mix balances the
 filter's LP and HP at 12 and 24 dB are the instrument's (6 dB plays as 12, the other types as LP), the filter and amp
 envelopes, the LFOs to pitch, cutoff and pulse width, the Mod Env to cutoff, glide, mono and legato. Osc Mod, sync,
 FM, the multi filter modes, vibrato, unison, the arpeggiator and morph are not built yet. The scales here are interim.
+
+## 6. Values in their units
+One function (`nl3_param_units`) for the panel and the host, from the engine's own laws: levels in dB below the dial's
+top, an attack as its time to full, a decay or release as its time to half, cutoff as the frequency the dial stands for
+("Open" at 127, a fixed word: filter notes §4), LFO and vibrato rates in Hz, an envelope's or LFO's Amount in semitones
+where it moves a pitch or a cutoff, the Pulse's Shape as its duty, Glide in semitones a second, Unison Detune from the
+flat copy to the sharp one, the arpeggiator as the time of a step or its note value. Osc 2's pitch dials read as the
+engine takes them: semitones, a ratio with Partial on, the frequency with the keyboard track off, and their number
+where another dial sets the pitch instead. What has no honest unit keeps its number, and so do Transpose and the LFOs'
+Divisor, which the engine does not use yet.

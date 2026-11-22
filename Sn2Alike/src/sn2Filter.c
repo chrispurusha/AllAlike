@@ -67,6 +67,10 @@ static double section_f(double cutoff) {
     return fmin(F_AT_64 * pow(2.0, (cutoff - 64.0) / 12.0), F_MAX);
 }
 
+double sn2_filter_hz(double cutoff) {
+    return 2.0 * SN2_ENGINE_HZ / M_PI * asin(section_f(cutoff) / 2.0);   // notes §8
+}
+
 void sn2_filter_coeffs(uint32_t type, uint32_t slope, double cutoff, double resonance, double normalise, double width, tSn2FilterCoeffs * c) {
     const tSn2FilterType * t     = &kTypes[(type < SN2_FILTER_TYPES) ? type : 0][(slope < SN2_FILTER_SLOPES) ? slope : 0];
     double                 d     = (127.0 - resonance) / 127.0;

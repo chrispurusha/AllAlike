@@ -63,3 +63,4 @@ Finished work not yet checked against the instrument or in a host.
 - HARDWARE SysEx ID (was Device) is a list, 1-127 and All, the instrument's own names (2026-11-22; it was a dial reading 0-127): opens and fits, and the number chosen is the one the instrument answers to (1 is sent as 0, taken from the manual's range, not checked; All is as before)
 - HARDWARE Channel is a list, 1-16 (2026-11-22)
 - Buttons of two options flip on a click instead of opening a list (2026-11-22, ../Docs/panel-layout.md)
+- Dial values in their units, panel and host, while dragging too (2026-11-22, nl3Params notes §6)

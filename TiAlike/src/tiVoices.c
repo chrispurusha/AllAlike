@@ -474,7 +474,7 @@ static const double kStack[6][6] = {
     {-1.0, -0.6, -0.3, 0.3, 0.6, 1.0},
 };
 
-static double unison_cents(double dial) {
+double ti_unison_cents(double dial) {
     static const double kAt[5] = {0, 32, 64, 96, 127};
     static const double kCt[5] = {0, 1.5, 4.6, 10.0, 24.1};
 
@@ -499,7 +499,7 @@ static void trigger_note(tTiVoices * v, uint8_t note, float velocity, bool retri
     bool             mono   = (s->a[94] >= 1) && (s->a[94] <= 4);
     const uint8_t *  bytes  = unison_bytes(s);
     double           spread = bytes[2] / 127.0;
-    double           cents  = unison_cents(bytes[1]);
+    double           cents  = ti_unison_cents(bytes[1]);
     double           phases = ((double)bytes[3] - 64.0) / 128.0;   // notes §13: of a cycle, every second voice
     uint64_t         since  = v->clock;
 
@@ -1001,7 +1001,7 @@ static double filters_process(tTiVoice * vc, const tTiFilterSet * set, double ra
 }
 
 // notes §7: Patch Volume, in dB at each eighth step of the dial below 48, then a straight line
-static double patch_volume(double dial) {
+double ti_patch_volume(double dial) {
     static const double kDb[7] = {-90.0, -51.2, -41.5, -34.3, -29.5, -24.6, -19.9};
 
     dial = clamp(dial, 0.0, 127.0);
@@ -1019,11 +1019,11 @@ static double patch_volume(double dial) {
 }
 
 // notes §7
-static double mix_level(double dial) {
+double ti_mix_level(double dial) {
     return (dial <= 0.0) ? 0.0 : ti_env_mix_level(dial);
 }
 
-static double osc_volume(double dial) {
+double ti_osc_volume(double dial) {
     return (dial <= 0.0) ? 0.0 : ti_env_sustain_level(2.0 * clamp(dial, 0.0, 64.0));
 }
 
@@ -1039,7 +1039,7 @@ static double balance_2(double b) {
 }
 
 // notes §7: Osc 2 Detune in cents at note 60, the centre of the drift below
-static double detune_cents(double dial) {
+double ti_osc2_detune_cents(double dial) {
     static const double kAt[23] = {0, 8, 16, 24, 32, 40, 48, 56, 64, 72, 80, 84, 88, 92, 96, 100, 104, 108, 112, 116, 120, 124, 127};
     static const double kCt[23] = {0.0, 0.388, 0.77, 1.969, 3.138, 4.748, 6.311, 7.898, 9.484, 11.059, 12.634, 14.626, 16.583, 18.563, 20.62, 23.38, 26.12, 28.89, 31.63, 36.29, 40.96, 45.6, 49.08};
 
@@ -1071,7 +1071,7 @@ static double semitone_interval(double byte) {
 }
 
 // notes §7b: Osc 3's Detune, in cents at note 60 - it lowers the pitch
-static double osc3_detune_cents(double dial) {
+double ti_osc3_detune_cents(double dial) {
     static const double kShare[9] = {0.0, 1.0 / 64, 1.0 / 16, 1.0 / 8, 3.0 / 16, 1.0 / 4, 13.0 / 32, 5.0 / 8, 1.0};   // Osc 2 Detune's
     double              x         = clamp(dial, 0.0, 127.0) / 16.0;
     int                 i         = (int)fmin(floor(x), 7.0);
@@ -1093,7 +1093,7 @@ static void drift_advance(tTiVoice * vc, double seconds) {
 
 // notes §7a: Osc 2 Detune, drifting by a quarter either way up to 92
 static double detune2_cents(const tTiVoice * vc, double dial) {
-    double cents = detune_cents(dial);
+    double cents = ti_osc2_detune_cents(dial);
 
     return (dial <= DRIFT_LAST_DIAL) ? (cents * (1.0 + (DRIFT_DEPTH * vc->drift))) : cents;
 }
@@ -1116,7 +1116,7 @@ static double fm_depth(double amount) {
 }
 
 // notes §11: Env Amount, in dial units of cutoff at a full envelope
-static double env_amount(double dial) {
+double ti_env_amount(double dial) {
     static const double kAt[4] = {0, 32, 64, 127};
     static const double kTo[4] = {0, 16, 48, 126.75};
 
@@ -1384,7 +1384,7 @@ static void render_voice(tTiVoices * v, const tTiSound * s, tTiVoice * vc, const
     double          note2     = key_pitch(vc->pitch, s->a[31]) + ((double)s->a[93] - 64.0) + (mod[kDstTranspose] * 48.0);
     double          scale     = pow(DETUNE_SLOPE, -(vc->pitch + ((double)s->a[93] - 64.0) - KEY_CENTRE) / 24.0); // notes §7: Transpose included
     const uint8_t * uni       = unison_bytes(s);                                                                 // notes §13, §22a: the stack's detune and spread follow the matrix
-    double          unison    = vc->stack * unison_cents(modded(uni[1], mod[kDstUnisonDetune])) / 100.0;
+    double          unison    = vc->stack * ti_unison_cents(modded(uni[1], mod[kDstUnisonDetune])) / 100.0;
     uint8_t         smooth1   = modded(s->c[44], mod[kDstInterp1]);
     uint8_t         smooth2   = modded(s->c[64], mod[kDstInterp2]);
     double          bend      = fabs(v->control[eTiCtlBend]) * ((v->control[eTiCtlBend] >= 0.0) ? bipolar(s->b[26]) : bipolar(s->b[27])) * 64.0;
@@ -1392,7 +1392,7 @@ static void render_voice(tTiVoices * v, const tTiSound * s, tTiVoice * vc, const
     double          semi1     = note1 + bend + unison + pitch_offset(s->a[20], mod[kDstPitch1]);
     double          semi2     = note2 + bend + unison + pitch_offset(s->a[25], mod[kDstPitch2]) + ((detune2_cents(vc, s->a[26] + (127.0 * mod[kDstDetune])) * scale) / 100.0)
                                 + (2.0 * lfo_pitch_amount(pitch_amount_byte(dial_moved(s->a[29], mod[kDstEnvPitch]))) * env);
-    double          semi3     = key_pitch(vc->pitch, s->a[31]) + ((double)s->a[93] - 64.0) + (mod[kDstTranspose] * 48.0) + bend + unison + semitone_interval(s->b[43]) - ((osc3_detune_cents(dial_moved(s->b[44], mod[kDstOsc3Detune])) * scale) / 100.0) + (PITCH_MOD_DEPTH * mod[kDstOsc3Pitch]);
+    double          semi3     = key_pitch(vc->pitch, s->a[31]) + ((double)s->a[93] - 64.0) + (mod[kDstTranspose] * 48.0) + bend + unison + semitone_interval(s->b[43]) - ((ti_osc3_detune_cents(dial_moved(s->b[44], mod[kDstOsc3Detune])) * scale) / 100.0) + (PITCH_MOD_DEPTH * mod[kDstOsc3Pitch]);
     double          inc1      = semitones_to_increment(v, semi1, semi1);
     double          inc2      = semitones_to_increment(v, semi2, semi2);
     double          inc3      = semitones_to_increment(v, semi3, semi3);
@@ -1407,11 +1407,11 @@ static void render_voice(tTiVoices * v, const tTiSound * s, tTiVoice * vc, const
     double          bal       = s->a[33] + (MOD_DEPTH * mod[kDstOscBalance]);
     double          g1        = balance_1(bal);
     double          g2        = balance_2(bal);
-    double          oscLvl    = osc_volume(s->a[36] + (MOD_DEPTH * mod[kDstOscVolume]));
-    double          subLvl    = mix_level(s->a[34] + (MOD_DEPTH * mod[kDstSub]));
-    double          noise     = mix_level(s->a[37] + (MOD_DEPTH * mod[kDstNoise]));
+    double          oscLvl    = ti_osc_volume(s->a[36] + (MOD_DEPTH * mod[kDstOscVolume]));
+    double          subLvl    = ti_mix_level(s->a[34] + (MOD_DEPTH * mod[kDstSub]));
+    double          noise     = ti_mix_level(s->a[37] + (MOD_DEPTH * mod[kDstNoise]));
     double          color     = clamp(s->a[39] + (MOD_DEPTH * mod[kDstNoiseColor]), 0.0, 127.0);
-    double          ring      = RING_GAIN * mix_level((double)((s->a[0] < TI_FORMAT) ? s->a[38] : s->a[50]) + (MOD_DEPTH * mod[kDstRing]));
+    double          ring      = RING_GAIN * ti_mix_level((double)((s->a[0] < TI_FORMAT) ? s->a[38] : s->a[50]) + (MOD_DEPTH * mod[kDstRing]));
     double          fmAmt     = fmax((double)s->a[27] / 127.0 + mod[kDstFm] + (bipolar(s->b[50]) * vc->velocity) + mod[kDstLfo2Fm] + ((bipolar(s->a[30]) + mod[kDstEnvFm]) * env), 0.0);
     double          fm        = (s->c[35] == 1) ? 0.0 : fm_depth(fmAmt); // notes §21: a HyperSaw Osc 2 reads it as sync
     double          syncUp    = ((s->c[35] == 1) && (fmAmt > 0.0)) ? pow(2.0, fmin(fmAmt * 127.0, 128.0) / 32.0) : 0.0;
@@ -1699,6 +1699,13 @@ static double glide_coefficient(double dial) {
     return kShare[i] + ((kShare[i + 1] - kShare[i]) * (x - (double)i));
 }
 
+// the steps until the lead closes the last of the gap
+double ti_glide_seconds(double dial) {
+    double share = glide_coefficient(dial);
+
+    return GLIDE_STEP * ((share >= 1.0) ? 1.0 : ceil(log(33.0) / -log(1.0 - share)));
+}
+
 // notes §10: the glide steps every GLIDE_STEP seconds by its share of the gap plus 1/32 of the whole interval, and
 // stops on the note
 static void glide_advance(tTiVoice * vc, double dial, double seconds) {
@@ -1967,8 +1974,8 @@ static void render_block(tTiVoices * v, const tTiSound * given, float * left, fl
             double       sign1   = (s->b[30] == 0) ? -1.0 : 1.0;
             double       sign2   = (s->b[31] == 0) ? -1.0 : 1.0;
             double       vel     = vc->velocity;
-            double       amt1    = sign1 * env_amount(s->a[44] + (MOD_DEPTH * mod[kDstEnvAmt1])) * velocity_scale(s->b[54], vel) * env;
-            double       amt2    = sign2 * env_amount(s->a[45] + (MOD_DEPTH * mod[kDstEnvAmt2])) * velocity_scale(s->b[55], vel) * env;
+            double       amt1    = sign1 * ti_env_amount(s->a[44] + (MOD_DEPTH * mod[kDstEnvAmt1])) * velocity_scale(s->b[54], vel) * env;
+            double       amt2    = sign2 * ti_env_amount(s->a[45] + (MOD_DEPTH * mod[kDstEnvAmt2])) * velocity_scale(s->b[55], vel) * env;
             double       key1    = keyAmt * ((double)s->a[46] - 64.0) / 63.0;
             double       key2    = keyAmt * ((double)s->a[47] - 64.0) / 63.0;
             double       c1      = cutoff + (MOD_DEPTH * (mod[kDstCutoff1] + lfoCut1)) + amt1 + key1;
@@ -1994,7 +2001,7 @@ static void render_block(tTiVoices * v, const tTiSound * given, float * left, fl
 
             double       ampVel  = bipolar(s->b[60]);
             double       velDial = (ampVel >= 0.0) ? (127.0 - (ampVel * 127.0 * (1.0 - vel))) : (127.0 + (ampVel * 127.0 * vel)); // notes §11
-            double       level   = (patch_volume(s->a[91] + (MOD_DEPTH * mod[kDstVolume])) / patch_volume(fmax(s->a[91], 1.0))) * ((ampVel == 0.0) ? 1.0 : mix_level(velDial));
+            double       level   = (ti_patch_volume(s->a[91] + (MOD_DEPTH * mod[kDstVolume])) / ti_patch_volume(fmax(s->a[91], 1.0))) * ((ampVel == 0.0) ? 1.0 : ti_mix_level(velDial));
             double       pan     = bipolar(s->a[10]) + (2.0 * mod[kDstPan]) + (bipolar(s->b[61]) * vel);
             double       spread  = clamp(vc->stack * 2.0 * modded(unison_bytes(s)[2], mod[kDstUnisonSpread]) / 127.0, -1.0, 1.0); // notes §13
             pan           = clamp(pan + spread + (fabs(spread) * clamp(pan, -1.0, 1.0)), -1.0, 1.0);
@@ -2016,7 +2023,7 @@ static void render_block(tTiVoices * v, const tTiSound * given, float * left, fl
         page[kFxDst[k].at] = modded(page[kFxDst[k].at], v->fxMod[kFxDst[k].dst]);
     }
 
-    ti_effects_render(&v->effects, fx.a, fx.b, fx.c, patch_volume(fmax(s->a[91], 1.0)), left, right, frames);
+    ti_effects_render(&v->effects, fx.a, fx.b, fx.c, ti_patch_volume(fmax(s->a[91], 1.0)), left, right, frames);
 
     // notes §18: the end of the chain clips hard at full scale, with no limiter before it
     for (uint32_t f = 0; f < frames; f++) {

@@ -18,6 +18,7 @@
 
 #include <math.h>
 #include <stddef.h>
+#include <stdio.h>
 #include <string.h>
 
 #include "nl3Params.h"
@@ -1112,6 +1113,29 @@ static double osc2_coarse_semitones(double coarse, bool partial) {
     return partial ? (12.0 * log2(osc2_partial_ratio(lround(c)))) : (c - 64.0);
 }
 
+// osc notes §19: Dual Sine's Carrier, in semitones from the note - partials 1/2, 1..9, or -1..+9 semitones
+static double osc2_carrier_semitones(double dial, bool partial) {
+    double c    = fmin(127.0, fmax(0.0, dial));
+    long   step = partial ? (long)floor((10.0 * c) / 128.0) : (long)floor((11.0 * c) / 128.0);
+
+    return partial ? (12.0 * log2((step == 0) ? 0.5 : (double)step)) : (double)(step - 1);
+}
+
+// ... and its Modulator, as a ratio
+static double osc2_modulator_ratio(double dial, bool partial) {
+    long m = lround(dial);
+
+    return partial ? osc2_partial_ratio(m) : exp2(floor(((119.0 * (double)m) - 2432.0) / 128.0) / 12.0);
+}
+
+static double unison_step(double detune) {
+    return (detune * detune / 8.0) - (0.08 * detune) + 7.45;   // voices notes §26
+}
+
+static double vibrato_semis(double amount) {
+    return fmin(amount, 100.0) * 127.0 / 128.0 / 100.0;        // voices notes §31
+}
+
 static tNl3OscShape osc_shape(int waveform) {
     static const tNl3OscShape kShapes[] = {eNl3OscSaw, eNl3OscSquare, eNl3OscTriangle, eNl3OscSine}; // the instrument's Saw, Pulse, Triangle and Sine
 
@@ -1194,11 +1218,8 @@ void nl3_sound_from_values(const double * v, tNl3Sound * s) {
     }
 
     if (s->osc[1].dualSine) {   // Coarse and Fine give way to the Carrier and Modulator pitches, from the note
-        double c       = fmin(127.0, fmax(0.0, plain(v, kNl3ParamOsc2Carrier)));
-        long   step    = on(v, kNl3ParamOsc2Partial) ? (long)floor((10.0 * c) / 128.0) : (long)floor((11.0 * c) / 128.0);
-        double carrier = on(v, kNl3ParamOsc2Partial) ? (12.0 * log2((step == 0) ? 0.5 : (double)step)) : (double)(step - 1);   // partials 1/2, 1..9, or -1..+9 semitones
-        long   m       = lround(plain(v, kNl3ParamOsc2Modulator));
-        double b       = on(v, kNl3ParamOsc2Partial) ? osc2_partial_ratio(m) : exp2(floor(((119.0 * (double)m) - 2432.0) / 128.0) / 12.0);
+        double carrier = osc2_carrier_semitones(plain(v, kNl3ParamOsc2Carrier), on(v, kNl3ParamOsc2Partial));
+        double b       = osc2_modulator_ratio(plain(v, kNl3ParamOsc2Modulator), on(v, kNl3ParamOsc2Partial));
 
         s->osc[1].semitones = carrier;
         s->osc[1].cents     = 0.0;
@@ -1240,11 +1261,7 @@ void nl3_sound_from_values(const double * v, tNl3Sound * s) {
     s->ampVelocity    = 64.0;
     s->ampExponential = on(v, kNl3ParamAmpExpAttack);
     s->unison         = on(v, kNl3ParamUnison);     // voices notes §26
-    {
-        double k = plain(v, kNl3ParamUnisonDetune);
-
-        s->unisonStep = (k * k / 8.0) - (0.08 * k) + 7.45;
-    }
+    s->unisonStep     = unison_step(plain(v, kNl3ParamUnisonDetune));
 
     s->env[0]         = (tNl3ModEnv){
         .attack   = plain(v, kNl3ParamFEnvAttack), .decay = plain(v, kNl3ParamFEnvDecay),
@@ -1310,7 +1327,7 @@ void nl3_sound_from_values(const double * v, tNl3Sound * s) {
         int    source = choice(v, kNl3ParamVibratoSource);
         double by     = (source == 1) ? v[kNl3ParamPressure] : ((source == 2) ? v[kNl3ParamModWheel] : 0.0);
 
-        s->vibratoSemis = (fmin(plain(v, kNl3ParamVibratoAmount), 100.0) * 127.0 / 128.0 / 100.0) * (by * 127.0 / 128.0);
+        s->vibratoSemis = vibrato_semis(plain(v, kNl3ParamVibratoAmount)) * (by * 127.0 / 128.0);
         s->vibratoHz    = vibrato_hz(plain(v, kNl3ParamVibratoRate));
     }
     s->glideTime  = (choice(v, kNl3ParamGlideMode) == 0) ? 0.0 : plain(v, kNl3ParamGlideRate);
@@ -1438,4 +1455,244 @@ void nl3_arp_from_values(const double * v, tNl3ArpSettings * arp) {
     arp->divisor      = choice(v, kNl3ParamArpDivisor);
     arp->voiceMode    = on(v, kNl3ParamMono) ? (on(v, kNl3ParamLegato) ? 2 : 1) : (on(v, kNl3ParamLegato) ? 3 : 0);
     arp->priority     = choice(v, kNl3ParamMonoPriority);
+}
+
+// ---- values in their units - notes §6, from the engine's own laws ------------------------------------------------
+
+static bool db_text(double gain, char * out, size_t len) {
+    if (gain <= 0.0) {
+        snprintf(out, len, "-inf dB");
+    } else {
+        double db = 20.0 * log10(gain);
+
+        snprintf(out, len, "%.1f dB", (fabs(db) < 0.05) ? 0.0 : db);
+    }
+    return true;
+}
+
+static bool ms_text(double ms, char * out, size_t len) {
+    if (ms < 10.0) {
+        snprintf(out, len, "%.1f ms", ms);
+    } else if (ms < 999.5) {
+        snprintf(out, len, "%.0f ms", ms);
+    } else {
+        snprintf(out, len, (ms < 9995.0) ? "%.2f s" : "%.1f s", ms / 1000.0);
+    }
+    return true;
+}
+
+static bool hz_text(double hz, char * out, size_t len) {
+    if (hz < 0.01) {
+        snprintf(out, len, "%.4f Hz", hz);
+    } else if (hz < 1.0) {
+        snprintf(out, len, "%.3f Hz", hz);
+    } else if (hz < 100.0) {
+        snprintf(out, len, "%.2f Hz", hz);
+    } else if (hz < 999.5) {
+        snprintf(out, len, "%.0f Hz", hz);
+    } else {
+        snprintf(out, len, "%.2f kHz", hz / 1000.0);
+    }
+    return true;
+}
+
+// A distance either way: no sign on nothing
+static bool signed_text(double value, int places, const char * unit, char * out, size_t len) {
+    bool none = fabs(value) < (0.5 * pow(10.0, -places));
+
+    snprintf(out, len, none ? "%.*f %s" : "%+.*f %s", places, none ? 0.0 : value, unit);
+    return true;
+}
+
+static bool pitch_text(double semitones, bool partial, char * out, size_t len) {
+    if (partial) {
+        snprintf(out, len, "x %.4g", exp2(semitones / 12.0));
+        return true;
+    }
+    return signed_text(semitones, 0, "st", out, len);
+}
+
+static bool half_text(double dial, char * out, size_t len) {
+    if (dial >= 127.0) {
+        snprintf(out, len, "Hold");
+        return true;
+    }
+    return ms_text(1000.0 * nl3_env_half_seconds(dial), out, len);
+}
+
+static bool cutoff_text(double dial, char * out, size_t len) {
+    if (dial >= 127.0) {
+        snprintf(out, len, "Open");   // filter notes §4: the dial's top is no 127th step
+        return true;
+    }
+    return hz_text(nl3_filter_hz(dial), out, len);
+}
+
+// An oscillator's Shape: the pulse's duty, and Osc 1's noise the corner it is closed to
+static bool shape_text(int o, int wave, double dial, char * out, size_t len) {
+    if (wave == 1) {
+        snprintf(out, len, "%.1f %%", 50.0 * (1.0 - nl3_word_value(nl3_pulse_width_word(dial))));   // osc notes §11
+        return true;
+    }
+    return (o == 0) && (wave == 4) && cutoff_text(dial, out, len);
+}
+
+// Osc 2's pitch dials - osc notes §16, §19-21
+static bool osc2_text(uint32_t id, const double * v, double dial, char * out, size_t len) {
+    int  wave    = choice(v, kNl3ParamOsc2Waveform);
+    bool partial = on(v, kNl3ParamOsc2Partial);
+    bool fixed   = on(v, kNl3ParamOsc2Kbt);
+
+    switch (id) {
+        case kNl3ParamOsc2Coarse:
+
+            if ((wave == 4) || ((wave == 5) && !fixed)) {
+                return false;   // other dials set the pitch
+            }
+            return fixed ? hz_text(440.0 * exp2((dial - 69.0) / 12.0), out, len)
+                         : pitch_text(osc2_coarse_semitones(dial, partial), partial, out, len);
+
+        case kNl3ParamOsc2Fine:
+            return (wave < 4) && signed_text((dial - 64.0) * 50.0 / 64.0, 1, "ct", out, len);
+
+        case kNl3ParamOsc2Carrier:
+            return (wave == 5) && !fixed && pitch_text(osc2_carrier_semitones(dial, partial), partial, out, len);
+
+        case kNl3ParamOsc2Modulator:
+
+            if (wave != 5) {
+                return false;
+            }
+            return fixed ? hz_text(440.0 * exp2((dial - 69.0) / 12.0), out, len)
+                         : pitch_text(12.0 * log2(osc2_modulator_ratio(dial, partial)), partial, out, len);
+
+        default:
+            return false;
+    }
+}
+
+// How far an LFO or the Mod Env moves a pitch or a cutoff at its full swing
+static bool lfo_amount_text(int l, int to, double dial, bool invert, char * out, size_t len) {
+    tNl3LfoTargets t;
+
+    nl3_lfo_targets(l, to, dial, invert, &t);
+
+    if (to <= 2) {
+        return signed_text((to == 1) ? t.pitch[1] : t.pitch[0], 2, "st", out, len);
+    }
+    return (to <= 5) && signed_text((invert ? -1.0 : 1.0) * ((to == 4) ? t.cutoff2 : t.cutoff), 0, "st", out, len);
+}
+
+bool nl3_param_units(uint32_t id, const double * values, char * out, size_t len) {
+    static const char *const kDivisions[10] = {"1/1", "1/2", "1/2 T", "1/4", "1/4 T", "1/8", "1/8 T", "1/16", "1/16 T", "1/32"};
+    double                   dial           = round(plain(values, id));
+
+    switch (id) {
+        case kNl3ParamLevel:
+            return db_text(dial * dial / (127.0 * 127.0), out, len);   // voices notes §14: the square
+
+        case kNl3ParamMaster:
+            return db_text(dial / 127.0, out, len);
+
+        case kNl3ParamOsc1Shape:
+            return shape_text(0, choice(values, kNl3ParamOsc1Waveform), dial, out, len);
+
+        case kNl3ParamOsc2Shape:
+            return shape_text(1, choice(values, kNl3ParamOsc2Waveform), dial, out, len);
+
+        case kNl3ParamOsc1SyncTune:
+        case kNl3ParamOsc2SyncTune:
+            snprintf(out, len, "%.1f st", dial / 2.0);         // osc notes §13
+            return true;
+
+        case kNl3ParamOsc2Coarse:
+        case kNl3ParamOsc2Fine:
+        case kNl3ParamOsc2Carrier:
+        case kNl3ParamOsc2Modulator:
+            return osc2_text(id, values, dial, out, len);
+
+        case kNl3ParamCutoff:
+        case kNl3ParamCutoff2:
+            return cutoff_text(dial, out, len);
+
+        case kNl3ParamFEnvAttack:
+        case kNl3ParamAmpAttack:
+        case kNl3ParamMEnvAttack:
+            return ms_text(1000.0 * nl3_env_attack_seconds(dial), out, len);
+
+        case kNl3ParamFEnvDecay:
+        case kNl3ParamFEnvRelease:
+        case kNl3ParamAmpDecay:
+        case kNl3ParamAmpRelease:
+        case kNl3ParamMEnvDecay:
+            return half_text(dial, out, len);
+
+        case kNl3ParamAmpSustain:
+        {
+            double level = (dial >= 127.0) ? 1.0 : (dial / 128.0);
+
+            return db_text(level * level, out, len);                   // envelope notes §3
+        }
+
+        case kNl3ParamFEnvAmount:
+            return signed_text((on(values, kNl3ParamFEnvInvert) ? -1.0 : 1.0) * dial * ENV_CUTOFF_SCALE, 0, "st", out, len);
+
+        case kNl3ParamMEnvAmount:
+        {
+            int    to   = choice(values, kNl3ParamMEnvDest);
+            double sign = on(values, kNl3ParamMEnvInvert) ? -1.0 : 1.0;
+            double cube = (dial >= 127.0) ? 128.0 : dial;
+
+            if (to <= 2) {
+                return signed_text(sign * cube * cube * cube / LFO_PITCH_CUBE, 2, "st", out, len);
+            }
+            return (to <= 5) && signed_text(sign * dial * ENV_CUTOFF_SCALE, 0, "st", out, len);
+        }
+
+        case kNl3ParamLfo1Rate:
+        case kNl3ParamLfo2Rate:
+            return hz_text(lfo_hz(dial), out, len);
+
+        case kNl3ParamLfo1Amount:
+            return lfo_amount_text(0, choice(values, kNl3ParamLfo1Dest), dial, on(values, kNl3ParamLfo1Invert), out, len);
+
+        case kNl3ParamLfo2Amount:
+            return lfo_amount_text(1, choice(values, kNl3ParamLfo2Dest), dial, on(values, kNl3ParamLfo2Invert), out, len);
+
+        case kNl3ParamGlideRate:
+
+            if (dial < 1.0) {
+                return false;
+            }
+            snprintf(out, len, (nl3_glide_rate(dial) < 10.0) ? "%.1f st/s" : "%.0f st/s", nl3_glide_rate(dial));
+            return true;
+
+        case kNl3ParamVibratoRate:
+            return hz_text(vibrato_hz(dial), out, len);
+
+        case kNl3ParamVibratoAmount:
+            snprintf(out, len, "%.0f ct", 100.0 * vibrato_semis(dial));
+            return true;
+
+        case kNl3ParamUnisonDetune:
+            snprintf(out, len, "%.1f ct", 2.0 * nl3_unison_cents(unison_step(dial)));   // voices notes §27: one copy as sharp as the other is flat
+            return true;
+
+        case kNl3ParamArpRate:
+        {
+            tNl3ArpSettings arp = {.clockSync = false, .rate = dial};
+
+            if (on(values, kNl3ParamArpClockSync)) {
+                return false;   // the Divisor's
+            }
+            return ms_text(1000.0 * nl3_arp_step_seconds(&arp, 120.0), out, len);
+        }
+
+        case kNl3ParamArpDivisor:
+            snprintf(out, len, "%s", kDivisions[nl3_arp_division((int)dial)]);
+            return true;
+
+        default:
+            return false;
+    }
 }

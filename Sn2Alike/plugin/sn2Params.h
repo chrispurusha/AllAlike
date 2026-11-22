@@ -297,4 +297,7 @@ tSn2EffectsSound sn2_effects_sound(const double * values, double tempo);
 // Bend, the wheel and their routes, from normalised parameters
 void sn2_controls_sound(const double * values, double tempo, tSn2Sound * sound);
 
+// A value in its unit, from every parameter's normalised value; false where its number says it best
+bool sn2_param_units(uint32_t id, const double * values, char * out, size_t len);
+
 #endif // __TI_PARAMS_H__

@@ -110,7 +110,7 @@ or A-Z; SynthLib's `bank_browser_sorted_order()`, as TiAlike, Sn2Alike and Nl3Al
 they start from its number; from any other sound Next is the first in that order and Prev the last.
 
 ## 16. Shift for fine adjustment
-With Shift held, dragging a dial moves it a tenth as far for the same distance - the same on the Mac and Windows
+With Shift held, dragging a dial moves it a quarter as far for the same distance - the same on the Mac and Windows
 (SynthLib's panel views read the modifiers on every drag event). Rotary mode, where the dial follows the pointer's
 angle, is unchanged. Added across the Alikes 2026-11-14.
 

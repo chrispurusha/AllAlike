@@ -131,7 +131,7 @@ static double osc_increment(const tSn2OscSound * o, double note, double bend, do
 }
 
 // voices notes §12: seconds from one pitch to the next, whatever the interval
-static double glide_seconds(double time) {
+double sn2_glide_seconds(double time) {
     return GLIDE_AT_64 * pow(2.0, (time - 64.0) / GLIDE_DOUBLING);
 }
 
@@ -252,11 +252,11 @@ static void start_glide(const tSn2Voices * v, const tSn2Sound * sound, tSn2Voice
     if (sound->glideTime > 0.0) {
         if (sound->glideType >= 2) {
             pick->glide = kFixed[(sound->glideType - 2) & 7];
-        } else if ((v->lastNote >= 0) && ((sound->glideType == 0) || held)) {
+        } else if ((v->lastNote >= 0) && ((sound->glideType == 0) || !sound->mono || held)) {   // notes §12b: Auto only means something in mono
             pick->glide = from - (double)note;
         }
     }
-    pick->glideRate = fabs(pick->glide) / glide_seconds(sound->glideTime);
+    pick->glideRate = fabs(pick->glide) / sn2_glide_seconds(sound->glideTime);
 }
 
 // notes §24: the voices a key takes, and each one's number, from the last down
@@ -275,7 +275,7 @@ static void advance_glide(tSn2Voice * vc, const tSn2Sound * sound, double second
     double move = vc->glideRate * seconds;
 
     if (sound->glideCurve == 1) {
-        move = (size + GLIDE_LANDING) * seconds / (GLIDE_CURVE * glide_seconds(sound->glideTime));
+        move = (size + GLIDE_LANDING) * seconds / (GLIDE_CURVE * sn2_glide_seconds(sound->glideTime));
     }
     vc->glide = (move >= size) ? 0.0 : ((vc->glide > 0.0) ? (vc->glide - move) : (vc->glide + move));
 }
@@ -431,10 +431,10 @@ static tSn2Voice * choose_voice(tSn2Voices * v, const tSn2Sound * sound, uint8_t
     return (best != NULL) ? best : &v->voice[0];
 }
 
-static void poly_voice(tSn2Voices * v, const tSn2Sound * sound, tSn2Voice * pick, uint8_t note, float velocity, bool held) {
+static void poly_voice(tSn2Voices * v, const tSn2Sound * sound, tSn2Voice * pick, uint8_t note, float velocity) {
     pick->active     = true;
     pick->gate       = true;
-    start_glide(v, sound, pick, note, held);
+    start_glide(v, sound, pick, note, false);
     pick->note       = note;
     pick->velocity   = velocity;
 
@@ -469,7 +469,6 @@ static void poly_voice(tSn2Voices * v, const tSn2Sound * sound, tSn2Voice * pick
 void sn2_voices_note_on(tSn2Voices * v, const tSn2Sound * sound, uint8_t note, float velocity) {
     uint32_t n     = unison_voices(v, sound);
     uint64_t since = v->clock;
-    bool     held  = false;
 
     v->pedalled[note & 0x7F] = false;
 
@@ -484,8 +483,6 @@ void sn2_voices_note_on(tSn2Voices * v, const tSn2Sound * sound, uint8_t note, f
     v->heldCount             = 0;
 
     for (uint32_t i = 0; i < SN2_MAX_VOICES; i++) {
-        held = held || (v->voice[i].gate && (v->voice[i].note != note));
-
         if (!sound->piano && v->voice[i].gate && (v->voice[i].note == note)) {   // notes §21: Stack lets the key's last voices go
             let_go(sound, &v->voice[i]);
         }
@@ -495,7 +492,7 @@ void sn2_voices_note_on(tSn2Voices * v, const tSn2Sound * sound, uint8_t note, f
         tSn2Voice * pick = choose_voice(v, sound, note, since);
 
         pick->which = unison_which(sound, at);
-        poly_voice(v, sound, pick, note, velocity, held);
+        poly_voice(v, sound, pick, note, velocity);
     }
 
     for (uint32_t i = 0; i < SN2_MAX_VOICES; i++) {   // what this key had beyond the voices it takes now

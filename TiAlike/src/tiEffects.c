@@ -101,6 +101,13 @@ static double mid_point_hz(int p) {
     return (p >= 31) ? 22968.8 : (1000.0 * pow(2.0, (p - 17) / 3.0));
 }
 
+// between the points: the panel's reading, the band's own lines being its cosine's
+static double mid_point_hz_at(double point) {
+    int p = (int)point;
+
+    return mid_point_hz(p) * pow(mid_point_hz(p + 1) / mid_point_hz(p), point - p);
+}
+
 static double mid_half_r2(int row, int p, double rate) {
     double w     = 2.0 * M_PI * fmin(mid_point_hz(p), 0.49 * rate) / rate;
     double alpha = sin(w) / (2.0 * pow(10.0, kMidRowQdB[row] / 20.0));
@@ -152,8 +159,20 @@ static void run(tTiBiquad * q, float * io, uint32_t frames, int ch) {
     q->y2[ch] = y2;
 }
 
-static double eq_db(uint8_t byte) {
+double ti_eq_db(uint8_t byte) {
     return ((double)byte - 64.0) * 0.25;
+}
+
+double ti_eq_low_hz(double dial) {
+    return 32.0 * pow(1.02117, dial);
+}
+
+double ti_eq_mid_hz(double dial) {
+    return mid_point_hz_at(fmin(fmax((dial / 4.0) - 1.0, 0.0), 30.999));
+}
+
+double ti_eq_high_hz(double dial) {
+    return 1831.0 * pow(1.02045, dial);
 }
 
 // notes §1
@@ -161,19 +180,19 @@ static void equalise(tTiEffects * e, const uint8_t * b, float * left, float * ri
     double nyquist = 0.45 * e->rate;
 
     if (!e->ready || (e->lowKey[0] != b[95]) || (e->lowKey[1] != b[45])) {
-        low_shelf(&e->low, LOW_CORNER * 32.0 * pow(1.02117, b[45]), eq_db(b[95]), e->rate);
+        low_shelf(&e->low, LOW_CORNER * ti_eq_low_hz(b[45]), ti_eq_db(b[95]), e->rate);
         e->lowKey[0] = b[95];
         e->lowKey[1] = b[45];
     }
 
     if (!e->ready || (e->highKey[0] != b[96]) || (e->highKey[1] != b[46])) {
-        high_shelf(&e->high, fmin((1831.0 * pow(1.02045, b[46])) / LOW_CORNER, nyquist), eq_db(b[96]), e->rate);
+        high_shelf(&e->high, fmin(ti_eq_high_hz(b[46]) / LOW_CORNER, nyquist), ti_eq_db(b[96]), e->rate);
         e->highKey[0] = b[96];
         e->highKey[1] = b[46];
     }
 
     if (!e->ready || (e->midKey[0] != b[92]) || (e->midKey[1] != b[93]) || (e->midKey[2] != b[94])) {
-        mid_band(&e->mid, b[93], eq_db(b[92]), b[94], e->rate);
+        mid_band(&e->mid, b[93], ti_eq_db(b[92]), b[94], e->rate);
         e->midKey[0] = b[92];
         e->midKey[1] = b[93];
         e->midKey[2] = b[94];
@@ -550,7 +569,7 @@ static void distort(tTiEffects * e, int ch, uint8_t version, const uint8_t * b, 
 
 // notes §3: coefficients every so often, as the corner moves
 // notes §13
-static double chorus_rate(double dial) {
+double ti_chorus_rate(double dial) {
     static const double kAt[9] = {0, 16, 28, 40, 52, 64, 76, 88, 100};
     static const double kTo[9] = {-6.299, -4.071, -3.540, -2.542, -1.694, -0.876, -0.082, 0.710, 1.635};
 
@@ -581,7 +600,7 @@ static void phaser_tune(tTiEffects * e, const uint8_t * b, int sections) {
     double spread = (e->phaserNow[4] <= 96.0) ? 0.0 : ((e->phaserNow[4] - 96.0) / 31.0);
     double span   = pow(5.0, spread);
 
-    e->phaseLfo += chorus_rate(b[86]) * PHASER_TICK / e->rate;
+    e->phaseLfo += ti_chorus_rate(b[86]) * PHASER_TICK / e->rate;
     e->phaseLfo -= floor(e->phaseLfo);
 
     for (int ch = 0; ch < 2; ch++) {
@@ -667,7 +686,7 @@ static void chorus(tTiEffects * e, const uint8_t * a, float * left, float * righ
     double wet   = sin(0.5 * M_PI * m);
     double delay = 8.0 * a[108] * e->rate / 48000.0;
     double swing = 0.5 * delay * (a[107] / 127.0);   // notes §13
-    double rate  = chorus_rate(a[106]);
+    double rate  = ti_chorus_rate(a[106]);
     double back  = 0.85 * ((double)a[109] - 64.0) / 64.0;
     double glide = 1.0 - exp(-1.0 / (CHORUS_GLIDE_SECONDS * e->rate));
 
@@ -1152,6 +1171,8 @@ static double delay_wet(double send) {
 }
 
 // notes §8: the two sides' delays, in samples
+#define DELAY_STEP         (256.0 / 48000.0)   // notes §8: seconds a Delay Time step ...
+#define TAPE_STEP          (256.0 / 46875.0)   // notes §8b: ... and a tape's
 #define DELAY_TEMPO_LAW    (0.9816)
 
 // notes §11: a whole note, in samples at the current tempo
@@ -1176,12 +1197,16 @@ static double delay_clocked(const tTiEffects * e, uint8_t clock) {
     return at;
 }
 
+double ti_delay_seconds(double time, bool tape) {
+    return fmax(time, 1.0) * (tape ? TAPE_STEP : DELAY_STEP);
+}
+
 static void delay_times(const tTiEffects * e, const uint8_t * a, const uint8_t * b, double * left, double * right, double * whole) {
     static const double kRatio[4]       = {0.5, 0.75, 0.25, 0.875};
     // notes §8: Pattern x+y, x sixteenths on the left and y on the right, modes 6-22 in the instrument's order
     static const int    kPattern[17][2] = {{1, 1}, {2, 1}, {3, 1}, {4, 1}, {5, 1}, {2, 3}, {2, 5}, {3, 2}, {3, 3},
                                            {3, 4}, {3, 5}, {4, 3}, {4, 5}, {5, 2}, {5, 3}, {5, 4}, {5, 5}};
-    double              base            = (b[20] != 0) ? delay_clocked(e, b[20]) : (fmax((double)a[114], 1.0) * 256.0 * e->rate / 48000.0);
+    double              base            = (b[20] != 0) ? delay_clocked(e, b[20]) : (ti_delay_seconds(a[114], false) * e->rate);
     uint8_t             mode            = a[112];
 
     *whole = base;
@@ -1243,7 +1268,6 @@ static double delay_tone(tTiEffects * e, const uint8_t * a, int line, double x) 
     return y;
 }
 
-#define TAPE_STEP          (256.0 / 46875.0)   // notes §8b: seconds a Delay Time step
 #define TAPE_LONGEST       (0.7344)            // seconds: a clocked side stops there
 #define TAPE_KNEE          (0.06)              // the loop's limit: straight up to here,
 #define TAPE_CEILING       (0.10)              // then rounding off towards here
@@ -1261,7 +1285,7 @@ static void tape_times(const tTiEffects * e, const uint8_t * a, const uint8_t * 
         *right = fmin(kSixteenths[(c[14] <= 8) ? c[14] : 8] * sixteenth, TAPE_LONGEST) * e->rate;
         return;
     }
-    double              t              = fmax((double)a[114], 1.0) * TAPE_STEP * e->rate;
+    double              t              = ti_delay_seconds(a[114], true) * e->rate;
     int                 ratio          = (c[12] <= 6) ? c[12] : 3;
 
     *left  = (ratio < 3) ? (t * (ratio + 1) / 4.0) : t;   // 1/4, 2/4, 3/4 shorten the left
@@ -1673,13 +1697,18 @@ static void verb_coefficients(const uint8_t * c, double * k) {
     k[6] = fmin(fmax(0.25 + (0.55 * g), 0.3), 0.48);
 }
 
-#define VERB_PRE_STEP      (256.0 / 46875.0)      // notes §9a: seconds a Predelay step
+#define VERB_PRE_STEP    (256.0 / 46875.0)        // notes §9a: seconds a Predelay step
+
+double ti_reverb_predelay_seconds(double dial) {
+    return dial * VERB_PRE_STEP;
+}
+
 #define VERB_CLOCK_FOLD    (25600.0 / 48000.0)    // a clocked pre-delay is halved while longer than this
 
 // notes §9a: the pre-delay in seconds - Reverb Clock's note value at the host's tempo, or the Predelay dial
 static double verb_predelay(const tTiEffects * e, const uint8_t * c) {
     if ((c[8] == 0) || (c[8] > 16)) {
-        return c[7] * VERB_PRE_STEP;
+        return ti_reverb_predelay_seconds(c[7]);
     }
     double t = kClockDivision[c[8]] * 240.0 / ((e->bpm > 1.0) ? e->bpm : 120.0);   // the tempo as it is: Delay's 0.9816 is the delay's own
 

@@ -77,7 +77,8 @@ typedef struct {
 } tNl3Arp;
 
 void nl3_arp_init(tNl3Arp * a);
-double nl3_arp_step_seconds(const tNl3ArpSettings * s, double tempo);   // notes §2
+int nl3_arp_division(int divisor);                                    // notes §2: which of the ten note values, the longest first
+double nl3_arp_step_seconds(const tNl3ArpSettings * s, double tempo); // notes §2
 // a key pressed or let go - the first key starts the arpeggio at once
 void nl3_arp_key(tNl3Arp * a, const tNl3ArpSettings * s, const tNl3ArpClock * c, uint8_t note, float velocity, bool on, tNl3ArpNote play, void * user);
 // host frames until the next step, as a whole number to render first; UINT32_MAX when nothing runs

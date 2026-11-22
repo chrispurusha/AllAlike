@@ -614,7 +614,6 @@ static double nl3_get_param(void * inst, uint32_t id) {
 
 static bool nl3_param_text(const tSynthLibPluginDesc * desc, void * inst, uint32_t id, double value, char * out, size_t len) {
     (void)desc;
-    (void)inst;
 
     if (id >= kNl3ParamCount) {
         return false;
@@ -622,6 +621,17 @@ static bool nl3_param_text(const tSynthLibPluginDesc * desc, void * inst, uint32
     const tSynthLibParam * p       = &gNl3Params[id];
     long                   step    = lround(value * p->stepCount);
     const char *const *    choices = nl3_param_choices(id);
+
+    if (inst != NULL) {   // nl3Params notes §6: in its unit, where the other settings say how
+        double values[kNl3ParamCount];
+
+        memcpy(values, ((tNl3Plugin *)inst)->values, sizeof(values));
+        values[id] = value;
+
+        if (nl3_param_units(id, values, out, len)) {
+            return true;
+        }
+    }
 
     if (choices != NULL) {
         snprintf(out, len, "%s", choices[(step < 0) ? 0 : ((step > p->stepCount) ? p->stepCount : step)]);
@@ -969,6 +979,7 @@ static void nl3_panel_init(void) {
     nl3_draw_set_pages(gNl3Pages, gNl3PageCount);
     nl3_draw_set_host(&gPatchHost);
     nl3_draw_set_display(limit_display);
+    nl3_draw_set_units(nl3_param_units);
 }
 
 // notes: a plain-text channel, off until /tmp/nl3alike-backdoor exists

@@ -105,7 +105,7 @@ static const double kGlideRate[127] = {
     10.5,    9.4,   8.3,   7.3,   6.2,   5.2,   4.0,   2.9, 1.9
 };
 
-static double glide_rate(double rate) {
+double nl3_glide_rate(double rate) {
     long r = lround(fmin(127.0, fmax(1.0, rate)));
 
     return kGlideRate[r - 1];
@@ -387,7 +387,7 @@ static void start_glide(tNl3Voices * v, const tNl3Sound * sound, tNl3Voice * pic
             pick->glide = from - (double)note;
         }
     }
-    pick->glideRate = glide_rate(sound->glideTime);   // voices notes §12: a constant rate, whatever the interval
+    pick->glideRate = nl3_glide_rate(sound->glideTime);   // voices notes §12: a constant rate, whatever the interval
     v->lastNote     = note;
 }
 
@@ -828,6 +828,10 @@ static double sync_noise(tNl3Voice * vc, int o, const tNl3OscSound * os, double 
     vc->snAvg[o] = 0.25 * sum;
     vc->snOut[o] = out;
     return out;
+}
+
+double nl3_unison_cents(double step) {
+    return 1200.0 * log2(1.0 + (step * UNISON_SPAN / 16777216.0));
 }
 
 // voices notes §26-27: how far a read's delay moves from 128 samples, from its word - a ramp, wrapping

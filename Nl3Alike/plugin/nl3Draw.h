@@ -69,6 +69,9 @@ void nl3_draw_set_default(uint32_t paramId, double normalized);   // notes §17:
 // Returns false to draw the control as usual.
 typedef bool (*tNl3DialDisplay)(uint32_t paramId, const double * values, int32_t * step, char * text, size_t len);
 void nl3_draw_set_display(tNl3DialDisplay display);
+// a dial's value in its unit
+typedef bool (*tNl3UnitText)(uint32_t paramId, const double * values, char * text, size_t len);
+void nl3_draw_set_units(tNl3UnitText units);
 void nl3_draw_set_clip(bool on);
 void nl3_draw_read_hardware(void);     // Presets > Read from Hardware
 void nl3_draw_read_tick(void);         // from the panel's sync

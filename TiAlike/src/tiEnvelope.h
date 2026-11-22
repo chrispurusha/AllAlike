@@ -22,6 +22,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#define TI_ENV_TICKS    (46875.0 / 4.0)   // notes §1: a second
+
 typedef enum {
     eTiEnvIdle = 0,
     eTiEnvAttack,

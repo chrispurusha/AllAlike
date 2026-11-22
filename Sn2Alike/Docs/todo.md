@@ -23,10 +23,13 @@
 - Envelopes: Env 2 and 3 Sustain Time and Rate are built on the amplifier's law, not checked on their own; then filter and pitch routes
 - Release 0 ends about 4 ms later than the instrument's
 - Effects: comb; Pan Type; phaser type; chorus feedback law
+- A024 rings up like feedback (owner, 2026-11-22): its chorus section is Phaser at Feedback 127, played here as a chorus with a 0.98 loop - 8.6 dB of lift that goes at Feedback 64. Wants the phaser built
+- A013 not right, perhaps one tone's tuning (owner, 2026-11-22): capture the instrument dry and wet; here the tones sit at -12.05, +31.00 and +36.05 semitones, and FLOAT's lowest one is 2 dB under FIXED's
+- A015 lower than the instrument (owner, 2026-11-22): mono, Distortion 102 at Volume 35, EQ Bass 127 - see Distortion at low Volume below; FIXED and FLOAT agree
 - Effects orders in Performance mode, if performances are ever built: on the instrument a program ignores its order
 - Reverb: the Gated types' gates; closer than the measured model if its network can be read
 - SuperStrings1 about 18 dB loud, sustain falling about 55 dB/s while held: cause not found (its Sustain Time and Rate are default)
-- Glide: the start from the pitch reached and the rates are confirmed on the instrument (2026-11-22); Auto against Normal in a chord still by ear
+- Glide: the start from the pitch reached and the rates are confirmed on the instrument (2026-11-22); Auto in poly built as Normal 2026-11-22 (notes §12b)
 - Wheel to LFO depth, Env 1, width, Soften and sync (bend and wheel are on the panel's MOD page)
 - Voice pool: UNISON BUILT 2026-11-22 (voices notes §24). The instrument has 24 voices (CT) and steals the lowest-ranked; the plug-in has its Voices setting, the oldest let go first. A setting of 24 as the instrument's pool, and its exact ranking, are left
 - Env Trigger values beyond Retrigger and Legato: 41 holds the sound open past note off; Env 2 and 3 are assumed to follow Env 1; Glissando and the fixed Glide types against reference curves in more cases

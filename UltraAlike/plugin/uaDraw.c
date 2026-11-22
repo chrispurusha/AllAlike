@@ -58,7 +58,8 @@
 #endif
 #define FONT_PRELOAD_SIZE       (16.0)
 
-#define DRAG_FINE               (0.1)           // notes §19
+#define DRAG_FINE               (0.25)          // notes §19
+#define DRAG_PIXELS             (200.0)         // a dial from end to end
 #define MAX_PARAMS              (kUaParamCount) // every parameter: a fixed 64 left the 65th (Same Note) without its steps
 #define MAX_PLACED              (64)
 #define MARGIN_X                (16.0)
@@ -1154,7 +1155,7 @@ bool ua_draw_drag_by(double dx, double dy, tUaEdit * edit) {
     if (gGrabbed == NULL) {
         return false;
     }
-    gGrabValue                = fmin(1.0, fmax(0.0, gGrabValue + (move / dial_drag_pixels_for_full_range((uint32_t)gSteps[gGrabbed->paramId]))));
+    gGrabValue                = fmin(1.0, fmax(0.0, gGrabValue + (move / DRAG_PIXELS)));
     edit->paramId             = gGrabbed->paramId;
     edit->normalized          = gGrabValue;
     gValue[gGrabbed->paramId] = gGrabValue;

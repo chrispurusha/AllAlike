@@ -16,8 +16,15 @@
  */
 // Notes: Docs/code-notes/tiParams.md - "// notes §k" refers there.
 
+#include <math.h>
+#include <stdio.h>
+
 #include "tiParams.h"
 #include "synthlibDefs.h"
+#include "tiEffects.h"
+#include "tiEnvelope.h"
+#include "tiFilter.h"
+#include "tiLfo.h"
 #include "tiVoices.h"
 
 #ifndef TI_DEFAULT_VOICES
@@ -796,3 +803,277 @@ const tTiPage            gTiPages[]                     = {
     {"GLOBAL",  kGlobalPage,      COUNT(kGlobalPage)     },
 };
 const uint32_t           gTiPageCount                   = sizeof(gTiPages) / sizeof(gTiPages[0]);
+
+// ---- values in their units - notes §4, from the engine's own laws ------------------------------------------------
+
+static bool db_text(double gain, char * out, size_t len) {
+    if (gain <= 0.0) {
+        snprintf(out, len, "-inf dB");
+    } else {
+        double db = 20.0 * log10(gain);
+
+        snprintf(out, len, "%.1f dB", (fabs(db) < 0.05) ? 0.0 : db);
+    }
+    return true;
+}
+
+static bool ms_text(double ms, char * out, size_t len) {
+    if (ms < 10.0) {
+        snprintf(out, len, "%.1f ms", ms);
+    } else if (ms < 999.5) {
+        snprintf(out, len, "%.0f ms", ms);
+    } else {
+        snprintf(out, len, (ms < 9995.0) ? "%.2f s" : "%.1f s", ms / 1000.0);
+    }
+    return true;
+}
+
+static bool hz_text(double hz, char * out, size_t len) {
+    if (hz <= 0.0) {
+        snprintf(out, len, "0 Hz");
+    } else if (hz < 0.01) {
+        snprintf(out, len, "%.4f Hz", hz);
+    } else if (hz < 1.0) {
+        snprintf(out, len, "%.3f Hz", hz);
+    } else if (hz < 100.0) {
+        snprintf(out, len, "%.2f Hz", hz);
+    } else if (hz < 999.5) {
+        snprintf(out, len, "%.0f Hz", hz);
+    } else {
+        snprintf(out, len, "%.2f kHz", hz / 1000.0);
+    }
+    return true;
+}
+
+// A distance either way: no sign on nothing
+static bool signed_text(double value, int places, const char * unit, char * out, size_t len) {
+    bool none = fabs(value) < (0.5 * pow(10.0, -places));
+
+    snprintf(out, len, none ? "%.*f %s" : "%+.*f %s", places, none ? 0.0 : value, unit);
+    return true;
+}
+
+#define UNIT_RATE         (48000.0)           // only to turn a per-sample step into seconds
+#define SEMIS_PER_STEP    (120.0 / 128.0)     // tiFilter notes: Cutoff's 128 steps are ten octaves
+
+static double byte_of(const double * values, uint32_t id) {
+    return round(values[id] * gTiParams[id].stepCount);
+}
+
+// A multiplier a sample as its time to half, 1 for ever
+static bool half_text(double mul, char * out, size_t len) {
+    if (mul >= 1.0) {
+        snprintf(out, len, "Hold");
+        return true;
+    }
+    return ms_text(1000.0 * log(0.5) / (log(mul) * UNIT_RATE), out, len);
+}
+
+static tTiEnvShape env_at(double attack, double fall, double sustainTime) {
+    tTiEnvShape shape;
+
+    ti_env_shape(attack, fall, 64.0, sustainTime, fall, UNIT_RATE, &shape);
+    return shape;
+}
+
+// The filter's envelope, and 3 and 4: the fall curve at half its rate (tiEnvelope notes §7); 0 is one update
+static double attack_seconds(double dial) {
+    double fall = 1.0 - pow(env_at(0.0, dial, 64.0).decayMul, UNIT_RATE / TI_ENV_TICKS);
+
+    return (dial < 1.0) ? (1.0 / TI_ENV_TICKS) : (2.0 / (fall * TI_ENV_TICKS));
+}
+
+// Sustain Time: below the centre a fall, its time to half; above it a rise, its whole time
+static bool sustain_time_text(double dial, char * out, size_t len) {
+    tTiEnvShape shape = env_at(0.0, 0.0, dial);
+    char        text[32];
+
+    if ((shape.slopeStep <= 0.0) && (shape.slopeMul >= 1.0)) {
+        snprintf(out, len, "Hold");
+        return true;
+    }
+
+    if (shape.slopeStep > 0.0) {
+        (void)ms_text(1000.0 / (shape.slopeStep * UNIT_RATE), text, sizeof(text));
+    } else {
+        (void)half_text(shape.slopeMul, text, sizeof(text));
+    }
+    snprintf(out, len, "%c%s", (shape.slopeStep > 0.0) ? '+' : '-', text);
+    return true;
+}
+
+static bool lfo_text(const double * values, uint32_t rate, uint32_t clock, char * out, size_t len) {
+    int at = (int)byte_of(values, clock);
+
+    if ((at > 0) && (at < 22)) {
+        snprintf(out, len, "%s", kListNumLFOClockdividers[at]);
+        return true;
+    }
+    return hz_text(ti_lfo_rate_hz(byte_of(values, rate)), out, len);
+}
+
+static bool delay_text(const double * values, char * out, size_t len) {
+    int type  = (int)byte_of(values, kTiParamC10DelayType);
+    int clock = (int)byte_of(values, kTiParamB20DelayClock);
+
+    if (type == 1) {
+        return false;   // Tape Clocked: Left and Right
+    }
+
+    if (type == 0) {
+        if (byte_of(values, kTiParamA112DelayMode) >= 6.0) {
+            return false;   // a Pattern runs at the tempo
+        }
+
+        if (clock > 0) {
+            snprintf(out, len, "%s", kListNumDelayClockdividers[(clock > 16) ? 16 : clock]);
+            return true;
+        }
+    }
+    return ms_text(1000.0 * ti_delay_seconds(byte_of(values, kTiParamA114DelayTapeDelayTime), type != 0), out, len);
+}
+
+bool ti_param_units(uint32_t id, const double * values, char * out, size_t len) {
+    double dial = byte_of(values, id);   // the byte, 64 at the centre of a dial that goes both ways
+
+    switch (id) {
+        case kTiParamVolume:
+            return db_text(ti_patch_volume(dial), out, len);
+
+        case kTiParamMaster:
+        case kTiParamOsc3Volume:
+            return db_text(dial / 127.0, out, len);
+
+        case kTiParamSub:
+        case kTiParamNoise:
+        case kTiParamRing:
+            return db_text(ti_mix_level(dial), out, len);
+
+        case kTiParamOscVolume:
+
+            if (dial > 64.0) {   // past the centre it is the filter's drive
+                return signed_text(dial - 64.0, 0, "Drv", out, len);
+            }
+            return db_text(ti_osc_volume(dial) / ti_osc_volume(64.0), out, len);
+
+        case kTiParamOsc1Semi:
+        case kTiParamOsc2Semi:
+            return signed_text(fmin(fmax(dial - 64.0, -48.0), 48.0), 0, "st", out, len);   // tiVoices notes §7b
+
+        case kTiParamOsc3Semi:
+        case kTiParamTranspose:
+        case kTiParamB26BenderRangeUp:
+        case kTiParamB27BenderRangeDown:
+            return signed_text(dial - 64.0, 0, "st", out, len);
+
+        case kTiParamOsc2Detune:
+            return signed_text(ti_osc2_detune_cents(dial), 1, "ct", out, len);
+
+        case kTiParamOsc3Detune:
+            return signed_text(-ti_osc3_detune_cents(dial), 1, "ct", out, len);
+
+        case kTiParamUnisonDetune:
+
+            if (byte_of(values, kTiParamUnisonVoices) < 1.0) {
+                return false;   // off: the number
+            }
+            snprintf(out, len, "%.1f ct", 2.0 * ti_unison_cents(dial));   // from the flattest voice to the sharpest
+            return true;
+
+        case kTiParamCutoff:
+            return hz_text(ti_filter_cutoff_hz(dial), out, len);
+
+        case kTiParamCutoff2:
+            return hz_text(ti_filter_cutoff_hz(fmin(ti_voices_cutoff2(byte_of(values, kTiParamCutoff), dial, byte_of(values, kTiParamFilterLink) >= 1.0), 127.0)), out, len);
+
+        case kTiParamEnvAmount1:
+        case kTiParamEnvAmount2:
+        {
+            uint32_t polarity = (id == kTiParamEnvAmount1) ? kTiParamB30Filter1EnvPolarity : kTiParamB31Filter2EnvPolarity;
+
+            return signed_text(((byte_of(values, polarity) < 1.0) ? -1.0 : 1.0) * ti_env_amount(dial) * SEMIS_PER_STEP, 0, "st", out, len);
+        }
+
+        case kTiParamAmpAttack:
+            return ms_text(1000.0 / (env_at(dial, 0.0, 64.0).attackStep * UNIT_RATE), out, len);
+
+        case kTiParamFilterAttack:
+        case kTiParamEnv3Attack:
+        case kTiParamEnv4Attack:
+            return ms_text(1000.0 * attack_seconds(dial), out, len);
+
+        case kTiParamAmpDecay:
+        case kTiParamAmpRelease:
+        case kTiParamFilterDecay:
+        case kTiParamFilterRelease:
+        case kTiParamEnv3Decay:
+        case kTiParamEnv3Release:
+        case kTiParamEnv4Decay:
+        case kTiParamEnv4Release:
+            return half_text(env_at(0.0, dial, 64.0).decayMul, out, len);
+
+        case kTiParamAmpSustain:
+            return db_text(ti_env_sustain_level(dial) / ti_env_sustain_level(127.0), out, len);
+
+        case kTiParamAmpSustainTime:
+        case kTiParamFilterSustainTime:
+        case kTiParamEnv3SustainTime:
+        case kTiParamEnv4SustainTime:
+            return sustain_time_text(dial, out, len);
+
+        case kTiParamLfo1Rate:
+            return lfo_text(values, id, kTiParamB18Lfo1Clock, out, len);
+
+        case kTiParamLfo2Rate:
+            return lfo_text(values, id, kTiParamB19Lfo2Clock, out, len);
+
+        case kTiParamLfo3Rate:
+            return lfo_text(values, id, kTiParamB21Lfo3Clock, out, len);
+
+        case kTiParamPortamento:
+
+            if (dial < 1.0) {
+                snprintf(out, len, "Off");
+                return true;
+            }
+            return ms_text(1000.0 * ti_glide_seconds(dial), out, len);
+
+        case kTiParamB95LoweqGain:
+        case kTiParamB92MideqGain:
+        case kTiParamB96HigheqGain:
+            return signed_text(ti_eq_db((uint8_t)dial), 2, "dB", out, len);
+
+        case kTiParamB45LoweqFrequency:
+            return hz_text(ti_eq_low_hz(dial), out, len);
+
+        case kTiParamB93MideqFrequency:
+            return hz_text(ti_eq_mid_hz(dial), out, len);
+
+        case kTiParamB46HigheqFrequency:
+            return hz_text(ti_eq_high_hz(dial), out, len);
+
+        case kTiParamA106ChorusRate:
+        case kTiParamB86PhaserRate:
+            return hz_text(ti_chorus_rate(dial), out, len);
+
+        case kTiParamA114DelayTapeDelayTime:
+            return delay_text(values, out, len);
+
+        case kTiParamA116DlyRateRevDecay:
+            return hz_text(ti_lfo_rate_hz(dial) / 2.0, out, len);   // tiEffects notes §8a
+
+        case kTiParamC7ReverbPredelay:
+        {
+            int clock = (int)byte_of(values, kTiParamC8ReverbClock);
+
+            if (clock > 0) {
+                snprintf(out, len, "%s", kListNumDelayClockdividers[(clock > 16) ? 16 : clock]);
+                return true;
+            }
+            return ms_text(1000.0 * ti_reverb_predelay_seconds(dial), out, len);
+        }
+
+        default:
+            return false;
+    }
+}

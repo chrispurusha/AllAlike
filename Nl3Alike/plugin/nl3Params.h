@@ -302,4 +302,7 @@ void nl3_arp_from_values(const double * values, tNl3ArpSettings * arp);
 // voices notes §25: the values with the four morph groups added for one voice; false when no morph is set
 bool nl3_morph_values(const double * values, float velocity, int note, double * out);
 
+// A value in its unit, from every parameter's normalised value; false where its number says it best
+bool nl3_param_units(uint32_t id, const double * values, char * out, size_t len);
+
 #endif // __NL3_PARAMS_H__

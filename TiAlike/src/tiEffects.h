@@ -109,6 +109,14 @@ double ti_dist_corner(bool low, double intensity);
 double ti_dist_high_pass_pole(double amount, double rate);
 double ti_dist_step(double intensity);
 double ti_dist_hold(double intensity);
+// The dials' laws, as the panel's units read them
+double ti_eq_db(uint8_t byte);                  // notes §1 ...
+double ti_eq_low_hz(double dial);
+double ti_eq_mid_hz(double dial);
+double ti_eq_high_hz(double dial);
+double ti_chorus_rate(double dial);             // notes §13: Hz, the Phaser's too
+double ti_delay_seconds(double time, bool tape);
+double ti_reverb_predelay_seconds(double dial);
 void ti_effects_init(tTiEffects * e, double rate);
 void ti_effects_reset(tTiEffects * e);   // notes §15
 // The Single's pages A, B and C

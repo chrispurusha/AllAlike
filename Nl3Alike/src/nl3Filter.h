@@ -73,6 +73,7 @@ typedef struct {
 
 tNl3FilterMode nl3_filter_mode(uint32_t type, uint32_t slope);                                                     // type 0-5 LP HP BP BR Classic Dist, slope 0-2: 6 12 24 dB
 // cutoff on the panel's 0..127, plus modulation in semitones; resonance 0..127
+double nl3_filter_hz(double cutoff);                                                                               // notes §4: the frequency the dial stands for
 double nl3_filter_knob(double knob);                                                                               // notes §4: a Freq knob as the cutoff modulation adds to
 void nl3_filter_coeffs(tNl3FilterMode mode, double cutoff, double resonance, double offset, tNl3FilterCoeffs * c); // offset: Osc Mod FILT's, in cutoff-word units (notes §18)
 void nl3_noise_coeffs(double shape, double * f, double * k);                                                       // osc notes §15: the Noise waveform's filter, Shape 0..127

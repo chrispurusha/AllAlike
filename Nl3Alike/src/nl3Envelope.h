@@ -26,6 +26,8 @@ typedef struct {
 
 // The panel's 0..127 for Attack, Decay, Sustain and Release; squared: the amplifier's Sustain (notes §3); Exp Attack
 void nl3_env_shape(double attack, double decay, double sustain, double release, bool squared, bool exponential, double sampleRate, tNl3EnvShape * shape);
+double nl3_env_attack_seconds(double dial);                     // notes §2: from silence to full
+double nl3_env_half_seconds(double dial);                       // Decay and Release falling by half; 0 holds
 void nl3_env_gate(tNl3Env * env, bool on);                      // on: attack from where it is; off: release
 double nl3_env_next(tNl3Env * env, const tNl3EnvShape * shape); // one sample on
 

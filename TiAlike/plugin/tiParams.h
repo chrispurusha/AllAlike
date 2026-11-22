@@ -309,4 +309,7 @@ extern const tTiPage        gTiPages[];
 extern const uint32_t       gTiPageCount;
 extern const tTiTableNames  gTiTableNames[2];
 
+// A value in its unit, from every parameter's normalised value; false where its number says it best
+bool ti_param_units(uint32_t id, const double * values, char * out, size_t len);
+
 #endif // __TI_PARAMS_H__

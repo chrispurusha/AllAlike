@@ -62,7 +62,8 @@
 #define FONT_PRELOAD_SIZE       (16.0)
 
 #define DOUBLE_CLICK_S          (0.4)           // notes §14
-#define DRAG_FINE               (0.1)           // notes §16
+#define DRAG_FINE               (0.25)          // notes §16
+#define DRAG_PIXELS             (200.0)         // a dial from end to end
 #define MAX_PARAMS              (kP2ParamCount) // every parameter, however many there come to be
 #define UNITY_COLOUR            {1.0, 0.78, 0.25} // notes §17: the one gold every Alike marks 1:1 with
 #define MAX_PLACED              (64)
@@ -1355,7 +1356,7 @@ bool p2_draw_drag_by(double dx, double dy, tP2Edit * edit) {
     if (gGrabbed == NULL) {
         return false;
     }
-    gGrabValue                = fmin(1.0, fmax(0.0, gGrabValue + (move / dial_drag_pixels_for_full_range((uint32_t)gGrabbed->steps))));
+    gGrabValue                = fmin(1.0, fmax(0.0, gGrabValue + (move / DRAG_PIXELS)));
     edit->paramId             = gGrabbed->paramId;
     edit->normalized          = gGrabValue;
     gValue[gGrabbed->paramId] = gGrabValue;

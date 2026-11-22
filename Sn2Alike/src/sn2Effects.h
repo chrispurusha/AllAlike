@@ -67,6 +67,8 @@ typedef struct {
     bool     clipped;   // set when the output hits the ceiling; the caller clears it
 } tSn2Effects;
 
+// a delay locked to nothing
+double sn2_effects_delay_ms(double time);
 void sn2_effects_reset(tSn2Effects * e);
 // The voices with every effect out; only the output ceiling is left
 void sn2_effects_bypass(tSn2Effects * e, const float * in, float * left, float * right, uint32_t frames);

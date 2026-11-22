@@ -76,6 +76,9 @@ void ti_draw_set_default(uint32_t paramId, double normalized);   // notes §17: 
 // Returns false to draw the control as usual.
 typedef bool (*tTiDialDisplay)(uint32_t paramId, const double * values, int32_t * step, char * text, size_t len);
 void ti_draw_set_display(tTiDialDisplay display);
+// a dial's value in its unit
+typedef bool (*tTiUnitText)(uint32_t paramId, const double * values, char * text, size_t len);
+void ti_draw_set_units(tTiUnitText units);
 void ti_draw_set_clip(bool on);
 void ti_draw_set_mouse(double x, double y);
 void ti_draw_frame(int pixelWidth, int pixelHeight);

@@ -263,6 +263,8 @@ static inline double nl3_volume_gain(double normalized) {
     return v * v;
 }
 
+double nl3_glide_rate(double rate);      // voices notes §12: semitones a second
+double nl3_unison_cents(double step);    // voices notes §26: what a read's word step is worth as pitch
 void nl3_voices_init(tNl3Voices * v);
 void nl3_voices_set_limit(tNl3Voices * v, uint32_t limit);
 void nl3_voices_set_fixed(tNl3Voices * v, bool fixed);

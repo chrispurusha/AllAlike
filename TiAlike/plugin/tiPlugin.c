@@ -724,6 +724,17 @@ static bool ti_param_text(const tSynthLibPluginDesc * desc, void * inst, uint32_
     }
     long                     step      = lround(value * gTiParams[id].stepCount);
 
+    if (inst != NULL) {   // tiParams notes §4: in its unit, where the other settings say how
+        double values[kTiParamCount];
+
+        memcpy(values, ((tTiPlugin *)inst)->values, sizeof(values));
+        values[id] = value;
+
+        if (ti_param_units(id, values, out, len)) {
+            return true;
+        }
+    }
+
     if (id == kTiParamFilterMode) {
         snprintf(out, len, "%s", filters[(step < 0) ? 0 : ((step > 7) ? 7 : step)]);
     } else if (id == kTiParamFilter2Mode) {
@@ -931,6 +942,7 @@ static void ti_panel_init(void) {
 
     ti_draw_set_pages(gTiPages, gTiPageCount);
     ti_draw_set_display(ti_dial_display);
+    ti_draw_set_units(ti_param_units);
     ti_draw_set_host(&gPatchHost);
 }
 

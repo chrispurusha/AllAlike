@@ -909,6 +909,10 @@ void nl3_noise2_coeffs(double increment, double shape, double * f, double * k, d
     *k = q * *n;
 }
 
+double nl3_filter_hz(double cutoff) {
+    return 440.0 * pow(2.0, (cutoff - 61.0) / 12.0);   // notes §4
+}
+
 // notes §4: the knob's value as the cutoff the modulation adds to - its top is a fixed word, the one the law reaches at
 // about 153.4 (so a morph or envelope past 127 goes on rising, as on the instrument, rather than jumping open)
 double nl3_filter_knob(double knob) {

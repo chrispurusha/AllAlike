@@ -60,7 +60,8 @@
 #define FONT_PRELOAD_SIZE       (16.0)
 
 #define DOUBLE_CLICK_S          (0.4)            // notes §17
-#define DRAG_FINE               (0.1)            // notes §18
+#define DRAG_FINE               (0.25)           // notes §18
+#define DRAG_PIXELS             (200.0)          // a dial from end to end
 #define MAX_PARAMS              (kNl3ParamCount) // every parameter, however many there come to be
 #define MAX_PLACED              (64)
 #define MAX_PAGES               (16)
@@ -207,11 +208,16 @@ void nl3_draw_set_pages(const tNl3Page * pages, uint32_t count) {
 }
 
 static tNl3DialDisplay gDisplay;
+static tNl3UnitText    gUnits;
 
 static bool            gClip;
 
 void nl3_draw_set_clip(bool on) {
     gClip = on;
+}
+
+void nl3_draw_set_units(tNl3UnitText units) {
+    gUnits = units;
 }
 
 void nl3_draw_set_display(tNl3DialDisplay display) {
@@ -1041,6 +1047,10 @@ void nl3_draw_frame(int pixelWidth, int pixelHeight) {
 
         value_text(c, text, sizeof(text));
 
+        if ((c->kind == eTiControlDial) && (gUnits != NULL)) {
+            (void)gUnits(c->paramId, gValue, text, sizeof(text));
+        }
+
         // notes §8
         if ((gDisplay != NULL) && gDisplay(c->paramId, gValue, &shown, text, sizeof(text))) {
             shown = (shown < 0) ? 0 : ((shown > c->steps) ? c->steps : shown);
@@ -1201,7 +1211,7 @@ bool nl3_draw_drag_by(double dx, double dy, tNl3Edit * edit) {
     if (gGrabbed == NULL) {
         return false;
     }
-    gGrabValue                = fmin(1.0, fmax(0.0, gGrabValue + (move / dial_drag_pixels_for_full_range((uint32_t)gGrabbed->steps))));
+    gGrabValue                = fmin(1.0, fmax(0.0, gGrabValue + (move / DRAG_PIXELS)));
     edit->paramId             = gGrabbed->paramId;
     edit->normalized          = gGrabValue;
     gValue[gGrabbed->paramId] = gGrabValue;

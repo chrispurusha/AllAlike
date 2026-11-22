@@ -93,6 +93,10 @@ new note after all keys are up glides from whatever pitch was last sounding - No
 legato. So a glide starts from the pitch the voice had reached. In poly the instrument seems to glide each voice from
 that voice's own last pitch (hard to follow by ear); a voice that has never played starts from the last note.
 
+## 12b. Auto in poly (2026-11-22)
+Auto holds a glide back only in mono, where the key before must still be down. A poly program glides on every note with
+Auto as with Normal (A016, against the instrument by ear; it was legato only here, so A016 did not glide).
+
 ## 17. Anti-alias
 The GLOBAL page's Anti-alias, On by default (owner, 2026-11-12), as on the other Alikes. Off plays the oscillators as
 the instrument makes them at its own rate, aliases included. On runs the same law at four times the rate - the same

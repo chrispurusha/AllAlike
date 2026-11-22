@@ -39,3 +39,5 @@ Finished work not yet checked against the instrument.
 - Oscillator Shape (2026-11-22): changed on the panel it now reaches FIXED, Link and stored presets (it reached none of them); Init from no program (neutral bytes, sn2Patch notes §9)
 - OSC page: Sync, Skew, Key and Formant dials for each oscillator; Noise Soften routes (Env 2, Env 3, LFOs, wheel); noise at high Soften (2026-11-22)
 - Buttons of two options flip on a click instead of opening a list (2026-11-22, ../Docs/panel-layout.md)
+- Dial values in their units, panel and host, while dragging too (2026-11-22, sn2Params notes §4)
+- Glide Auto glides every note in poly, legato only in mono (2026-11-22, sn2Voices notes §12b): A016 against the instrument

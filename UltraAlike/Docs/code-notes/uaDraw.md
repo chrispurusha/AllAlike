@@ -93,7 +93,7 @@ waveform area names the preset - its number, name and zone count - in place of a
 file, so another bank or a sample replaces it.
 
 ## 19. Shift for fine adjustment
-With Shift held, dragging a dial moves it a tenth as far for the same distance - the same on the Mac and Windows
+With Shift held, dragging a dial moves it a quarter as far for the same distance - the same on the Mac and Windows
 (SynthLib's panel views read the modifiers on every drag event). Rotary mode, where the dial follows the pointer's
 angle, is unchanged. Added across the Alikes 2026-11-14.
 

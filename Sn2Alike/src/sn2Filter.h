@@ -40,6 +40,8 @@ typedef struct {
 
 // cutoff and resonance in the panel's 0..127 (fractions allowed)
 void sn2_filter_coeffs(uint32_t type, uint32_t slope, double cutoff, double resonance, double normalise, double width, tSn2FilterCoeffs * c);
+// notes §8: where the filter rings, in hertz
+double sn2_filter_hz(double cutoff);
 // notes §5: Overdrive 0..127 as the drive word; the saturator on the filter's input
 double sn2_filter_drive_word(double overdrive);
 // notes §2: a type's taps (input, band, low, high; section 1 then 2) and whether its sections are in parallel

@@ -18,7 +18,7 @@ start by `ma_draw_set_default()`), through the host like any edit, so it can be 
 not grab the dial. As OneShot's (osDraw notes §10), added across the Alikes 2026-11-14.
 
 ## 2. Shift for fine adjustment
-With Shift held, dragging a dial moves it a tenth as far for the same distance - the same on the Mac and Windows
+With Shift held, dragging a dial moves it a quarter as far for the same distance - the same on the Mac and Windows
 (SynthLib's panel views read the modifiers on every drag event). Rotary mode is unchanged. Added 2026-11-14.
 
 ## 3. Colours and Off/On buttons (2026-11-17)

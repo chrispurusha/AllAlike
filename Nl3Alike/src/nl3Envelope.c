@@ -29,14 +29,24 @@
 #define SILENT           (1.0 / 65536.0)     // notes §5
 #define REPEAT_TARGET    (-0.05)             // notes §6
 
+static double stage_steps(double dial, double scale) {
+    return scale * pow(dial + TIME_OFFSET, 8.0);
+}
+
 // notes §2: the fraction of the distance closed each sample at the engine's rate; Decay and Release 127 hold
 static double stage_k(double dial, double scale, bool holdsAtTop, double sampleRate) {
     if (holdsAtTop && (dial >= 127.0)) {
         return 0.0;
     }
-    double steps = scale * pow(dial + TIME_OFFSET, 8.0);
+    return 1.0 - exp(-STEP_HZ / (stage_steps(dial, scale) * sampleRate));
+}
 
-    return 1.0 - exp(-STEP_HZ / (steps * sampleRate));
+double nl3_env_attack_seconds(double dial) {
+    return log(ATTACK_TARGET / (ATTACK_TARGET - 1.0)) * stage_steps(dial, ATTACK_SCALE) / STEP_HZ;
+}
+
+double nl3_env_half_seconds(double dial) {
+    return (dial >= 127.0) ? 0.0 : (log(2.0) * stage_steps(dial, DECAY_SCALE) / STEP_HZ);
 }
 
 void nl3_env_shape(double attack, double decay, double sustain, double release, bool squared, bool exponential, double sampleRate,

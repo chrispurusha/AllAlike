@@ -71,7 +71,7 @@ Missing everywhere, or built in one and wanted in the others:
   not yet tried in a host.
 - **Double-click a dial for its default** (2026-11-14): every Alike panel, as OneShot's; through the host, so undoable.
 - **Shift for fine adjustment** (2026-11-14): every Alike panel, OneShot and UltraAlike included - a dial dragged with
-  Shift held moves a tenth as far, on the Mac and Windows; Rotary mode unchanged.
+  Shift held moves a quarter as far, on the Mac and Windows; Rotary mode unchanged.
 - **Panel buttons act on the release** (CT 2026-11-14), in every Alike with a panel (SynthLib `buttonPress.h`): Prev, Next, Load, the tabs, Link and the Off/On buttons light while held and act only when released on the same button; menus still open on the press. Built in Pulse2Alike, TiAlike, Sn2Alike, Nl3Alike and OneShot (whose toggles now flip on release too); Nl3Alike's Off/On choices are toggle buttons rather than menus. Not yet tried in a host.
 - **Resizable editors in the Audio Unit** (2026-11-16, SynthLib): every Alike's editor resizes in an AU host that
   gives it no window corner (Ableton, Logic) by a grip in its bottom-right corner, with the system's diagonal resize

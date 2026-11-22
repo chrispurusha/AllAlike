@@ -60,7 +60,8 @@
 #define FONT_PRELOAD_SIZE       (16.0)
 
 #define DOUBLE_CLICK_S          (0.4)            // notes §13
-#define DRAG_FINE               (0.1)            // notes §14
+#define DRAG_FINE               (0.25)           // notes §14
+#define DRAG_PIXELS             (200.0)          // a dial from end to end
 #define MAX_PARAMS              (kSn2ParamCount) // every parameter, however many there come to be
 #define UNITY_COLOUR            {1.0, 0.78, 0.25} // notes §15: the one gold every Alike marks 1:1 with
 #define MAX_PLACED              (64)
@@ -192,6 +193,7 @@ void sn2_draw_set_pages(const tSn2Page * pages, uint32_t count) {
 }
 
 static tSn2DialDisplay gDisplay;
+static tSn2UnitText    gUnits;
 
 static bool            gClip;
 
@@ -201,6 +203,10 @@ void sn2_draw_set_clip(bool on) {
 
 void sn2_draw_set_link_busy(bool busy) {
     gLinkBusy = busy;
+}
+
+void sn2_draw_set_units(tSn2UnitText units) {
+    gUnits = units;
 }
 
 void sn2_draw_set_display(tSn2DialDisplay display) {
@@ -1041,6 +1047,10 @@ void sn2_draw_frame(int pixelWidth, int pixelHeight) {
 
         value_text(c, text, sizeof(text));
 
+        if ((c->kind == eTiControlDial) && (gUnits != NULL)) {
+            (void)gUnits(c->paramId, gValue, text, sizeof(text));
+        }
+
         // notes §8
         if ((gDisplay != NULL) && gDisplay(c->paramId, gValue, &shown, text, sizeof(text))) {
             shown = (shown < 0) ? 0 : ((shown > c->steps) ? c->steps : shown);
@@ -1203,7 +1213,7 @@ bool sn2_draw_drag_by(double dx, double dy, tSn2Edit * edit) {
     if (gGrabbed == NULL) {
         return false;
     }
-    gGrabValue                = fmin(1.0, fmax(0.0, gGrabValue + (move / dial_drag_pixels_for_full_range((uint32_t)gGrabbed->steps))));
+    gGrabValue                = fmin(1.0, fmax(0.0, gGrabValue + (move / DRAG_PIXELS)));
     edit->paramId             = gGrabbed->paramId;
     edit->normalized          = gGrabValue;
     gValue[gGrabbed->paramId] = gGrabValue;

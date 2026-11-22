@@ -70,6 +70,9 @@ void sn2_draw_set_unity(uint32_t paramId, int32_t step, int32_t steps); // notes
 // Returns false to draw the control as usual.
 typedef bool (*tSn2DialDisplay)(uint32_t paramId, const double * values, int32_t * step, char * text, size_t len);
 void sn2_draw_set_display(tSn2DialDisplay display);
+// a dial's value in its unit
+typedef bool (*tSn2UnitText)(uint32_t paramId, const double * values, char * text, size_t len);
+void sn2_draw_set_units(tSn2UnitText units);
 void sn2_draw_set_clip(bool on);
 void sn2_draw_set_link_busy(bool busy); // Link on, the instrument another instance's
 void sn2_draw_read_hardware(void);      // Presets > Read from Hardware

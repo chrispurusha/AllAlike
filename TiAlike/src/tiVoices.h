@@ -165,6 +165,15 @@ void ti_voices_all_off(tTiVoices * v);
 void ti_voices_silence(tTiVoices * v);                                        // notes §5a: a new sound stops the old one's notes
 // notes §6: Filter 2's cutoff, 0..127 and beyond, from Cutoff, Cutoff 2 and Link
 double ti_voices_cutoff2(double cutoff, double cutoff2, bool link);
+// The dials' laws, as the panel's units read them
+double ti_patch_volume(double dial);          // notes §7: gains, 1 at the top ...
+double ti_mix_level(double dial);
+double ti_osc_volume(double dial);            // ... but Osc Volume's, 1 at the centre or so
+double ti_unison_cents(double dial);          // notes §13: from the centre to the stack's edge
+double ti_osc2_detune_cents(double dial);     // notes §7
+double ti_osc3_detune_cents(double dial);     // notes §7b: downwards
+double ti_env_amount(double dial);            // notes §11: in dial units of cutoff
+double ti_glide_seconds(double dial);         // notes §10: from one note to the next, whatever the interval
 // Adds frames of every voice into left and right
 // notes §17: curves 1-5, also what Distortion Light to Digital are
 double ti_saturate_curve(double x, uint8_t curve, double drive, double unit);
