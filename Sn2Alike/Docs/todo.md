@@ -1,8 +1,27 @@
 # Sn2Alike todo
 
+## Known anomalies (2026-11-22, at the beta)
+FLOAT against FIXED: 1421 programs compared, median 0.012 dB, 46 more than 3 dB apart in level or in tone. "Steady" checks
+of short sounds mean nothing: look at the first 50 ms.
+- Attack transients on short sounds: Jungle Sine (file entry 50) 9 dB low in FLOAT in its first 20 ms, entry 168 1.9 dB; the decays agree
+- Jungle Sine is silent after 0.1 s in both, with the amp's Sustain at 127: check on the instrument
+- Noise into a resonant filter: CHIRP 7 (1172) and REZ1 (1162) about 4 dB apart, level with the noise off; part may be the noise's own chance
+- Sync: Geigerscape (441) 7 dB, 1.2 dB with Sync off
+- Self-oscillation: Self Osc (213) worst on tone, no one feature explains it; Velo Spitz (289, 1107, 1157, one sound stored three times)
+- Electo Koto (257): 49 dB apart, no one feature closes it
+- Entries 83 and 108 worse in tone than in the run before (7.0 and 3.3 dB); 32 programs in all are more than 1 dB worse than that run, not looked into
+- Tone or attack, cause not found: Pocket stylofone (191), Radar>Comms (230), Basse (320), Filter Sweep KHz (161), 223, 682
+- Osc types Audio In 1 and 2: FIXED is silent, as the instrument with nothing plugged in; FLOAT plays a Saw
+- FLOAT still on measured constants where FIXED has words: the filter-bypass level, the filter's frequency scale and top
+- FLOAT starts a glide about 0.3 ms before FIXED (sn2Voices notes §12c)
+Against the instrument:
+- A013 with its effects on is 0.8-1.3 dB over, in its chorus; dry it is exact
+- A024 wanders from the instrument by 8-19 dB over a held note with effects on (a phaser there, a chorus here)
+- Chorus, delay and reverb levels: scaled with Dry, not measured again (sn2Effects notes §8a); Chorus feedback is an estimate
+- Attack 127 reads 19.1 s by the law against about 13 s measured once
+
 ## First
 - **Fixed-point option** - BUILT 2026-11-22; its words are the instrument's own (sn2Fixed notes §8). Still to do: aftertouch, VCO drift, Constant Gate (no program uses it; on the instrument it sounds from the moment it is loaded)
-- Output tilt: not seen again on 2026-11-22 (findings); look once more only if an A/B sounds bright
 - LFO settings by the instrument's names (owner 11-22): Freewheel/Keysync (done), delay sync, delay fade/gate, delay fade in/out, sync on/off - check each against the panel and program bytes (Delay Trigger bytes 169/179 are still unread)
 - Oscillator Sync, Sync Skew, Formant Width and Env 3 / wheel to Sync BUILT in FLOAT 2026-11-22 (sn2Osc notes §5-§7, checked against FIXED; the wheel checked against FIXED). Still: the restart's softening above 8 kHz (ours up to 1.8 dB bright); square above Sync 120 (1.7 dB low at 127); A007's release tail stops sooner than FIXED's
 - Converge FLOAT on FIXED (the reference; the instrument decides): 46 of 1421 programs more than 3 dB apart. FLOAT still lacks: LFO speed routes, the audio inputs' silence. A007 and A026 held are up to 5 dB out; A023 in the middle
@@ -13,7 +32,7 @@
 - Envelope Delay BUILT 2026-11-22 in FLOAT (FIXED had it): check against the instrument (hw/envdelay captures, 11-08)
 - LFO Delay Trigger (program bytes 169 and 179) is not read; find what it does (single or multi trigger of the delay?) on the hardware. And recheck the LFO Delay law itself there (it was measured on the reference, which ignores envelope delay)
 - Anti-alias (Global, built): find why more Soften aliases more (-84 dB at Soften 0, -66 at 64, A4)
-- Oscillator: Hardness; audio inputs; tighten the stretch law (design: nulls stop near -31 dB)
+- Oscillator: Hardness; audio inputs; the stretch law is exact since 2026-11-22 (sn2Osc notes §2)
 - Performances not read
 - LFO and LFO Speed from Env 3, wheel and pressure; wheel and pressure to LFO depth; LFO Sync to tempo; Env routes to pitch, width, level and resonance; Env 2 Delay
 - Finish the panel: Filter page done, the rest still placeholder
@@ -41,7 +60,7 @@
 - Crest factor: the instrument's chords peak about 1.7x ours at the same rms, so it reaches the ceiling sooner
 - Voices peak about 3 dB above the instrument in A001: drives Distortion and the ceiling harder; look at oscillator start phases and the Osc mix law
 - A001 voices: 22-26 dB dark above 3 kHz with Sync off; Sync, then whatever else
-- Filter Overdrive and Q Normalise: check both again against the reference (owner, 2026-11-01)
+- Q Normalise: check again against the instrument (Overdrive is FIXED's own law since 2026-11-22, sn2Filter notes §5)
 - Panel dials for LFO routes to pitch and width
 - Link: the SysEx ID from the identity reply (hardware notes §4, built 2026-11-08): check on the instrument that choosing the port sets it
 - Outliers after the LFOs: Vanilla group -3 dB, TB1, BubbleArp, China Cymbal, Ride 2, A Syncy Feeling, RainPicks, Timpani
@@ -55,4 +74,3 @@
 - Same key again (11-16, Square Basics A16 against the reference, effects off, six C4s 0.2 s apart in the release): Osc Trigger Percussive's re-strikes carry 5-10 dB more above 8 kHz at the note-on than the reference's (-45..-47 against -52..-61 dB re peak); Ensemble within a few dB. The reference restarts something too - find what (phase, envelope from its level, voice) before changing it
 - Square Basics (A16) held: 19 dB less above 8 kHz than the reference (-100 against -81 dB re peak) - the oscillator's top end or the filter
 - Aftertouch (11-16): no pressure parameter yet - the Supernova takes it as a modulation source; add it with the routes, poly pressure included (Nl3Alike/TiAlike/Pulse2Alike take it since 11-16)
-- Osc types Audio In 1 and 2: FIXED is silent, as the instrument with nothing plugged in; FLOAT still plays a Saw

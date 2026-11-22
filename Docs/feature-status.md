@@ -26,7 +26,7 @@ Missing everywhere, or built in one and wanted in the others:
 - **Level meters at stages** (oscillators, filter, effects, output), to watch gain staging. G2Alike has them; none of the Alikes do.
 - **External audio into the voices.** Pulse2Alike's osc 3 EXT is built (side-chain, 2026-11-06); Sn2Alike's Audio In oscillators (they play as a Saw); G2Alike's side-chain input is the model.
 - **Named drop-downs** for modulation sources and destinations, waves and other numbered choices: TiAlike has them; Sn2Alike to follow.
-- **Value text in real units** (times, rates, semitones) where the laws are measured; the panels show raw values now.
+- **Value text in real units** where the laws are known: BUILT in Sn2Alike, Nl3Alike and TiAlike, while dragging too (2026-11-22); the other panels show raw values.
   Where a raw number means nothing to a player, a dial shows text or the converted value instead (CT 2026-11-08):
   a time in ms or s, a rate in Hz, a division as 1/16, an amount in semitones, Off/On at a switch-like extreme.
   A dial that moves between waves names them (CT 2026-11-08): TiAlike's Shape as the selected wave, Saw at 64 and
@@ -159,7 +159,7 @@ delays, the sine LFO's Symmetry.
 ## Sn2Alike
 
 **Missing**
-- **Oscillator:** Hardness, Skew, Formant Width; the audio-input types. (Sync BUILT 2026-11-22, sn2Osc notes §5.)
+- **Oscillator:** Hardness; the audio-input types. (Sync, Skew and Formant Width BUILT 2026-11-22, sn2Osc notes §5-§7.)
 - **Modulation:** LFO routes to level, Soften, sync and resonance; LFO speed from Env 3, wheel and pressure; LFO tempo sync; envelope routes to pitch, width, level and resonance; Env 2 Delay; Env 2 and 3 generally.
 - **Effects:** the comb, Pan Type, phaser types, the chorus feedback law, the Gated reverbs' gates.
 - **Performances:** not read at all.
@@ -171,16 +171,16 @@ delays, the sine LFO's Symmetry.
 **Built 2026-11-12:** FM (Osc 1, Osc 2 or the noise modulating Osc 3, linear through zero, depth the level squared); the Anti-alias switch (GLOBAL page, On by default: the oscillators at four times the rate and filtered back, the instrument's aliases 7-22 dB down with the harmonics unchanged; Off is the instrument's own); the Sort menu with Prev/Next following it; a preset change stops the old notes and keeps the clip lamp out of the fade.
 
 **Needs more work**
-- **Oscillator stretch law:** nulls stop near -31 dB.
-- **Level and peaks:** voices peak about 3 dB over the instrument and chords about 1.7x lower in crest factor, so Distortion and the output ceiling are driven differently; A001 22-26 dB dark above 3 kHz; Distortion at low Volume too clean; Volume 127 with Distortion on 2.5 dB short.
+- **Known anomalies:** FLOAT against FIXED and both against the instrument, listed at the top of `Sn2Alike/Docs/todo.md` (2026-11-22).
+- **Level and peaks:** voices peak about 3 dB over the instrument and chords about 1.7x lower in crest factor, so Distortion and the output ceiling are driven differently; A001 22-26 dB dark above 3 kHz; Volume 127 with Distortion on 2.5 dB short.
 - **Envelopes:** the amp envelope's Sustain Rate measured (64 and up flat; below 64 it falls, doubling about every 4.7
   steps) and Time 127 holds; Sustain Time's curve still to measure. Env 2 Delay seen on the hardware (64 arrives
   between 0.1 and 1.2 s, 2026-11-08), its law not yet measured; the reference ignores it, so LFO Delay's law
   wants rechecking on the hardware too. The Trigger values beyond Retrigger and Legato; Glissando and the fixed Glide types.
-- **Glide** (2026-11-02, from the instrument by ear): Normal glides with a note held and starts from the pitch reached, mid-glide or not - built. In poly each voice seems to glide from its own last pitch: built that way, still to confirm.
+- **Glide** (2026-11-02, from the instrument by ear): Normal glides with a note held and starts from the pitch reached, mid-glide or not - built. In poly each voice glides from its own last pitch, and Auto glides there as Normal does; FLOAT and FIXED share one law (2026-11-22).
 - **Odd sounds:** SuperStrings1 about 18 dB loud and decaying while held; the Vanilla group 3 dB quiet; a handful of outliers (TB1, BubbleArp, China Cymbal, Ride 2, Timpani and others).
-- **Voice pool:** notes sum as on the instrument when unison is off (checked on the hardware, 2026-11-02), but the instrument has a fixed number of voices (24 on the unit measured) and heavy unison runs out of them, so its chords grow much less; this plug-in has no pool, so unison chords come out louder.
-- **Checks owed:** Filter Overdrive and Q Normalise against the reference again.
+- **Voice pool:** Unison BUILT 2026-11-22; notes sum as on the instrument when unison is off (checked on the hardware, 2026-11-02), but the instrument has a fixed number of voices (24 on the unit measured) and heavy unison runs out of them, so its chords grow much less; this plug-in has no pool, so unison chords come out louder.
+- **Checks owed:** Q Normalise against the instrument; EQ and Distortion now exact on the instrument (2026-11-22, sn2Effects notes §7b, §8a), so sounds with effects on changed - by ear.
 
 **Built, not yet checked** - `to-test.md`: almost everything outside the filter and oscillators has only been run offline: the Filter page in a host, program changes, mono and legato, bend and wheel, the LFO page, Link (its SysEx ID now taken from the instrument's identity reply, 2026-11-08), and Read from Hardware.
 
@@ -203,6 +203,7 @@ Started 2026-11-02 from Sn2Alike's skeleton. Everything below is measured on the
 - **Link:** a change to any of 45 knobs goes as the instrument's controller and a held note follows it; anything else as the whole program, which the instrument takes from the next note (2026-11-16).
 
 **Missing**
+- The LFOs' Clock and Divisor, and Transpose: on the panel, not read by the engine (2026-11-22).
 - **Filter:** the other three multi modes, Distorted LP and filter distortion (1:1, and SawLead's level).
 - **Oscillators:** Osc 2 Noise (Noise Type and Frequency), Noise 3's colour, Dual Sine, Shape on the Saw and Triangle; sync on the other waves checked.
 - The Mod Env to Filter 2 (13); the LFOs' Smooth Random and Special waves, Env/KB-sync and Mono modes; LFO 2 to Resonance and Pan.
