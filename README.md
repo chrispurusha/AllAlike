@@ -12,7 +12,7 @@ Reproductions of synthesizers and their effects, and a sample player, as VST3 an
 | [UltraAlike](UltraAlike/) | A reproduction inspired by the E-mu Ultra samplers | Alpha: plays EOS `.E4B` and Emulator X `.exb` banks, SFZ instruments, and loose WAV and AIFF, with the E5000's envelope and interpolation, measured. Filters, LFOs and modulation to come |
 | [ModAlike](ModAlike/) | A Phaser, Chorus and Flanger as an effect, with stereo modes and Mix | Work in progress: plays in a host (Ableton Live) |
 | [ProphAlike](ProphAlike/) | An instrument inspired by the Korg Prophecy | Work in progress: the Prophecy's Filter 1 is built (exact in fixed point, to -95 dB in floating point); its oscillators and the rest are still placeholders |
-| [OneShot](OneShot/) | A layered sample player (WAV and AIFF): four samples an instance, each with its key range, envelope, filter, saturation and time-stretch | Work in progress: plays and browses its folder; host checks remain |
+| [OneShot](OneShot/) | A layered sample player (WAV and AIFF): four samples an instance, each with its key range, envelope, filter, saturation and time-stretch |
 
 What each one is missing, and what needs more work: [Docs/feature-status.md](Docs/feature-status.md).
 
