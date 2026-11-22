@@ -22,8 +22,6 @@
 #include "sn2Filter.h"
 
 #define PASSES                 (2)
-#define DRIVE_LEAST            (0.98447)
-#define DRIVE_TRIM             (0.012)
 #define NORMALISE_TRIM_FROM    (120.0)
 #define F_AT_64                (0.037465)
 #define F_MAX                  (0.99863)
@@ -97,13 +95,19 @@ void sn2_filter_taps(uint32_t type, uint32_t slope, bool * parallel, double taps
 
 // notes §5
 double sn2_filter_drive_word(double overdrive) {
-    double v = overdrive / 128.0;
+    double v = fmin(1.0, (overdrive + 1.0) / 128.0);
 
-    return 1.0 - (DRIVE_LEAST * (1.0 - v) * (1.0 - v)) - (DRIVE_TRIM * v * (1.0 - v));
+    return 1.0 - ((1.0 - v) * (1.0 - v));
 }
 
-double sn2_filter_drive(double x, double word) {
-    return x / (1.0 + (word * (fabs(x) - 1.0)));
+double sn2_filter_drive_bend(double overdrive) {
+    return fmin(overdrive, 64.0) / 512.0;
+}
+
+double sn2_filter_drive(double x, double word, double bend) {
+    double y = x / (1.0 + (word * (fabs(x) - 1.0)));
+
+    return y * (1.0 - (bend * y * y));
 }
 
 void sn2_filter_reset(tSn2Filter * f) {

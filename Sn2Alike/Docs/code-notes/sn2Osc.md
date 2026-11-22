@@ -4,7 +4,7 @@
 Phase runs -1..1. A saw is that ramp multiplied by a curve (§4) of the distance from the jump, which gives the edge its band limit and its ripple. A square is two such saws subtracted, the second offset by Width, so Width 64 is square and 0 silence. Double Saw adds them, the offset counted from Width 64. The curve stops at point 1007, which is the level of the body of the wave.
 
 ## 2. Stretch
-How many curve points a unit of distance covers, and so how wide the edge is: the lower of a limit set by pitch and one set by Soften. The pitch limit is 30 / increment less 25, within about 2% of its stepped measurements. The Soften limit doubles every 16 steps and runs nearly straight between them; it is low above Soften 112, which only matters below about note 30.
+How many curve points a unit of distance covers, and so how wide the edge is: the lower of a limit set by pitch and one set by Soften. Both are a count of octaves read in straight lines, 64 x 2^w (1 + f) less 15 for a square and 30 for anything else, whole numbers: Soften's is (dial x 128/127 - 2)/16 octaves, the pitch's 6 - log2(increment / 0.0071649). Exact at every Soften from 0 to 127 and every note from 40 to 112 against the fixed path's own word (2026-11-22; the fit before was 29 for 45 at Soften 0, which took 2.5 dB off a square and up to 8 dB off its third harmonic).
 
 ## 3. Not built
 The audio inputs.

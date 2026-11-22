@@ -80,6 +80,8 @@ typedef enum {
 
 // moved: the dial steps the key takes off
 double sn2_fixed_env_step(tSn2EnvLaw law, double dial, int moved);
+// notes §8: a glide every SN2_ENV_TICK samples - semitones, and the part of what is left
+void sn2_fixed_glide(double time, bool curved, double interval, double * step, double * share);
 int sn2_fixed_key_moves(int note, int track, bool attack);
 // notes §8: an LFO's smoothing, against its own step; 0 none
 double sn2_fixed_lfo_soften(double dial);

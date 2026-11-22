@@ -34,7 +34,7 @@ typedef enum {
 void sn2_edge_build(double * edge);
 
 // notes §2: the edge table's stretch for a note's increment (cycles of -1..1 a sample) and a Soften of 0..127
-double sn2_osc_stretch(double increment, double soften);
+double sn2_osc_stretch(tSn2OscShape shape, double increment, double soften);
 // notes §1: one sample at phase -1..1 (advanced by the caller); offset, 0..2, is the second saw's
 double sn2_osc_sample(const double * edge, tSn2OscShape shape, double phase, double stretch, double offset);
 // notes §5: Sync - the slave's ratio to the oscillator, and the slave's phase from the oscillator's (both -1..1)

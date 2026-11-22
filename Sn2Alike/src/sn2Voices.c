@@ -22,17 +22,13 @@
 
 #include "sn2Voices.h"
 
-#define SMOOTH_S          (2048.0 / 46875.0)        // notes §5
-#define MIDDLE_C_HZ       (261.663)
-#define RING_GAIN         (2.0)
-#define GLIDE_AT_64       (0.183)        // voices notes §12
-#define GLIDE_DOUBLING    (11.2)
-#define GLIDE_CURVE       (0.41)
-#define GLIDE_LANDING     (2.5)
-#define ENV_TO_CUTOFF     (98304.0 / 43691.0)
-#define DRIVE_IN          (0.5)        // voices notes §8
-#define FILTER_IN         (0.5)
-#define SUB_BLOCK         (32u)        // notes §4
+#define SMOOTH_S         (2048.0 / 46875.0)         // notes §5
+#define MIDDLE_C_HZ      (261.663)
+#define RING_GAIN        (2.0)
+#define ENV_TO_CUTOFF    (98304.0 / 43691.0)
+#define DRIVE_IN         (0.5)         // voices notes §8
+#define FILTER_IN        (0.5)
+#define SUB_BLOCK        (32u)         // notes §4
 
 void sn2_voices_init(tSn2Voices * v) {
     memset(v, 0, sizeof(*v));
@@ -130,9 +126,15 @@ static double osc_increment(const tSn2OscSound * o, double note, double bend, do
     return 2.0 * MIDDLE_C_HZ * pow(2.0, semitones / 12.0) / rate;  // phase runs -1..1
 }
 
-// voices notes §12: seconds from one pitch to the next, whatever the interval
-double sn2_glide_seconds(double time) {
-    return GLIDE_AT_64 * pow(2.0, (time - 64.0) / GLIDE_DOUBLING);
+// voices notes §12: seconds over an interval
+double sn2_glide_seconds(double time, bool curved, double interval) {
+    double step, share;
+
+    sn2_fixed_glide(time, curved, interval, &step, &share);
+
+    double ticks = (share > 0.0) ? (log(1.0 + (interval * share / step)) / -log(1.0 - share)) : (interval / step);
+
+    return ticks * SN2_ENV_TICK / SN2_ENGINE_HZ;
 }
 
 static double glide_heard(const tSn2Voice * vc, const tSn2Sound * sound) {
@@ -247,7 +249,7 @@ static void start_glide(const tSn2Voices * v, const tSn2Sound * sound, tSn2Voice
     // voices notes §12a: from the pitch this voice had reached, mid-glide or not; a voice never played, from the last note
     double              from      = (pick->note > 0) ? ((double)pick->note + pick->glide) : (double)v->lastNote;
 
-    pick->glide     = 0.0;
+    pick->glide = 0.0;
 
     if (sound->glideTime > 0.0) {
         if (sound->glideType >= 2) {
@@ -256,7 +258,7 @@ static void start_glide(const tSn2Voices * v, const tSn2Sound * sound, tSn2Voice
             pick->glide = from - (double)note;
         }
     }
-    pick->glideRate = fabs(pick->glide) / sn2_glide_seconds(sound->glideTime);
+    sn2_fixed_glide(sound->glideTime, sound->glideCurve == 1, pick->glide, &pick->glideStep, &pick->glideShare);
 }
 
 // notes §24: the voices a key takes, and each one's number, from the last down
@@ -270,14 +272,16 @@ static int unison_which(const tSn2Sound * sound, uint32_t at) {
     return (sound->unison > 0) ? (sound->unison - 1 - (int)at) : 0;
 }
 
-static void advance_glide(tSn2Voice * vc, const tSn2Sound * sound, double seconds) {
+static void advance_glide(tSn2Voice * vc, double ticks) {
     double size = fabs(vc->glide);
-    double move = vc->glideRate * seconds;
+    double left = size - (vc->glideStep * ticks);
 
-    if (sound->glideCurve == 1) {
-        move = (size + GLIDE_LANDING) * seconds / (GLIDE_CURVE * sn2_glide_seconds(sound->glideTime));
+    if (vc->glideShare > 0.0) {
+        double even = vc->glideStep / vc->glideShare;
+
+        left = ((size + even) * pow(1.0 - vc->glideShare, ticks)) - even;
     }
-    vc->glide = (move >= size) ? 0.0 : ((vc->glide > 0.0) ? (vc->glide - move) : (vc->glide + move));
+    vc->glide = (left <= 0.0) ? 0.0 : copysign(left, vc->glide);
 }
 
 // sn2Fixed notes §9: the voice's twin begins the note, where Maths is FIXED
@@ -607,7 +611,7 @@ static double osc_sample(const double * edge, tSn2OscShape shape, double phase, 
 // sn2Osc notes §5, §6: the slave's ratio and its edge, with Skew from where the oscillator is in its cycle
 static double sync_now(const tSn2OscSound * os, double soften, double sync, double phase, double increment, double * stretch) {
     sync     = fmax(0.0, sync - (24.0 * os->skew * phase));
-    *stretch = sn2_osc_stretch(increment * pow(2.0, sync / 24.0), soften);   // past the cap too
+    *stretch = sn2_osc_stretch(os->shape, increment * pow(2.0, sync / 24.0), soften);   // past the cap too
     return sn2_sync_ratio(sync);
 }
 
@@ -628,6 +632,7 @@ static void env_shapes(const tSn2Sound * sound, int note, tSn2EnvShape * amp, tS
 static void render_sub_block(tSn2Voices * v, const tSn2Sound * sound, double cutoff, double res, const tSn2EnvShape * amp, const tSn2EnvShape * mods,
                              float * out, uint32_t frames, double gain) {
     double drive   = sn2_filter_drive_word(sound->overdrive);
+    double bend    = sn2_filter_drive_bend(sound->overdrive);
     bool   tracked = (sound->envTrack[0] != 64) || (sound->envTrack[1] != 64) || (sound->envTrack[2] != 64);
 
     for (uint32_t i = 0; i < SN2_MAX_VOICES; i++) {
@@ -635,6 +640,10 @@ static void render_sub_block(tSn2Voices * v, const tSn2Sound * sound, double cut
 
         if (!vc->active) {
             continue;
+        }
+
+        if (vc->glide != 0.0) {   // notes §12c: whichever maths plays the voice
+            advance_glide(vc, (double)frames / SN2_ENV_TICK);
         }
 
         if (sound->fixedPoint && (vc->fixed != NULL) && vc->fixed->sounding) {   // sn2Fixed notes §9: the voice in the instrument's own words
@@ -660,8 +669,8 @@ static void render_sub_block(tSn2Voices * v, const tSn2Sound * sound, double cut
             continue;
         }
         tSn2EnvShape         ownAmp, ownMods[SN2_MOD_ENVS];
-        const tSn2EnvShape * ampShape = amp;
-        const tSn2EnvShape * modShape = mods;
+        const tSn2EnvShape * ampShape                 = amp;
+        const tSn2EnvShape * modShape                 = mods;
 
         if (tracked) {   // envelope notes §5
             env_shapes(sound, vc->note, &ownAmp, ownMods);
@@ -679,9 +688,6 @@ static void render_sub_block(tSn2Voices * v, const tSn2Sound * sound, double cut
             }
         }
 
-        if (vc->glide != 0.0) {
-            advance_glide(vc, sound, (double)frames / v->rate);
-        }
         set_pitch(vc, sound, v->rate);
         double               stretch[SN2_OSCS];
         const double         source[SN2_LEVEL_ROUTES] = {sound->wheel, vc->env[0].level * velocity_level(vc->velocity, sound->env[0].velocity), vc->env[1].level * velocity_level(vc->velocity, sound->env[1].velocity), LFO_TO_LEVEL * vc->lfoValue[0], LFO_TO_LEVEL * vc->lfoValue[1]}; // what the routes follow
@@ -750,7 +756,7 @@ static void render_sub_block(tSn2Voices * v, const tSn2Sound * sound, double cut
             }
 
             soften[o]   = fmin(127.0, fmax(0.0, soften[o]));
-            stretch[o]  = sn2_osc_stretch(vc->increment[o], soften[o]);
+            stretch[o]  = sn2_osc_stretch(os->shape, vc->increment[o], soften[o]);
             ratio[o]    = on ? sync_now(os, soften[o], syncAt[o], vc->phase[o], vc->increment[o], &stretch[o]) : 0.0;
             oscLevel[o] = slot[o];
         }
@@ -846,7 +852,7 @@ static void render_sub_block(tSn2Voices * v, const tSn2Sound * sound, double cut
             } else {
                 mix += noise;
             }
-            double y      = sn2_filter_process(&vc->filter, &coeffs, sn2_filter_drive(mix * DRIVE_IN, drive) * FILTER_IN * coeffs.gain) + (around * BYPASS_GAIN);
+            double y      = sn2_filter_process(&vc->filter, &coeffs, sn2_filter_drive(mix * DRIVE_IN, drive, bend) * FILTER_IN * coeffs.gain) + (around * BYPASS_GAIN);
 
             out[f]     += (float)(y * sn2_env_next(&vc->amp, ampShape) * level * gain * VOICE_LEVEL);
         }

@@ -826,6 +826,32 @@ static int32_t rate_word(int dial, int moved) {
     return (s > 0) ? (exponent((d * 0x6B) + 0x39B3) >> 8) : (-exponent((d * 0x6B) + 0x4019) >> 8);
 }
 
+// notes §8: the glide - towards the key by a part of what is left, or in a straight line over the interval
+static void glide_words(double time, bool curved, double interval, uint32_t * step, uint32_t * share) {
+    int32_t d    = 127 - clamp_dial((int)lround(time));
+    int32_t rate = exponent((d * 0x5D) + ((d > 0x70) ? ((d - 0x70) * 256) : 0) + 0x41B3);
+
+    if (!curved) {
+        int32_t line = (int32_t)(((int64_t)lround(fabs(interval) * 256.0) * rate) >> 16);
+
+        *step  = (uint32_t)(((line < 0x200) ? 0x200 : line) >> 8);
+        *share = 0;
+    } else {
+        *step  = (uint32_t)(rate >> 13) & 0xFFFFFFu;
+        *share = (uint32_t)(rate >> 8) & 0xFFFFFFu;
+    }
+}
+
+#define DROPPED    (0.5)   // notes §8: what the share loses to whole steps, on average
+
+void sn2_fixed_glide(double time, bool curved, double interval, double * step, double * share) {
+    uint32_t stepWord, shareWord;
+
+    glide_words(time, curved, interval, &stepWord, &shareWord);
+    *step  = (stepWord - (curved ? DROPPED : 0.0)) / 65536.0;
+    *share = shareWord / 8388608.0;
+}
+
 // notes §8: the key, as semitones from middle C in the word's middle
 void sn2_fixed_note_words(uint32_t words[SN2_FIXED_WORDS], uint8_t note, float velocity, double glide, int which) {
     if (words[SN2_FIXED_UNISON] > 0) {   // notes §13
@@ -873,19 +899,7 @@ void sn2_fixed_note_words(uint32_t words[SN2_FIXED_WORDS], uint8_t note, float v
         }
     }
 
-    // notes §8: the glide - towards the key by a part of what is left, or in a straight line over the interval
-    int32_t d    = 127 - (int32_t)words[SN2_FIXED_GLIDE];
-    int32_t rate = exponent((d * 0x5D) + ((d > 0x70) ? ((d - 0x70) * 256) : 0) + 0x41B3);
-
-    if (words[SN2_FIXED_GLIDE + 1] != 0) {
-        int32_t line = (int32_t)(((int64_t)lround(fabs(glide) * 256.0) * rate) >> 16);
-
-        words[0xDB] = (uint32_t)(((line < 0x200) ? 0x200 : line) >> 8);
-        words[0xDC] = 0;
-    } else {
-        words[0xDB] = (uint32_t)(rate >> 13) & 0xFFFFFFu;
-        words[0xDC] = (uint32_t)(rate >> 8) & 0xFFFFFFu;
-    }
+    glide_words((double)words[SN2_FIXED_GLIDE], words[SN2_FIXED_GLIDE + 1] == 0, glide, &words[0xDB], &words[0xDC]);
 }
 
 double sn2_fixed_env_step(tSn2EnvLaw which, double dial, int moved) {

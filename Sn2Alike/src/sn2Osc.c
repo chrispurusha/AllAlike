@@ -23,11 +23,12 @@
 #include <math.h>
 
 #define EDGE_LAST        (1007.0)    // notes §1
-#define PITCH_STRETCH    (30.0)      // notes §2
-#define PITCH_TRIM       (25.0)
-#define SOFT_LEAST       (29.0)
-#define SOFT_SCALE       (61.0)
-#define SOFT_STEP        (0.96)
+#define STRETCH_SCALE    (64.0)      // notes §2
+#define STRETCH_TRIM     (30.0)
+#define SQUARE_TRIM      (15.0)
+#define SOFT_LAG         (2.0)       // dial steps
+#define PITCH_KNOT       (0.0071649) // the increment whose limit is SCALE x 2^6
+#define PITCH_OCTAVES    (6.0)
 #define SYNC_TOP         (120.0)     // notes §5: a ratio of 32
 
 // notes §1: a saw's ramp, shaped by the table towards its jump
@@ -39,12 +40,13 @@ static double ramp(const double * edge, double phase, double stretch) {
     return phase * (edge[i] + (f * (edge[i + 1] - edge[i])));
 }
 
-double sn2_osc_stretch(double increment, double soften) {
-    double pitch = (PITCH_STRETCH / increment) - PITCH_TRIM;
-    double whole = floor(soften / 16.0);
-    double soft  = SOFT_LEAST + (SOFT_SCALE * ((pow(2.0, whole) * (1.0 + (SOFT_STEP * ((soften / 16.0) - whole)))) - 1.0));
+double sn2_osc_stretch(tSn2OscShape shape, double increment, double soften) {
+    double pitch   = PITCH_OCTAVES - log2(increment / PITCH_KNOT);
+    double soft    = ((soften * 128.0 / 127.0) - SOFT_LAG) / 16.0;
+    double octaves = fmin(pitch, soft);
+    double whole   = floor(octaves);
 
-    return fmax(fmin(pitch, soft), 1.0);
+    return fmax(floor((STRETCH_SCALE * exp2(whole) * (1.0 + octaves - whole)) - ((shape == eTiOscSquare) ? SQUARE_TRIM : STRETCH_TRIM)), 1.0);
 }
 
 double sn2_sync_ratio(double sync) {

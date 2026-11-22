@@ -791,7 +791,7 @@ void sn2_controls_sound(const double * v, double tempo, tSn2Sound * sound) {
 // ---- values in their units - notes §4, from the engine's own laws ------------------------------------------------
 
 static const char *const kSyncNames[] = {
-    "Off", "32nd T", "32nd", "16th T", "16th", "8th T", "16th .", "8th", "4th T", "8th .", "4th", "2nd T", "4th .", "2nd", "1 Bar T", "2nd .", "1 Bar", "2 Bar T",
+    "Off",     "32nd T", "32nd",    "16th T", "16th",    "8th T",  "16th .",  "8th",     "4th T",  "8th .",   "4th",    "2nd T",  "4th .",   "2nd",    "1 Bar T", "2nd .",   "1 Bar", "2 Bar T",
     "1 Bar .", "2 Bars", "4 Bar T", "3 Bars", "5 Bar T", "4 Bars", "3 Bar .", "7 Bar T", "5 Bars", "8 Bar T", "6 Bars", "7 Bars", "5 Bar .", "8 Bars", "6 Bar .", "7 Bar .", "8 Bar ."
 };
 
@@ -899,8 +899,8 @@ bool sn2_param_units(uint32_t id, const double * values, char * out, size_t len)
         case kSn2ParamLfo1Speed:
         case kSn2ParamLfo2Speed:
         {
-            int    l    = (id == kSn2ParamLfo1Speed) ? 0 : 1;
-            int    sync = (int)lround(values[kSn2ParamLfo1Sync + l] * 34.0);
+            int l    = (id == kSn2ParamLfo1Speed) ? 0 : 1;
+            int sync = (int)lround(values[kSn2ParamLfo1Sync + l] * 34.0);
 
             if (sync > 0) {
                 snprintf(out, len, "%s", kSyncNames[sync]);
@@ -924,13 +924,15 @@ bool sn2_param_units(uint32_t id, const double * values, char * out, size_t len)
         }
 
         case kSn2ParamGlideTime:
+
             if (dial < 0.5) {
                 snprintf(out, len, "Off");
                 return true;
             }
-            return ms_text(1000.0 * sn2_glide_seconds(dial), out, len);
+            return ms_text(1000.0 * sn2_glide_seconds(dial, values[kSn2ParamGlideCurve] > 0.5, 12.0), out, len);
 
         case kSn2ParamDelayTime:
+
             if (values[kSn2ParamDelaySync] * 34.0 >= 0.5) {
                 snprintf(out, len, "%s", kSyncNames[lround(values[kSn2ParamDelaySync] * 34.0)]);
                 return true;

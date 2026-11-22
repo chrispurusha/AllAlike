@@ -68,7 +68,7 @@ Noise is the instrument's own generator (a counter multiplying a word, not quite
 c = 2^n (1 + f) / 256, Soften being 16 (n + f), less c times what the pole held; the step towards the generator is held to full scale, which dulls the top at high Soften. Ring is twice the product of Osc 3 and Osc 1 or 2, whatever their levels.
 
 ## 12. Glide
-A note starts away from its pitch and arrives in a time set by Glide Time alone, whatever the interval: 0.183 s at 64, doubling every 11.2 steps. Normal starts from the last note played, Auto likewise but only over a held note, and the fixed types start that many semitones away on every note. Linear is a straight line in pitch. Exponential closes a gap at (gap + 2.5) / 0.41T semitones a second, so it lands in a finite time. Glissando is the same path rounded to semitones. Time 0 is no glide. It applies to all voices.
+A note starts away from its pitch and, Linear, arrives in a time set by Glide Time alone, whatever the interval: 0.183 s at 64 (the exact law is §12c). Normal starts from the last note played, Auto likewise but only over a held note, and the fixed types start that many semitones away on every note. Linear is a straight line in pitch. Exponential moves by a fixed step and a part of the gap, so it lands in a finite time (§12c). Glissando is the same path rounded to semitones. Time 0 is no glide. It applies to all voices.
 
 ## 13. Mono
 Polyphony 1 in a program. One voice and a list of the keys down, last note priority: a released key returns to the newest still held. Measured: value 34 of the trigger byte, and 35-37, restart the envelope on each change including the return; 32, 33 and 38 do not. Glide Auto counts a key still held on the one voice.
@@ -96,6 +96,13 @@ that voice's own last pitch (hard to follow by ear); a voice that has never play
 ## 12b. Auto in poly (2026-11-22)
 Auto holds a glide back only in mono, where the key before must still be down. A poly program glides on every note with
 Auto as with Normal (A016, against the instrument by ear; it was legato only here, so A016 did not glide).
+
+## 12c. One law for both (2026-11-22)
+A glide moves every four samples: Linear by a step set from its interval, Exponential by a step and a part of what is left
+(`sn2_fixed_glide`, the words the fixed path plays). FLOAT had fitted times; it now follows FIXED within 0.004 semitones on slow
+glides, and starts about 0.3 ms before it on fast ones. The share drops its fraction at each step, half a step on average, which is taken
+off. The glide's place is moved on whichever maths plays the voice: in FIXED it stood still until this date, so a third
+note began its glide where the one before had begun.
 
 ## 17. Anti-alias
 The GLOBAL page's Anti-alias, On by default (owner, 2026-11-12), as on the other Alikes. Off plays the oscillators as

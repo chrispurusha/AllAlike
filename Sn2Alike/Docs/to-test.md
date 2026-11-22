@@ -42,3 +42,5 @@ Finished work not yet checked against the instrument.
 - Dial values in their units, panel and host, while dragging too (2026-11-22, sn2Params notes §4)
 - Glide Auto glides every note in poly, legato only in mono (2026-11-22, sn2Voices notes §12b): A016 against the instrument
 - EQ, Dry and Distortion levels from the instrument (2026-11-22, sn2Effects notes §7b, §8a): A015 and everything else with effects on, by ear - more bass than before; A024 no longer rings up
+- FLOAT's Soften and Overdrive laws made exact (2026-11-22, sn2Osc notes §2, sn2Filter notes §5): A013 and other low-Soften sounds, FLOAT against FIXED and the instrument
+- Glide: FLOAT on FIXED's law, and FIXED's third note of a run starting where the second one got to (2026-11-22, sn2Voices notes §12c)

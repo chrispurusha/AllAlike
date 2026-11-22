@@ -51,7 +51,8 @@ typedef struct {
     double           window[SN2_OSCS]; // sn2Osc notes §7: Formant Width's, 1 as each cycle starts
     tSn2Env          amp;              // the amplifier envelope
     double           glide;            // notes §12: semitones from the note
-    double           glideRate;        // semitones a second, for a straight glide
+    double           glideStep;        // notes §12: semitones a tick,
+    double           glideShare;       // and the part of what is left
     uint32_t         noiseSeed;
     uint32_t         noise, noiseCount;
     double           noiseLow;
@@ -209,7 +210,7 @@ static inline double sn2_volume_gain(double normalized) {
 }
 
 // notes §12: from one pitch to the next
-double sn2_glide_seconds(double time);
+double sn2_glide_seconds(double time, bool curved, double interval);
 void sn2_voices_init(tSn2Voices * v);
 void sn2_voices_set_limit(tSn2Voices * v, uint32_t limit);
 void sn2_voices_set_clean(tSn2Voices * v, bool clean);   // notes §17: Anti-alias

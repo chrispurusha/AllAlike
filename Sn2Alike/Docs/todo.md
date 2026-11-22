@@ -5,7 +5,7 @@
 - Output tilt: not seen again on 2026-11-22 (findings); look once more only if an A/B sounds bright
 - LFO settings by the instrument's names (owner 11-22): Freewheel/Keysync (done), delay sync, delay fade/gate, delay fade in/out, sync on/off - check each against the panel and program bytes (Delay Trigger bytes 169/179 are still unread)
 - Oscillator Sync, Sync Skew, Formant Width and Env 3 / wheel to Sync BUILT in FLOAT 2026-11-22 (sn2Osc notes §5-§7, checked against FIXED; the wheel checked against FIXED). Still: the restart's softening above 8 kHz (ours up to 1.8 dB bright); square above Sync 120 (1.7 dB low at 127); A007's release tail stops sooner than FIXED's
-- Converge FLOAT on FIXED (the reference; the instrument decides): 52 of 1421 programs more than 3 dB apart. FLOAT still lacks: LFO speed routes, the audio inputs' silence. A007 and A026 held are up to 5 dB out; A023 in the middle
+- Converge FLOAT on FIXED (the reference; the instrument decides): 46 of 1421 programs more than 3 dB apart. FLOAT still lacks: LFO speed routes, the audio inputs' silence. A007 and A026 held are up to 5 dB out; A023 in the middle
 - A001 (owner 11-22): FLOAT now within 2 dB of FIXED in every octave band (Skew); compare both with the instrument, arpeggiator off. It does not use unison (an earlier note misread its byte)
 - A024 (owner 11-22): the voice vanishing in FIXED was not reproduced; FLOAT, FIXED and the instrument now agree to 1-2 dB dry. Osc 1 and 3 beat to near silence every 2-3 s on all three. Listen again
 - A011: matches the instrument dry, 2026-11-22
@@ -24,7 +24,6 @@
 - Release 0 ends about 4 ms later than the instrument's
 - Effects: comb; Pan Type; phaser type; chorus feedback law
 - A024: the phaser itself (Feedback is left off it meanwhile, sn2Effects notes §3); its dry level wanders from the instrument by some dB, a filter sweep or beating
-- A013: dry, FIXED matches the instrument to 0.3 dB at every harmonic and in pitch; FLOAT's Osc 1 is 2-3 dB low there and the chorus makes the rest of the difference
 - Effects: is the wet fed after Dry (Dry 0 is silent on the instrument)? Then chorus, delay and reverb levels against the instrument again (sn2Effects notes §8a)
 - Effects orders in Performance mode, if performances are ever built: on the instrument a program ignores its order
 - Reverb: the Gated types' gates; closer than the measured model if its network can be read
@@ -56,3 +55,4 @@
 - Same key again (11-16, Square Basics A16 against the reference, effects off, six C4s 0.2 s apart in the release): Osc Trigger Percussive's re-strikes carry 5-10 dB more above 8 kHz at the note-on than the reference's (-45..-47 against -52..-61 dB re peak); Ensemble within a few dB. The reference restarts something too - find what (phase, envelope from its level, voice) before changing it
 - Square Basics (A16) held: 19 dB less above 8 kHz than the reference (-100 against -81 dB re peak) - the oscillator's top end or the filter
 - Aftertouch (11-16): no pressure parameter yet - the Supernova takes it as a modulation source; add it with the routes, poly pressure included (Nl3Alike/TiAlike/Pulse2Alike take it since 11-16)
+- Osc types Audio In 1 and 2: FIXED is silent, as the instrument with nothing plugged in; FLOAT still plays a Saw

@@ -46,7 +46,8 @@ double sn2_filter_hz(double cutoff);
 double sn2_filter_drive_word(double overdrive);
 // notes §2: a type's taps (input, band, low, high; section 1 then 2) and whether its sections are in parallel
 void sn2_filter_taps(uint32_t type, uint32_t slope, bool * parallel, double taps[2][4]);
-double sn2_filter_drive(double x, double word);
+double sn2_filter_drive_bend(double overdrive);
+double sn2_filter_drive(double x, double word, double bend);
 void sn2_filter_reset(tSn2Filter * f);
 double sn2_filter_process(tSn2Filter * f, const tSn2FilterCoeffs * c, double x);
 
