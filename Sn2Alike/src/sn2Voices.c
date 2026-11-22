@@ -50,8 +50,8 @@ void sn2_voices_init(tSn2Voices * v) {
     sn2_edge_build(v->edge);
 }
 
-#define FIXED_GAIN     (2.580)     // sn2Fixed notes §9: a voice's bus word to the instrument's output level, volume aside
-#define FIXED_QUIET    (4096)      // samples silent after its release before a fixed voice is free
+#define FIXED_GAIN     (2.580 * 63.0 / SN2_VOLUME_UNITY) // sn2Fixed notes §9: a voice's bus word to the output level, its volume in it
+#define FIXED_QUIET    (4096)                            // samples silent after its release before a fixed voice is free
 
 // sn2Fixed notes §9: Maths FIXED - every voice gets its twin; the memory is allocated once, on first use
 void sn2_voices_set_fixed(tSn2Voices * v, bool fixed) {
@@ -547,7 +547,7 @@ static void render_sub_block(tSn2Voices * v, const tSn2Sound * sound, double cut
             for (uint32_t f = 0; f < frames; f++) {
                 double y = sn2_fixed_voice_sample(vc->fixed) * FIXED_GAIN;
 
-                out[f]   += (float)(y * gain);
+                out[f]   += (float)y;   // sn2Fixed notes §9: the program's volume is already in the voice's words
                 vc->quiet = (vc->gate || (fabs(y) > 1e-6)) ? 0 : (vc->quiet + 1);
             }
 

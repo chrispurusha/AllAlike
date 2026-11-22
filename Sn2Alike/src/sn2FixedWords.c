@@ -20,8 +20,10 @@
 // Notes: Docs/code-notes/sn2Fixed.md - "// notes §k" refers there. Generated from measurements: do not edit by hand.
 
 #include <math.h>
+#include <stdbool.h>
 #include <stdint.h>
 
+#include "sn2Filter.h"
 #include "sn2Fixed.h"
 
 // notes §8: where each field the words read sits in a single: start of its dump, offset, mask, shift
@@ -30,7 +32,7 @@ typedef struct {
     uint8_t  mask, shift;
 } tField;
 
-static const tField kFields[] = {
+static const tField   kFields[] = {
     {  0, 237, 0x01, 3},   // ConstantGate
     {  0, 194, 0xff, 0},   // Env1Attack
     {  0, 195, 0xff, 0},   // Env1Decay
@@ -62,13 +64,18 @@ static const tField kFields[] = {
     {  0, 215, 0xff, 0},   // FilterFreqEnv3
     {  0, 212, 0xff, 0},   // FilterModKnobWhFrequency
     {  0, 222, 0xff, 0},   // FilterModKnobWhResonance
+    {  0, 210, 0xff, 0},   // FilterOverdrive
     {  0, 230, 0xff, 0},   // FilterQNormalise
     {  0, 224, 0xff, 0},   // FilterResEnv2
     {  0, 225, 0xff, 0},   // FilterResEnv3
     {  0, 226, 0xff, 0},   // FilterResLFO1
     {  0, 227, 0xff, 0},   // FilterResLFO2
     {  0, 221, 0xff, 0},   // FilterResonance
+    {  0, 208, 0xff, 0},   // FilterSlope
     {  0, 220, 0xff, 0},   // FilterTracking
+    {  0, 207, 0xff, 0},   // FilterType
+    {  0, 160, 0xff, 0},   // LFO1Delay
+    {297,   3, 0x01, 3},   // LFO1FadeMode
     {  0, 162, 0xff, 0},   // LFO1Offset
     {297,   0, 0xff, 0},   // LFO1SoftenAmount
     {  0, 163, 0xff, 0},   // LFO1Speed
@@ -77,6 +84,8 @@ static const tField kFields[] = {
     {  0, 165, 0xff, 0},   // LFO1SpeedWhDepth
     {  0, 167, 0xff, 0},   // LFO1Sync
     {  0, 161, 0xff, 0},   // LFO1Type
+    {  0, 170, 0xff, 0},   // LFO2Delay
+    {297,   3, 0x01, 4},   // LFO2FadeMode
     {  0, 172, 0xff, 0},   // LFO2Offset
     {297,   1, 0xff, 0},   // LFO2SoftenAmount
     {  0, 173, 0xff, 0},   // LFO2Speed
@@ -107,6 +116,7 @@ static const tField kFields[] = {
     {  0, 202, 0xff, 0},   // NoiseModKnobWhHardness
     {  0, 155, 0xff, 0},   // NoiseModKnobWhMix
     {  0, 201, 0xff, 0},   // NoiseSoften
+    {  0,  25, 0xff, 0},   // Osc1FineTune
     {  0,  53, 0xff, 0},   // Osc1KeySync
     {  0,  27, 0xff, 0},   // Osc1ManKnobPitch
     {  0, 126, 0xff, 0},   // Osc1MixEnv2
@@ -124,6 +134,8 @@ static const tField kFields[] = {
     {  0,  28, 0xff, 0},   // Osc1ModKnobWhPitch
     {  0,  48, 0xff, 0},   // Osc1ModKnobWhSync
     {  0,  42, 0xff, 0},   // Osc1ModKnobWhWidth
+    {  0,  23, 0xff, 0},   // Osc1Octave
+    {  0,  41, 0xff, 0},   // Osc1PulseWidth
     {  0,  24, 0xff, 0},   // Osc1Semitone
     {  0,  35, 0xff, 0},   // Osc1Soften
     {  0,  37, 0xff, 0},   // Osc1SoftenEnv2
@@ -132,6 +144,8 @@ static const tField kFields[] = {
     {  0,  55, 0xff, 0},   // Osc1SyncFormantWidth
     {  0,  51, 0xff, 0},   // Osc1SyncLFO1
     {  0,  54, 0xff, 0},   // Osc1SyncSkew
+    {  0,  22, 0xff, 0},   // Osc1Type
+    {  0,  59, 0xff, 0},   // Osc2FineTune
     {  0,  87, 0xff, 0},   // Osc2KeySync
     {  0,  61, 0xff, 0},   // Osc2ManKnobPitch
     {  0, 132, 0xff, 0},   // Osc2MixEnv2
@@ -148,6 +162,8 @@ static const tField kFields[] = {
     {  0, 131, 0xff, 0},   // Osc2ModKnobWhMix
     {  0,  62, 0xff, 0},   // Osc2ModKnobWhPitch
     {  0,  82, 0xff, 0},   // Osc2ModKnobWhSync
+    {  0,  57, 0xff, 0},   // Osc2Octave
+    {  0,  75, 0xff, 0},   // Osc2PulseWidth
     {  0,  58, 0xff, 0},   // Osc2Semitone
     {  0,  69, 0xff, 0},   // Osc2Soften
     {  0,  71, 0xff, 0},   // Osc2SoftenEnv2
@@ -156,6 +172,8 @@ static const tField kFields[] = {
     {  0,  89, 0xff, 0},   // Osc2SyncFormantWidth
     {  0,  85, 0xff, 0},   // Osc2SyncLFO1
     {  0,  88, 0xff, 0},   // Osc2SyncSkew
+    {  0,  56, 0xff, 0},   // Osc2Type
+    {  0,  93, 0xff, 0},   // Osc3FineTune
     {  0, 121, 0xff, 0},   // Osc3KeySync
     {  0,  95, 0xff, 0},   // Osc3ManKnobPitch
     {  0, 138, 0xff, 0},   // Osc3MixEnv2
@@ -172,6 +190,8 @@ static const tField kFields[] = {
     {  0, 137, 0xff, 0},   // Osc3ModKnobWhMix
     {  0,  96, 0xff, 0},   // Osc3ModKnobWhPitch
     {  0, 116, 0xff, 0},   // Osc3ModKnobWhSync
+    {  0,  91, 0xff, 0},   // Osc3Octave
+    {  0, 109, 0xff, 0},   // Osc3PulseWidth
     {  0,  92, 0xff, 0},   // Osc3Semitone
     {  0, 103, 0xff, 0},   // Osc3Soften
     {  0, 105, 0xff, 0},   // Osc3SoftenEnv2
@@ -180,15 +200,43 @@ static const tField kFields[] = {
     {  0, 123, 0xff, 0},   // Osc3SyncFormantWidth
     {  0, 119, 0xff, 0},   // Osc3SyncLFO1
     {  0, 122, 0xff, 0},   // Osc3SyncSkew
+    {  0,  90, 0xff, 0},   // Osc3Type
     {  0, 236, 0xff, 0},   // PartProgramVolume
     {  0, 142, 0xff, 0},   // RingMod1x3MixLevel
     {  0, 148, 0xff, 0},   // RingMod2x3MixLevel
     {297,   7, 0xff, 0},   // SpecialFilterWidth
 };
 
-#define FIELD_WIDTH    (152)
+#define FIELD_WIDTH    (171)
 #define FIELD_GATE     (0)
-static const int kVelocityField[3] = {7, 15, 23};   // each envelope's velocity depth
+static const int      kVelocityField[3]      = {7, 15, 23}; // each envelope's velocity depth
+#define FIELD_TYPE     (40)
+#define FIELD_SLOPE    (38)
+static const int      kOscField[3][5]        = { // octave, semitone, fine, pulse width, type
+    {101, 103,  83, 102, 111},
+    {129, 131, 112, 130, 139},
+    {157, 159, 140, 158, 167},
+};
+static const int      kLfoField[2][2]        = {{41, 42}, {51, 52}}; // delay, fade mode
+static const uint32_t kLfoDelay[128]         = { // notes §8: the LFO delay, measured (fade mode 0)
+    0x158C00, 0x124C00, 0x0F8600, 0x0DE600, 0x0C4600, 0x0AA600, 0x090600, 0x07B300,
+    0x06E300, 0x061300, 0x054300, 0x047300, 0x03D180, 0x036980, 0x030180, 0x029980,
+    0x023180, 0x01E4C0, 0x01B0C0, 0x017CC0, 0x0148C0, 0x0114C0, 0x00F060, 0x00D660,
+    0x00BC60, 0x00A260, 0x008860, 0x007730, 0x006A30, 0x005D30, 0x005030, 0x004330,
+    0x003B18, 0x003898, 0x003618, 0x003398, 0x003118, 0x002E98, 0x002C18, 0x002998,
+    0x002718, 0x002498, 0x002218, 0x001FCC, 0x001E8C, 0x001D4C, 0x001C0C, 0x001ACC,
+    0x00198C, 0x00184C, 0x00170C, 0x0015CC, 0x00148C, 0x00134C, 0x00120C, 0x0010CC,
+    0x000FC6, 0x000F26, 0x000E86, 0x000DE6, 0x000D46, 0x000CA6, 0x000C06, 0x000B66,
+    0x000AC6, 0x000A26, 0x000986, 0x0008E6, 0x000846, 0x0007D3, 0x000783, 0x000733,
+    0x0006E3, 0x000693, 0x000643, 0x0005F3, 0x0005A3, 0x000553, 0x000503, 0x0004B3,
+    0x000463, 0x000413, 0x0003E1, 0x0003B9, 0x000391, 0x000369, 0x000341, 0x000319,
+    0x0002F1, 0x0002C9, 0x0002A1, 0x000279, 0x000251, 0x000229, 0x000201, 0x0001EC,
+    0x0001D8, 0x0001C4, 0x0001B0, 0x00019C, 0x000188, 0x000174, 0x000160, 0x00014C,
+    0x000138, 0x000124, 0x000110, 0x0000FE, 0x0000F4, 0x0000EA, 0x0000E0, 0x0000D6,
+    0x0000CC, 0x0000C2, 0x0000B8, 0x0000AE, 0x0000A4, 0x00009A, 0x000090, 0x000086,
+    0x00007E, 0x000079, 0x000074, 0x00006F, 0x00006A, 0x000065, 0x000060, 0x00005B
+};
+static const uint32_t kOscType[12]           = {0x18, 4, 5, 6, 0xC, 4, 4, 4, 4, 4, 4, 4}; // notes §8: the oscillator's mode, by type
 
 // notes §8: every word as it stands when nothing moves it
 static const uint32_t kBase[SN2_FIXED_WORDS] = {
@@ -228,131 +276,131 @@ typedef struct {
     int32_t base, step;
 } tLinear;
 
-static const tLinear kLinear[] = {
-    {0x01, 93,   2636137,   43691},
-    {0x06, 90,  -2796160,   43690},
-    {0x07, 77,         0,   66052},
-    {0x09, 100,  -1048576,   16384},
-    {0x0a, 96,         0,   43691},
-    {0x0b, 97,  -5592320,   87380},
-    {0x0c, 82,  -5592320,   87380},
-    {0x0d, 99,  -5592320,   87380},
-    {0x0e, 87,  -5592320,   87380},
-    {0x0f, 91,  -5592320,   87380},
-    {0x10, 76,         0,   65536},
-    {0x11, 95,  -8388608,  131072},
-    {0x12, 94,   8388096,  -66048},
-    {0x13, 80,  -8388608,  131072},
-    {0x14, 83,  -8388608,  131072},
-    {0x15, 85,  -8388608,  131072},
-    {0x16, 88,  -8388608,  131072},
-    {0x1c, 92,  -1048576,   16384},
-    {0x1e, 98,    260096,   -2048},
-    {0x1f, 79,         0,   65536},
-    {0x20, 78,  -8388608,  131072},
-    {0x21, 81,  -8388608,  131072},
-    {0x22, 84,  -8388608,  131072},
-    {0x23, 86,  -8388608,  131072},
-    {0x24, 89,  -8388608,  131072},
-    {0x25, 117,   1543862,   43691},
-    {0x2a, 115,  -2796160,   43690},
-    {0x2b, 102,         0,   66052},
-    {0x2d, 124,  -1048576,   16384},
-    {0x2e, 120,         0,   43691},
-    {0x2f, 121,  -5592320,   87380},
-    {0x30, 107,  -5592320,   87380},
-    {0x31, 123,  -5592320,   87380},
-    {0x32, 112,  -5592320,   87380},
-    {0x33, 116,  -5592320,   87380},
-    {0x34, 101,         0,   65536},
-    {0x35, 119,  -8388608,  131072},
-    {0x36, 118,   8388096,  -66048},
-    {0x37, 105,  -8388608,  131072},
-    {0x38, 108,  -8388608,  131072},
-    {0x39, 110,  -8388608,  131072},
-    {0x3a, 113,  -8388608,  131072},
-    {0x42, 122,    260096,   -2048},
-    {0x43, 104,         0,   65536},
-    {0x44, 103,  -8388608,  131072},
-    {0x45, 106,  -8388608,  131072},
-    {0x46, 109,  -8388608,  131072},
-    {0x47, 111,  -8388608,  131072},
-    {0x48, 114,  -8388608,  131072},
-    {0x49, 141,    451587,   43691},
-    {0x4e, 139,  -2796160,   43690},
-    {0x4f, 126,         0,   66052},
-    {0x51, 148,  -1048576,   16384},
-    {0x52, 144,         0,   43691},
-    {0x53, 145,  -5592320,   87380},
-    {0x54, 131,  -5592320,   87380},
-    {0x55, 147,  -5592320,   87380},
-    {0x56, 136,  -5592320,   87380},
-    {0x57, 140,  -5592320,   87380},
-    {0x58, 125,         0,   65536},
-    {0x59, 143,  -8388608,  131072},
-    {0x5a, 142,   8388096,  -66048},
-    {0x5b, 129,  -8388608,  131072},
-    {0x5c, 132,  -8388608,  131072},
-    {0x5d, 134,  -8388608,  131072},
-    {0x5e, 137,  -8388608,  131072},
-    {0x66, 146,    260096,   -2048},
-    {0x67, 128,         0,   65536},
-    {0x68, 127,  -8388608,  131072},
-    {0x69, 130,  -8388608,  131072},
-    {0x6a, 133,  -8388608,  131072},
-    {0x6b, 135,  -8388608,  131072},
-    {0x6c, 138,  -8388608,  131072},
-    {0x6e, 75,         0,   65536},
-    {0x6f, 66,  -8388608,  131072},
-    {0x70, 67,  -8388608,  131072},
-    {0x71, 69,  -8388608,  131072},
-    {0x72, 71,  -8388608,  131072},
-    {0x73, 73,  -8388608,  131072},
-    {0x74, 65,         0,   65536},
-    {0x75, 64,  -8388608,  131072},
-    {0x76, 68,  -8388608,  131072},
-    {0x77, 70,  -8388608,  131072},
-    {0x78, 72,  -8388608,  131072},
-    {0x79, 74,  -8388608,  131072},
-    {0x7a, 150,         0,   65536},
-    {0x7b, 54,  -8388608,  131072},
-    {0x7c, 56,  -8388608,  131072},
-    {0x7d, 58,  -8388608,  131072},
-    {0x7e, 60,  -8388608,  131072},
-    {0x7f, 62,  -8388608,  131072},
-    {0x80, 151,         0,   65536},
-    {0x81, 55,  -8388608,  131072},
-    {0x82, 57,  -8388608,  131072},
-    {0x83, 59,  -8388608,  131072},
-    {0x84, 61,  -8388608,  131072},
-    {0x85, 63,  -8388608,  131072},
-    {0x86, 26,   1011434,   43691},
-    {0x87, 27,  -6291456,   98304},
-    {0x88, 28,  -6291456,   98304},
-    {0x8b, 29,  -6291456,   98304},
-    {0x8c, 24,  -6291456,   98304},
-    {0x8d, 37,         0,   66052},
-    {0x8e, 36,   8388096,  -66048},
-    {0x8f, 32,  -8388608,  131072},
-    {0x90, 33,  -8388608,  131072},
-    {0x91, 34,  -8388608,  131072},
-    {0x92, 35,  -8388608,  131072},
-    {0x93, 30,  -8388608,  131072},
-    {0x94, 25,  -8388608,  131072},
-    {0x96, 31,         0,   65536},
-    {0xb2, 12,         0,   65536},
-    {0xbb, 20,         0,   65536},
-    {0xbe, 149,         0,   52416},
-    {0xc7, 40,         0,    2966},
-    {0xc8, 42,   -379648,    5932},
-    {0xc9, 43,   -379648,    5932},
-    {0xca, 41,   -379648,    5932},
-    {0xcd, 38,   4194048,  -33024},
-    {0xcf, 48,         0,    2966},
-    {0xd0, 50,   -379648,    5932},
-    {0xd1, 51,   -379648,    5932},
-    {0xd2, 49,   -379648,    5932},
-    {0xd5, 46,   4194048,  -33024},
+static const tLinear  kLinear[] = {
+    {0x01, 103,  2636137,  43691},
+    {0x06,  98, -2796160,  43690},
+    {0x07,  85,        0,  66052},
+    {0x09, 110, -1048576,  16384},
+    {0x0a, 106,        0,  43691},
+    {0x0b, 107, -5592320,  87380},
+    {0x0c,  90, -5592320,  87380},
+    {0x0d, 109, -5592320,  87380},
+    {0x0e,  95, -5592320,  87380},
+    {0x0f,  99, -5592320,  87380},
+    {0x10,  84,        0,  65536},
+    {0x11, 105, -8388608, 131072},
+    {0x12, 104,  8388096, -66048},
+    {0x13,  88, -8388608, 131072},
+    {0x14,  91, -8388608, 131072},
+    {0x15,  93, -8388608, 131072},
+    {0x16,  96, -8388608, 131072},
+    {0x1c, 100, -1048576,  16384},
+    {0x1e, 108,   260096,  -2048},
+    {0x1f,  87,        0,  65536},
+    {0x20,  86, -8388608, 131072},
+    {0x21,  89, -8388608, 131072},
+    {0x22,  92, -8388608, 131072},
+    {0x23,  94, -8388608, 131072},
+    {0x24,  97, -8388608, 131072},
+    {0x25, 131,  1543862,  43691},
+    {0x2a, 127, -2796160,  43690},
+    {0x2b, 114,        0,  66052},
+    {0x2d, 138, -1048576,  16384},
+    {0x2e, 134,        0,  43691},
+    {0x2f, 135, -5592320,  87380},
+    {0x30, 119, -5592320,  87380},
+    {0x31, 137, -5592320,  87380},
+    {0x32, 124, -5592320,  87380},
+    {0x33, 128, -5592320,  87380},
+    {0x34, 113,        0,  65536},
+    {0x35, 133, -8388608, 131072},
+    {0x36, 132,  8388096, -66048},
+    {0x37, 117, -8388608, 131072},
+    {0x38, 120, -8388608, 131072},
+    {0x39, 122, -8388608, 131072},
+    {0x3a, 125, -8388608, 131072},
+    {0x42, 136,   260096,  -2048},
+    {0x43, 116,        0,  65536},
+    {0x44, 115, -8388608, 131072},
+    {0x45, 118, -8388608, 131072},
+    {0x46, 121, -8388608, 131072},
+    {0x47, 123, -8388608, 131072},
+    {0x48, 126, -8388608, 131072},
+    {0x49, 159,   451587,  43691},
+    {0x4e, 155, -2796160,  43690},
+    {0x4f, 142,        0,  66052},
+    {0x51, 166, -1048576,  16384},
+    {0x52, 162,        0,  43691},
+    {0x53, 163, -5592320,  87380},
+    {0x54, 147, -5592320,  87380},
+    {0x55, 165, -5592320,  87380},
+    {0x56, 152, -5592320,  87380},
+    {0x57, 156, -5592320,  87380},
+    {0x58, 141,        0,  65536},
+    {0x59, 161, -8388608, 131072},
+    {0x5a, 160,  8388096, -66048},
+    {0x5b, 145, -8388608, 131072},
+    {0x5c, 148, -8388608, 131072},
+    {0x5d, 150, -8388608, 131072},
+    {0x5e, 153, -8388608, 131072},
+    {0x66, 164,   260096,  -2048},
+    {0x67, 144,        0,  65536},
+    {0x68, 143, -8388608, 131072},
+    {0x69, 146, -8388608, 131072},
+    {0x6a, 149, -8388608, 131072},
+    {0x6b, 151, -8388608, 131072},
+    {0x6c, 154, -8388608, 131072},
+    {0x6e,  82,        0,  65536},
+    {0x6f,  73, -8388608, 131072},
+    {0x70,  74, -8388608, 131072},
+    {0x71,  76, -8388608, 131072},
+    {0x72,  78, -8388608, 131072},
+    {0x73,  80, -8388608, 131072},
+    {0x74,  72,        0,  65536},
+    {0x75,  71, -8388608, 131072},
+    {0x76,  75, -8388608, 131072},
+    {0x77,  77, -8388608, 131072},
+    {0x78,  79, -8388608, 131072},
+    {0x79,  81, -8388608, 131072},
+    {0x7a, 169,        0,  65536},
+    {0x7b,  61, -8388608, 131072},
+    {0x7c,  63, -8388608, 131072},
+    {0x7d,  65, -8388608, 131072},
+    {0x7e,  67, -8388608, 131072},
+    {0x7f,  69, -8388608, 131072},
+    {0x80, 170,        0,  65536},
+    {0x81,  62, -8388608, 131072},
+    {0x82,  64, -8388608, 131072},
+    {0x83,  66, -8388608, 131072},
+    {0x84,  68, -8388608, 131072},
+    {0x85,  70, -8388608, 131072},
+    {0x86,  26,  1011434,  43691},
+    {0x87,  27, -6291456,  98304},
+    {0x88,  28, -6291456,  98304},
+    {0x8b,  29, -6291456,  98304},
+    {0x8c,  24, -6291456,  98304},
+    {0x8d,  39,        0,  66052},
+    {0x8e,  37,  8388096, -66048},
+    {0x8f,  33, -8388608, 131072},
+    {0x90,  34, -8388608, 131072},
+    {0x91,  35, -8388608, 131072},
+    {0x92,  36, -8388608, 131072},
+    {0x93,  30, -8388608, 131072},
+    {0x94,  25, -8388608, 131072},
+    {0x96,  32,        0,  65536},
+    {0xb2,  12,        0,  65536},
+    {0xbb,  20,        0,  65536},
+    {0xbe, 168,        0,  52416},
+    {0xc7,  45,        0,   2966},
+    {0xc8,  47,  -379648,   5932},
+    {0xc9,  48,  -379648,   5932},
+    {0xca,  46,  -379648,   5932},
+    {0xcd,  43,  4194048, -33024},
+    {0xcf,  55,        0,   2966},
+    {0xd0,  57,  -379648,   5932},
+    {0xd1,  58,  -379648,   5932},
+    {0xd2,  56,  -379648,   5932},
+    {0xd5,  53,  4194048, -33024},
 };
 
 // notes §8: a word the host side looks up in a table of its own, 128 steps, measured
@@ -369,21 +417,23 @@ typedef struct {
 } tSegment;
 
 static const tSegment kSegments[] = {
-    {  0, 127,  1,  -1736, 2, {{12, 363}, {127, 107}}},
-    {  0, 127,  1,   -302, 1, {{127, 107}}},
-    {  0, 127,  1,   -302, 1, {{127, 107}}},
-    {  0,  63, -1,   -195, 8, {{1, 0}, {49, 214}, {51, 213}, {55, 214}, {58, 213}, {59, 215}, {61, 210}, {63, 216}}},
-    { 64,  64,  0,      0, 1, {{0, 0}}},
-    { 65, 127,  1,  14689, 2, {{1, -192}, {62, -214}}},
-    {  0, 126,  1,   -355, 2, {{20, 336}, {126, 80}}},
-    {127, 127,  0,      0, 1, {{0, 0}}},
-    {  0, 127,  1,  -1379, 2, {{20, 336}, {127, 80}}},
-    {  0,  13,  1,  12393, 1, {{13, -8}}},
-    { 14,  14,  0,      0, 1, {{0, 0}}},
-    { 15, 127,  1,  19457, 7, {{3, -426}, {4, 1278}, {5, -1792}, {15, -134}, {31, -62}, {62, -32}, {112, -16}}},
-    {  0,  17,  1,  12425, 1, {{17, -8}}},
-    { 18,  18,  0,      0, 1, {{0, 0}}},
-    { 19, 127,  1,  19457, 7, {{3, -426}, {4, 1278}, {5, -1792}, {15, -134}, {31, -62}, {62, -32}, {108, -16}}},
+    {  0, 127,  1, -1736, 2, {{ 12,   363}, {127,  107}      }     },
+    {  0, 127,  1,  -302, 1, {{127,   107}}},
+    {  0, 127,  1,  -302, 1, {{127,   107}}},
+    {  0,  63, -1,  -195, 8, {{  1,     0}, { 49,  214}, {51, 213}, {55, 214}, {58, 213}, {59, 215}, { 61, 210}, {63, 216}}},
+    { 64,  64,  0,     0, 1, {{  0,     0}}},
+    { 65, 127,  1, 14689, 2, {{  1,  -192}, { 62, -214}      }     },
+    {  0, 126,  1,  -355, 2, {{ 20,   336}, {126,   80}      }     },
+    {127, 127,  0,     0, 1, {{  0,     0}}},
+    {  0, 127,  1, -1379, 2, {{ 20,   336}, {127,   80}      }     },
+    {  0,   0,  0,     0, 1, {{  0,     0}}},
+    {  1, 127,  1,  4096, 7, {{  1, -1024}, {  3, -512}, {7, -256}, {15, -128}, {31, -64}, {63, -32}, {126,  0}}},
+    {  0,  13,  1, 12393, 1, {{ 13,    -8}}},
+    { 14,  14,  0,     0, 1, {{  0,     0}}},
+    { 15, 127,  1, 19457, 7, {{  3,  -426}, {  4, 1278}, {5, -1792}, {15, -134}, {31, -62}, {62, -32}, {112, -16}}},
+    {  0,  17,  1, 12425, 1, {{ 17,    -8}}},
+    { 18,  18,  0,     0, 1, {{  0,     0}}},
+    { 19, 127,  1, 19457, 7, {{  3,  -426}, {  4, 1278}, {5, -1792}, {15, -134}, {31, -62}, {62, -32}, {108, -16}}},
 };
 
 typedef struct {
@@ -392,18 +442,37 @@ typedef struct {
     int32_t overrideWord;
 } tLaw;
 
-static const tLaw kLaws[] = {
-    {0, 1, -1, 0},   // Env1Attack
-    {1, 1, -1, 0},   // Env1Decay
-    {2, 1, -1, 0},   // Env1Release
-    {3, 3, -1, 0},   // Env1SustainRate
-    {6, 2, -1, 0},   // Env1SustainTime
-    {8, 1, -1, 0},   // Env2Delay
-    {9, 3, -1, 0},   // LFO1Type
-    {12, 3, -1, 0},   // LFO2Type
+static const tLaw     kLaws[]        = {
+    { 0, 1, -1, 0},  // Env1Attack
+    { 1, 1, -1, 0},  // Env1Decay
+    { 2, 1, -1, 0},  // Env1Release
+    { 3, 3, -1, 0},  // Env1SustainRate
+    { 6, 2, -1, 0},  // Env1SustainTime
+    { 8, 1, -1, 0},  // Env2Delay
+    { 9, 2, -1, 0},  // FilterOverdrive
+    {11, 3, -1, 0},  // LFO1Type
+    {14, 3, -1, 0},  // LFO2Type
 };
 
 static const uint32_t kTables[][128] = {
+    {   // FilterOverdrive
+        0x01fd00, 0x03f700, 0x05ed00, 0x07df00, 0x09cd00, 0x0bb700, 0x0d9d00, 0x0f7f00,
+        0x115d00, 0x133700, 0x150d00, 0x16df00, 0x18ad00, 0x1a7700, 0x1c3d00, 0x1dff00,
+        0x1fbd00, 0x217700, 0x232d00, 0x24df00, 0x268d00, 0x283700, 0x29dd00, 0x2b7f00,
+        0x2d1d00, 0x2eb700, 0x304d00, 0x31df00, 0x336d00, 0x34f700, 0x367d00, 0x37ff00,
+        0x397d00, 0x3af700, 0x3c6d00, 0x3ddf00, 0x3f4d00, 0x40b700, 0x421d00, 0x437f00,
+        0x44dd00, 0x463700, 0x478d00, 0x48df00, 0x4a2d00, 0x4b7700, 0x4cbd00, 0x4dff00,
+        0x4f3d00, 0x507700, 0x51ad00, 0x52df00, 0x540d00, 0x553700, 0x565d00, 0x577f00,
+        0x589d00, 0x59b700, 0x5acd00, 0x5bdf00, 0x5ced00, 0x5df700, 0x5efd00, 0x5fff00,
+        0x60fd00, 0x61f700, 0x62ed00, 0x63df00, 0x64cd00, 0x65b700, 0x669d00, 0x677f00,
+        0x685d00, 0x693700, 0x6a0d00, 0x6adf00, 0x6bad00, 0x6c7700, 0x6d3d00, 0x6dff00,
+        0x6ebd00, 0x6f7700, 0x702d00, 0x70df00, 0x718d00, 0x723700, 0x72dd00, 0x737f00,
+        0x741d00, 0x74b700, 0x754d00, 0x75df00, 0x766d00, 0x76f700, 0x777d00, 0x77ff00,
+        0x787d00, 0x78f700, 0x796d00, 0x79df00, 0x7a4d00, 0x7ab700, 0x7b1d00, 0x7b7f00,
+        0x7bdd00, 0x7c3700, 0x7c8d00, 0x7cdf00, 0x7d2d00, 0x7d7700, 0x7dbd00, 0x7dff00,
+        0x7e3d00, 0x7e7700, 0x7ead00, 0x7edf00, 0x7f0d00, 0x7f3700, 0x7f5d00, 0x7f7f00,
+        0x7f9d00, 0x7fb700, 0x7fcd00, 0x7fdf00, 0x7fed00, 0x7ff700, 0x7ffd00, 0x7fff00,
+    },
     {   // LFO1SoftenAmount
         0x800000, 0x7ff000, 0x781000, 0x705000, 0x689000, 0x60f000, 0x595000, 0x51d000,
         0x4a5000, 0x42f000, 0x3dc800, 0x3a2800, 0x368800, 0x32f800, 0x2f6800, 0x2be800,
@@ -465,18 +534,20 @@ typedef struct {
     int8_t  law, table;   // one of them, the other -1
 } tLookup;
 
-static const tLookup kLookups[] = {
+static const tLookup  kLookups[] = {
     {0xa6,  1,  0, -1},   // Env1Attack
     {0xa7,  2,  1, -1},   // Env1Decay
     {0xa8,  3,  2, -1},   // Env1Release
     {0xab,  5,  3, -1},   // Env1SustainRate
     {0xaa,  6,  4, -1},   // Env1SustainTime
     {0xad, 10,  5, -1},   // Env2Delay
-    {0xce, 39, -1,  0},   // LFO1SoftenAmount
-    {0xcb, 44, -1,  1},   // LFO1Sync
-    {0xcc, 45,  6, -1},   // LFO1Type
-    {0xd3, 52, -1,  2},   // LFO2Sync
-    {0xd4, 53,  7, -1},   // LFO2Type
+    {0x98, 31, -1,  0},   // FilterOverdrive
+    {0xa3, 31,  6, -1},   // FilterOverdrive
+    {0xce, 44, -1,  1},   // LFO1SoftenAmount
+    {0xcb, 49, -1,  2},   // LFO1Sync
+    {0xcc, 50,  7, -1},   // LFO1Type
+    {0xd3, 59, -1,  3},   // LFO2Sync
+    {0xd4, 60,  8, -1},   // LFO2Type
     {0xaf,  8,  0, -1},   // Env2Attack
     {0xb0,  9,  1, -1},   // Env2Decay
     {0xb1, 11,  1, -1},   // Env2Release
@@ -488,7 +559,7 @@ static const tLookup kLookups[] = {
     {0xba, 19,  1, -1},   // Env3Release
     {0xbd, 21,  3, -1},   // Env3SustainRate
     {0xbc, 22,  4, -1},   // Env3SustainTime
-    {0xd6, 47, -1,  0},   // LFO2SoftenAmount
+    {0xd6, 54, -1,  1},   // LFO2SoftenAmount
 };
 
 typedef struct {
@@ -496,8 +567,8 @@ typedef struct {
     int32_t scale;
 } tSquare;
 
-static const tSquare kSquares[] = {
-    {0xa9,  4, 512},   // Env1Sustain
+static const tSquare  kSquares[] = {
+    {0xa9, 4, 512},    // Env1Sustain
 };
 
 // notes §8: 2^20 halved for each octave of the exponent, read straight across the octave
@@ -520,7 +591,7 @@ static uint32_t law_word(const tLaw * l, int v) {
         if ((v < s->from) || (v > s->to)) {
             continue;
         }
-        int32_t e = s->e;
+        int32_t          e = s->e;
 
         for (int i = s->from; i < v; i++) {   // the exponent walks the runs to v
             int at = i - s->from, r = 0;
@@ -558,6 +629,42 @@ void sn2_fixed_program_words(const uint8_t * single, uint32_t words[SN2_FIXED_WO
         words[kLookups[i].word] = (kLookups[i].law >= 0) ? law_word(&kLaws[kLookups[i].law], v) : kTables[kLookups[i].table][v];
     }
 
+    // notes §8: the filter's type - its mode (plain 0, resonant 1, parallel 3) and its taps, a half for each one
+    int    type = field(single, FIELD_TYPE) - 3;
+    bool   parallel;
+    double taps[2][4];
+
+    type        = (type < 0) ? 0 : ((type > 11) ? 11 : type);
+    sn2_filter_taps((uint32_t)type, (uint32_t)field(single, FIELD_SLOPE), &parallel, taps);
+    words[0x9A] = parallel ? 3u : ((type >= 3) ? 1u : 0u);
+
+    for (int k = 0; k < 8; k++) {
+        words[0x9B + k] = (uint32_t)lround(taps[k / 4][k % 4] * 4194304.0) & 0xFFFFFFu;
+    }
+
+    // notes §8: each oscillator's tuning - its fields count from 32 + 5o, 57 + 25o and 64 - and its pulse width
+    for (int o = 0; o < 3; o++) {
+        int octave = field(single, kOscField[o][0]) - (32 + (5 * o));
+        int semis  = field(single, kOscField[o][1]) - (57 + (25 * o));
+        int fine   = field(single, kOscField[o][2]) - 64;
+        int width  = field(single, kOscField[o][3]) - 64;
+
+        words[0x01 + (0x24 * o)] = (uint32_t)(0x4E397C + (octave * 0x080004) + (semis * 0xAAAB) + (int32_t)lround(fine * 437.0)) & 0xFFFFFFu;
+        words[0x18 + (0x24 * o)] = (uint32_t)((width >= 64) ? 0x3FFFFF : (width * 65536)) & 0xFFFFFFu;
+
+        int type   = field(single, kOscField[o][4]) - (10 * o); // each oscillator's types count from 10o
+
+        words[0x1D + (0x24 * o)] = kOscType[(type < 0) ? 0 : ((type > 11) ? 11 : type)];
+    }
+
+    for (int l = 0; l < 2; l++) {   // notes §8: each LFO's delay; fade mode 1 is not measured yet
+        if (field(single, kLfoField[l][1]) == 0) {
+            int delay = field(single, kLfoField[l][0]);
+
+            words[0xC0 + (2 * l)] = kLfoDelay[(delay < 0) ? 0 : ((delay > 127) ? 127 : delay)];
+        }
+    }
+
     // notes §8: until the key arrives, each envelope's velocity word holds its depth
     for (int e = 0; e < 3; e++) {
         words[0xA5 + (9 * e)] = (uint32_t)field(single, kVelocityField[e]);
@@ -577,7 +684,7 @@ void sn2_fixed_program_words(const uint8_t * single, uint32_t words[SN2_FIXED_WO
 void sn2_fixed_note_words(uint32_t words[SN2_FIXED_WORDS], uint8_t note, float velocity) {
     int     v     = (int)lroundf(velocity * 127.0f);
 
-    v = (v < 1) ? 1 : ((v > 127) ? 127 : v);
+    v           = (v < 1) ? 1 : ((v > 127) ? 127 : v);
     int32_t curve = (((v * v) >> 7) * v) >> 7;   // notes §8: the velocity's curve, 0 to 125
     words[0xDA] = (uint32_t)(((int32_t)note - 60) * 65536) & 0xFFFFFFu;
 

@@ -54,7 +54,8 @@ nor velocity; measured on real programs, 95% of the words are exact so far (2026
 
 ## 9. In the voices
 Maths FIXED gives each voice a twin (`tSn2Voice.fixed`): note on starts it in the slot the float voices chose,
-letting go releases it, and its bus word, times 2.58, is the voice's output - the instrument's output level with
-the volume applied after, as the float voices'. A twin silent for 4096 samples after its release frees the slot. The
+letting go releases it, and its bus word, times 2.58 x 63 / 84 (the volume the gain was set at), is the voice's
+output. The program's volume is one of the voice's own words ($BE), so it is not applied again after, as it is to the
+float voices: applying it twice took a program at volume 9 some 19 dB too low. A volume change reaches the next note. A twin silent for 4096 samples after its release frees the slot. The
 effects stay in floating point: the instrument does them on another processor. On the base test program FIXED
 nulls against the instrument to 44.9 dB, its spectrum the same to 0.01 dB, its level to 0.00 dB.

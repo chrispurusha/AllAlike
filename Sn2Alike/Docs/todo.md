@@ -1,7 +1,9 @@
 # Sn2Alike todo
 
 ## First
-- **Fixed-point option** - BUILT 2026-11-22, Maths FLOAT/FIXED in Global's PLUG-IN section (sn2Fixed notes): voice word-exact; host words 95% exact on real programs. Still to do: the combined words (oscillator pitch, flags, LFO delay/fade, drift), velocity, the rest of the measured tables (LFO, glide, overdrive, filter and oscillator types)
+- **Fixed-point option** - BUILT 2026-11-22, Maths FLOAT/FIXED in Global's PLUG-IN section (sn2Fixed notes). Words calculated or measured: linear fields, envelope times, velocity, filter type, oscillator type/octave/semitone, pulse width, LFO delay (fade mode 0), overdrive, Special Width. Still to do: fine tune (approximate), Q Normalise, LFO speeds, LFO delay fade mode 1, width modulation, drift, flags word
+- FM EP (A007): float holds its level where the hardware and FIXED decay - find what float misses
+- A011: FLOAT and FIXED agree, but are ~9 dB above the hardware capture (which had the effects on) - check with effects matched
 - Same Note (built 11-17, sn2Voices notes §21): find what the instrument does with a key struck again (one voice restarted, or a new voice beside the releasing one) and make that the default
 - Envelope Delay (Env 2 and Env 3, program bytes 193 and 187) is not built: the instrument delays the envelope's start (Env 2 Delay 0 acts at once, 64 arrives between 0.1 and 1.2 s, 112 not within 1.2 s - hardware 2026-11-08); the reference ignores it, so measure the law on the hardware (more values, longer notes, a pitch track that survives the jump)
 - LFO Delay Trigger (program bytes 169 and 179) is not read; find what it does (single or multi trigger of the delay?) on the hardware. And recheck the LFO Delay law itself there (it was measured on the reference, which ignores envelope delay)

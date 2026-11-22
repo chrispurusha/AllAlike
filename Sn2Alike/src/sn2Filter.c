@@ -84,6 +84,13 @@ void sn2_filter_coeffs(uint32_t type, uint32_t slope, double cutoff, double reso
     memcpy(c->taps, t->taps, sizeof(c->taps));
 }
 
+void sn2_filter_taps(uint32_t type, uint32_t slope, bool * parallel, double taps[2][4]) {
+    const tSn2FilterType * t = &kTypes[(type < SN2_FILTER_TYPES) ? type : 0][(slope < SN2_FILTER_SLOPES) ? slope : 0];
+
+    *parallel = t->parallel;
+    memcpy(taps, t->taps, sizeof(t->taps));
+}
+
 // notes §5
 double sn2_filter_drive_word(double overdrive) {
     double v = overdrive / 128.0;
