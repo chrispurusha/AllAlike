@@ -38,6 +38,7 @@ Work that spans the plug-ins. One line per item; each product's own list is in i
   dumps). SynthEdit edits and librarian-manages instruments from `layouts/*.txt`; feed it from the same descriptions
   (a layout per instrument generated from, or shared with, the Alike), so one parameter map serves both the editor
   and the reproduction
+- SynthEdit's panels to follow `panel-layout.md` (CT, 2026-11-23): sn2.txt rebuilt from Sn2Alike first, the other layouts restyled, its renderer brought to the Alike style - the items are in `SynthEdit/Docs/todo.md`; not started, another priority first
 
 ## Akai MPC and Force (parked 11-21: TiAlike and Pulse2Alike load and play on the owner's MPC Live)
 - `tools/do-mpc <Product>` builds, `tools/mpc-install` installs; SynthLib `plugin/synthlibPluginVst2.c` is the wrapper
